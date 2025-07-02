@@ -13,6 +13,10 @@ ifeq ($(wildcard pubspec.yaml),)
   $(error Error: pubspec.yaml not found. Please ensure you are in the root directory of your Flutter app.)
 endif
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 ifndef INCLUDED_FLUTTER_APP_CONFIGURATION
   $(error [ERROR] [Flutter App Targets] The Flutter App Configuration must be included before any Flutter App Targets. \
 	Include $$(DEVOPS_TOOLKIT)/frontend/make/utils/flutter_app_configuration.mk in your root Makefile.)

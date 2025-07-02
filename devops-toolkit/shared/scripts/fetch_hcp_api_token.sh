@@ -19,10 +19,12 @@
 
 set -euo pipefail
 
+: "${DEVOPS_TOOLKIT:?DEVOPS_TOOLKIT environment variable must be set to the path of the devops-toolkit repository.}"
+
 # -----------------------------------------------------------------------------
 # Source the encryption library for encrypt_token / decrypt_token functions
 # -----------------------------------------------------------------------------
-source devops-toolkit/backend/scripts/encryption.sh
+source ${DEVOPS_TOOLKIT}/backend/scripts/encryption.sh
 
 CACHE_FILE=".hcp_token_cache"
 TOKEN_MAX_AGE=3540  # 59 minutes, to refresh a minute before actual 3600s expiry

@@ -176,7 +176,7 @@ RUN test -n "${HCP_ENCRYPTED_API_TOKEN}" || ( \
 
 WORKDIR /root/
 COPY --from=integration-test-builder /integration_test ./integration_test
-COPY devops-toolkit/backend/docker/scripts/integration_test_runner_cmd.sh integration_test_runner_cmd.sh
+COPY --from=devops-toolkit backend/docker/scripts/integration_test_runner_cmd.sh integration_test_runner_cmd.sh
 
 RUN chmod +x integration_test_runner_cmd.sh;
 

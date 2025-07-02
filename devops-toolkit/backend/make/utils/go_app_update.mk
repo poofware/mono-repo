@@ -6,6 +6,10 @@ SHELL := /bin/bash
 
 .PHONY: update
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 # Check that the current working directory is the root of a Go app by verifying that go.mod exists.
 ifeq ($(wildcard go.mod),)
   $(error Error: go.mod not found. Please ensure you are in the root directory of your Go app.)

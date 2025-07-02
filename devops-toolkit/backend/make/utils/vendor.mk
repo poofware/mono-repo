@@ -4,8 +4,9 @@
 
 SHELL := /bin/bash
 
-INCLUDED_VENDOR := 1
-
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
 
 ifndef INCLUDED_ENSURE_GO
   include $(DEVOPS_TOOLKIT)/backend/make/utils/ensure_go.mk
@@ -30,3 +31,6 @@ vendor.stamp: go.mod go.sum
 	fi
 
 vendor: vendor.stamp
+
+
+INCLUDED_VENDOR := 1

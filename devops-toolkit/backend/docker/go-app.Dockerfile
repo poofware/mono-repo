@@ -129,7 +129,7 @@ RUN test -n "${APP_URL_FROM_ANYWHERE}" || ( \
 ENV APP_URL_FROM_ANYWHERE=${APP_URL_FROM_ANYWHERE}
 
 WORKDIR /root/
-COPY devops-toolkit/backend/scripts/health_check.sh health_check.sh
+COPY --from=devops-toolkit backend/scripts/health_check.sh health_check.sh
 
 CMD ./health_check.sh;
 

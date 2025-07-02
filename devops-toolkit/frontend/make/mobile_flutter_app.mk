@@ -10,6 +10,11 @@ SHELL := /bin/bash
 	integration-test-ios integration-test-android \
 	ci-ios ci-android
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
+
 # --------------------------------
 # Internal Variable Declaration
 # --------------------------------

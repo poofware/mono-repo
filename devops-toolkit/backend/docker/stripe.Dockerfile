@@ -52,9 +52,9 @@ ENV HCP_ENCRYPTED_API_TOKEN=${HCP_ENCRYPTED_API_TOKEN}
 USER root
 WORKDIR /root/
 
-COPY devops-toolkit/backend/scripts/encryption.sh encryption.sh
-COPY devops-toolkit/shared/scripts/fetch_hcp_secret.sh fetch_hcp_secret.sh
-COPY devops-toolkit/shared/scripts/fetch_hcp_secret_from_secrets_json.sh fetch_hcp_secret_from_secrets_json.sh
+COPY --from=devops-toolkit backend/scripts/encryption.sh encryption.sh
+COPY --from=devops-toolkit shared/scripts/fetch_hcp_secret.sh fetch_hcp_secret.sh
+COPY --from=devops-toolkit shared/scripts/fetch_hcp_secret_from_secrets_json.sh fetch_hcp_secret_from_secrets_json.sh
 
 RUN chmod +x *.sh;
 
@@ -94,8 +94,8 @@ RUN test -n "${UNIQUE_RUNNER_ID}" || ( \
   exit 1 \
 );
 
-COPY devops-toolkit/backend/scripts/health_check.sh health_check.sh
-COPY devops-toolkit/backend/docker/scripts/stripe_webhook_check_runner_entrypoint.sh stripe_webhook_check_runner_entrypoint.sh
+COPY --from=devops-toolkit backend/scripts/health_check.sh health_check.sh
+COPY --from=devops-toolkit backend/docker/scripts/stripe_webhook_check_runner_entrypoint.sh stripe_webhook_check_runner_entrypoint.sh
   
 RUN chmod +x health_check.sh stripe_webhook_check_runner_entrypoint.sh;
   
@@ -129,8 +129,8 @@ ENV APP_URL_FROM_COMPOSE_NETWORK=${APP_URL_FROM_COMPOSE_NETWORK}
 ENV HCP_APP_NAME_FOR_STRIPE_SECRET=shared-${ENV}
 ENV HCP_APP_NAME_FOR_ENABLE_LISTENER=${APP_NAME}-${ENV}
 
-COPY devops-toolkit/backend/scripts/fetch_launchdarkly_flag.sh fetch_launchdarkly_flag.sh
-COPY devops-toolkit/backend/docker/scripts/stripe_listener_runner_entrypoint.sh stripe_listener_runner_entrypoint.sh
+COPY --from=devops-toolkit backend/scripts/fetch_launchdarkly_flag.sh fetch_launchdarkly_flag.sh
+COPY --from=devops-toolkit backend/docker/scripts/stripe_listener_runner_entrypoint.sh stripe_listener_runner_entrypoint.sh
 
 RUN chmod +x *.sh;
 

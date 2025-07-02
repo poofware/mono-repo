@@ -9,6 +9,10 @@ ifeq ($(wildcard go.mod),)
   $(error Error: go.mod not found. Please ensure you are in the root directory of your Go service.)
 endif
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 ifndef INCLUDED_COMPOSE_PROJECT_CONFIGURATION
   $(error [ERROR] [Compose Go App Configuration] The Compose Project Configuration must be included before any compose file configuration. \
 	Include $$(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_configuration.mk in your root Makefile.)

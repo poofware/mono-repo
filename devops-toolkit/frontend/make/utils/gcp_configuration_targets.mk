@@ -6,6 +6,10 @@ SHELL := /bin/bash
 .PHONY: _export_android_gcp_vars _export_ios_gcp_vars \
 	_android_gcp_configuration _ios_gcp_configuration
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 
 # ------------------------------
 # Targets

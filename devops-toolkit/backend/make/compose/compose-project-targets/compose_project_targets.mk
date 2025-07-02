@@ -9,6 +9,10 @@ ifeq ($(wildcard Makefile),)
   $(error Error: Makefile not found. Please ensure you are in the root directory of your project.)
 endif
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 ifndef INCLUDED_COMPOSE_PROJECT_CONFIGURATION
   $(error [ERROR] [Compose Project Targets] The Compose Project Configuration must be included before any Compose Project Targets.)
 endif

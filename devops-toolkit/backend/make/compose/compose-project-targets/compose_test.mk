@@ -11,6 +11,9 @@ ifeq ($(wildcard Makefile),)
   $(error Error: Makefile not found. Please ensure you are in the root directory of your project.)
 endif
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
 
 ifndef INCLUDED_COMPOSE_BUILD
   include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_build.mk

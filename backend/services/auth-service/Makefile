@@ -42,7 +42,7 @@ endif
 
 # 4) Additional DB Migrations Config
 export COMPOSE_DB_NAME := shared_pg_db
-export MIGRATIONS_PATH := migrations
+export MIGRATIONS_PATH := $(REPO_ROOT)/backend/migrations
 export HCP_APP_NAME_FOR_DB_SECRETS := $(APP_NAME)-$(ENV)
 
 # 5) Go App Targets (build, test, update, etc.)

@@ -5,7 +5,10 @@ SHELL := /bin/bash
 
 .PHONY: _app_secrets_json
 
-INCLUDED_APP_SECRETS_JSON := 1
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 
 # --------------------------------
 # External Variable Validation
@@ -36,3 +39,6 @@ ifndef APP_SECRETS_JSON
 	$(if $(APP_SECRETS_JSON),,$(error Failed to fetch HCP secrets))
 	@echo "[INFO] [App Secrets Json] App Secrets Json set."
 endif
+
+
+INCLUDED_APP_SECRETS_JSON := 1

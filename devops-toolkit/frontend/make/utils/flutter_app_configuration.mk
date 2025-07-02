@@ -9,6 +9,9 @@ ifeq ($(wildcard pubspec.yaml),)
   $(error Error: pubspec.yaml not found. Please ensure you are in the root directory of your Flutter app.)
 endif
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
 
 # ------------------------------
 # External Variable Validation

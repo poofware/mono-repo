@@ -5,6 +5,10 @@ SHELL := /bin/bash
 
 .PHONY: _android_app_configuration
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 
 # ------------------------------
 # Targets

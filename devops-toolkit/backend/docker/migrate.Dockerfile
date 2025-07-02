@@ -33,7 +33,6 @@ ARG HCP_ORG_ID
 ARG HCP_PROJECT_ID
 ARG HCP_ENCRYPTED_API_TOKEN
 ARG HCP_APP_NAME_FOR_DB_SECRETS
-ARG MIGRATIONS_PATH
 ARG UNIQUE_RUN_NUMBER
 ARG UNIQUE_RUNNER_ID
 
@@ -57,10 +56,6 @@ RUN test -n "${HCP_APP_NAME_FOR_DB_SECRETS}" || ( \
   echo "Error: HCP_APP_NAME_FOR_DB_SECRETS is not set! Use --build-arg HCP_APP_NAME_FOR_DB_SECRETS=xxx" && \
   exit 1 \
 );
-RUN test -n "${MIGRATIONS_PATH}" || ( \
-  echo "Error: MIGRATIONS_PATH is not set! Use --build-arg MIGRATIONS_PATH=xxx" && \
-  exit 1 \
-);
 RUN test -n "${UNIQUE_RUN_NUMBER}" || ( \
   echo "Error: UNIQUE_RUN_NUMBER is not set! Use --build-arg UNIQUE_RUN_NUMBER=xxx" && \
   exit 1 \
@@ -78,7 +73,6 @@ ENV HCP_ORG_ID=${HCP_ORG_ID}
 ENV HCP_PROJECT_ID=${HCP_PROJECT_ID}
 ENV HCP_APP_NAME=${HCP_APP_NAME_FOR_DB_SECRETS}
 ENV HCP_ENCRYPTED_API_TOKEN=${HCP_ENCRYPTED_API_TOKEN}
-ENV MIGRATIONS_PATH=${MIGRATIONS_PATH}
 ENV UNIQUE_RUN_NUMBER=${UNIQUE_RUN_NUMBER}
 ENV UNIQUE_RUNNER_ID=${UNIQUE_RUNNER_ID}
 
@@ -86,12 +80,12 @@ ENV UNIQUE_RUNNER_ID=${UNIQUE_RUNNER_ID}
 #  Copy migrations + helper scripts just like before
 # ----------------------------------------------------------------------
 WORKDIR /app
-COPY ${MIGRATIONS_PATH} migrations
-COPY devops-toolkit/backend/scripts/encryption.sh encryption.sh
-COPY devops-toolkit/backend/scripts/fetch_launchdarkly_flag.sh fetch_launchdarkly_flag.sh
-COPY devops-toolkit/shared/scripts/fetch_hcp_secret.sh fetch_hcp_secret.sh
-COPY devops-toolkit/shared/scripts/fetch_hcp_secret_from_secrets_json.sh fetch_hcp_secret_from_secrets_json.sh
-COPY devops-toolkit/backend/docker/scripts/migrate_cmd.sh migrate_cmd.sh
+COPY --from=migrations . migrations/
+COPY --from=devops-toolkit backend/scripts/encryption.sh encryption.sh
+COPY --from=devops-toolkit backend/scripts/fetch_launchdarkly_flag.sh fetch_launchdarkly_flag.sh
+COPY --from=devops-toolkit shared/scripts/fetch_hcp_secret.sh fetch_hcp_secret.sh
+COPY --from=devops-toolkit shared/scripts/fetch_hcp_secret_from_secrets_json.sh fetch_hcp_secret_from_secrets_json.sh
+COPY --from=devops-toolkit backend/docker/scripts/migrate_cmd.sh migrate_cmd.sh
 
 RUN chmod +x *.sh;
 

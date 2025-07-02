@@ -6,6 +6,10 @@ SHELL := /bin/bash
 
 .PHONY: clean
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 # Check that the current working directory is the root of a project by verifying that the root Makefile exists.
 ifeq ($(wildcard Makefile),)
   $(error Error: Makefile not found. Please ensure you are in the root directory of your project.)

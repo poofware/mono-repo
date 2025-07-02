@@ -11,6 +11,10 @@ ifeq ($(wildcard go.mod),)
   $(error Error: go.mod not found. Please ensure you are in the root directory of your Go service.)
 endif
 
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
+endif
+
 ifndef INCLUDED_COMPOSE_GO_APP_CONFIGURATION
   $(error [ERROR] [Compose Go App Targets] The Compose Go App Configuration must be included before any Compose Go App Targets.)
 endif
