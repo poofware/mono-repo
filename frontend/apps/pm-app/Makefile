@@ -42,7 +42,7 @@ endif
 # Flutter App Configuration & Targets
 # ------------------------------
 
-BACKEND_GATEWAY_PATH ?= ../
+BACKEND_GATEWAY_PATH ?= ../../../backend/meta-service
 FLUTTER_BASE_HREF := /pm/
 
 include $(DEVOPS_TOOLKIT_PATH)/frontend/make/web_flutter_app.mk

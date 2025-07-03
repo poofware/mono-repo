@@ -14,7 +14,7 @@ endif
 ENV ?= dev-test
 APP_NAME := admin-app
 
-BACKEND_GATEWAY_PATH ?= ../meta-service
+BACKEND_GATEWAY_PATH ?= ../../../backend/meta-service
 
 include $(DEVOPS_TOOLKIT_PATH)/frontend/make/web_flutter_app.mk
 
