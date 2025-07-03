@@ -1,0 +1,4 @@
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/poofware/go-models v0.0.0-20250415195618-9519dd8ac75c h1:3bn6u3Ihtq2jalbpc6AOMfup3rnXk0FJE011vy4DexU=
+github.com/poofware/go-models v0.0.0-20250415195618-9519dd8ac75c/go.mod h1:+RusgT74EJjgbV1dL01UWXLym+M18LXqN7SFwh8BtVA=

@@ -1,0 +1,10 @@
+services:
+  go-integration-test:
+    profiles:
+      - app_integration_test
+  go-app:
+    profiles:
+      - app
+  go-app-health-check:
+    profiles:
+      - app_post_check

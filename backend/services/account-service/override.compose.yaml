@@ -1,0 +1,34 @@
+services:
+  go-integration-test:
+    stdin_open: true
+    tty: true
+    profiles:
+      - app_integration_test
+    # Uncomment this if you want to do manual testing of stripe and checkr flows
+    # command: >
+    #   ./integration_test -test.v -manual
+
+  go-app:
+    profiles:
+      - app
+
+  go-app-health-check:
+    profiles:
+      - app_post_check
+
+  db:
+    profiles:
+      - db
+
+  migrate:
+    profiles:
+      - migrate
+
+  stripe-listener:
+    profiles:
+      - app_pre
+
+  stripe-webhook-check:
+    profiles:
+      - app_post_check
+

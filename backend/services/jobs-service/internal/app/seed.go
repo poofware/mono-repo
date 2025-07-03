@@ -1,0 +1,1001 @@
+// meta-service/services/jobs-service/internal/app/seed.go
+
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgconn"
+	"github.com/poofware/go-models"
+	"github.com/poofware/go-repositories"
+	"github.com/poofware/go-utils"
+	"github.com/poofware/jobs-service/internal/dtos"
+	"github.com/poofware/jobs-service/internal/services"
+)
+
+// Helper to check for unique violation error (PostgreSQL specific code)
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// getPayPeriodStartForDate is a local copy of the earnings-service helper to ensure
+// consistent date boundary calculations for seeding.
+// The pay period is defined as Monday 4:00 AM to the following Monday 3:59 AM in America/New_York.
+func getPayPeriodStartForDate(t time.Time) time.Time {
+	loc, _ := time.LoadLocation("America/New_York") // Using the same business timezone as earnings-service
+
+	// Convert the given time `t` into the business timezone.
+	timeInLoc := t.In(loc)
+
+	// A "day" for payouts starts at 4:00 AM. We subtract 4 hours to align any
+	// time between midnight and 3:59 AM with the previous calendar day for accounting purposes.
+	adjustedTime := timeInLoc.Add(-time.Duration(4) * time.Hour)
+
+	// Now, find the Monday of that adjusted day's week.
+	weekday := adjustedTime.Weekday()
+	daysSinceMonday := (weekday - time.Monday + 7) % 7
+
+	startOfWeek := adjustedTime.AddDate(0, 0, -int(daysSinceMonday))
+
+	// Return the date part only, in UTC to ensure consistency when storing in a DATE field.
+	return time.Date(startOfWeek.Year(), startOfWeek.Month(), startOfWeek.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+/*
+SeedAllTestData ...
+*/
+func SeedAllTestData(
+	ctx context.Context,
+	db repositories.DB,
+	encryptionKey []byte,
+	propRepo repositories.PropertyRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	dumpRepo repositories.DumpsterRepository,
+	defRepo repositories.JobDefinitionRepository,
+	jobService *services.JobService,
+) error {
+	pmRepo := repositories.NewPropertyManagerRepository(db, encryptionKey)
+	workerRepo := repositories.NewWorkerRepository(db, encryptionKey) // NEW: Worker Repo
+	unitRepo := repositories.NewUnitRepository(db)
+	// instRepo := repositories.NewJobInstanceRepository(db) // For manual seeding -- no longer needed here
+
+	if err := seedDefaultPMIfNeeded(ctx, pmRepo); err != nil {
+		return fmt.Errorf("seed default PM if needed: %w", err)
+	}
+
+	// NEW: Seed workers before properties and jobs
+	if err := seedDefaultWorkersIfNeeded(ctx, workerRepo); err != nil {
+		return fmt.Errorf("seed default workers if needed: %w", err)
+	}
+
+	propID, err := seedPropertyDataIfNeeded(ctx, propRepo, bldgRepo, dumpRepo, unitRepo)
+	if err != nil {
+		return fmt.Errorf("seed property data if needed: %w", err)
+	}
+	if propID == uuid.Nil {
+		// This can happen if the property already exists, which is not an error state.
+		// We can try to recover the ID to continue seeding jobs.
+		propID = uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	}
+
+	// Seed the active, ongoing job definitions for the property.
+	if _, err := seedJobDefinitionsIfNeeded(ctx, propRepo, bldgRepo, defRepo, jobService, propID); err != nil {
+		return fmt.Errorf("seed job definitions if needed: %w", err)
+	}
+
+	// Seed the new "The Station at Clift Farm" property and its associated data.
+	if err := seedCliftFarmPropertyIfNeeded(ctx, propRepo, bldgRepo, dumpRepo, unitRepo, jobService, defRepo); err != nil {
+		return fmt.Errorf("seed clift farm property if needed: %w", err)
+	}
+
+	// Seed a separate, inactive job definition to be the parent of historical jobs.
+	historicalDefID, err := seedHistoricalDefinition(ctx, defRepo, jobService, propID)
+	if err != nil {
+		return fmt.Errorf("seed historical definition: %w", err)
+	}
+
+	// Seed completed job instances for past weeks using the historical definition ID.
+	if historicalDefID != uuid.Nil {
+		// FIX: Pass the raw `db` handle directly to the seeder function.
+		if err := seedPastCompletedInstances(ctx, db, historicalDefID); err != nil {
+			return fmt.Errorf("seed past completed instances: %w", err)
+		}
+	}
+
+	utils.Logger.Info("jobs-service: seeding completed successfully (some or all items).")
+	return nil
+}
+
+/*
+------------------------------------------------------------------
+	  1) seedDefaultPMIfNeeded
+------------------------------------------------------------------
+*/
+func seedDefaultPMIfNeeded(
+	ctx context.Context,
+	pmRepo repositories.PropertyManagerRepository,
+) error {
+	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+	pm := &models.PropertyManager{
+		ID:              pmID,
+		Email:           "team@thepoofapp.com",
+		PhoneNumber:     utils.Ptr("+12565550000"),
+		TOTPSecret:      "defaultpmstatusactivestotpsecret",
+		BusinessName:    "Demo Property Management",
+		BusinessAddress: "30 Gates Mill St NW",
+		City:            "Huntsville",
+		State:           "AL",
+		ZipCode:         "35806",
+	}
+	if err := pmRepo.Create(ctx, pm); err != nil {
+		if isUniqueViolation(err) {
+			utils.Logger.Infof("jobs-service: PM (id=%s) already exists; skipping creation.", pmID)
+			return nil
+		}
+		return fmt.Errorf("could not create PM (id=%s): %w", pmID, err)
+	}
+
+	utils.Logger.Infof("jobs-service: Created default PM (id=%s).", pmID)
+	return nil
+}
+
+/*
+------------------------------------------------------------------
+	  1.5) seedDefaultWorkersIfNeeded (NEW)
+------------------------------------------------------------------
+*/
+func seedDefaultWorkersIfNeeded(
+	ctx context.Context,
+	workerRepo repositories.WorkerRepository,
+) error {
+	defaultWorkerStatusIncompleteID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa1111")
+	defaultWorkerStatusActiveID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
+
+	// --- Worker 1: INCOMPLETE, at BACKGROUND_CHECK step ---
+	wIncomplete := &models.Worker{
+		ID:          defaultWorkerStatusIncompleteID,
+		Email:       "jlmoors001@gmail.com",
+		PhoneNumber: "+15551110000",
+		TOTPSecret:  "defaultworkerstatusincompletestotpsecret",
+		FirstName:   "DefaultWorker",
+		LastName:    "SetupIncomplete",
+	}
+	if err := workerRepo.Create(ctx, wIncomplete); err != nil {
+		if isUniqueViolation(err) {
+			utils.Logger.Infof("jobs-service: Default Worker (incomplete) already present (id=%s); skipping.", wIncomplete.ID)
+		} else {
+			return fmt.Errorf("insert default worker (incomplete): %w", err)
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: Created default Worker (incomplete) id=%s, now updating status.", wIncomplete.ID)
+		if err := workerRepo.UpdateWithRetry(ctx, wIncomplete.ID, func(stored *models.Worker) error {
+			stored.StreetAddress = "123 Default Status Incomplete St"
+			stored.City = "SeedCity"
+			stored.State = "AL"
+			stored.ZipCode = "90000"
+			stored.VehicleYear = 2022
+			stored.VehicleMake = "Toyota"
+			stored.VehicleModel = "Corolla"
+			stored.SetupProgress = models.SetupProgressAwaitingPersonalInfo
+			return nil
+		}); err != nil {
+			return fmt.Errorf("update default worker (incomplete) status: %w", err)
+		}
+	}
+
+	// --- Worker 2: ACTIVE, setup DONE ---
+	wActive := &models.Worker{
+		ID:          defaultWorkerStatusActiveID,
+		Email:       "team@thepoofapp.com",
+		PhoneNumber: "+15552220000",
+		TOTPSecret:  "defaultworkerstatusactivestotpsecretokay",
+		FirstName:   "DefaultWorker",
+		LastName:    "SetupActive",
+	}
+	if err := workerRepo.Create(ctx, wActive); err != nil {
+		if isUniqueViolation(err) {
+			utils.Logger.Infof("jobs-service: Default Worker (active) already present (id=%s); skipping.", wActive.ID)
+		} else {
+			return fmt.Errorf("insert default worker (active): %w", err)
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: Created default Worker (active) id=%s, now updating status.", wActive.ID)
+		if err := workerRepo.UpdateWithRetry(ctx, wActive.ID, func(stored *models.Worker) error {
+			stored.StreetAddress = "123 Default Status Active St"
+			stored.City = "SeedCity"
+			stored.State = "AL"
+			stored.ZipCode = "90000"
+			stored.VehicleYear = 2022
+			stored.VehicleMake = "Toyota"
+			stored.VehicleModel = "Camry"
+			stored.AccountStatus = models.AccountStatusActive
+			stored.SetupProgress = models.SetupProgressDone
+			stored.StripeConnectAccountID = utils.Ptr("acct_1RZHahCLd3ZjFFWN") // Happy Path Connect ID
+			return nil
+		}); err != nil {
+			return fmt.Errorf("update default worker (active) status: %w", err)
+		}
+	}
+	return nil
+}
+
+/*
+------------------------------------------------------------------
+	  2) seedPropertyDataIfNeeded
+------------------------------------------------------------------
+*/
+func seedPropertyDataIfNeeded(
+	ctx context.Context,
+	propRepo repositories.PropertyRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	dumpRepo repositories.DumpsterRepository,
+	unitRepo repositories.UnitRepository,
+) (uuid.UUID, error) {
+	propID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+
+	p := &models.Property{
+		ID:           propID,
+		ManagerID:    uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		PropertyName: "Demo Property 1",
+		Address:      "30 Gates Mill St NW",
+		City:         "Huntsville",
+		State:        "AL",
+		ZipCode:      "35806",
+		TimeZone:     "America/Chicago",
+		Latitude:     34.753042676669004,
+		Longitude:    -86.6970825455451,
+	}
+	if err := propRepo.Create(ctx, p); err != nil {
+		if isUniqueViolation(err) {
+			utils.Logger.Infof("jobs-service: Property (id=%s) already exists; skipping property creation.", propID)
+		} else {
+			return uuid.Nil, fmt.Errorf("failed to create property id=%s: %w", propID, err)
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: Created property (id=%s).", propID)
+	}
+
+	if err := ensureBuildingsAndUnits(ctx, bldgRepo, unitRepo, propID); err != nil {
+		return uuid.Nil, err
+	}
+	if err := ensureDumpster(ctx, dumpRepo, propID); err != nil {
+		return uuid.Nil, err
+	}
+	return propID, nil
+}
+
+func ensureBuildingsAndUnits(
+	ctx context.Context,
+	bldgRepo repositories.PropertyBuildingRepository,
+	unitRepo repositories.UnitRepository,
+	propID uuid.UUID,
+) error {
+	bldgs, err := bldgRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return err
+	}
+	if len(bldgs) >= 10 {
+		utils.Logger.Infof("jobs-service: property (id=%s) already has %d buildings; skipping building creation.", propID, len(bldgs))
+		return nil
+	}
+
+	type bldgConf struct {
+		num int
+		lat float64
+		lng float64
+	}
+	list := []bldgConf{
+		{0, 34.753042676669004, -86.6970825455451},
+		{2, 34.75324101371002, -86.69770750024432},
+		{3, 34.753939597063095, -86.69805350520186},
+		{4, 34.75339086805018, -86.69827881075558},
+		{5, 34.75409165385932, -86.6987025997801},
+		{6, 34.75357598186378, -86.69891449428899},
+		{7, 34.75424591409042, -86.69926318146175},
+		{8, 34.75372803932841, -86.69947507597531},
+		{9, 34.75443463669845, -86.69990063042995},
+		{10, 34.75390354077383, -86.70011520714777},
+	}
+
+	var newBldgs []models.PropertyBuilding
+	for _, bc := range list {
+		bID := uuid.New()
+		newBldgs = append(newBldgs, models.PropertyBuilding{
+			ID:           bID,
+			PropertyID:   propID,
+			BuildingName: fmt.Sprintf("Building %d", bc.num),
+			Latitude:     bc.lat,
+			Longitude:    bc.lng,
+		})
+	}
+	if err := bldgRepo.CreateMany(ctx, newBldgs); err != nil {
+		// Since building IDs are random, this would likely be a foreign key error
+		// which we should not ignore.
+		return fmt.Errorf("failed to create buildings for prop=%s: %w", propID, err)
+	}
+	utils.Logger.Infof("jobs-service: Created %d buildings for property (id=%s).", len(newBldgs), propID)
+
+	for idx, b := range newBldgs {
+		for u := 1; u <= 30; u++ {
+			unitNum := fmt.Sprintf("%d%02d", idx+1, u)
+			un := &models.Unit{
+				ID:          uuid.New(),
+				PropertyID:  propID,
+				BuildingID:  b.ID,
+				UnitNumber:  unitNum,
+				TenantToken: uuid.NewString(),
+			}
+			if cErr := unitRepo.Create(ctx, un); cErr != nil {
+				return fmt.Errorf("create unit %s (bldg=%s) for prop=%s: %w", unitNum, b.BuildingName, propID, cErr)
+			}
+		}
+	}
+	utils.Logger.Infof("jobs-service: Created 30 units each for %d new buildings => %d new units total.", len(newBldgs), len(newBldgs)*30)
+	return nil
+}
+
+func ensureDumpster(
+	ctx context.Context,
+	dumpRepo repositories.DumpsterRepository,
+	propID uuid.UUID,
+) error {
+	dumpID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+
+	d := &models.Dumpster{
+		ID:             dumpID,
+		PropertyID:     propID,
+		DumpsterNumber: "1",
+		Latitude:       34.75475287521528,
+		Longitude:      -86.70042641169896,
+	}
+	if err := dumpRepo.Create(ctx, d); err != nil {
+		if isUniqueViolation(err) {
+			utils.Logger.Infof("jobs-service: Dumpster (id=%s) for property (id=%s) already exists; skipping creation.", dumpID, propID)
+			return nil
+		}
+		return fmt.Errorf("create dumpster id=%s for prop=%s: %w", dumpID, propID, err)
+	}
+
+	utils.Logger.Infof("jobs-service: Created dumpster (id=%s) for property (id=%s).", dumpID, propID)
+	return nil
+}
+
+/*
+	------------------------------------------------------------------
+	  3) seedJobDefinitionsIfNeeded
+------------------------------------------------------------------
+*/
+func seedJobDefinitionsIfNeeded(
+	ctx context.Context,
+	propRepo repositories.PropertyRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	defRepo repositories.JobDefinitionRepository,
+	jobSvc *services.JobService,
+	propID uuid.UUID,
+) (uuid.UUID, error) {
+	// First, fetch the property to get its timezone for seeding.
+	prop, err := propRepo.GetByID(ctx, propID)
+	if err != nil || prop == nil {
+		return uuid.Nil, fmt.Errorf("could not fetch property %s for timezone info: %w", propID, err)
+	}
+	timeZone := prop.TimeZone
+	dumpsterID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+
+	existingDefs, err := defRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	// Prepare maps to track existence and hold one defID to return
+	titlesToFind := map[string]bool{
+		"Service Buildings 0,2,3":    false,
+		"Service Buildings 4,5,6":    false,
+		"Service Buildings 7,8,9,10": false,
+	}
+	var defID uuid.UUID
+	for _, d := range existingDefs {
+		if _, exists := titlesToFind[d.Title]; exists {
+			titlesToFind[d.Title] = true
+			if defID == uuid.Nil {
+				defID = d.ID
+			}
+		}
+	}
+
+	allBldgs, err := bldgRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	// Group building IDs based on their number parsed from the name
+	var bldgIDs_0_2_3 []uuid.UUID
+	var bldgIDs_4_5_6 []uuid.UUID
+	var bldgIDs_7_8_9_10 []uuid.UUID
+
+	for _, bldg := range allBldgs {
+		var num int
+		// Parse building number from name "Building X"
+		if n, err := strconv.Atoi(strings.TrimPrefix(bldg.BuildingName, "Building ")); err == nil {
+			num = n
+		} else {
+			utils.Logger.Warnf("Could not parse building number from name: %s", bldg.BuildingName)
+			continue
+		}
+
+		switch {
+		case num == 0 || num == 2 || num == 3:
+			bldgIDs_0_2_3 = append(bldgIDs_0_2_3, bldg.ID)
+		case num >= 4 && num <= 6:
+			bldgIDs_4_5_6 = append(bldgIDs_4_5_6, bldg.ID)
+		case num >= 7 && num <= 10:
+			bldgIDs_7_8_9_10 = append(bldgIDs_7_8_9_10, bldg.ID)
+		}
+	}
+
+	// Create the three job definitions if they don't exist
+	if !titlesToFind["Service Buildings 0,2,3"] && len(bldgIDs_0_2_3) > 0 {
+		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 0,2,3", bldgIDs_0_2_3, timeZone, dumpsterID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if defID == uuid.Nil {
+			defID = createdID
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 0,2,3' already exists; skipping.")
+	}
+
+	if !titlesToFind["Service Buildings 4,5,6"] && len(bldgIDs_4_5_6) > 0 {
+		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 4,5,6", bldgIDs_4_5_6, timeZone, dumpsterID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if defID == uuid.Nil {
+			defID = createdID
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 4,5,6' already exists; skipping.")
+	}
+
+	if !titlesToFind["Service Buildings 7,8,9,10"] && len(bldgIDs_7_8_9_10) > 0 {
+		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 7,8,9,10", bldgIDs_7_8_9_10, timeZone, dumpsterID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if defID == uuid.Nil {
+			defID = createdID
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 7,8,9,10' already exists; skipping.")
+	}
+
+	// Seed the "all buildings" definition for Demo Property 1 for other purposes.
+	var hasAllBuildings bool
+	for _, d := range existingDefs {
+		if d.Title == "Service All Buildings (Demo Property 1)" {
+			hasAllBuildings = true
+			break
+		}
+	}
+
+	if !hasAllBuildings {
+		var allBldgIDs []uuid.UUID
+		for _, b := range allBldgs {
+			allBldgIDs = append(allBldgIDs, b.ID)
+		}
+		_, err = createRealisticTimeWindowDefinition(ctx, jobSvc, propID, "Service All Buildings (Demo Property 1)", allBldgIDs, 6, 9, timeZone, dumpsterID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+	}
+
+	return defID, nil
+}
+
+// createDailyDefinition now seeds earliest_start_time=00:00, latest=23:59 => "all day long"
+// It also seeds DailyPayEstimates for all 7 days of the week.
+func createDailyDefinition(
+	ctx context.Context,
+	jobSvc *services.JobService,
+	propID uuid.UUID,
+	title string,
+	assignedBuildingIDs []uuid.UUID,
+	timeZone string, // <-- NEW
+	dumpsterID uuid.UUID, // <-- NEW
+) (uuid.UUID, error) {
+	loc, err := time.LoadLocation(timeZone)
+	if err != nil {
+		utils.Logger.Warnf("Invalid timezone '%s', falling back to UTC for job def '%s'", timeZone, title)
+		loc = time.UTC
+	}
+
+	// A dummy date is used because the DB column is TIME-only. Year/Month/Day are ignored,
+	// but the Location is preserved.
+	earliest := time.Date(0, 1, 1, 0, 0, 0, 0, loc)
+	latest := earliest.Add(23*time.Hour + 59*time.Minute)
+
+	// Seed DailyPayEstimates - for a DAILY job, we need all 7 days.
+	// Adjust pay/time slightly for Monday/Wednesday for demonstration.
+	dailyEstimates := make([]dtos.DailyPayEstimateRequest, 7)
+	basePay := 22.50
+	baseTime := 60
+
+	for i := range 7 {
+		day := time.Weekday(i)
+		currentPay := basePay
+		currentTime := baseTime
+		if day == time.Monday { // After weekend
+			currentPay = basePay * 1.1                  // 10% more pay
+			currentTime = int(float64(baseTime) * 1.15) // 15% more time
+		} else if day == time.Wednesday { // Mid-week
+			currentPay = basePay * 1.05                // 5% more pay
+			currentTime = int(float64(baseTime) * 1.1) // 10% more time
+		}
+		dailyEstimates[i] = dtos.DailyPayEstimateRequest{
+			DayOfWeek:            int(day),
+			BasePay:              currentPay,
+			EstimatedTimeMinutes: currentTime,
+		}
+	}
+
+	req := dtos.CreateJobDefinitionRequest{
+		PropertyID:          propID,
+		Title:               title,
+		Description:         utils.Ptr("automatic seed job"),
+		AssignedBuildingIDs: assignedBuildingIDs,
+		DumpsterIDs:         []uuid.UUID{dumpsterID},
+		Frequency:           models.JobFreqDaily,
+		// Weekdays not needed for JobFreqDaily, but if it were CUSTOM, it would be like: []int16{1, 2, 3, 4, 5}
+		// FIX: Set StartDate to "yesterday" relative to UTC now. This ensures that when the
+		// instance creation logic runs for the property's local "today", the check `day.Before(StartDate)`
+		// will not fail, preventing the off-by-one error caused by timezone differences.
+		StartDate:         time.Now().UTC().AddDate(0, 0, -1),
+		EarliestStartTime: earliest,
+		LatestStartTime:   latest,
+		SkipHolidays:      false,
+		DailyPayEstimates: dailyEstimates,
+		// THIS IS THE FIX: Explicitly require photos for seeded jobs.
+		CompletionRules: &models.JobCompletionRules{
+			ProofPhotosRequired: true,
+		},
+	}
+
+	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", title, propID, err)
+	}
+
+	utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s).", title, defID)
+	return defID, nil
+}
+
+// createRealisticTimeWindowDefinition seeds a job with a specific local time window (e.g., 6 AM - 9 AM).
+func createRealisticTimeWindowDefinition(
+	ctx context.Context,
+	jobSvc *services.JobService,
+	propID uuid.UUID,
+	title string,
+	assignedBuildingIDs []uuid.UUID,
+	startHour, endHour int,
+	timeZone string, // <-- NEW
+	dumpsterID uuid.UUID, // <-- NEW
+) (uuid.UUID, error) {
+	loc, err := time.LoadLocation(timeZone)
+	if err != nil {
+		utils.Logger.Warnf("Invalid timezone '%s', falling back to UTC for job def '%s'", timeZone, title)
+		loc = time.UTC
+	}
+
+	// A dummy date is used because the DB column is TIME-only. Year/Month/Day are ignored.
+	// We now use the property's local timezone.
+	earliest := time.Date(0, 1, 1, startHour, 0, 0, 0, loc)
+	latest := time.Date(0, 1, 1, endHour, 0, 0, 0, loc)
+
+	// Seed DailyPayEstimates - for a DAILY job, we need all 7 days.
+	// Adjust pay/time slightly for Monday/Wednesday for demonstration.
+	dailyEstimates := make([]dtos.DailyPayEstimateRequest, 7)
+	basePay := 22.50
+	baseTime := 60
+
+	for i := range 7 {
+		day := time.Weekday(i)
+		currentPay := basePay
+		currentTime := baseTime
+		if day == time.Monday { // After weekend
+			currentPay = basePay * 1.1                  // 10% more pay
+			currentTime = int(float64(baseTime) * 1.15) // 15% more time
+		} else if day == time.Wednesday { // Mid-week
+			currentPay = basePay * 1.05                // 5% more pay
+			currentTime = int(float64(baseTime) * 1.1) // 10% more time
+		}
+		dailyEstimates[i] = dtos.DailyPayEstimateRequest{
+			DayOfWeek:            int(day),
+			BasePay:              currentPay,
+			EstimatedTimeMinutes: currentTime,
+		}
+	}
+
+	req := dtos.CreateJobDefinitionRequest{
+		PropertyID:          propID,
+		Title:               title,
+		Description:         utils.Ptr("automatic seed job with realistic time window"),
+		AssignedBuildingIDs: assignedBuildingIDs,
+		DumpsterIDs:         []uuid.UUID{dumpsterID},
+		Frequency:           models.JobFreqDaily,
+		// FIX: Set StartDate to "yesterday" relative to UTC now. This ensures that when the
+		// instance creation logic runs for the property's local "today", the check `day.Before(StartDate)`
+		// will not fail, preventing the off-by-one error caused by timezone differences.
+		StartDate:         time.Now().UTC().AddDate(0, 0, -1),
+		EarliestStartTime: earliest,
+		LatestStartTime:   latest,
+		SkipHolidays:      false,
+		DailyPayEstimates: dailyEstimates,
+		// THIS IS THE FIX: Explicitly require photos for seeded jobs.
+		CompletionRules: &models.JobCompletionRules{
+			ProofPhotosRequired: true,
+		},
+	}
+
+	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", title, propID, err)
+	}
+
+	utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s) with realistic window.", title, defID)
+	return defID, nil
+}
+
+/*
+	------------------------------------------------------------------
+	  4) seedHistoricalDefinition
+------------------------------------------------------------------
+*/
+// seedHistoricalDefinition creates a special, inactive job definition to house historical job instances.
+// This separates historical data from the active, ongoing job definitions.
+func seedHistoricalDefinition(
+	ctx context.Context,
+	defRepo repositories.JobDefinitionRepository,
+	jobSvc *services.JobService,
+	propID uuid.UUID,
+) (uuid.UUID, error) {
+	title := "Legacy Valet Trash (Historical)"
+
+	// 1. Check if it already exists to make seeding idempotent.
+	existingDefs, err := defRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("listing definitions for prop %s: %w", propID, err)
+	}
+	for _, d := range existingDefs {
+		if d.Title == title {
+			utils.Logger.Infof("jobs-service: Historical job definition '%s' already exists; skipping.", title)
+			return d.ID, nil
+		}
+	}
+
+	// 2. If not, create it.
+	// For historical data, using UTC is acceptable as it's not for live display.
+	loc := time.UTC
+	earliest := time.Date(0, 1, 1, 0, 0, 0, 0, loc)
+	latest := earliest.Add(23*time.Hour + 59*time.Minute)
+	dumpID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+
+	// Use a simple, flat pay rate for all days for this historical job.
+	dailyEstimates := make([]dtos.DailyPayEstimateRequest, 7)
+	for i := range 7 {
+		dailyEstimates[i] = dtos.DailyPayEstimateRequest{
+			DayOfWeek:            i,
+			BasePay:              20.00,
+			EstimatedTimeMinutes: 50,
+		}
+	}
+
+	req := dtos.CreateJobDefinitionRequest{
+		PropertyID:          propID,
+		Title:               title,
+		Description:         utils.Ptr("Historical job data for demonstration purposes."),
+		AssignedBuildingIDs: []uuid.UUID{}, // No specific buildings
+		DumpsterIDs:         []uuid.UUID{dumpID},
+		Frequency:           models.JobFreqDaily,
+		StartDate:           time.Now().UTC().AddDate(-1, 0, 0), // Start date a year ago
+		EarliestStartTime:   earliest,
+		LatestStartTime:     latest,
+		SkipHolidays:        true,
+		DailyPayEstimates:   dailyEstimates,
+		CompletionRules: &models.JobCompletionRules{
+			ProofPhotosRequired: true,
+		},
+	}
+
+	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+	// Create this definition as INACTIVE so it doesn't generate future jobs.
+	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, string(models.JobStatusArchived))
+	if err != nil {
+		// It's possible for a unique violation if another process runs this simultaneously.
+		// The check at the top should prevent this, but we handle the error just in case.
+		if isUniqueViolation(err) {
+			utils.Logger.Warnf("jobs-service: Unique violation on creating historical def, likely a race condition. Attempting to recover ID.")
+			// Re-fetch to get the ID created by the other process.
+			return seedHistoricalDefinition(ctx, defRepo, jobSvc, propID)
+		}
+		return uuid.Nil, fmt.Errorf("failed to create historical job definition '%s' for prop=%s: %w", title, propID, err)
+	}
+
+	utils.Logger.Infof("jobs-service: Created historical job definition '%s' (id=%s).", title, defID)
+	return defID, nil
+}
+
+/*
+	------------------------------------------------------------------
+	  5) seedPastCompletedInstances
+------------------------------------------------------------------
+*/
+// seedPastCompletedInstances creates COMPLETED job instances for the two most recent
+// completed pay periods to ensure consistent and predictable historical data.
+func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID uuid.UUID) error {
+	loc, _ := time.LoadLocation("America/New_York")
+	nowInBusinessTZ := time.Now().In(loc)
+	todayInBusinessTZ := time.Date(nowInBusinessTZ.Year(), nowInBusinessTZ.Month(), nowInBusinessTZ.Day(), 0, 0, 0, 0, time.UTC)
+
+	// Calculate the start of the two most recent completed pay periods.
+	thisWeekStart := getPayPeriodStartForDate(nowInBusinessTZ)
+	lastWeekStart := thisWeekStart.AddDate(0, 0, -7)
+	weekBeforeLastStart := lastWeekStart.AddDate(0, 0, -7)
+
+	// --- Jobs for the week *before* last week ---
+	// Total pay: 20 + 25 + 22 = $67.00
+	jobsForWeekBeforeLast := []*models.JobInstance{
+		{
+			// UPDATED: Use a hardcoded, predictable UUID
+			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa1"),
+			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 1),
+			EffectivePay: 20.00,
+			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 1).Add(17 * time.Hour)),
+			CheckOutAt:   utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 1).Add(17 * time.Hour).Add(50 * time.Minute)),
+		},
+		{
+			// UPDATED: Use a hardcoded, predictable UUID
+			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa2"),
+			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 3),
+			EffectivePay: 25.00,
+			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 3).Add(18 * time.Hour)),
+			CheckOutAt:   utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 3).Add(18 * time.Hour).Add(60 * time.Minute)),
+		},
+		{
+			// UPDATED: Use a hardcoded, predictable UUID
+			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa3"),
+			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 5),
+			EffectivePay: 22.00,
+			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 5).Add(19 * time.Hour)),
+			CheckOutAt:   utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 5).Add(19 * time.Hour).Add(55 * time.Minute)),
+		},
+	}
+
+	// --- Jobs for *last* week ---
+	// Total pay: 30 + 28 = $58.00
+	jobsForLastWeek := []*models.JobInstance{
+		{
+			// UPDATED: Use a hardcoded, predictable UUID
+			ID:           uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb1"),
+			ServiceDate:  lastWeekStart.AddDate(0, 0, 0),
+			EffectivePay: 30.00,
+			CheckInAt:    utils.Ptr(lastWeekStart.AddDate(0, 0, 0).Add(16 * time.Hour)),
+			CheckOutAt:   utils.Ptr(lastWeekStart.AddDate(0, 0, 0).Add(16 * time.Hour).Add(65 * time.Minute)),
+		},
+		{
+			// UPDATED: Use a hardcoded, predictable UUID
+			ID:           uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb2"),
+			ServiceDate:  lastWeekStart.AddDate(0, 0, 2),
+			EffectivePay: 28.00,
+			CheckInAt:    utils.Ptr(lastWeekStart.AddDate(0, 0, 2).Add(20 * time.Hour)),
+			CheckOutAt:   utils.Ptr(lastWeekStart.AddDate(0, 0, 2).Add(20 * time.Hour).Add(62 * time.Minute)),
+		},
+	}
+
+	// --- NEW: A completed job for today ---
+	todayJob := &models.JobInstance{
+		// UPDATED: Use a hardcoded, predictable UUID
+		ID:           uuid.MustParse("cccccccc-cccc-4ccc-cccc-cccccccccccc"),
+		ServiceDate:  todayInBusinessTZ,
+		EffectivePay: 25.00,
+		CheckInAt:    utils.Ptr(nowInBusinessTZ.Add(-45 * time.Minute)),
+		CheckOutAt:   utils.Ptr(nowInBusinessTZ.Add(-5 * time.Minute)),
+	}
+
+	allJobsToSeed := append(
+		append(jobsForWeekBeforeLast, jobsForLastWeek...),
+		todayJob,
+	)
+
+	// This is the default active worker ID seeded in seedDefaultWorkersIfNeeded
+	workerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
+
+	for _, job := range allJobsToSeed {
+		// Set common properties for all seeded historical/completed jobs
+		job.DefinitionID = defID
+		job.Status = models.InstanceStatusCompleted
+		job.AssignedWorkerID = &workerID
+
+		// Use raw SQL to insert, avoiding ON CONFLICT issues with existing active jobs.
+		_, err := db.Exec(ctx, `
+            INSERT INTO job_instances (
+                id, definition_id, service_date, status,
+                assigned_worker_id, effective_pay, check_in_at, check_out_at,
+                excluded_worker_ids, assign_unassign_count, flagged_for_review,
+                created_at, updated_at, row_version
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '{}', 0, FALSE, NOW(), NOW(), 1)
+        `,
+			job.ID, job.DefinitionID, job.ServiceDate, job.Status,
+			job.AssignedWorkerID, job.EffectivePay, job.CheckInAt, job.CheckOutAt,
+		)
+		if err != nil {
+			// It's possible an active job for this day already exists. Log as a warning and continue.
+			if isUniqueViolation(err) {
+				utils.Logger.WithError(err).Warnf("Could not seed historical job for date %s (likely already exists), continuing.", job.ServiceDate.Format("2006-01-02"))
+				continue
+			}
+			utils.Logger.WithError(err).Errorf("Failed to seed past completed job instance for date %s", job.ServiceDate)
+			// Return the error to halt seeding if it's not a unique violation.
+			return err
+		} else {
+			utils.Logger.Infof("Seeded COMPLETED job instance for date %s with pay $%.2f", job.ServiceDate.Format("2006-01-02"), job.EffectivePay)
+		}
+	}
+
+	return nil
+}
+
+/*
+	------------------------------------------------------------------
+	  6) seedCliftFarmPropertyIfNeeded (NEW)
+------------------------------------------------------------------
+*/
+func seedCliftFarmPropertyIfNeeded(
+	ctx context.Context,
+	propRepo repositories.PropertyRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	dumpRepo repositories.DumpsterRepository,
+	unitRepo repositories.UnitRepository,
+	jobSvc *services.JobService,
+	defRepo repositories.JobDefinitionRepository,
+) error {
+	propID := uuid.MustParse("55555555-5555-5555-5555-555555555555")
+
+	p := &models.Property{
+		ID:           propID,
+		ManagerID:    uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		PropertyName: "The Station at Clift Farm",
+		Address:      "165 John Thomas Dr",
+		City:         "Madison",
+		State:        "AL",
+		ZipCode:      "35758",
+		TimeZone:     "America/Chicago",
+		Latitude:     34.752931141531086,
+		Longitude:    -86.75920658648279,
+	}
+
+	if err := propRepo.Create(ctx, p); err != nil {
+		if isUniqueViolation(err) {
+			utils.Logger.Infof("jobs-service: Clift Farm Property (id=%s) already exists; skipping all related seeding.", propID)
+			return nil // If property exists, assume everything else does too.
+		}
+		return fmt.Errorf("failed to create Clift Farm property id=%s: %w", propID, err)
+	}
+
+	utils.Logger.Infof("jobs-service: Created Clift Farm property (id=%s).", propID)
+
+	// -- Seed Buildings & Units for Clift Farm --
+	type bldgConf struct {
+		num int
+		lat float64
+		lng float64
+	}
+	bldgList := []bldgConf{
+		{1, 34.753499865723214, -86.76060923898977},
+		{2, 34.7538260179232, -86.75883898104533},
+		{3, 34.75301788853227, -86.75992709822535},
+		{4, 34.75337268653752, -86.75804126871314},
+	}
+
+	var newBldgs []models.PropertyBuilding
+	for _, bc := range bldgList {
+		bID := uuid.New()
+		newBldgs = append(newBldgs, models.PropertyBuilding{
+			ID:           bID,
+			PropertyID:   propID,
+			BuildingName: fmt.Sprintf("Building %d", bc.num),
+			Latitude:     bc.lat,
+			Longitude:    bc.lng,
+		})
+	}
+	if err := bldgRepo.CreateMany(ctx, newBldgs); err != nil {
+		return fmt.Errorf("failed to create buildings for Clift Farm prop=%s: %w", propID, err)
+	}
+	utils.Logger.Infof("jobs-service: Created %d buildings for Clift Farm property (id=%s).", len(newBldgs), propID)
+
+	var allBldgIDs []uuid.UUID
+	for idx, b := range newBldgs {
+		allBldgIDs = append(allBldgIDs, b.ID)
+		for u := 1; u <= 30; u++ {
+			unitNum := fmt.Sprintf("%d%02d", idx+1, u)
+			un := &models.Unit{
+				ID:          uuid.New(),
+				PropertyID:  propID,
+				BuildingID:  b.ID,
+				UnitNumber:  unitNum,
+				TenantToken: uuid.NewString(),
+			}
+			if cErr := unitRepo.Create(ctx, un); cErr != nil {
+				return fmt.Errorf("create unit %s for Clift Farm prop=%s: %w", unitNum, propID, cErr)
+			}
+		}
+	}
+	utils.Logger.Infof("jobs-service: Created 30 units each for %d new buildings at Clift Farm => %d new units total.", len(newBldgs), len(newBldgs)*30)
+
+	// -- Seed Dumpster for Clift Farm --
+	dumpsterID := uuid.MustParse("66666666-6666-6666-6666-666666666666")
+	d := &models.Dumpster{
+		ID:             dumpsterID,
+		PropertyID:     propID,
+		DumpsterNumber: "1",
+		Latitude:       34.75320015716651,
+		Longitude:      -86.7606387432878,
+	}
+	if err := dumpRepo.Create(ctx, d); err != nil {
+		// This should not be a unique violation if the parent property creation was new.
+		return fmt.Errorf("create dumpster id=%s for Clift Farm prop=%s: %w", dumpsterID, propID, err)
+	}
+	utils.Logger.Infof("jobs-service: Created dumpster (id=%s) for Clift Farm property (id=%s).", dumpsterID, propID)
+
+	// -- Seed Job Definitions for Clift Farm --
+	defTitleAM := "Service The Station at Clift Farm (AM)"
+	defTitlePM := "Service The Station at Clift Farm (PM)"
+
+	existingDefs, err := defRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return fmt.Errorf("listing existing defs for clift farm: %w", err)
+	}
+
+	var amDefExists bool
+	var pmDefExists bool
+	for _, def := range existingDefs {
+		if def.Title == defTitleAM {
+			amDefExists = true
+		}
+		if def.Title == defTitlePM {
+			pmDefExists = true
+		}
+	}
+
+	// Morning Job Definition (4 AM - 9 AM)
+	if !amDefExists {
+		if _, err := createRealisticTimeWindowDefinition(ctx, jobSvc, propID, defTitleAM, allBldgIDs, 4, 9, p.TimeZone, dumpsterID); err != nil {
+			return fmt.Errorf("seed AM job definition for clift farm: %w", err)
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: JobDefinition '%s' already exists for Clift Farm; skipping.", defTitleAM)
+	}
+
+	// Evening Job Definition (4 PM - 11 PM)
+	if !pmDefExists {
+		if _, err := createRealisticTimeWindowDefinition(ctx, jobSvc, propID, defTitlePM, allBldgIDs, 16, 23, p.TimeZone, dumpsterID); err != nil {
+			return fmt.Errorf("seed PM job definition for clift farm: %w", err)
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: JobDefinition '%s' already exists for Clift Farm; skipping.", defTitlePM)
+	}
+
+	return nil
+}

@@ -1,0 +1,30 @@
+services:
+  go-app:
+    profiles:
+      - app
+
+  go-integration-test:
+    profiles:
+      - app_integration_test
+
+  go-app-health-check:
+    profiles:
+      - app_post_check
+
+  db:
+    profiles:
+      - db
+
+  migrate:
+    profiles:
+      - migrate
+
+  stripe-listener:
+    profiles:
+      - app_pre
+
+  stripe-webhook-check:
+    profiles:
+      - app_post_check
+
+
