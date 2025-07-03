@@ -24,7 +24,7 @@ endif
 # Internal Variable Declaration
 # --------------------------------
 
-SSH_DOCKER_BUILD_CMD := $(DEVOPS_TOOLKIT)/backend/scripts/ssh_docker_build.sh compose \
+SSH_DOCKER_BUILD_CMD := $(DEVOPS_TOOLKIT_PATH)/backend/scripts/ssh_docker_build.sh compose \
 						--project-directory $(COMPOSE_PROJECT_DIR) \
 						-p $(COMPOSE_PROJECT_NAME)
 
@@ -34,7 +34,7 @@ SSH_DOCKER_BUILD_CMD := $(DEVOPS_TOOLKIT)/backend/scripts/ssh_docker_build.sh co
 # --------------------------
 
 ifndef INCLUDED_COMPOSE_DEPS_BUILD
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_targets/compose_deps_targets/compose_deps_build.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_project_targets/compose_deps_targets/compose_deps_build.mk
 endif
 
 ## Builds services for all specified services (COMPOSE_BUILD_SERVICES must be set to a list of services to build - COMPOSE_BUILD_BASE_SERVICES for building base images is optional)

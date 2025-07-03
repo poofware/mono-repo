@@ -23,29 +23,29 @@ endif
 # --------------------------------
 
 ifndef INCLUDED_COMPOSE_DEPS_TARGETS
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_targets.mk
 endif
 
 ifndef INCLUDED_COMPOSE_DOWN
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_down.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_down.mk
 endif
 ifndef INCLUDED_COMPOSE_BUILD
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_build.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_build.mk
 endif
 ifndef INCLUDED_COMPOSE_UP
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_up.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_up.mk
 endif
 ifndef INCLUDED_COMPOSE_TEST
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_test.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_test.mk
 endif
 ifndef INCLUDED_COMPOSE_CLEAN
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_clean.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_clean.mk
 endif
 ifndef INCLUDED_COMPOSE_CI
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_ci.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_ci.mk
 endif
 ifndef INCLUDED_COMPOSE_PROJECT_HELP
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_project_help.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_project_help.mk
 endif
 
 

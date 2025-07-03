@@ -16,4 +16,4 @@ APP_NAME := worker-app
 
 BACKEND_GATEWAY_PATH ?= ../meta-service
 
-include $(DEVOPS_TOOLKIT)/frontend/make/mobile_flutter_app.mk
+include $(DEVOPS_TOOLKIT_PATH)/frontend/make/mobile_flutter_app.mk

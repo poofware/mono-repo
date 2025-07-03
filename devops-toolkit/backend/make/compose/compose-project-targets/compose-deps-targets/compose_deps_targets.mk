@@ -106,16 +106,16 @@ _deps-%::
 	fi
 
 ifndef INCLUDED_COMPOSE_DEPS_CLEAN
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_clean.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_clean.mk
 endif
 ifndef INCLUDED_COMPOSE_DEPS_BUILD
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_build.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_build.mk
 endif
 ifndef INCLUDED_COMPOSE_DEPS_UP
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_up.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_up.mk
 endif
 ifndef INCLUDED_COMPOSE_DEPS_DOWN
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_down.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_down.mk
 endif
 
 

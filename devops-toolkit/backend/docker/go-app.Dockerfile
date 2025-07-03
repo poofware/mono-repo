@@ -14,27 +14,16 @@ RUN apk update && apk add --no-cache git openssh curl openssl;
 ENV GOPRIVATE=github.com/poofware/*
 RUN git config --global url."git@github.com:".insteadOf "https://github.com/";
 
-WORKDIR /app
+WORKDIR /go/app
 
 RUN mkdir -p /root/.ssh && ssh-keyscan github.com >> /root/.ssh/known_hosts;
 
 # Copy mod files and vendor
-COPY go.mod go.sum ./
-COPY vendor/ ./vendor/
+COPY go.work go.mod go.sum ./
+COPY --from=shared . ../../shared/
 
-# This is the key preparation step.
-# If vendor/ is empty, we download modules to the cache AND remove the empty
-# vendor/ directory. This prevents Go from failing on an inconsistent state.
-# If vendor/ is populated, we do nothing, preparing for a vendor-based build.
 RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
-    --mount=type=ssh \
-    if [ -z "$(ls -A vendor 2>/dev/null)" ]; then \
-      echo "Vendor directory is empty, populating module cache and removing vendor dir..." ; \
-      go mod download; \
-      rm -rf vendor; \
-    else \
-      echo "Vendor directory is populated, skipping module download." ; \
-    fi;
+    --mount=type=ssh go mod download;
 
 #######################################
 # Stage 2: Builder Config Validator

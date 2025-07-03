@@ -19,7 +19,7 @@ endif
 
 ifndef INCLUDED_FLUTTER_APP_CONFIGURATION
   $(error [ERROR] [Flutter App Targets] The Flutter App Configuration must be included before any Flutter App Targets. \
-	Include $$(DEVOPS_TOOLKIT)/frontend/make/utils/flutter_app_configuration.mk in your root Makefile.)
+	Include $$(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/flutter_app_configuration.mk in your root Makefile.)
 endif
 
 
@@ -28,7 +28,7 @@ endif
 # --------------------------------
 
 ifndef INCLUDED_HELP
-  include $(DEVOPS_TOOLKIT)/shared/make/help.mk
+  include $(DEVOPS_TOOLKIT_PATH)/shared/make/help.mk
 endif
 
 logs:

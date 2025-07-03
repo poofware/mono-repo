@@ -30,16 +30,11 @@ endif
 # --------------------------------
 
 ifndef INCLUDED_GO_APP_UPDATE
-  include $(DEVOPS_TOOLKIT)/backend/make/utils/go_app_update.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/utils/go_app_update.mk
 endif
-ifndef INCLUDED_VENDOR
-  include $(DEVOPS_TOOLKIT)/backend/make/utils/vendor.mk
-endif
-
-build:: vendor
 
 ifndef INCLUDED_COMPOSE_APP_TARGETS
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_targets.mk
 endif
 
 help::

@@ -46,7 +46,7 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
     # If the app is not a gateway to its dependencies, we need to include the deps targets prior to the app targets.
     # This ensures that the app targets are run after the deps are built/up, ensuring no interference with the deps and vice versa.
     # Specifically, APP_HOST_PORT compute
-    include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_targets.mk
+    include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose-deps-targets/compose_deps_targets.mk
   endif
 
   ifeq ($(ENABLE_NGROK_FOR_DEV),1)
@@ -54,7 +54,7 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
     ifndef APP_URL_FROM_ANYWHERE
 		@echo "[INFO] [Export Ngrok URL] Exporting ngrok URL as App Url From Anywhere..." >&2
 		$(eval NGROK_HOST_PORT := $(shell $(COMPOSE_CMD) port ngrok $(NGROK_PORT) | cut -d ':' -f 2))
-		$(eval export APP_URL_FROM_ANYWHERE := $(shell $(DEVOPS_TOOLKIT)/backend/scripts/get_ngrok_url.sh $(NGROK_HOST_PORT)))
+		$(eval export APP_URL_FROM_ANYWHERE := $(shell $(DEVOPS_TOOLKIT_PATH)/backend/scripts/get_ngrok_url.sh $(NGROK_HOST_PORT)))
 		@echo "[INFO] [Export Ngrok URL] Done. App Url From Anywhere is set to: $(APP_URL_FROM_ANYWHERE)" >&2
     endif
 
@@ -81,7 +81,7 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
 	  $(eval export APP_HOST_PORT := $(shell \
 	    $(COMPOSE_CMD) port $(COMPOSE_PROFILE_APP_SERVICES) $(APP_PORT) 2>/dev/null \
 	    | cut -d ':' -f2 | grep -E '^[0-9]+$$' || \
-	    $(DEVOPS_TOOLKIT)/backend/scripts/find_available_port.sh 8080 \
+	    $(DEVOPS_TOOLKIT_PATH)/backend/scripts/find_available_port.sh 8080 \
 	  ))
   endif
 
@@ -92,7 +92,7 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
     _export_lan_url_as_app_url:
     ifndef APP_URL_FROM_ANYWHERE
 		@echo "[INFO] [Export LAN URL] Exporting LAN URL as App Url From Anywhere..." >&2
-		$(eval export APP_URL_FROM_ANYWHERE = http://$(shell $(DEVOPS_TOOLKIT)/backend/scripts/get_lan_ip.sh):$(APP_HOST_PORT))
+		$(eval export APP_URL_FROM_ANYWHERE = http://$(shell $(DEVOPS_TOOLKIT_PATH)/backend/scripts/get_lan_ip.sh):$(APP_HOST_PORT))
 		@echo "[INFO] [Export LAN URL] Done. App Url From Anywhere is set to: $(APP_URL_FROM_ANYWHERE)" >&2
     endif
 
@@ -109,7 +109,7 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
   _export_fly_api_token:
   ifndef FLY_API_TOKEN
 	  $(eval export HCP_APP_NAME := shared-$(ENV))
-	  $(eval export FLY_API_TOKEN := $(shell $(DEVOPS_TOOLKIT)/shared/scripts/fetch_hcp_secret_from_secrets_json.sh FLY_API_TOKEN))
+	  $(eval export FLY_API_TOKEN := $(shell $(DEVOPS_TOOLKIT_PATH)/shared/scripts/fetch_hcp_secret_from_secrets_json.sh FLY_API_TOKEN))
 	  $(if $(FLY_API_TOKEN),,$(error Failed to fetch HCP secret 'FLY_API_TOKEN'))
 	  @echo "[INFO] [Export Fly Api Token] Fly API token set."
   endif
@@ -189,7 +189,7 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
   migrate:: _export_fly_api_token _fly_wireguard_up
 
   ifndef INCLUDED_COMPOSE_PROJECT_TARGETS
-    include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_project_targets.mk
+    include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_project_targets.mk
   endif
   
   integration-test:: _fly_wireguard_down
@@ -222,11 +222,11 @@ endif
 
 ## Prints the domain that you can use to access the app from anywhere with https
 print-public-app-domain::
-	@./$(DEVOPS_TOOLKIT)/backend/scripts/health_check.sh
+	@./$(DEVOPS_TOOLKIT_PATH)/backend/scripts/health_check.sh
 	@echo $$APP_URL_FROM_ANYWHERE | sed -e 's~^https://~~'
 
 ifndef INCLUDED_COMPOSE_PROJECT_TARGETS
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_project_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_project_targets.mk
 endif
 
 

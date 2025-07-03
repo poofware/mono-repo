@@ -21,8 +21,8 @@ services:
     build:
       context: .
       additional_contexts:
-        devops-toolkit: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}
-      dockerfile: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}/backend/docker/stripe.Dockerfile
+        devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
+      dockerfile: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}/backend/docker/stripe.Dockerfile
       target: stripe-listener-runner
       <<: *build-network
       args:
@@ -48,8 +48,8 @@ services:
     build:
       context: .
       additional_contexts:
-        devops-toolkit: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}
-      dockerfile: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}/backend/docker/stripe.Dockerfile
+        devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
+      dockerfile: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}/backend/docker/stripe.Dockerfile
       target: stripe-webhook-check-runner
       <<: *build-network
       args:

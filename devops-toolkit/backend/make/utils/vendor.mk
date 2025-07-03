@@ -9,7 +9,7 @@ ifndef INCLUDED_TOOLKIT_BOOTSTRAP
 endif
 
 ifndef INCLUDED_ENSURE_GO
-  include $(DEVOPS_TOOLKIT)/backend/make/utils/ensure_go.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/utils/ensure_go.mk
 endif
 
 

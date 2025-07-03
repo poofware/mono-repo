@@ -32,8 +32,8 @@ INTEREST_SERVICE_NAME := interest-service
 JOBS_SERVICE_NAME := jobs-service
 EARNINGS_SERVICE_NAME := earnings-service
 
-DEPS := DEP_THE_WEBSITE:../../frontend/the-website:"" \
-		DEP_PM_APP:../../frontend/pm-app:"" \
+DEPS := DEP_THE_WEBSITE:../../frontend/apps/the-website:"" \
+		DEP_PM_APP:../../frontend/apps/pm-app:"" \
 		DEP_AUTH_SERVICE:../services/$(AUTH_SERVICE_NAME):8082 \
 		DEP_ACCOUNT_SERVICE:../services/$(ACCOUNT_SERVICE_NAME):8083 \
 		DEP_INTEREST_SERVICE:../services/$(INTEREST_SERVICE_NAME):8084 \
@@ -48,7 +48,7 @@ export SERVICES := $(AUTH_SERVICE_NAME) \
 ####################################################################
 
 ifndef INCLUDED_COMPOSE_PROJECT_CONFIGURATION
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-configurations/compose_project_configuration.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose_project_configuration.mk
 endif
 
 export APP_NAME := meta-service
@@ -58,7 +58,7 @@ ENABLE_NGROK_FOR_DEV := 1
 STAGING_FLY_TOML_PATH := deploy/staging.fly.toml
 FLY_TOML_PATH := deploy/fly.toml
 ifndef INCLUDED_APP_CONFIGURATION
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_configuration.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_configuration.mk
 endif
 
 # We exporting the host port so the deps don't compute their own...just use the gateways
@@ -84,7 +84,7 @@ _deps-%::
 	@echo "[INFO] [Export Exclude Profiles] Exporting exclude profiles for 'meta-service'..."
 
 ifndef INCLUDED_COMPOSE_APP_TARGETS
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_targets.mk
 endif
 
 up:: _deps-_up-app-post-check

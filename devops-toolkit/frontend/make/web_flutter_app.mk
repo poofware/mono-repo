@@ -25,7 +25,7 @@ ifneq ($(origin FLUTTER_BASE_HREF), file)
 endif
 
 ifndef INCLUDED_FLUTTER_APP_CONFIGURATION
-  include $(DEVOPS_TOOLKIT)/frontend/make/utils/flutter_app_configuration.mk
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/flutter_app_configuration.mk
 endif
 
 _DETECT_DRIVER = $(shell command -v chromedriver 2>/dev/null)
@@ -39,7 +39,7 @@ export CHROMEDRIVER_BINARY
 # --------------------------------
 
 ifndef INCLUDED_FLUTTER_APP_TARGETS
-  include $(DEVOPS_TOOLKIT)/frontend/make/utils/flutter_app_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/flutter_app_targets.mk
 endif
 
 integration-test-web: AUTO_LAUNCH_BACKEND ?= 1

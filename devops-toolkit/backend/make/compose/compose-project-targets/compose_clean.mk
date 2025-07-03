@@ -25,11 +25,11 @@ endif
 # --------------------------
 
 ifndef INCLUDED_COMPOSE_DOWN
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_targets/compose_down.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_project_targets/compose_down.mk
 endif
 
 ifndef INCLUDED_COMPOSE_DEPS_CLEAN
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_targets/compose_deps_targets/compose_deps_clean.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_project_targets/compose_deps_targets/compose_deps_clean.mk
 endif
 
 ## Cleans everything (containers, images, volumes) (WITH_DEPS=1 to 'clean' dependency projects as well)

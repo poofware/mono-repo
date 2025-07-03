@@ -25,7 +25,7 @@ endif
 # --------------------------
 
 ifndef INCLUDED_COMPOSE_DEPS_DOWN
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_targets/compose_deps_targets/compose_deps_down.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_project_targets/compose_deps_targets/compose_deps_down.mk
 endif
 
 _down-network:

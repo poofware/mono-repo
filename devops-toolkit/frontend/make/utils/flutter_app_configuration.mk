@@ -35,7 +35,7 @@ endif
 # ------------------------------ 
 
 ifndef INCLUDED_ENV_CONFIGURATION
-  include $(DEVOPS_TOOLKIT)/shared/make/utils/env_configuration.mk
+  include $(DEVOPS_TOOLKIT_PATH)/shared/make/utils/env_configuration.mk
 endif
 
 LOG_LEVEL ?= info

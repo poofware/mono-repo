@@ -20,24 +20,25 @@ DEPS := DEP_ACCOUNT_SERVICE:../account-service:8080
 
 DEPS_PASSTHROUGH_VARS := WITH_DEPS
 
-COMPOSE_FILE := $(DEVOPS_TOOLKIT)/backend/docker/go-app.compose.yaml
-COMPOSE_FILE := $(COMPOSE_FILE):$(DEVOPS_TOOLKIT)/backend/docker/db.compose.yaml
+COMPOSE_FILE := $(DEVOPS_TOOLKIT_PATH)/backend/docker/go-app.compose.yaml
+COMPOSE_FILE := $(COMPOSE_FILE):$(DEVOPS_TOOLKIT_PATH)/backend/docker/db.compose.yaml
 COMPOSE_FILE := $(COMPOSE_FILE):override.compose.yaml
 
 # 2) Include the Compose Project Configuration
 ifndef INCLUDED_COMPOSE_PROJECT_CONFIGURATION
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-configurations/compose_project_configuration.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose_project_configuration.mk
 endif
 
 # 3) Go App Compose Configuration
 export APP_NAME := $(COMPOSE_PROJECT_NAME)
 export APP_PORT ?= 8080
-ENABLE_NGROK_FOR_DEV := 1
+export SHARED_PATH := $(REPO_ROOT)/backend/shared
 PACKAGES := go-middleware go-repositories go-utils go-models go-dtos go-testhelpers
+ENABLE_NGROK_FOR_DEV := 1
 STAGING_FLY_TOML_PATH := deploy/staging.fly.toml
 FLY_TOML_PATH := deploy/fly.toml
 ifndef INCLUDED_COMPOSE_GO_APP_CONFIGURATION
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-configurations/compose-file-configurations/go-app/compose_go_app_configuration.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/go-app/compose_go_app_configuration.mk
 endif
 
 # 4) Additional DB Migrations Config
@@ -47,12 +48,12 @@ export HCP_APP_NAME_FOR_DB_SECRETS := $(APP_NAME)-$(ENV)
 
 # 5) Go App Targets (build, test, update, etc.)
 ifndef INCLUDED_COMPOSE_GO_APP_TARGETS
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-configurations/compose-file-configurations/go-app/compose_go_app_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/go-app/compose_go_app_targets.mk
 endif
 
 # 6) Finally, bring in the standard Compose project targets
 ifndef INCLUDED_COMPOSE_PROJECT_TARGETS
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-targets/compose_project_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_project_targets.mk
 endif
 
 

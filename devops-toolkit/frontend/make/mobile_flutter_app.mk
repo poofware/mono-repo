@@ -20,7 +20,7 @@ endif
 # --------------------------------
 
 ifndef INCLUDED_FLUTTER_APP_CONFIGURATION
-  include $(DEVOPS_TOOLKIT)/frontend/make/utils/flutter_app_configuration.mk
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/flutter_app_configuration.mk
 endif
 
 # --------------------------------
@@ -28,15 +28,15 @@ endif
 # --------------------------------
 
 ifndef INCLUDED_FLUTTER_APP_TARGETS
-  include $(DEVOPS_TOOLKIT)/frontend/make/utils/flutter_app_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/flutter_app_targets.mk
 endif
 
 ifndef INCLUDED_ANDROID_APP_CONFIGURATION_TARGETS
-  include $(DEVOPS_TOOLKIT)/frontend/make/utils/android_app_configuration_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/android_app_configuration_targets.mk
 endif
 
 ifndef INCLUDED_IOS_APP_CONFIGURATION_TARGETS
-  include $(DEVOPS_TOOLKIT)/frontend/make/utils/ios_app_configuration_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/ios_app_configuration_targets.mk
 endif
 
 # Run API integration tests (non-UI logic tests) for iOS

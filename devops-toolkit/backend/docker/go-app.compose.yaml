@@ -32,8 +32,9 @@ services:
     build:
       context: .
       additional_contexts:
-        devops-toolkit: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}
-      dockerfile: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}/backend/docker/go-app.Dockerfile
+        devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
+        shared: ${SHARED_PATH?Docker Compose Config Error! SHARED_PATH is not set!}
+      dockerfile: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}/backend/docker/go-app.Dockerfile
       target: app-runner
       <<: *build-network
       args:
@@ -62,8 +63,9 @@ services:
     build:
       context: .
       additional_contexts:
-        devops-toolkit: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}
-      dockerfile: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}/backend/docker/go-app-test.Dockerfile
+        devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
+        shared: ${SHARED_PATH?Docker Compose Config Error! SHARED_PATH is not set!}
+      dockerfile: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}/backend/docker/go-app-test.Dockerfile
       target: integration-test-runner
       <<: *build-network
       args:
@@ -85,8 +87,8 @@ services:
   #   build:
   #     context: .
   #     additional_contexts:
-  #       devops-toolkit: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}
-  #     dockerfile: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}/backend/docker/go-app.Dockerfile
+  #       devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
+  #     dockerfile: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}/backend/docker/go-app.Dockerfile
   #     target: unit-test-runner
   #   <<: *networks
   # TODO: Uncomment when unit tests are implemented
@@ -98,8 +100,8 @@ services:
     build:
       context: .
       additional_contexts:
-        devops-toolkit: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}
-      dockerfile: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}/backend/docker/go-app.Dockerfile
+        devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
+      dockerfile: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}/backend/docker/go-app.Dockerfile
       target: health-check-runner
       <<: *build-network
       args:

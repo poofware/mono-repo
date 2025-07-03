@@ -15,11 +15,11 @@ endif
 # ------------------------------
 
 ifndef INCLUDED_ANDROID_KEYSTORE_CONFIGURATION_TARGETS
-  include $(DEVOPS_TOOLKIT)/frontend/make/utils/android_keystore_configuration_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/android_keystore_configuration_targets.mk
 endif
 
 ifndef INCLUDED_GCP_CONFIGURATION_TARGETS
-  include $(DEVOPS_TOOLKIT)/frontend/make/utils/gcp_configuration_targets.mk
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/gcp_configuration_targets.mk
 endif
 
 _android_app_configuration: _android_keystore_configuration _android_gcp_configuration

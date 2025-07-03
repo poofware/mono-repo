@@ -15,7 +15,7 @@ endif
 
 ifndef INCLUDED_COMPOSE_PROJECT_CONFIGURATION
   $(error [ERROR] [Compose Go App Configuration] The Compose Project Configuration must be included before any compose file configuration. \
-	Include $$(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_configuration.mk in your root Makefile.)
+	Include $$(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_project_configuration.mk in your root Makefile.)
 endif
 
 ifdef INCLUDED_COMPOSE_APP_CONFIGURATION
@@ -45,7 +45,7 @@ export GO_VERSION := 1.24
 export PACKAGES
 
 ifndef INCLUDED_COMPOSE_APP_CONFIGURATION
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_configuration.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_configuration.mk
 endif
 
 

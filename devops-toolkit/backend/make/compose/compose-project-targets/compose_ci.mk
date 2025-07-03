@@ -16,13 +16,13 @@ ifndef INCLUDED_TOOLKIT_BOOTSTRAP
 endif
 
 ifndef INCLUDED_COMPOSE_UP
-  include $(DEVOPS_TOOLKIT)/backend/make/go-app/go_app_up.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/go-app/go_app_up.mk
 endif
 ifndef INCLUDED_COMPOSE_TEST
-  include $(DEVOPS_TOOLKIT)/backend/make/go-app/go_app_test.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/go-app/go_app_test.mk
 endif
 ifndef INCLUDED_COMPOSE_DOWN
-  include $(DEVOPS_TOOLKIT)/backend/make/go-app/go_app_down.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/go-app/go_app_down.mk
 endif
 
 

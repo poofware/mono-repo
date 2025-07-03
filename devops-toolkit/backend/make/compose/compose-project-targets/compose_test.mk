@@ -16,10 +16,10 @@ ifndef INCLUDED_TOOLKIT_BOOTSTRAP
 endif
 
 ifndef INCLUDED_COMPOSE_BUILD
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_build.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_build.mk
 endif
 ifndef INCLUDED_COMPOSE_SERVICE_UTILS
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_service_compose.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_service_compose.mk
 endif
 
 

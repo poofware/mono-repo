@@ -16,7 +16,7 @@ endif
 # ------------------------------
 
 ifndef INCLUDED_APP_SECRETS_JSON
-  include $(DEVOPS_TOOLKIT)/shared/make/utils/app_secrets_json.mk
+  include $(DEVOPS_TOOLKIT_PATH)/shared/make/utils/app_secrets_json.mk
 endif
 
 _export_android_gcp_vars:

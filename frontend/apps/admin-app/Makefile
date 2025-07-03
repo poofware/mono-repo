@@ -16,5 +16,5 @@ APP_NAME := admin-app
 
 BACKEND_GATEWAY_PATH ?= ../meta-service
 
-include $(DEVOPS_TOOLKIT)/frontend/make/web_flutter_app.mk
+include $(DEVOPS_TOOLKIT_PATH)/frontend/make/web_flutter_app.mk
 

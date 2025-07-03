@@ -14,7 +14,7 @@ ifndef INCLUDED_TOOLKIT_BOOTSTRAP
 endif
 
 ifndef INCLUDED_HELP
-  include $(DEVOPS_TOOLKIT)/shared/make/help.mk
+  include $(DEVOPS_TOOLKIT_PATH)/shared/make/help.mk
 endif
 
 help::
@@ -44,7 +44,7 @@ help::
 	@echo "$(COMPOSE_PROFILE_APP_INTEGRATION_TEST) : $(COMPOSE_PROFILE_APP_INTEGRATION_TEST_SERVICES)"
 	@echo "$(COMPOSE_PROFILE_APP_UNIT_TEST)        : $(COMPOSE_PROFILE_APP_UNIT_TEST_SERVICES)"
 	@echo "--------------------------------------------------"
-	@echo "[INFO] For information on available profiles, reference $(DEVOPS_TOOLKIT)/README.md"
+	@echo "[INFO] For information on available profiles, reference $(DEVOPS_TOOLKIT_PATH)/README.md"
 	@echo
 
 

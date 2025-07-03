@@ -35,9 +35,9 @@ services:
     build:
       context: .
       additional_contexts:
-        devops-toolkit: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}
+        devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
         migrations: ${MIGRATIONS_PATH?Docker Compose Config Error! MIGRATIONS_PATH is not set!}
-      dockerfile: ${DEVOPS_TOOLKIT?Docker Compose Config Error! DEVOPS_TOOLKIT is not set!}/backend/docker/migrate.Dockerfile
+      dockerfile: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}/backend/docker/migrate.Dockerfile
       <<: *build-network
       args:
         ENV: ${ENV?Docker Compose Config Error! ENV is not set!}

@@ -32,10 +32,10 @@ endif
 
 _app_secrets_json:
 ifndef INCLUDED_HCP_CONFIGURATION
-	$(eval include $(DEVOPS_TOOLKIT)/shared/make/utils/hcp_configuration.mk)
+	$(eval include $(DEVOPS_TOOLKIT_PATH)/shared/make/utils/hcp_configuration.mk)
 endif
 ifndef APP_SECRETS_JSON
-	$(eval APP_SECRETS_JSON := $(shell $(DEVOPS_TOOLKIT)/shared/scripts/fetch_hcp_secret_from_secrets_json.sh))
+	$(eval APP_SECRETS_JSON := $(shell $(DEVOPS_TOOLKIT_PATH)/shared/scripts/fetch_hcp_secret_from_secrets_json.sh))
 	$(if $(APP_SECRETS_JSON),,$(error Failed to fetch HCP secrets))
 	@echo "[INFO] [App Secrets Json] App Secrets Json set."
 endif

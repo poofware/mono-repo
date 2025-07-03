@@ -15,7 +15,7 @@ endif
 
 ifndef INCLUDED_COMPOSE_PROJECT_CONFIGURATION
   $(error [ERROR] [App Compose Configuration] The Compose Project Configuration must be included before any compose file configuration. \
-	Include $$(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_configuration.mk in your root Makefile.)
+	Include $$(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_project_configuration.mk in your root Makefile.)
 endif
 
 
@@ -85,10 +85,10 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
 
   ifeq ($(ENABLE_NGROK_FOR_DEV),1)
     # Include ngrok as part of the project
-    COMPOSE_FILE := $(COMPOSE_FILE):$(DEVOPS_TOOLKIT)/backend/docker/ngrok.compose.yaml
+    COMPOSE_FILE := $(COMPOSE_FILE):$(DEVOPS_TOOLKIT_PATH)/backend/docker/ngrok.compose.yaml
 	
     ifndef INCLUDED_NGROK_AUTHTOKEN
-      include $(DEVOPS_TOOLKIT)/backend/make/utils/ngrok_authtoken.mk
+      include $(DEVOPS_TOOLKIT_PATH)/backend/make/utils/ngrok_authtoken.mk
     endif
 
     DEPS_PASSTHROUGH_VARS += NGROK_AUTHTOKEN
@@ -104,7 +104,7 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
   endif
 
   ifndef INCLUDED_FLY_CONSTANTS
-    include $(DEVOPS_TOOLKIT)/backend/make/utils/fly_constants.mk
+    include $(DEVOPS_TOOLKIT_PATH)/backend/make/utils/fly_constants.mk
   endif
 
   FLY_WIREGUARD_PEER_NAME := $(subst _,-,$(FLY_STAGING_ORG_NAME)-$(UNIQUE_RUNNER_ID)-$(UNIQUE_RUN_NUMBER))

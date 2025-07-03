@@ -19,10 +19,7 @@ INCLUDED_GO_APP_UPDATE := 1
 
 
 ifndef INCLUDED_ENSURE_GO
-  include $(DEVOPS_TOOLKIT)/backend/make/utils/ensure_go.mk
-endif
-ifndef INCLUDED_VENDOR
-  include $(DEVOPS_TOOLKIT)/backend/make/utils/vendor.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/utils/ensure_go.mk
 endif
 
 
@@ -38,10 +35,7 @@ update: _ensure-go
 		exit 1; \
 	fi
 
-	@$(DEVOPS_TOOLKIT)/backend/scripts/update_go_packages.sh
-
-	@echo "[INFO] [Update] Calling vendor target to update vendor directory if enabled..."
-	@$(MAKE) vendor --no-print-directory
+	@$(DEVOPS_TOOLKIT_PATH)/backend/scripts/update_go_packages.sh
 
 	@echo "[INFO] [Update] Done."
 

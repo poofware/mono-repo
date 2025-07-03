@@ -34,11 +34,11 @@ MIGRATION_LOCK_FILE ?= /tmp/meta-service-migrations.lock
 # --------------------------
 
 ifndef INCLUDED_COMPOSE_BUILD
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_targets/compose_build.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_project_targets/compose_build.mk
 endif
 
 ifndef INCLUDED_COMPOSE_DEPS_UP
-  include $(DEVOPS_TOOLKIT)/backend/make/compose/compose_project_targets/compose_deps_targets/compose_deps_up.mk
+  include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose_project_targets/compose_deps_targets/compose_deps_up.mk
 endif
 
 _up-db:
