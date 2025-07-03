@@ -477,7 +477,8 @@ func (s *PayoutService) processPayout(ctx context.Context, p *internal_models.Wo
 		return err
 	}
 
-	utils.Logger.Debugf("Processing payout amount $%.2f for worker %s (Stripe Account: %s)", float64(p.AmountCents)/100.0, worker.ID, *worker.StripeConnectAccountID)
+	utils.Logger.Debugf("Processing payout amount $%.2f for worker %s (Stripe Account: %s)",
+		float64(p.AmountCents)/100.0, worker.ID, *worker.StripeConnectAccountID)
 
 	if !acct.PayoutsEnabled {
 		s.handleFailure(ctx, p, constants.ReasonAccountPayoutsDisabled, nil)
@@ -541,16 +542,25 @@ func (s *PayoutService) processPayout(ctx context.Context, p *internal_models.Wo
 
 	utils.Logger.Infof("Successfully initiated Stripe Payout %s for payout %s", po.ID, p.ID)
 
-	// --- Step 3: Update internal record with Stripe IDs. Status remains PROCESSING ---
+	// --- Step 3: Update internal record with Stripe IDs.
 	// The final PAID/FAILED status will be set by a webhook.
 	err = s.payoutRepo.UpdateWithRetry(ctx, p.ID, func(payoutToUpdate *internal_models.WorkerPayout) error {
-		// The status was already set to PROCESSING by the calling function.
-		// We are just persisting the Stripe IDs and clearing any previous failure state.
-		payoutToUpdate.Status = internal_models.PayoutStatusProcessing
+		// Persist the Stripe IDs from the successful API calls.
 		payoutToUpdate.StripeTransferID = &t.ID
 		payoutToUpdate.StripePayoutID = &po.ID
-		payoutToUpdate.LastFailureReason = nil
-		payoutToUpdate.NextAttemptAt = nil
+
+		// CRITICAL: Only clear failure reasons if the status has NOT been changed
+		// by a concurrent webhook. If a webhook already marked this as FAILED,
+		// we must not overwrite that final state.
+		if payoutToUpdate.Status == internal_models.PayoutStatusProcessing {
+			// The status is as we left it. We can safely clear any old failure reasons
+			// from previous attempts, as this attempt successfully initiated.
+			payoutToUpdate.LastFailureReason = nil
+			payoutToUpdate.NextAttemptAt = nil
+		}
+		// If status is already FAILED or PAID, we do nothing to it.
+		// The Stripe IDs will still be saved by the update, but the authoritative
+		// final status from the webhook is preserved.
 		return nil
 	})
 

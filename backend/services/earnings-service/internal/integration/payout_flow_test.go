@@ -251,15 +251,11 @@ func TestRealWebhookEvents(t *testing.T) {
 			err := payoutService.ProcessPendingPayouts(ctx)
 			require.NoError(t, err)
 
-			// 3. Verify synchronous status: The service marks it as PROCESSING immediately.
-			interimPayout, err := payoutRepo.GetByID(ctx, payout.ID)
-			require.NoError(t, err)
-			require.Equal(t, internal_models.PayoutStatusProcessing, interimPayout.Status, "Payout should be marked as PROCESSING synchronously")
-			require.NotNil(t, interimPayout.StripeTransferID)
-
-			// 4. Verify asynchronous status: Poll for the FAILED status from the real webhook.
+			// 3. Verify final asynchronous status.
+			// The check for the intermediate 'PROCESSING' status is removed because, with the race
+			// condition fixed, the 'payout.failed' webhook can arrive so quickly that the status
+			// is already 'FAILED' by the time we check it. We now poll directly for the final state.
 			t.Logf("Polling for FAILED status for account %s...", sc.accountID)
-			// Increased timeout for webhook to arrive and be processed.
 			finalPayout := waitForPayoutStatus(t, ctx, payoutRepo, payout.ID, internal_models.PayoutStatusFailed, 30*time.Second)
 			require.NotNil(t, finalPayout, "Payout did not transition to FAILED status in time")
 			require.NotNil(t, finalPayout.LastFailureReason)
@@ -679,8 +675,9 @@ func TestPayoutFailureScenariosAndIdempotency(t *testing.T) {
 		err := payoutService.ProcessPendingPayouts(ctx)
 		require.NoError(t, err)
 
-		// The payout should be PROCESSING, awaiting the async failure webhook.
-		updatedPayout := waitForPayoutStatus(t, ctx, payoutRepo, payout.ID, internal_models.PayoutStatusProcessing, 5*time.Second)
+		// The payout will be initiated and should eventually fail asynchronously.
+		// We now wait directly for the 'FAILED' status instead of the brittle 'PROCESSING' state.
+		updatedPayout := waitForPayoutStatus(t, ctx, payoutRepo, payout.ID, internal_models.PayoutStatusFailed, 15*time.Second)
 		require.NotNil(t, updatedPayout)
 	})
 
@@ -720,11 +717,12 @@ func TestPayoutFailureScenariosAndIdempotency(t *testing.T) {
 		err := payoutService.ProcessPendingPayouts(ctx)
 		require.NoError(t, err)
 
-		// Verify it was successful and get the transfer ID
+		// Verify it was successful and get the transfer ID. We no longer assert the 'PROCESSING' status
+		// as it might already be 'PAID'. We just need to know it was initiated.
 		payout1, err := payoutRepo.GetByID(ctx, payout.ID)
 		require.NoError(t, err)
 		require.NotNil(t, payout1)
-		require.Equal(t, internal_models.PayoutStatusProcessing, payout1.Status)
+		require.NotEqual(t, internal_models.PayoutStatusPending, payout1.Status, "Payout status should have changed from PENDING")
 		require.NotNil(t, payout1.StripeTransferID)
 		firstTransferID := *payout1.StripeTransferID
 		t.Logf("First payout attempt initiated with transfer ID: %s", firstTransferID)
@@ -746,7 +744,7 @@ func TestPayoutFailureScenariosAndIdempotency(t *testing.T) {
 		payout2, err := payoutRepo.GetByID(ctx, payout.ID)
 		require.NoError(t, err)
 		require.NotNil(t, payout2)
-		require.Equal(t, internal_models.PayoutStatusProcessing, payout2.Status)
+		require.NotEqual(t, internal_models.PayoutStatusPending, payout2.Status)
 		require.NotNil(t, payout2.StripeTransferID)
 		t.Logf("Second payout attempt resulted in transfer ID: %s", *payout2.StripeTransferID)
 
