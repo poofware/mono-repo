@@ -385,9 +385,12 @@
       "placeholders": {"email": {"type": "String"}}
   },
   "checkrOutcomePageYourEmailFallback": "tu correo electrónico",
-  "checkrOutcomePageQuestions": "¿Tienes preguntas? Por favor, contáctanos o visita tu Portal de Candidato de Checkr.",
+  "checkrOutcomePageQuestions1": "¿Tienes preguntas? Por favor, ",
+  "checkrOutcomePageContactUs": "contáctanos",
+  "checkrOutcomePageQuestions2": " o visita tu Portal de Candidato de Checkr.",
   "checkrOutcomePageOpenPortalButton": "Abrir Portal de Candidatos",
-  "checkrOutcomePageContinueDashboardButton": "Continuar al Panel",
+  "checkrOutcomePageContinueAppButton": "Continuar a la App",
+  "checkrOutcomePageLimitedFunctionalityWarning": "Algunas funciones de la aplicación estarán limitadas hasta que se apruebe tu verificación.",
   "checkrOutcomePageErrorFetching": "Error al obtener datos: {error}",
   "@checkrOutcomePageErrorFetching": {
       "placeholders": {"error": {"type": "String"}}

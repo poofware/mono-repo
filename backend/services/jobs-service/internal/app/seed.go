@@ -184,7 +184,7 @@ func seedDefaultWorkersIfNeeded(
 			stored.VehicleYear = 2022
 			stored.VehicleMake = "Toyota"
 			stored.VehicleModel = "Corolla"
-			stored.SetupProgress = models.SetupProgressAwaitingPersonalInfo
+			stored.SetupProgress = models.SetupProgressBackgroundCheck
 			return nil
 		}); err != nil {
 			return fmt.Errorf("update default worker (incomplete) status: %w", err)
