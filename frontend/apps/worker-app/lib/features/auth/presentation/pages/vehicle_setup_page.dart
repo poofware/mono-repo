@@ -18,6 +18,7 @@ import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -241,7 +242,7 @@ class _VehicleSetupPageState extends ConsumerState<VehicleSetupPage> {
         );
         await repo.submitPersonalInfo(req);
       }
-      if (mounted) context.pushNamed('StripeIdvPage');
+      if (mounted) context.pushNamed(AppRouteNames.stripeIdvPage);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

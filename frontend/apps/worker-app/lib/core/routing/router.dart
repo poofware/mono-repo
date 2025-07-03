@@ -19,7 +19,6 @@ import 'package:poof_worker/features/auth/presentation/pages/phone_verification_
 import 'package:poof_worker/features/auth/presentation/pages/signup_success_page.dart';
 import 'package:poof_worker/features/auth/presentation/pages/signup_expired_page.dart';
 
-
 // Checkr / Stripe / Account
 import 'package:poof_worker/features/account/presentation/pages/checkr_page.dart';
 import 'package:poof_worker/features/account/presentation/pages/checkr_in_progress_page.dart';
@@ -46,12 +45,49 @@ import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 // Earnings
 import 'package:poof_worker/features/earnings/presentation/pages/earnings_page.dart';
 import 'package:poof_worker/features/earnings/presentation/pages/weekly_earnings_page.dart';
-import 'package:poof_worker/features/earnings/data/models/models.dart' show WeeklyEarnings;
-
+import 'package:poof_worker/features/earnings/data/models/models.dart'
+    show WeeklyEarnings;
 
 // Our new Signing Out page
 import 'package:poof_worker/features/auth/presentation/pages/signing_out_page.dart';
 import 'package:poof_worker/features/auth/presentation/pages/session_expired_page.dart';
+
+/// Defines the named routes used throughout the application for navigation.
+class AppRouteNames {
+  static const String home = 'Home';
+  static const String loginPage = 'LoginPage';
+  static const String createAccountPage = 'CreateAccountPage';
+  static const String phoneVerificationInfoPage = 'PhoneVerificationInfoPage';
+  static const String verifyNumberPage = 'VerifyNumberPage';
+  static const String addressInfoPage = 'AddressInfoPage';
+  static const String vehicleSetupPage = 'VehicleSetupPage';
+  static const String totpSignUpPage = 'TotpSignUpPage';
+  static const String signupSuccessPage = 'SignupSuccessPage';
+  static const String signupExpiredPage = 'SignupExpiredPage';
+  static const String totpVerifyPage = 'TotpVerifyPage';
+  static const String checkrPage = 'CheckrPage';
+  static const String checkrInProgressPage = 'CheckrInProgressPage';
+  static const String checkrInviteWebViewPage = 'CheckrInviteWebViewPage';
+  static const String checkrInviteCompletePage = 'CheckrInviteCompletePage';
+  static const String checkrOutcomePage = 'CheckrOutcomePage';
+  static const String stripeIdvPage = 'StripeIdvPage';
+  static const String stripeIdvInProgressPage = 'StripeIdvInProgressPage';
+  static const String stripeIdvNotCompletePage = 'StripeIdvNotCompletePage';
+  static const String stripeConnectPage = 'StripeConnectPage';
+  static const String stripeConnectInProgressPage = 'StripeConnectInProgressPage';
+  static const String stripeConnectNotCompletePage = 'StripeConnectNotCompletePage';
+  static const String mainTab = 'MainTab';
+  static const String homePage = 'HomePage';
+  static const String acceptedJobsPage = 'AcceptedJobsPage';
+  static const String jobMapPage = 'JobMapPage';
+  static const String jobInProgressPage = 'JobInProgressPage';
+  static const String earningsPage = 'EarningsPage';
+  static const String weekEarningsDetailPage = 'WeekEarningsDetailPage';
+  static const String settingsPage = 'SettingsPage';
+  static const String myProfilePage = 'MyProfilePage';
+  static const String signingOutPage = 'SigningOutPage';
+  static const String sessionExpiredPage = 'SessionExpiredPage';
+}
 
 enum RouteAccess {
   public,
@@ -75,12 +111,12 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
       access: RouteAccess.public,
       path: '/',
-      name: 'Home',
+      name: AppRouteNames.home,
       builder: (_, __) => const WelcomePage()),
   AppRoute(
     access: RouteAccess.public,
     path: '/login',
-    name: 'LoginPage',
+    name: AppRouteNames.loginPage,
     pageBuilder: (context, state) => const CupertinoPage(
       child: LoginPage(),
     ),
@@ -88,14 +124,14 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
       access: RouteAccess.public,
       path: '/create_account',
-      name: 'CreateAccountPage',
+      name: AppRouteNames.createAccountPage,
       pageBuilder: (context, state) => const CupertinoPage(
             child: CreateAccountPage(),
           )),
   AppRoute(
       access: RouteAccess.unrestricted,
       path: '/phone_verification_info',
-      name: 'PhoneVerificationInfoPage',
+      name: AppRouteNames.phoneVerificationInfoPage,
       pageBuilder: (context, state) {
         final args = state.extra as PhoneVerificationInfoArgs;
         return CupertinoPage(child: PhoneVerificationInfoPage(args: args));
@@ -103,7 +139,7 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
       access: RouteAccess.unrestricted,
       path: '/verify_number',
-      name: 'VerifyNumberPage',
+      name: AppRouteNames.verifyNumberPage,
       pageBuilder: (context, state) {
         final args = state.extra as VerifyNumberArgs;
         return CupertinoPage(child: VerifyNumberPage(args: args));
@@ -111,37 +147,37 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
       access: RouteAccess.protected,
       path: '/address_info',
-      name: 'AddressInfoPage',
+      name: AppRouteNames.addressInfoPage,
       builder: (_, __) => const AddressInfoPage()),
   AppRoute(
     access: RouteAccess.protected,
     path: '/vehicle_setup',
-    name: 'VehicleSetupPage',
+    name: AppRouteNames.vehicleSetupPage,
     pageBuilder: (context, state) =>
         const CupertinoPage(child: VehicleSetupPage()),
   ),
   AppRoute(
       access: RouteAccess.unrestricted,
       path: '/totp_signup',
-      name: 'TotpSignUpPage',
+      name: AppRouteNames.totpSignUpPage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: TotpSignUpPage())),
   AppRoute(
       access: RouteAccess.public,
       path: '/signup_success',
-      name: 'SignupSuccessPage',
+      name: AppRouteNames.signupSuccessPage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: SignupSuccessPage())),
   AppRoute(
       access: RouteAccess.public,
       path: '/signup_expired',
-      name: 'SignupExpiredPage',
+      name: AppRouteNames.signupExpiredPage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: SignupExpiredPage())),
   AppRoute(
       access: RouteAccess.unrestricted,
       path: '/totp_verify',
-      name: 'TotpVerifyPage',
+      name: AppRouteNames.totpVerifyPage,
       pageBuilder: (_, state) {
         final args = state.extra as TotpVerifyArgs;
         return CupertinoPage(child: TotpVerifyPage(args: args));
@@ -149,18 +185,18 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
       access: RouteAccess.protected,
       path: '/checkr',
-      name: 'CheckrPage',
+      name: AppRouteNames.checkrPage,
       builder: (_, __) => const BackgroundCheckPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/checkr_in_progress',
-      name: 'CheckrInProgressPage',
+      name: AppRouteNames.checkrInProgressPage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: CheckrInProgressPage())),
   AppRoute(
       access: RouteAccess.protected,
       path: '/checkr_invite',
-      name: 'CheckrInviteWebViewPage',
+      name: AppRouteNames.checkrInviteWebViewPage,
       pageBuilder: (_, state) {
         final url = state.extra as String;
         return CupertinoPage(
@@ -169,67 +205,67 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
       access: RouteAccess.protected,
       path: '/checkr_invite_complete',
-      name: 'CheckrInviteCompletePage',
+      name: AppRouteNames.checkrInviteCompletePage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: CheckrInviteCompletePage())),
   AppRoute(
       access: RouteAccess.protected,
       path: '/checkr_outcome',
-      name: 'CheckrOutcomePage',
+      name: AppRouteNames.checkrOutcomePage,
       builder: (_, __) => const CheckrOutcomePage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_idv',
-      name: 'StripeIdvPage',
+      name: AppRouteNames.stripeIdvPage,
       builder: (_, __) => const VerifyIdentityPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_idv_in_progress',
-      name: 'StripeIdvInProgressPage',
+      name: AppRouteNames.stripeIdvInProgressPage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: StripeIdvInProgressPage())),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_idv_not_complete',
-      name: 'StripeIdvNotCompletePage',
+      name: AppRouteNames.stripeIdvNotCompletePage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: StripeIdvNotCompletePage())),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_connect',
-      name: 'StripeConnectPage',
+      name: AppRouteNames.stripeConnectPage,
       builder: (_, __) => const StripePage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_connect_in_progress',
-      name: 'StripeConnectInProgressPage',
+      name: AppRouteNames.stripeConnectInProgressPage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: StripeConnectInProgressPage())),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_connect_not_complete',
-      name: 'StripeConnectNotCompletePage',
+      name: AppRouteNames.stripeConnectNotCompletePage,
       pageBuilder: (context, state) =>
           const CupertinoPage(child: StripeConnectNotCompletePage())),
   AppRoute(
       access: RouteAccess.protected,
       path: '/main',
-      name: 'MainTab',
+      name: AppRouteNames.mainTab,
       builder: (_, __) => const MainTabsScreen()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/home',
-      name: 'HomePage',
+      name: AppRouteNames.homePage,
       builder: (_, __) => const HomePage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/accepted_jobs',
-      name: 'AcceptedJobsPage',
+      name: AppRouteNames.acceptedJobsPage,
       builder: (_, __) => const AcceptedJobsPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/job_map',
-      name: 'JobMapPage',
+      name: AppRouteNames.jobMapPage,
       pageBuilder: (_, state) {
         final job = state.extra as JobInstance;
         return CustomTransitionPage<void>(
@@ -247,7 +283,7 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
     access: RouteAccess.protected,
     path: '/job_in_progress',
-    name: 'JobInProgressPage',
+    name: AppRouteNames.jobInProgressPage,
     builder: (_, state) {
       final job = state.extra as JobInstance;
       final coldMap = JobMapPage(
@@ -266,12 +302,12 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
       access: RouteAccess.protected,
       path: '/earnings',
-      name: 'EarningsPage',
+      name: AppRouteNames.earningsPage,
       builder: (_, __) => const EarningsPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/week_earnings_detail',
-      name: 'WeekEarningsDetailPage',
+      name: AppRouteNames.weekEarningsDetailPage,
       builder: (_, state) {
         final week = state.extra as WeeklyEarnings;
         return WeekEarningsDetailPage(week: week);
@@ -279,22 +315,22 @@ final List<AppRoute> _appRoutes = [
   AppRoute(
       access: RouteAccess.protected,
       path: '/settings',
-      name: 'SettingsPage',
+      name: AppRouteNames.settingsPage,
       builder: (_, __) => const SettingsPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/my_profile',
-      name: 'MyProfilePage',
+      name: AppRouteNames.myProfilePage,
       builder: (_, __) => const MyProfilePage()),
   AppRoute(
       access: RouteAccess.unrestricted,
       path: '/signing_out',
-      name: 'SigningOutPage',
+      name: AppRouteNames.signingOutPage,
       builder: (_, __) => const SigningOutPage()),
   AppRoute(
       access: RouteAccess.unrestricted,
       path: '/session_expired',
-      name: 'SessionExpiredPage',
+      name: AppRouteNames.sessionExpiredPage,
       builder: (_, __) => const SessionExpiredPage()),
 ];
 
@@ -308,11 +344,11 @@ final Map<String, RouteAccess> _accessByPath = {
 
 class AuthLostRefresh extends ChangeNotifier {
   AuthLostRefresh(Stream<AppStateData> stream) {
-    bool? wasLoggedIn;              // null until first event arrives
+    bool? wasLoggedIn; // null until first event arrives
     _sub = stream.listen((appState) {
       final lostAuth = wasLoggedIn == true && !appState.isLoggedIn;
-      wasLoggedIn  = appState.isLoggedIn;
-      if (lostAuth) notifyListeners();  // fire ONLY on login → logout
+      wasLoggedIn = appState.isLoggedIn;
+      if (lostAuth) notifyListeners(); // fire ONLY on login → logout
     });
   }
 
@@ -334,13 +370,13 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) {
 
         // deepest match
         // consider returning this location instead of null
-        final routeName  = state.topRoute?.name;
-        final location   = state.topRoute?.path;
+        final routeName = state.topRoute?.name;
+        final location = state.topRoute?.path;
 
         // look up the access flag
-        final access     = _accessByName[routeName] ??
-                           _accessByPath[location] ??
-                           RouteAccess.protected;
+        final access = _accessByName[routeName] ??
+            _accessByPath[location] ??
+            RouteAccess.protected;
 
         debugPrint(
             'Redirecting to $location (name: ${routeName ?? 'unknown'}, access: $access, loggedIn: $loggedIn)');

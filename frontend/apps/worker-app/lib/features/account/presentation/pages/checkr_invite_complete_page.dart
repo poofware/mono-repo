@@ -3,9 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
-
-
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
+import 'package:poof_worker/core/routing/router.dart';
 
 /// Brief celebratory page shown right after the candidate finishes
 /// the Checkr invitation flow.
@@ -61,7 +60,7 @@ class CheckrInviteCompletePage extends ConsumerWidget {
                   const SizedBox(height: 48),
                   WelcomeButton(
                     text: appLocalizations.checkrInviteCompletePageContinueButton,
-                    onPressed: () => context.goNamed('CheckrOutcomePage'),
+                    onPressed: () => context.goNamed(AppRouteNames.checkrOutcomePage),
                   ),
                 ],
               ),

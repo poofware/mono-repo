@@ -466,6 +466,8 @@
   "myProfilePageManagePaymentsSubtitle": "Actualiza tu cuenta bancaria o ve los detalles de pago en Stripe.",
   "myProfilePageManageBackgroundCheckButton": "Ver Verificación de Antecedentes",
   "myProfilePageManageBackgroundCheckSubtitle": "Abre tu portal de candidato de Checkr para ver el estado o los informes.",
+  "myProfilePageCheckStatusButton": "Ver Estado de Verificación de Antecedentes",
+  "myProfilePageCheckStatusSubtitle": "Revisa el progreso de tu verificación de antecedentes pendiente.",
   "appSplashLogoPlaceholder": "EL LOGO IRÁ AQUÍ",
   "checkrInviteWebViewBarrierLabel": "Invitación de Checkr",
   "checkrStatusCanceled": "Cancelado",

@@ -8,6 +8,7 @@ import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/config/flavors.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/account/providers/providers.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
@@ -34,7 +35,7 @@ class _StripePageState extends ConsumerState<StripePage> {
     final BuildContext capturedContext = context;
 
     if (config.testMode) {
-      router.pushNamed('StripeConnectInProgressPage');
+      router.pushNamed(AppRouteNames.stripeConnectInProgressPage);
       return;
     }
 

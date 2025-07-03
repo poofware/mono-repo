@@ -79,7 +79,6 @@
       }
     }
   },
-  "signingOutTitle": "Signing Out",
   "signingOutMessage": "Signing out...",
   "sessionExpiredTitle": "Session Expired",
   "sessionExpiredMessage": "Your authentication was lost.\nRedirecting to sign-in…",
@@ -466,6 +465,8 @@
   "myProfilePageManagePaymentsSubtitle": "Update your bank account or view payment details on Stripe.",
   "myProfilePageManageBackgroundCheckButton": "View Background Check",
   "myProfilePageManageBackgroundCheckSubtitle": "Open your Checkr candidate portal to view status or reports.",
+  "myProfilePageCheckStatusButton": "View Background Check Status",
+  "myProfilePageCheckStatusSubtitle": "Check the progress of your pending background check.",
   "appSplashLogoPlaceholder": "LOGO WILL GO HERE",
   "checkrInviteWebViewBarrierLabel": "Checkr Invitation",
   "checkrStatusCanceled": "Canceled",

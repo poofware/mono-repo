@@ -5,6 +5,11 @@ type StripeConnectFlowURLResponse struct {
 	ConnectFlowURL string `json:"connect_flow_url"`
 }
 
+// StripeExpressLoginLinkResponse is returned by ExpressLoginLinkHandler
+type StripeExpressLoginLinkResponse struct {
+	LoginLinkURL string `json:"login_link_url"`
+}
+
 // StripeIdentityFlowURLResponse is returned by IdentityFlowURLHandler
 type StripeIdentityFlowURLResponse struct {
 	IdentityFlowURL string `json:"identity_flow_url"`

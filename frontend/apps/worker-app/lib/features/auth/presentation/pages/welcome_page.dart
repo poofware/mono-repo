@@ -10,6 +10,7 @@ import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/providers/welcome_video_provider.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/providers/localization_provider.dart'; // Import locale provider
 
 class WelcomePage extends ConsumerStatefulWidget {
@@ -187,7 +188,7 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
                         onPressed: () async {
                           if (_isNavigating) return;
                           setState(() => _isNavigating = true);
-                          await context.pushNamed('LoginPage');
+                          await context.pushNamed(AppRouteNames.loginPage);
                           if (mounted) {
                             setState(() => _isNavigating = false);
                           }
@@ -202,7 +203,7 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
                         onTap: () async {
                           if (_isNavigating) return;
                           setState(() => _isNavigating = true);
-                          await context.pushNamed('CreateAccountPage');
+                          await context.pushNamed(AppRouteNames.createAccountPage);
                           if (mounted) {
                             setState(() => _isNavigating = false);
                           }

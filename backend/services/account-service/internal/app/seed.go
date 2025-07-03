@@ -111,7 +111,7 @@ func SeedDefaultWorker(workerRepo repositories.WorkerRepository) error {
 			stored.VehicleMake = "Toyota"
 			stored.VehicleModel = "Corolla"
 			// This worker is now at the beginning of the setup flow.
-			stored.SetupProgress = models.SetupProgressAwaitingPersonalInfo
+			stored.SetupProgress = models.SetupProgressBackgroundCheck
 			return nil
 		}); err != nil {
 			return fmt.Errorf("update default worker (incomplete) status: %w", err)

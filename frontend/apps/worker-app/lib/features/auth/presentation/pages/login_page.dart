@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/providers/app_providers.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
 import '../widgets/phone_number_field.dart';
@@ -50,7 +51,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (config.testMode) {
         logger.d('Test mode: skipping real TOTP login, setting state.');
         ref.read(appStateProvider.notifier).setLoggedIn(true);
-        router.goNamed('MainTab');
+        router.goNamed(AppRouteNames.mainTab);
         return;
       }
 
@@ -80,7 +81,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     // This logic now just navigates to the unified verify page
     await context.pushNamed(
-      'TotpVerifyPage',
+      AppRouteNames.totpVerifyPage,
       extra: TotpVerifyArgs(
         displayIdentifier: _combinedPhone,
         onSuccess: _onVerifyAndLogin,
@@ -115,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           if (context.canPop()) {
                             context.pop();
                           } else {
-                            context.goNamed('Home');
+                            context.goNamed(AppRouteNames.home);
                           }
                         },
                       ),

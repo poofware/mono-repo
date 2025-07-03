@@ -19,6 +19,7 @@ void configureDevFlavor() {
     location: BannerLocation.topStart,
     authServiceURL: 'https://$baseUrl/auth/$apiVersion',
     apiServiceURL: 'https://$baseUrl/api/$apiVersion',
+    baseUrl: 'https://$baseUrl',
     gcpSdkKey: gcpSdkKey,
     realDeviceAttestation: false,
   );

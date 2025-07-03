@@ -16,8 +16,10 @@ import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/features/auth/presentation/pages/phone_verification_info_page.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/config/flavors.dart';
 
+import 'checkr_outcome_page.dart';
 import 'saving_overlay.dart';
 
 class MyProfilePage extends ConsumerStatefulWidget {
@@ -28,9 +30,6 @@ class MyProfilePage extends ConsumerStatefulWidget {
 }
 
 class _MyProfilePageState extends ConsumerState<MyProfilePage> {
-  // --------------------------------------------------
-  // Text-editing controllers
-  // --------------------------------------------------
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
   late final TextEditingController _yearController;
@@ -64,8 +63,32 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     super.dispose();
   }
 
+  // A helper function to present the CheckrOutcomePage as a modal sheet.
+  Future<void> _showCheckrOutcomePage() async {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Checkr Outcome', // Accessibility label for the barrier.
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) => const CheckrOutcomePage(),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: anim1,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
+        );
+      },
+    );
+  }
+
   // 0. Dummy data used exclusively in test-mode
   Worker get _dummyWorker => Worker(
+        id: 'dummy-worker-id',
         email: 'jane.doe@example.com',
         phoneNumber: '+1 555-555-1234',
         firstName: 'Jane',
@@ -102,6 +125,31 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
     final fullName =
         '${worker?.firstName ?? ''} ${worker?.lastName ?? ''}'.trim();
+
+    // Dynamically build the list of account management tiles
+    final accountManagementTiles = <Widget>[
+      // Conditionally add the status check tile
+      if (worker?.accountStatus == AccountStatusType.backgroundCheckPending)
+        _StatefulLinkTile(
+          icon: Icons.hourglass_top_outlined,
+          title: appLocalizations.myProfilePageCheckStatusButton,
+          subtitle: appLocalizations.myProfilePageCheckStatusSubtitle,
+          onTap: _showCheckrOutcomePage,
+        ),
+      // The permanent tiles
+      _StatefulLinkTile(
+        icon: Icons.credit_card_outlined,
+        title: appLocalizations.myProfilePageManagePaymentsButton,
+        subtitle: appLocalizations.myProfilePageManagePaymentsSubtitle,
+        onTap: _handleManagePayouts,
+      ),
+      _StatefulLinkTile(
+        icon: Icons.policy_outlined,
+        title: appLocalizations.myProfilePageManageBackgroundCheckButton,
+        subtitle: appLocalizations.myProfilePageManageBackgroundCheckSubtitle,
+        onTap: () => _launchUrl('https://candidate.checkr.com/'),
+      ),
+    ];
 
     final profileScaffold = Scaffold(
       body: SafeArea(
@@ -148,7 +196,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                   children: [
                     // --- Avatar & Name Header ---
                     _buildProfileHeader(theme, worker!, fullName, appLocalizations),
-                    
+
                     // --- Contact Info Section ---
                     _buildSection(
                       title: appLocalizations.myProfilePageContactSection,
@@ -175,7 +223,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                         ),
                       ],
                     ),
-                    
+
                     // --- Vehicle Info Section ---
                     _buildSection(
                       title: appLocalizations.myProfilePageVehicleSection,
@@ -204,27 +252,15 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
                     // --- Account Management Section ---
                     _buildSection(
-                      title: appLocalizations.myProfilePageAccountManagementSection,
-                      children: [
-                        _StatefulLinkTile(
-                          icon: Icons.credit_card_outlined,
-                          title: appLocalizations.myProfilePageManagePaymentsButton,
-                          subtitle: appLocalizations.myProfilePageManagePaymentsSubtitle,
-                          onTap: () => _launchUrl('https://connect.stripe.com/app/express'),
-                        ),
-                        _StatefulLinkTile(
-                          icon: Icons.policy_outlined, // CORRECTED ICON
-                          title: appLocalizations.myProfilePageManageBackgroundCheckButton,
-                          subtitle: appLocalizations.myProfilePageManageBackgroundCheckSubtitle,
-                          onTap: () => _launchUrl('https://candidate.checkr.com/'),
-                        ),
-                      ]
+                      title:
+                          appLocalizations.myProfilePageAccountManagementSection,
+                      children: accountManagementTiles,
                     ),
-                    
                   ],
                 ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
               ),
             ),
+
             // --- Sticky Save Button ---
             if (_isEditing)
               Padding(
@@ -263,7 +299,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [AppColors.poofColor.withOpacity(0.5), AppColors.poofColor],
+                colors: [AppColors.poofColor.withAlpha(128), AppColors.poofColor],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -294,7 +330,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 8, left: 8), // REDUCED TOP PADDING
+          padding: const EdgeInsets.only(top: 16, bottom: 8, left: 8),
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -381,17 +417,39 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _populateControllers(worker);
     setState(() => _isEditing = false);
   }
-  
+
   Future<void> _launchUrl(String url) async {
     final success = await tryLaunchUrl(url);
     if (!mounted) return;
     if (!success) {
         final appLocalizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(appLocalizations.urlLauncherCannotLaunch)),
+          SnackBar(content: Text(appLocalizations.urlLauncherCannotLaunch)),
         );
     }
 }
+
+  Future<void> _handleManagePayouts() async {
+    // This handler no longer sets the page-level _isSaving flag.
+    // The loading state is now handled entirely within _StatefulLinkTile.
+    final BuildContext capturedContext = context;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      final repo = ref.read(workerAccountRepositoryProvider);
+      final loginLinkUrl = await repo.getStripeExpressLoginLink();
+      final success = await tryLaunchUrl(loginLinkUrl);
+      if (!success && capturedContext.mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch)),
+        );
+      }
+    } catch (e) {
+      if (capturedContext.mounted) {
+        _showError(capturedContext, e as Exception);
+      }
+    }
+  }
 
   Future<void> _saveProfile(Worker worker) async {
     setState(() => _isSaving = true);
@@ -486,7 +544,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   Future<bool> _startPhoneVerificationFlowAndWait(String phone) async {
     if (!mounted) return false;
     final result = await context.pushNamed<bool>(
-      'PhoneVerificationInfoPage',
+      AppRouteNames.phoneVerificationInfoPage,
       extra: PhoneVerificationInfoArgs(phoneNumber: phone, onSuccess: null),
     );
     return result == true;
@@ -516,7 +574,6 @@ class _ProfileReadOnlyField extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-
   const _ProfileReadOnlyField({
     super.key,
     required this.icon,

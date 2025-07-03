@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
 class SignupSuccessPage extends StatelessWidget {
@@ -59,7 +60,7 @@ class SignupSuccessPage extends StatelessWidget {
                   const SizedBox(height: 48),
                   WelcomeButton(
                     text: appLocalizations.signupSuccessButton,
-                    onPressed: () => context.goNamed('LoginPage'),
+                    onPressed: () => context.goNamed(AppRouteNames.loginPage),
                   ),
                 ],
               ),

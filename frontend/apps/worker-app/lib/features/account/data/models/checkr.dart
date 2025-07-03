@@ -113,3 +113,14 @@ class CheckrOutcomeResponse {
   }
 }
 
+// NEW: Session Token for Checkr Embed
+class CheckrSessionTokenResponse {
+  final String token;
+  const CheckrSessionTokenResponse({required this.token});
+
+  factory CheckrSessionTokenResponse.fromJson(Map<String, dynamic> json) {
+    return CheckrSessionTokenResponse(
+      token: json['token'] as String,
+    );
+  }
+}

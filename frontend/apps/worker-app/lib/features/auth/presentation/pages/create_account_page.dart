@@ -11,6 +11,7 @@ import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/auth/presentation/pages/phone_verification_info_page.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
@@ -139,13 +140,13 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
         final totpResp = await workerAuthRepo.generateTOTPSecret();
         signUpNotifier.setTotpSecret(totpResp.secret);
         // Using `go` here replaces the verification pages from the history stack.
-        router.goNamed('TotpSignUpPage');
+        router.goNamed(AppRouteNames.totpSignUpPage);
       }
 
       // Await the push and reset loading state when it returns.
       // This robustly handles the user pressing the back button.
       await router.pushNamed(
-        'PhoneVerificationInfoPage',
+        AppRouteNames.phoneVerificationInfoPage,
         extra: PhoneVerificationInfoArgs(
           phoneNumber: phone,
           onSuccess: handleSuccess,
@@ -215,7 +216,7 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
                           if (context.canPop()) {
                             context.pop();
                           } else {
-                            context.goNamed('Home');
+                            context.goNamed(AppRouteNames.home);
                           }
                         }
                       ),

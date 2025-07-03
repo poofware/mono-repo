@@ -47,7 +47,7 @@ type CheckrClient struct {
 }
 
 const (
-	baseURL = "https://api.checkr.com/v1"
+	baseURL        = "https://api.checkr.com/v1"
 	stagingBaseURL = "https://api.checkr-staging.com/v1"
 )
 
@@ -202,3 +202,16 @@ func (c *CheckrClient) handleHTTPError(resp *http.Response) error {
 	}
 }
 
+// NEW: CreateSessionToken creates a session token for the Web SDK.
+func (c *CheckrClient) CreateSessionToken(ctx context.Context, candidateID string) (*SessionToken, error) {
+	endpoint := "web_sdk/session_tokens"
+	body := map[string]any{
+		"scopes":       []string{"order"},
+		"direct":		true,
+	}
+	var token SessionToken
+	if err := c.doRequest(ctx, "POST", endpoint, body, &token, nil); err != nil {
+		return nil, fmt.Errorf("CreateSessionToken error: %w", err)
+	}
+	return &token, nil
+}

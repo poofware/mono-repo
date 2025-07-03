@@ -17,13 +17,15 @@ class WorkerAccountApi with AuthenticatedApiMixin {
 
   /// For refreshing tokens. We can share the same auth server path or a dedicated route.
   @override
-  String get refreshTokenBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
+  String get refreshTokenBaseUrl =>
+      PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
   String get refreshTokenPath => '/worker/refresh_token';
 
   @override
-  String get attestationChallengeBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
+  String get attestationChallengeBaseUrl =>
+      PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
   String get attestationChallengePath => '/worker/challenge';
@@ -39,7 +41,7 @@ class WorkerAccountApi with AuthenticatedApiMixin {
     required this.tokenStorage,
     this.onAuthLost,
   }) : useRealAttestation =
-      PoofWorkerFlavorConfig.instance.realDeviceAttestation;
+            PoofWorkerFlavorConfig.instance.realDeviceAttestation; //
 
   // ------------------------------------------------------------------
   // Worker record
@@ -69,7 +71,7 @@ class WorkerAccountApi with AuthenticatedApiMixin {
       method: 'POST',
       path: '/account/worker/personal-info',
       body: request,
-    );
+    ); //
     return Worker.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
@@ -108,6 +110,7 @@ class WorkerAccountApi with AuthenticatedApiMixin {
 
   Future<CheckrOutcomeResponse> getCheckrOutcome() async {
     final resp = await sendAuthenticatedRequest(
+      //
       method: 'GET',
       path: '/account/worker/checkr/outcome',
     );
@@ -122,6 +125,17 @@ class WorkerAccountApi with AuthenticatedApiMixin {
       path: '/account/worker/checkr/complete',
     );
     return (jsonDecode(resp.body) as Map<String, dynamic>)['message'] as String;
+  }
+
+  // NEW: Session Token for Checkr Embed
+  Future<CheckrSessionTokenResponse> getCheckrSessionToken() async {
+    final resp = await sendAuthenticatedRequest(
+      method: 'POST',
+      path: '/account/worker/checkr/session-token',
+    );
+    return CheckrSessionTokenResponse.fromJson(
+      jsonDecode(resp.body) as Map<String, dynamic>,
+    );
   }
 
   // ------------------------------------------------------------------
@@ -141,7 +155,8 @@ class WorkerAccountApi with AuthenticatedApiMixin {
       method: 'GET',
       path: '/account/worker/stripe/connect-flow-status',
     );
-    return (jsonDecode(resp.body) as Map<String, dynamic>)['status'] as String;
+    return (jsonDecode(resp.body) as Map<String, dynamic>)['status']
+        as String;
   }
 
   Future<String> getStripeIdentityFlowUrl() async {
@@ -159,5 +174,14 @@ class WorkerAccountApi with AuthenticatedApiMixin {
       path: '/account/worker/stripe/identity-flow-status',
     );
     return (jsonDecode(resp.body) as Map<String, dynamic>)['status'] as String;
+  }
+
+  Future<String> getStripeExpressLoginLink() async {
+    final resp = await sendAuthenticatedRequest(
+      method: 'GET',
+      path: '/account/worker/stripe/express-login-link',
+    );
+    return (jsonDecode(resp.body) as Map<String, dynamic>)['login_link_url']
+        as String;
   }
 }

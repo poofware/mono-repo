@@ -8,6 +8,7 @@ import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
 import '../../data/models/worker.dart';
@@ -41,7 +42,7 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
     final config = PoofWorkerFlavorConfig.instance;
 
     if (config.testMode) {
-      router.pushNamed('CheckrInProgressPage', extra: 'TEST-URL');
+      router.pushNamed(AppRouteNames.checkrInProgressPage, extra: 'TEST-URL');
       return;
     }
 
@@ -57,7 +58,7 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
       }
 
       final invite = await repo.createCheckrInvitation();
-      router.pushNamed('CheckrInProgressPage', extra: invite.invitationUrl);
+      router.pushNamed(AppRouteNames.checkrInProgressPage, extra: invite.invitationUrl);
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
       scaffoldMessenger.showSnackBar(

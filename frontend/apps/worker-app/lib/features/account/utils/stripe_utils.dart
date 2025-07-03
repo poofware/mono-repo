@@ -1,6 +1,7 @@
 // worker-app/lib/features/account/utils/stripe_utils.dart
 import 'package:go_router/go_router.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import '../data/repositories/worker_account_repository.dart';
 
 /// Starts the Stripe Connect flow.
@@ -10,7 +11,7 @@ Future<bool> startStripeConnectFlow(
   final flowUrl = await repo.getStripeConnectFlowUrl();
   final success = await tryLaunchUrl(flowUrl);
   if (success) {
-    router.pushNamed('StripeConnectInProgressPage');
+    router.pushNamed(AppRouteNames.stripeConnectInProgressPage);
   }
   return success;
 }
@@ -22,7 +23,7 @@ Future<bool> startStripeIdentityFlow(
   final idvUrl = await repo.getStripeIdentityFlowUrl();
   final success = await tryLaunchUrl(idvUrl);
   if (success) {
-    router.pushNamed('StripeIdvInProgressPage');
+    router.pushNamed(AppRouteNames.stripeIdvInProgressPage);
   }
   return success;
 }

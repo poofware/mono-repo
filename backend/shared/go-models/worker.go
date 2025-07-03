@@ -73,7 +73,7 @@ type Worker struct {
     IsBanned          bool       `json:"is_banned"`
     SuspendedUntil    *time.Time `json:"suspended_until,omitempty"`
 
-    TenantToken       *string    `json:"tenant_token,omitempty"`
+    TenantToken        *string    `json:"tenant_token,omitempty"`
 
     CreatedAt time.Time `json:"created_at"`
     UpdatedAt time.Time `json:"updated_at"`
@@ -82,4 +82,3 @@ type Worker struct {
 func (w *Worker) GetID() string {
     return w.ID.String()
 }
-

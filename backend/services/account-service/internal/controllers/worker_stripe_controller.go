@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/services"
 	"github.com/poofware/account-service/internal/routes"
+	"github.com/poofware/account-service/internal/services"
 	"github.com/poofware/go-middleware"
 	"github.com/poofware/go-utils"
 )
@@ -18,6 +18,50 @@ type WorkerStripeController struct {
 
 func NewWorkerStripeController(s *services.WorkerStripeService) *WorkerStripeController {
 	return &WorkerStripeController{workerStripeService: s}
+}
+
+// GET /api/v1/account/worker/stripe/express-login-link
+func (c *WorkerStripeController) ExpressLoginLinkHandler(w http.ResponseWriter, r *http.Request) {
+	ctxUserID := r.Context().Value(middleware.ContextKeyUserID)
+	if ctxUserID == nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusUnauthorized,
+			utils.ErrCodeUnauthorized,
+			"Missing userID in context",
+			nil,
+		)
+		return
+	}
+
+	workerID, err := uuid.Parse(ctxUserID.(string))
+	if err != nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusBadRequest,
+			utils.ErrCodeInvalidPayload,
+			"Invalid worker ID format",
+			err,
+		)
+		return
+	}
+
+	url, err := c.workerStripeService.GetExpressLoginLink(r.Context(), workerID)
+	if err != nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusInternalServerError,
+			utils.ErrCodeInternal,
+			"Failed to create Express login link",
+			err,
+		)
+		return
+	}
+
+	resp := dtos.StripeExpressLoginLinkResponse{
+		LoginLinkURL: url,
+	}
+	utils.RespondWithJSON(w, http.StatusOK, resp)
 }
 
 // GET /api/v1/account/worker/stripe/connect-flow
@@ -196,4 +240,3 @@ func (c *WorkerStripeController) IdentityFlowStatusHandler(w http.ResponseWriter
 	}
 	utils.RespondWithJSON(w, http.StatusOK, resp)
 }
-

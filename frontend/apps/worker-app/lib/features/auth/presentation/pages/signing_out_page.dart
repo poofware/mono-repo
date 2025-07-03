@@ -6,6 +6,7 @@ import 'package:poof_worker/core/providers/app_providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
 import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 
 /// A simple page that displays a "Signing out..." message with
 /// a loading spinner. It ensures the user sees this for at least
@@ -64,7 +65,7 @@ class _SigningOutPageState extends ConsumerState<SigningOutPage> {
     // 3) Redirect to welcome page
     if (mounted) {
       setState(() => _done = true);
-      router.goNamed('Home');
+      router.goNamed(AppRouteNames.home);
     }
   }
 

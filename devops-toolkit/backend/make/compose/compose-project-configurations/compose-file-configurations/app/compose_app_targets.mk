@@ -222,7 +222,7 @@ endif
 
 ## Prints the domain that you can use to access the app from anywhere with https
 print-public-app-domain::
-	@./$(DEVOPS_TOOLKIT_PATH)/backend/scripts/health_check.sh
+	@$(DEVOPS_TOOLKIT_PATH)/backend/scripts/health_check.sh
 	@echo $$APP_URL_FROM_ANYWHERE | sed -e 's~^https://~~'
 
 ifndef INCLUDED_COMPOSE_PROJECT_TARGETS

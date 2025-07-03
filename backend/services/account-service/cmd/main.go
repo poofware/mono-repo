@@ -38,7 +38,7 @@ func main() {
 	unitRepo := repositories.NewUnitRepository(application.DB)
 
 	// Unconditionally seed permanent accounts (e.g., for Google Play reviewers).
-	if err := app.SeedAllAccounts(workerRepo, pmRepo); err != nil {
+	if err := app.SeedAllAccounts(workerRepo, pmRepo); err != nil { //
 		utils.Logger.Fatal("Failed to seed permanent accounts:", err)
 	}
 
@@ -126,7 +126,7 @@ func main() {
 	router.HandleFunc(routes.AccountStripeWebhook, stripeWebhookController.WebhookHandler).Methods(http.MethodPost)
 	router.HandleFunc(routes.AccountStripeWebhookCheck, stripeWebhookController.WebhookCheckHandler).Methods(http.MethodGet)
 
-	// Checkr webhook route 
+	// Checkr webhook route
 	router.HandleFunc(routes.CheckrWebhook, checkrWebhookController.HandleWebhook).Methods(http.MethodPost)
 
 	// Protected routes (JWT middleware)
@@ -145,12 +145,14 @@ func main() {
 	secured.HandleFunc(routes.WorkerStripeConnectFlowStatus, workerStripeController.ConnectFlowStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerStripeIdentityFlowURL, workerStripeController.IdentityFlowURLHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerStripeIdentityFlowStatus, workerStripeController.IdentityFlowStatusHandler).Methods(http.MethodGet)
+	secured.HandleFunc(routes.WorkerStripeExpressLoginLink, workerStripeController.ExpressLoginLinkHandler).Methods(http.MethodGet) // NEW
 
 	// Worker Checkr
 	secured.HandleFunc(routes.WorkerCheckrInvitation, workerCheckrController.CreateInvitationHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.WorkerCheckrStatus, workerCheckrController.GetCheckrStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrReportETA, workerCheckrController.GetCheckrReportETAHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrOutcome, workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
+	secured.HandleFunc(routes.WorkerCheckrSessionToken, workerCheckrController.CreateSessionTokenHandler).Methods(http.MethodPost) // NEW
 
 	allowedOrigins := []string{cfg.AppUrl}
 	if !cfg.LDFlag_CORSHighSecurity {

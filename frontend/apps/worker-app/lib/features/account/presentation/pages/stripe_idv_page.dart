@@ -14,6 +14,7 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 
 import '../../utils/stripe_utils.dart';
 
@@ -35,7 +36,7 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
     final BuildContext capturedContext = context;
 
     if (config.testMode) {
-      router.pushNamed('StripeIdvInProgressPage');
+      router.pushNamed(AppRouteNames.stripeIdvInProgressPage);
       return;
     }
 

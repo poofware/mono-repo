@@ -15,6 +15,7 @@ void configureProdFlavor() {
     location: BannerLocation.topStart,
     authServiceURL: 'https://thepoofapp.com/auth/$apiVersion',
     apiServiceURL: 'https://thepoofapp.com/api/$apiVersion',
+    baseUrl: 'https://thepoofapp.com',
     gcpSdkKey: gcpSdkKey,
     realDeviceAttestation: true,
   );

@@ -38,3 +38,9 @@ type CheckrOutcomeResponse struct {
 	Outcome models.ReportOutcomeType `json:"outcome"`
 }
 
+// ------------------------------------------------------------------
+// NEW: Session Token for Web SDK Embed
+// ------------------------------------------------------------------
+type CheckrSessionTokenResponse struct {
+	Token string `json:"token"`
+}

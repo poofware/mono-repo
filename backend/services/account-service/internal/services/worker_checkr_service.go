@@ -218,6 +218,7 @@ func (s *CheckrService) CreateCheckrInvitation(ctx context.Context, workerID uui
 			Metadata: map[string]any{
 				constants.WebhookMetadataGeneratedByKey: s.generatedBy,
 			},
+			CustomID: w.ID.String(),
 		}
 		created, cErr := s.client.CreateCandidate(ctx, cand)
 		if cErr != nil {
@@ -778,3 +779,22 @@ func (s *CheckrService) GetWorkerCheckrOutcome(
 	return w.CheckrReportOutcome, nil
 }
 
+// NEW: CreateSessionToken generates a short-lived token for the Checkr Web SDK.
+func (s *CheckrService) CreateSessionToken(ctx context.Context, workerID uuid.UUID) (string, error) {
+	w, err := s.repo.GetByID(ctx, workerID)
+	if err != nil {
+		return "", err
+	}
+	if w == nil {
+		return "", fmt.Errorf("worker not found, ID=%s", workerID)
+	}
+	if w.CheckrCandidateID == nil || *w.CheckrCandidateID == "" {
+		return "", fmt.Errorf("worker %s has no Checkr Candidate ID", workerID)
+	}
+
+	token, err := s.client.CreateSessionToken(ctx, *w.CheckrCandidateID)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Checkr session token: %w", err)
+	}
+	return token.Token, nil
+}

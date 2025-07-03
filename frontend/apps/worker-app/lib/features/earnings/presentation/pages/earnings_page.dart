@@ -8,7 +8,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
+import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:poof_worker/features/account/providers/providers.dart';
 
 import '../../data/models/earnings_models.dart';
 import '../../providers/providers.dart';
@@ -157,8 +160,7 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
                       padding: const EdgeInsets.symmetric(vertical: 48.0),
                       child: Text(
                         appLocalizations.earningsPageNoData,
-                        style:
-                            TextStyle(fontSize: 16, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                       ),
                     ),
                   ),
@@ -190,7 +192,7 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
     final endStr = DateFormat('MMM d').format(week.weekEndDate);
 
     return GestureDetector(
-      onTap: () => context.pushNamed('WeekEarningsDetailPage', extra: week),
+      onTap: () => context.pushNamed(AppRouteNames.weekEarningsDetailPage, extra: week),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
         decoration: BoxDecoration(
@@ -307,7 +309,7 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
   }
 }
 
-class _PayoutFailedNotice extends StatefulWidget {
+class _PayoutFailedNotice extends ConsumerStatefulWidget {
   final WeeklyEarnings week;
   final AppLocalizations appLocalizations;
 
@@ -317,10 +319,11 @@ class _PayoutFailedNotice extends StatefulWidget {
   });
 
   @override
-  State<_PayoutFailedNotice> createState() => _PayoutFailedNoticeState();
+  ConsumerState<_PayoutFailedNotice> createState() =>
+      _PayoutFailedNoticeState();
 }
 
-class _PayoutFailedNoticeState extends State<_PayoutFailedNotice> {
+class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
   bool _isContactingSupport = false;
   bool _isFixingOnStripe = false;
 
@@ -332,7 +335,8 @@ class _PayoutFailedNoticeState extends State<_PayoutFailedNotice> {
         return widget
             .appLocalizations.payoutFailureReason_bank_account_restricted;
       case 'invalid_account_number':
-        return widget.appLocalizations.payoutFailureReason_invalid_account_number;
+        return widget
+            .appLocalizations.payoutFailureReason_invalid_account_number;
       case 'payouts_not_allowed':
         return widget.appLocalizations.payoutFailureReason_payouts_not_allowed;
       case 'worker_missing_stripe_connect_id':
@@ -352,17 +356,49 @@ class _PayoutFailedNoticeState extends State<_PayoutFailedNotice> {
       case 'account_frozen':
         return widget.appLocalizations.payoutFailureReason_account_frozen;
       case 'bank_ownership_changed':
-        return widget.appLocalizations.payoutFailureReason_bank_ownership_changed;
+        return widget
+            .appLocalizations.payoutFailureReason_bank_ownership_changed;
       case 'declined':
         return widget.appLocalizations.payoutFailureReason_declined;
       case 'incorrect_account_holder_name':
         return widget
             .appLocalizations.payoutFailureReason_incorrect_account_holder_name;
       case 'incorrect_account_holder_tax_id':
-        return widget
-            .appLocalizations.payoutFailureReason_incorrect_account_holder_tax_id;
+        return widget.appLocalizations
+            .payoutFailureReason_incorrect_account_holder_tax_id;
       default:
         return widget.appLocalizations.payoutFailureReason_unknown;
+    }
+  }
+
+  Future<void> _handleFixOnStripe() async {
+    if (_isFixingOnStripe) return;
+    setState(() => _isFixingOnStripe = true);
+
+    final BuildContext capturedContext = context;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      final repo = ref.read(workerAccountRepositoryProvider);
+      final loginLinkUrl = await repo.getStripeExpressLoginLink();
+      final success = await tryLaunchUrl(loginLinkUrl);
+      if (!success && capturedContext.mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+              content: Text(widget.appLocalizations.urlLauncherCannotLaunch)),
+        );
+      }
+    } catch (e) {
+      if (capturedContext.mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+              content: Text(userFacingMessageFromObject(capturedContext, e))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isFixingOnStripe = false);
+      }
     }
   }
 
@@ -372,7 +408,6 @@ class _PayoutFailedNoticeState extends State<_PayoutFailedNotice> {
     final weekDate = DateFormat.yMMMd().format(widget.week.weekStartDate);
     final noticeBody =
         widget.appLocalizations.payoutFailureNoticeBody(weekDate, reasonText);
-    const stripeDashboardUrl = 'https://connect.stripe.com/app/express';
     const supportEmail = 'team@thepoofapp.com';
 
     return Padding(
@@ -419,7 +454,8 @@ class _PayoutFailedNoticeState extends State<_PayoutFailedNotice> {
                       : () async {
                           if (_isContactingSupport) return;
                           setState(() => _isContactingSupport = true);
-                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          final scaffoldMessenger =
+                              ScaffoldMessenger.of(context);
                           final BuildContext capturedContext = context;
                           final localizations =
                               AppLocalizations.of(capturedContext);
@@ -442,8 +478,8 @@ class _PayoutFailedNoticeState extends State<_PayoutFailedNotice> {
                         },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.red.shade700,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -460,30 +496,7 @@ class _PayoutFailedNoticeState extends State<_PayoutFailedNotice> {
                 ElevatedButton(
                   onPressed: (_isFixingOnStripe || _isContactingSupport)
                       ? null
-                      : () async {
-                          if (_isFixingOnStripe) return;
-                          setState(() => _isFixingOnStripe = true);
-                          final scaffoldMessenger = ScaffoldMessenger.of(context);
-                          final BuildContext capturedContext = context;
-                          final localizations =
-                              AppLocalizations.of(capturedContext);
-
-                          try {
-                            final success =
-                                await tryLaunchUrl(stripeDashboardUrl);
-                            if (!success && capturedContext.mounted) {
-                              scaffoldMessenger.showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        localizations.urlLauncherCannotLaunch)),
-                              );
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() => _isFixingOnStripe = false);
-                            }
-                          }
-                        },
+                      : _handleFixOnStripe,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red.shade700,
                     foregroundColor: Colors.white,
@@ -510,3 +523,4 @@ class _PayoutFailedNoticeState extends State<_PayoutFailedNotice> {
     );
   }
 }
+

@@ -10,6 +10,7 @@ class PoofWorkerFlavorConfig {
 
   final String authServiceURL;
   final String apiServiceURL;
+  final String baseUrl;
   final String gcpSdkKey;
 
   /// If true, we skip real logic for things like attestation or real API calls.
@@ -29,6 +30,7 @@ class PoofWorkerFlavorConfig {
     BannerLocation location = BannerLocation.topStart,
     required this.authServiceURL,
     required this.apiServiceURL,
+    required this.baseUrl,
     required this.gcpSdkKey,
     this.testMode = false,
     this.realDeviceAttestation = false,

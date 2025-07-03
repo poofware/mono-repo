@@ -12,6 +12,7 @@ import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
@@ -76,7 +77,7 @@ class _PhoneVerificationInfoPageState
       // Step 2: Push the verification page and wait for its result.
       // THE FIX: We now pass the onSuccess callback down to VerifyNumberPage.
       final result = await router.pushNamed<bool>(
-        'VerifyNumberPage',
+        AppRouteNames.verifyNumberPage,
         extra:
             VerifyNumberArgs(phoneNumber: phone, onSuccess: widget.args.onSuccess),
       );

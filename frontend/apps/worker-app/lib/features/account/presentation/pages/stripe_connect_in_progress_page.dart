@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/config/flavors.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import '../../providers/worker_account_deep_links_provider.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
 
@@ -29,7 +30,7 @@ class _StripeConnectInProgressPageState
       final router = GoRouter.of(context);
       if (config.testMode) {
         // Await the push to handle back navigation correctly.
-        await router.pushNamed('CheckrPage');
+        await router.pushNamed(AppRouteNames.checkrPage);
       } else {
         // Normal mode => call the "force check" method
         await ref

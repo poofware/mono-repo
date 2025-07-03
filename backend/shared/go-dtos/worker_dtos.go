@@ -8,6 +8,7 @@ import (
 
 // Existing Worker DTO for GET endpoints
 type Worker struct {
+	ID                        string                       `json:"id"`
 	Email                     string                       `json:"email"`
 	PhoneNumber               string                       `json:"phone_number"`
 	FirstName                 string                       `json:"first_name"`
@@ -20,14 +21,16 @@ type Worker struct {
 	VehicleYear               int                          `json:"vehicle_year"`
 	VehicleMake               string                       `json:"vehicle_make"`
 	VehicleModel              string                       `json:"vehicle_model"`
-	AccountStatus             models.AccountStatusType      `json:"account_status"`
-	SetupProgress             models.SetupProgressType      `json:"setup_progress"`
-	CheckrReportOutcome       models.ReportOutcomeType      `json:"checkr_report_outcome,omitempty"`
+	AccountStatus             models.AccountStatusType     `json:"account_status"`
+	SetupProgress             models.SetupProgressType     `json:"setup_progress"`
+	CheckrCandidateID         *string                      `json:"checkr_candidate_id,omitempty"`
+	CheckrReportOutcome       models.ReportOutcomeType     `json:"checkr_report_outcome,omitempty"`
 	CheckrReportETA           *time.Time                   `json:"checkr_report_eta,omitempty"`
 }
 
 func NewWorkerFromModel(worker models.Worker) Worker {
 	return Worker{
+		ID:                  worker.ID.String(),
 		Email:               worker.Email,
 		PhoneNumber:         worker.PhoneNumber,
 		FirstName:           worker.FirstName,
@@ -42,6 +45,7 @@ func NewWorkerFromModel(worker models.Worker) Worker {
 		VehicleModel:        worker.VehicleModel,
 		AccountStatus:       worker.AccountStatus,
 		SetupProgress:       worker.SetupProgress,
+		CheckrCandidateID:   worker.CheckrCandidateID,
 		CheckrReportOutcome: worker.CheckrReportOutcome,
 		CheckrReportETA:     worker.CheckrReportETA,
 	}

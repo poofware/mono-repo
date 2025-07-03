@@ -47,12 +47,20 @@ class WorkerAccountRepository {
 
   Future<String> completeBackgroundCheck() => _api.completeBackgroundCheck();
 
+  // NEW: Session Token for Checkr Embed
+  Future<CheckrSessionTokenResponse> getCheckrSessionToken() =>
+      _api.getCheckrSessionToken();
+
   // -------------------- Stripe Connect --------------------
   Future<String> getStripeConnectFlowUrl() => _api.getStripeConnectFlowUrl();
-  Future<String> getStripeConnectFlowStatus() => _api.getStripeConnectFlowStatus();
+  Future<String> getStripeConnectFlowStatus() =>
+      _api.getStripeConnectFlowStatus();
+  Future<String> getStripeExpressLoginLink() =>
+      _api.getStripeExpressLoginLink();
 
   // -------------------- Stripe Identity Verification --------------------
   Future<String> getStripeIdentityFlowUrl() => _api.getStripeIdentityFlowUrl();
   Future<String> getStripeIdentityFlowStatus() =>
       _api.getStripeIdentityFlowStatus();
 }
+

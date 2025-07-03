@@ -21,6 +21,7 @@ void configureDevTestFlavor() {
     location: BannerLocation.topStart,
     authServiceURL: 'https://$baseUrl/auth/$apiVersion',
     apiServiceURL: 'https://$baseUrl/api/$apiVersion',
+    baseUrl: 'https://$baseUrl',
     gcpSdkKey: gcpSdkKey,
     testMode: true, // <-- Set testMode to true
     realDeviceAttestation: false,

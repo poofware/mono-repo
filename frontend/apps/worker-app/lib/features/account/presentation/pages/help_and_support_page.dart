@@ -18,7 +18,7 @@ class HelpAndSupportPage extends ConsumerWidget {
     final theme = Theme.of(context);
 
     // This function handles the logic for launching a URL and showing a snackbar on failure
-    Future<void> _launch(String url) async {
+    Future<void> launch(String url) async {
       final success = await tryLaunchUrl(url);
       if (!success && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -29,7 +29,7 @@ class HelpAndSupportPage extends ConsumerWidget {
       }
     }
 
-    String _encoded(String value) => Uri.encodeComponent(value);
+    String encoded(String value) => Uri.encodeComponent(value);
 
     final String supportEmail = 'team@thepoofapp.com';
     final String supportPhone = '256-468-3659'; // Formatted for display
@@ -100,8 +100,8 @@ class HelpAndSupportPage extends ConsumerWidget {
                           color: Theme.of(context).colorScheme.outline),
                     ),
                     child: ListTile(
-                      onTap: () => _launch(
-                          'mailto:$supportEmail?subject=${_encoded(appLocalizations.emailSubjectGeneralHelp)}'),
+                      onTap: () => launch(
+                          'mailto:$supportEmail?subject=${encoded(appLocalizations.emailSubjectGeneralHelp)}'),
                       contentPadding: const EdgeInsets.symmetric(
                           vertical: 16, horizontal: 20),
                       leading:
@@ -132,7 +132,7 @@ class HelpAndSupportPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 12),
                         InkWell(
-                          onTap: () => _launch(supportPhoneUrl),
+                          onTap: () => launch(supportPhoneUrl),
                           borderRadius: BorderRadius.circular(8),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(

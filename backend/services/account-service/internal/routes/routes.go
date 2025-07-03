@@ -19,6 +19,7 @@ const (
 	WorkerStripeConnectFlowReturn  = "/api/v1/account/worker/stripe/connect-flow-return"
 	WorkerStripeConnectFlowRefresh = "/api/v1/account/worker/stripe/connect-flow-refresh"
 	WorkerStripeConnectFlowStatus  = "/api/v1/account/worker/stripe/connect-flow-status"
+	WorkerStripeExpressLoginLink   = "/api/v1/account/worker/stripe/express-login-link" // NEW
 
 	WorkerStripeIdentityFlowURL    = "/api/v1/account/worker/stripe/identity-flow"
 	WorkerStripeIdentityFlowReturn = "/api/v1/account/worker/stripe/identity-flow-return"
@@ -46,9 +47,10 @@ const (
 	// ───────────────────────────────
 	// Checkr (background check)
 	// ───────────────────────────────
-	CheckrWebhook          = "/api/v1/account/checkr/webhook"
-	WorkerCheckrInvitation = "/api/v1/account/worker/checkr/invitation"
-	WorkerCheckrStatus     = "/api/v1/account/worker/checkr/status"
-	WorkerCheckrReportETA  = "/api/v1/account/worker/checkr/report-eta"
-	WorkerCheckrOutcome    = "/api/v1/account/worker/checkr/outcome" // NEW
+	CheckrWebhook            = "/api/v1/account/checkr/webhook"
+	WorkerCheckrInvitation   = "/api/v1/account/worker/checkr/invitation"
+	WorkerCheckrStatus       = "/api/v1/account/worker/checkr/status"
+	WorkerCheckrReportETA    = "/api/v1/account/worker/checkr/report-eta"
+	WorkerCheckrOutcome      = "/api/v1/account/worker/checkr/outcome"
+	WorkerCheckrSessionToken = "/api/v1/account/worker/checkr/session-token"
 )

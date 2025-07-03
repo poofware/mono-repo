@@ -11,7 +11,6 @@ require (
 	cloud.google.com/go/auth v0.16.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
-	github.com/bas-d/appattest v0.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
@@ -28,12 +27,10 @@ require (
 	github.com/googleapis/gax-go/v2 v2.14.2 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/poofware/go-models v0.0.0-20250625174000-827ad2621e44 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/twilio/twilio-go v1.25.1 // indirect
-	github.com/ugorji/go/codec v1.2.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect

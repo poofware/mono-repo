@@ -13,109 +13,109 @@ import (
 
 // WorkerCheckrController handles Checkr-related endpoints for the Worker role.
 type WorkerCheckrController struct {
-    checkrService *services.CheckrService
+	checkrService *services.CheckrService
 }
 
 // NewWorkerCheckrController instantiates a WorkerCheckrController.
 func NewWorkerCheckrController(s *services.CheckrService) *WorkerCheckrController {
-    return &WorkerCheckrController{checkrService: s}
+	return &WorkerCheckrController{checkrService: s}
 }
 
 // POST /api/v1/account/worker/checkr/invitation
 //
 // The package slug is hard-coded in the service ("poof_gig_worker").
 func (c *WorkerCheckrController) CreateInvitationHandler(w http.ResponseWriter, r *http.Request) {
-    // Extract userID from the JWT middleware context
-    ctxUserID := r.Context().Value(middleware.ContextKeyUserID)
-    if ctxUserID == nil {
-        utils.RespondErrorWithCode(
-            w,
-            http.StatusUnauthorized,
-            utils.ErrCodeUnauthorized,
-            "Missing userID in context",
-            nil,
-        )
-        return
-    }
+	// Extract userID from the JWT middleware context
+	ctxUserID := r.Context().Value(middleware.ContextKeyUserID)
+	if ctxUserID == nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusUnauthorized,
+			utils.ErrCodeUnauthorized,
+			"Missing userID in context",
+			nil,
+		)
+		return
+	}
 
-    workerID, err := uuid.Parse(ctxUserID.(string))
-    if err != nil {
-        utils.RespondErrorWithCode(
-            w,
-            http.StatusBadRequest,
-            utils.ErrCodeInvalidPayload,
-            "Invalid worker ID format",
-            err,
-        )
-        return
-    }
+	workerID, err := uuid.Parse(ctxUserID.(string))
+	if err != nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusBadRequest,
+			utils.ErrCodeInvalidPayload,
+			"Invalid worker ID format",
+			err,
+		)
+		return
+	}
 
-    // Call the service to create or reuse a Checkr invitation.
-    invURL, invErr := c.checkrService.CreateCheckrInvitation(r.Context(), workerID)
-    if invErr != nil {
-        utils.RespondErrorWithCode(
-            w,
-            http.StatusInternalServerError,
-            utils.ErrCodeInternal,
-            "Failed to create or reuse Checkr invitation",
-            invErr,
-        )
-        return
-    }
+	// Call the service to create or reuse a Checkr invitation.
+	invURL, invErr := c.checkrService.CreateCheckrInvitation(r.Context(), workerID)
+	if invErr != nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusInternalServerError,
+			utils.ErrCodeInternal,
+			"Failed to create or reuse Checkr invitation",
+			invErr,
+		)
+		return
+	}
 
-    // Construct the response
-    resp := dtos.CheckrInvitationResponse{
-        Message:       "Checkr invitation (and candidate if needed) created/reused",
-        InvitationURL: invURL,
-    }
-    utils.RespondWithJSON(w, http.StatusOK, resp)
+	// Construct the response
+	resp := dtos.CheckrInvitationResponse{
+		Message:       "Checkr invitation (and candidate if needed) created/reused",
+		InvitationURL: invURL,
+	}
+	utils.RespondWithJSON(w, http.StatusOK, resp)
 }
 
 // GET /api/v1/account/worker/checkr/status
 func (c *WorkerCheckrController) GetCheckrStatusHandler(w http.ResponseWriter, r *http.Request) {
-    ctxUserID := r.Context().Value(middleware.ContextKeyUserID)
-    if ctxUserID == nil {
-        utils.RespondErrorWithCode(
-            w,
-            http.StatusUnauthorized,
-            utils.ErrCodeUnauthorized,
-            "Missing userID in context",
-            nil,
-        )
-        return
-    }
+	ctxUserID := r.Context().Value(middleware.ContextKeyUserID)
+	if ctxUserID == nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusUnauthorized,
+			utils.ErrCodeUnauthorized,
+			"Missing userID in context",
+			nil,
+		)
+		return
+	}
 
-    workerID, err := uuid.Parse(ctxUserID.(string))
-    if err != nil {
-        utils.RespondErrorWithCode(
-            w,
-            http.StatusBadRequest,
-            utils.ErrCodeInvalidPayload,
-            "Invalid worker ID format",
-            err,
-        )
-        return
-    }
+	workerID, err := uuid.Parse(ctxUserID.(string))
+	if err != nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusBadRequest,
+			utils.ErrCodeInvalidPayload,
+			"Invalid worker ID format",
+			err,
+		)
+		return
+	}
 
-    // Fetch the worker's background-check flow status (incomplete or complete).
-    flowStatus, stErr := c.checkrService.GetCheckrStatus(r.Context(), workerID)
-    if stErr != nil {
-        utils.Logger.WithError(stErr).Error("Error retrieving Checkr status")
-        utils.RespondErrorWithCode(
-            w,
-            http.StatusInternalServerError,
-            utils.ErrCodeInternal,
-            "Failed to retrieve Checkr status",
-            stErr,
-        )
-        return
-    }
+	// Fetch the worker's background-check flow status (incomplete or complete).
+	flowStatus, stErr := c.checkrService.GetCheckrStatus(r.Context(), workerID)
+	if stErr != nil {
+		utils.Logger.WithError(stErr).Error("Error retrieving Checkr status")
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusInternalServerError,
+			utils.ErrCodeInternal,
+			"Failed to retrieve Checkr status",
+			stErr,
+		)
+		return
+	}
 
-    // Construct the DTO response
-    resp := dtos.CheckrStatusResponse{
-        Status: flowStatus,
-    }
-    utils.RespondWithJSON(w, http.StatusOK, resp)
+	// Construct the DTO response
+	resp := dtos.CheckrStatusResponse{
+		Status: flowStatus,
+	}
+	utils.RespondWithJSON(w, http.StatusOK, resp)
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -241,6 +241,52 @@ func (c *WorkerCheckrController) GetCheckrOutcomeHandler(
 
 	resp := dtos.CheckrOutcomeResponse{
 		Outcome: outcome,
+	}
+	utils.RespondWithJSON(w, http.StatusOK, resp)
+}
+
+// NEW: CreateSessionTokenHandler -> GET /api/v1/account/worker/checkr/session-token
+func (c *WorkerCheckrController) CreateSessionTokenHandler(w http.ResponseWriter, r *http.Request) {
+	ctxUserID := r.Context().Value(middleware.ContextKeyUserID)
+	if ctxUserID == nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusUnauthorized,
+			utils.ErrCodeUnauthorized,
+			"Missing userID in context",
+			nil,
+		)
+		return
+	}
+
+	workerID, err := uuid.Parse(ctxUserID.(string))
+	if err != nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusBadRequest,
+			utils.ErrCodeInvalidPayload,
+			"Invalid worker ID format",
+			err,
+		)
+		return
+	}
+
+	// Call the service to create a session token
+	token, svcErr := c.checkrService.CreateSessionToken(r.Context(), workerID)
+	if svcErr != nil {
+		utils.Logger.WithError(svcErr).Error("Failed to create Checkr session token")
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusInternalServerError,
+			utils.ErrCodeInternal,
+			"Could not create Checkr session token",
+			svcErr,
+		)
+		return
+	}
+
+	resp := dtos.CheckrSessionTokenResponse{
+		Token: token,
 	}
 	utils.RespondWithJSON(w, http.StatusOK, resp)
 }

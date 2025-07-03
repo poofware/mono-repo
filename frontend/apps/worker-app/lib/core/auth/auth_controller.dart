@@ -13,6 +13,7 @@ import 'package:poof_worker/features/account/data/models/worker.dart';
 import 'package:poof_worker/core/providers/ui_messaging_provider.dart';
 import 'package:poof_worker/core/providers/welcome_video_provider.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
+import 'package:poof_worker/core/routing/router.dart';
 
 class AuthController {
   final Ref _ref;
@@ -54,27 +55,27 @@ class AuthController {
       case AccountStatusType.incomplete:
         switch (worker.setupProgress) {
           case SetupProgressType.awaitingPersonalInfo:
-            router.goNamed('AddressInfoPage');
+            router.goNamed(AppRouteNames.addressInfoPage);
             break;
           case SetupProgressType.idVerify:
-            router.goNamed('StripeIdvPage');
+            router.goNamed(AppRouteNames.stripeIdvPage);
             break;
           case SetupProgressType.achPaymentAccountSetup:
-            router.goNamed('StripeConnectPage');
+            router.goNamed(AppRouteNames.stripeConnectPage);
             break;
           case SetupProgressType.backgroundCheck:
-            router.goNamed('CheckrPage');
+            router.goNamed(AppRouteNames.checkrPage);
             break;
           case SetupProgressType.done:
-            router.goNamed('MainTab');
+            router.goNamed(AppRouteNames.mainTab);
             break;
         }
         break;
       case AccountStatusType.backgroundCheckPending:
-        router.goNamed('CheckrOutcomePage');
+        router.goNamed(AppRouteNames.checkrOutcomePage);
         break;
       case AccountStatusType.active:
-        router.goNamed('MainTab');
+        router.goNamed(AppRouteNames.mainTab);
         break;
     }
   }

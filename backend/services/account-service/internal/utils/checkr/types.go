@@ -36,18 +36,18 @@ type Candidate struct {
 
 // Invitation represents the Checkr invitation resource (hosted apply flow).
 type Invitation struct {
-	ID            string      `json:"id,omitempty"`
-	Object        string      `json:"object,omitempty"`
-	URI           string      `json:"uri,omitempty"`
-	InvitationURL string      `json:"invitation_url,omitempty"`
-	Status        string      `json:"status,omitempty"`
-	CreatedAt     *time.Time  `json:"created_at,omitempty"`
-	ExpiresAt     *time.Time  `json:"expires_at,omitempty"`
-	CompletedAt   *time.Time  `json:"completed_at,omitempty"`
-	DeletedAt     *time.Time  `json:"deleted_at,omitempty"`
-	Package       string      `json:"package,omitempty"`
-	CandidateID   string      `json:"candidate_id,omitempty"`
-	ReportID      string      `json:"report_id,omitempty"`
+	ID            string       `json:"id,omitempty"`
+	Object        string       `json:"object,omitempty"`
+	URI           string       `json:"uri,omitempty"`
+	InvitationURL string       `json:"invitation_url,omitempty"`
+	Status        string       `json:"status,omitempty"`
+	CreatedAt     *time.Time   `json:"created_at,omitempty"`
+	ExpiresAt     *time.Time   `json:"expires_at,omitempty"`
+	CompletedAt   *time.Time   `json:"completed_at,omitempty"`
+	DeletedAt     *time.Time   `json:"deleted_at,omitempty"`
+	Package       string       `json:"package,omitempty"`
+	CandidateID   string       `json:"candidate_id,omitempty"`
+	ReportID      string       `json:"report_id,omitempty"`
 	WorkLocations []WorkLocation `json:"work_locations,omitempty"`
 }
 
@@ -70,28 +70,28 @@ type Package struct {
 
 // Report object
 type Report struct {
-	ID                string           `json:"id,omitempty"`
-	Object            string           `json:"object,omitempty"`
-	URI               string           `json:"uri,omitempty"`
-	Status            ReportStatus     `json:"status,omitempty"`
-	Result            *ReportResult     `json:"result,omitempty"`
-	IncludesCanceled  bool 		       `json:"includes_canceled,omitempty"`
-	CreatedAt         *time.Time       `json:"created_at,omitempty"`
-	CompletedAt       *time.Time       `json:"completed_at,omitempty"`
-	RevisedAt         *time.Time       `json:"revised_at,omitempty"`
-	UpgradedAt        *time.Time       `json:"upgraded_at,omitempty"`
-	TurnaroundTime    int              `json:"turnaround_time,omitempty"`
-	Package           string           `json:"package,omitempty"`
-	Adjudication      *ReportAdjudication `json:"adjudication,omitempty"`
-	Assessment        *ReportAssessment `json:"assessment,omitempty"`
-	Source            string           `json:"source,omitempty"`
-	SegmentStamps     []string         `json:"segment_stamps,omitempty"`
-	WorkLocations     []WorkLocation   `json:"work_locations,omitempty"`
-	EstimatedTime     *time.Time       `json:"estimated_completion_time,omitempty"`
-	CandidateStoryIDs []string         `json:"candidate_story_ids,omitempty"`
-	CandidateID       string           `json:"candidate_id,omitempty"`
+	ID                          string            `json:"id,omitempty"`
+	Object                      string            `json:"object,omitempty"`
+	URI                         string            `json:"uri,omitempty"`
+	Status                      ReportStatus      `json:"status,omitempty"`
+	Result                      *ReportResult     `json:"result,omitempty"`
+	IncludesCanceled            bool              `json:"includes_canceled,omitempty"`
+	CreatedAt                   *time.Time        `json:"created_at,omitempty"`
+	CompletedAt                 *time.Time        `json:"completed_at,omitempty"`
+	RevisedAt                   *time.Time        `json:"revised_at,omitempty"`
+	UpgradedAt                  *time.Time        `json:"upgraded_at,omitempty"`
+	TurnaroundTime              int               `json:"turnaround_time,omitempty"`
+	Package                     string            `json:"package,omitempty"`
+	Adjudication                *ReportAdjudication `json:"adjudication,omitempty"`
+	Assessment                  *ReportAssessment `json:"assessment,omitempty"`
+	Source                      string            `json:"source,omitempty"`
+	SegmentStamps               []string          `json:"segment_stamps,omitempty"`
+	WorkLocations               []WorkLocation    `json:"work_locations,omitempty"`
+	EstimatedTime               *time.Time        `json:"estimated_completion_time,omitempty"`
+	CandidateStoryIDs           []string          `json:"candidate_story_ids,omitempty"`
+	CandidateID                 string            `json:"candidate_id,omitempty"`
 
-	DrugScreening     *DrugScreening   `json:"drug_screening,omitempty"`
+	DrugScreening *DrugScreening `json:"drug_screening,omitempty"`
 
 	SSNTraceID                           string   `json:"ssn_trace_id,omitempty"`
 	ArrestSearchID                       string   `json:"arrest_search_id,omitempty"`
@@ -115,26 +115,26 @@ type Report struct {
 type ReportStatus string
 
 const (
-	ReportStatusPending       ReportStatus = "pending"
-	ReportStatusComplete      ReportStatus = "complete"
-	ReportStatusCanceled      ReportStatus = "canceled"
-	ReportStatusDispute       ReportStatus = "dispute"
-	ReportStatusSuspended     ReportStatus = "suspended"
+	ReportStatusPending   ReportStatus = "pending"
+	ReportStatusComplete  ReportStatus = "complete"
+	ReportStatusCanceled  ReportStatus = "canceled"
+	ReportStatusDispute   ReportStatus = "dispute"
+	ReportStatusSuspended ReportStatus = "suspended"
 )
 
 // Nullable
 type ReportResult string
 
 const (
-	ReportResultClear      ReportResult = "clear"
-	ReportResultConsider   ReportResult = "consider"
+	ReportResultClear    ReportResult = "clear"
+	ReportResultConsider ReportResult = "consider"
 )
 
 // Nullable
 type ReportAdjudication string
 
 const (
-	ReportAdjudicationEngaged  		    ReportAdjudication = "engaged"
+	ReportAdjudicationEngaged           ReportAdjudication = "engaged"
 	ReportAdjudicationPreAdverseAction  ReportAdjudication = "pre_adverse_action"
 	ReportAdjudicationPostAdverseAction ReportAdjudication = "post_adverse_action"
 )
@@ -143,9 +143,9 @@ const (
 type ReportAssessment string
 
 const (
-	ReportAssessmentEligible   ReportAssessment = "eligible"
-	ReportAssessmentReview     ReportAssessment = "review"
-	ReportAssessmentEscalated  ReportAssessment = "escalated"
+	ReportAssessmentEligible  ReportAssessment = "eligible"
+	ReportAssessmentReview    ReportAssessment = "review"
+	ReportAssessmentEscalated ReportAssessment = "escalated"
 )
 
 // WorkLocation is used within a Report or ContinuousCheck for "work_locations".
@@ -184,7 +184,7 @@ type DrugEvent struct {
 
 // ETAResponse is returned by GET /reports/{id}/eta
 type ETAResponse struct {
-	EstimateGeneratedAt    *time.Time `json:"estimate_generated_at,omitempty"`
+	EstimateGeneratedAt     *time.Time `json:"estimate_generated_at,omitempty"`
 	EstimatedCompletionTime *time.Time `json:"estimated_completion_time,omitempty"`
 }
 
@@ -219,7 +219,7 @@ type AdverseAction struct {
 	PostNoticeReadyAt             *time.Time     `json:"post_notice_ready_at,omitempty"`
 	CanceledAt                    *time.Time     `json:"canceled_at,omitempty"`
 	AdverseItems                  []AdverseItem  `json:"adverse_items,omitempty"`
-	IndividualizedAssessmentEngaged bool        `json:"individualized_assessment_engaged,omitempty"`
+	IndividualizedAssessmentEngaged bool         `json:"individualized_assessment_engaged,omitempty"`
 }
 
 // ContinuousCheck object
@@ -255,3 +255,7 @@ type ListResponse[T any] struct {
 	PrevHref string `json:"previous_href,omitempty"`
 }
 
+// NEW: SessionToken for Web SDK Embeds
+type SessionToken struct {
+	Token string `json:"token"`
+}

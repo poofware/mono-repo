@@ -4,23 +4,24 @@ package services
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
-	"sort"
 
 	"github.com/google/uuid"
 	"github.com/poofware/account-service/internal/config"
 	"github.com/poofware/account-service/internal/constants"
+	"github.com/poofware/account-service/internal/dtos"
 	"github.com/poofware/account-service/internal/routes"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 	"github.com/poofware/go-utils"
 
-	"github.com/poofware/account-service/internal/dtos"
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/account"
 	"github.com/stripe/stripe-go/v82/accountlink"
 	verificationsession "github.com/stripe/stripe-go/v82/identity/verificationsession"
+	"github.com/stripe/stripe-go/v82/loginlink"
 	"github.com/stripe/stripe-go/v82/webhookendpoint"
 )
 
@@ -47,14 +48,14 @@ var (
 
 // WorkerStripeService orchestrates Stripe Connect & Identity flows
 type WorkerStripeService struct {
-	Cfg         *config.Config
-	repo        repositories.WorkerRepository
-	generatedBy string
-	webhookPlatformID string
-	webhookConnectID  string
+	Cfg                 *config.Config
+	repo                repositories.WorkerRepository
+	generatedBy         string
+	webhookPlatformID   string
+	webhookConnectID    string
 	webhookPlatformSecret string
 	webhookConnectSecret  string
-	mu                sync.Mutex
+	mu                  sync.Mutex
 }
 
 func NewWorkerStripeService(cfg *config.Config, repo repositories.WorkerRepository) *WorkerStripeService {
@@ -276,6 +277,32 @@ func (s *WorkerStripeService) removeOldestStripeEndpoint(ctx context.Context, ta
 
 	// If we get here, it means we looped through all candidates and they all returned 404.
 	return fmt.Errorf("could not free a webhook slot; all candidates were deleted by other processes")
+}
+
+// ----------------------------------------------------------------------
+// NEW: Create a Login Link for a returning Worker to access their dashboard.
+// ----------------------------------------------------------------------
+func (s *WorkerStripeService) GetExpressLoginLink(ctx context.Context, workerID uuid.UUID) (string, error) {
+	worker, err := s.repo.GetByID(ctx, workerID)
+	if err != nil {
+		utils.Logger.WithError(err).Error("Failed to retrieve worker for GetExpressLoginLink")
+		return "", fmt.Errorf("could not retrieve worker: %w", err)
+	}
+	if worker == nil {
+		return "", fmt.Errorf("worker not found (ID=%s)", workerID)
+	}
+
+	if worker.StripeConnectAccountID == nil || *worker.StripeConnectAccountID == "" {
+		return "", fmt.Errorf("worker %s does not have a Stripe Connect account ID", workerID)
+	}
+
+	params := &stripe.LoginLinkParams{Account: stripe.String(*worker.StripeConnectAccountID)}
+	ll, err := loginlink.New(params)
+	if err != nil {
+		return "", fmt.Errorf("create login link: %w", err)
+	}
+
+	return ll.URL, nil
 }
 
 // ----------------------------------------------------------------------
@@ -627,8 +654,14 @@ func (s *WorkerStripeService) initializeStripeConnectExpressAccount(ctx context.
 		Type:         stripe.String(string(stripe.AccountTypeExpress)),
 		Country:      stripe.String("US"),
 		BusinessType: stripe.String(string(stripe.AccountBusinessTypeIndividual)),
+		Email:        stripe.String(worker.Email),
+		Individual: &stripe.PersonParams{
+			FirstName: stripe.String(worker.FirstName),
+			LastName:  stripe.String(worker.LastName),
+			Phone:    stripe.String(worker.PhoneNumber),
+		},
 		BusinessProfile: &stripe.AccountBusinessProfileParams{
-			ProductDescription: stripe.String("Gig Worker for Poof"),
+			ProductDescription: stripe.String("Poof Gig Worker"),
 		},
 		Capabilities: &stripe.AccountCapabilitiesParams{
 			Transfers: &stripe.AccountCapabilitiesTransfersParams{
@@ -643,8 +676,6 @@ func (s *WorkerStripeService) initializeStripeConnectExpressAccount(ctx context.
 
 	if s.Cfg.LDFlag_PrefillStripeExpressKYC {
 		acctParams.Individual = &stripe.PersonParams{
-			FirstName: stripe.String(worker.FirstName),
-			LastName:  stripe.String(worker.LastName),
 			DOB: &stripe.PersonDOBParams{
 				Day:   stripe.Int64(1),
 				Month: stripe.Int64(1),

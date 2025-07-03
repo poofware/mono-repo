@@ -12,6 +12,7 @@ import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/config/flavors.dart';
+import 'package:poof_worker/core/routing/router.dart';
 
 import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
@@ -81,7 +82,7 @@ class _AddressInfoPageState extends ConsumerState<AddressInfoPage> {
       zipCode      : _zipController.text.trim(),
     );
 
-    await context.pushNamed('VehicleSetupPage');
+    await context.pushNamed(AppRouteNames.vehicleSetupPage);
     if (mounted) setState(() => _isLoading = false);
   }
 

@@ -10,6 +10,7 @@ import 'package:poof_worker/features/account/data/repositories/worker_account_re
 import 'package:poof_worker/features/account/providers/worker_state_notifier_provider.dart';
 
 import 'package:poof_worker/core/deeplinks/deep_link_handler.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'worker_account_repository_provider.dart';
 
 /// Exposes an instance of the [WorkerAccountDeepLinkHandler].
@@ -111,20 +112,20 @@ class WorkerAccountDeepLinkHandler implements DeepLinkHandler {
         // --- FIX START: Fire-and-forget state update ---
         unawaited(_repo.getWorker());
         // --- FIX END ---
-        router.pushNamed('CheckrPage');
+        router.pushNamed(AppRouteNames.checkrPage);
       } else {
-        router.pushNamed('StripeConnectNotCompletePage');
+        router.pushNamed(AppRouteNames.stripeConnectNotCompletePage);
       }
     } catch (e, s) {
       _logger.e('Error handling stripe-connect-return: $e\n$s');
-      router.pushNamed('StripeConnectNotCompletePage');
+      router.pushNamed(AppRouteNames.stripeConnectNotCompletePage);
     }
   }
 
   /// 2) If the refresh handler is hit, we show the "Not Complete" page
   ///    and then re-invoke the connect flow in that page’s logic.
   Future<void> _handleStripeConnectRefresh(GoRouter router) async {
-    router.pushNamed('StripeConnectNotCompletePage');
+    router.pushNamed(AppRouteNames.stripeConnectNotCompletePage);
   }
 
   /// 3) Check Stripe ID verification. If complete => push /stripe_connect
@@ -144,13 +145,13 @@ class WorkerAccountDeepLinkHandler implements DeepLinkHandler {
         // --- FIX START: Fire-and-forget state update ---
         unawaited(_repo.getWorker());
         // --- FIX END ---
-        router.pushNamed('StripeConnectPage');
+        router.pushNamed(AppRouteNames.stripeConnectPage);
       } else {
-        router.pushNamed('StripeIdvNotCompletePage');
+        router.pushNamed(AppRouteNames.stripeIdvNotCompletePage);
       }
     } catch (e, s) {
       _logger.e('Error handling stripe-identity-return: $e\n$s');
-      router.pushNamed('StripeIdvNotCompletePage');
+      router.pushNamed(AppRouteNames.stripeIdvNotCompletePage);
     }
   }
 }

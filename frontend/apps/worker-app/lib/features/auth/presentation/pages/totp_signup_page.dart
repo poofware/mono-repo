@@ -14,6 +14,7 @@ import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:android_intent_plus/android_intent.dart';
@@ -110,10 +111,10 @@ class TotpSignUpPage extends ConsumerWidget {
         );
         await authRepo.doRegister(req);
       }
-      router.goNamed('SignupSuccessPage');
+      router.goNamed(AppRouteNames.signupSuccessPage);
     } on ApiException catch (e) {
       if (e.errorCode == 'phone_not_verified') {
-        router.goNamed('SignupExpiredPage');
+        router.goNamed(AppRouteNames.signupExpiredPage);
       } else if (context.mounted) {
         scaffoldMessenger
             .showSnackBar(SnackBar(content: Text(userFacingMessage(context, e))));
@@ -157,7 +158,7 @@ class TotpSignUpPage extends ConsumerWidget {
                         alignment: Alignment.topLeft,
                         child: IconButton(
                           icon: const Icon(Icons.arrow_back),
-                          onPressed: () => context.goNamed('CreateAccountPage')
+                          onPressed: () => context.goNamed(AppRouteNames.createAccountPage),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -297,7 +298,7 @@ class TotpSignUpPage extends ConsumerWidget {
                       text: appLocalizations.loginContinueButton,
                       onPressed: () {
                         context.pushNamed(
-                          'TotpVerifyPage',
+                          AppRouteNames.totpVerifyPage,
                           extra: TotpVerifyArgs(
                             displayIdentifier: signUpState.phoneNumber,
                             onSuccess: (code) =>

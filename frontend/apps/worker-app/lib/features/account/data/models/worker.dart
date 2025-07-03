@@ -1,14 +1,12 @@
 // lib/features/account/data/models/worker.dart
 
-import 'checkr.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart';
+import 'checkr.dart';
 
-/// Enums for account status and setup progress.
-enum AccountStatusType {
-  incomplete,
-  backgroundCheckPending,
-  active,
-}
+/// ---------------------------------------------------------------------------
+/// Enums mirroring backend strings
+/// ---------------------------------------------------------------------------
+enum AccountStatusType { incomplete, backgroundCheckPending, active }
 
 enum SetupProgressType {
   awaitingPersonalInfo,
@@ -18,8 +16,13 @@ enum SetupProgressType {
   done,
 }
 
-/// Full model for the Worker user object returned on login, matching your backend's `models.Worker`.
+/// ---------------------------------------------------------------------------
+/// Worker model (matches backend DTO)
+/// ---------------------------------------------------------------------------
 class Worker {
+  /// NEW: backend UUID returned as a string
+  final String id;
+
   final String email;
   final String phoneNumber;
   final String firstName;
@@ -32,32 +35,39 @@ class Worker {
   final int vehicleYear;
   final String vehicleMake;
   final String vehicleModel;
+  final String? checkrCandidateId;
 
-  /// Newly added enum fields from the backend.
+  // Enum fields
   final AccountStatusType accountStatus;
   final SetupProgressType setupProgress;
+
+  // Checkr status info
   final CheckrReportOutcome checkrReportOutcome;
 
-  Worker({
+  const Worker({
+    required this.id,
     required this.email,
     required this.phoneNumber,
     required this.firstName,
     required this.lastName,
     required this.streetAddress,
-    required this.aptSuite,
+    this.aptSuite,
     required this.city,
     required this.state,
     required this.zipCode,
     required this.vehicleYear,
     required this.vehicleMake,
     required this.vehicleModel,
+    this.checkrCandidateId,
     required this.accountStatus,
     required this.setupProgress,
     required this.checkrReportOutcome,
   });
 
-  /// Convert string to [AccountStatusType].
-  static AccountStatusType _accountStatusTypeFromString(String raw) {
+  // -------------------------------------------------------------------------
+  // Factory helpers for enum decoding
+  // -------------------------------------------------------------------------
+  static AccountStatusType _accountStatusFrom(String raw) {
     switch (raw) {
       case 'INCOMPLETE':
         return AccountStatusType.incomplete;
@@ -66,12 +76,11 @@ class Worker {
       case 'ACTIVE':
         return AccountStatusType.active;
       default:
-        throw Exception('Invalid AccountStatusType: $raw');
+        throw ArgumentError('Unknown AccountStatusType: $raw');
     }
   }
 
-  /// Convert string to [SetupProgressType].
-  static SetupProgressType _setupProgressTypeFromString(String raw) {
+  static SetupProgressType _setupProgressFrom(String raw) {
     switch (raw) {
       case 'AWAITING_PERSONAL_INFO':
         return SetupProgressType.awaitingPersonalInfo;
@@ -84,12 +93,16 @@ class Worker {
       case 'DONE':
         return SetupProgressType.done;
       default:
-        throw Exception('Invalid SetupProgressType: $raw');
+        throw ArgumentError('Unknown SetupProgressType: $raw');
     }
   }
 
+  // -------------------------------------------------------------------------
+  // JSON factory
+  // -------------------------------------------------------------------------
   factory Worker.fromJson(Map<String, dynamic> json) {
     return Worker(
+      id: json['id'] as String, // <-- NEW
       email: json['email'] as String,
       phoneNumber: json['phone_number'] as String,
       firstName: json['first_name'] as String,
@@ -102,9 +115,11 @@ class Worker {
       vehicleYear: json['vehicle_year'] as int,
       vehicleMake: json['vehicle_make'] as String,
       vehicleModel: json['vehicle_model'] as String,
-      accountStatus: _accountStatusTypeFromString(json['account_status'] as String),
-      setupProgress: _setupProgressTypeFromString(json['setup_progress'] as String),
-      checkrReportOutcome: checkrOutcomeFromString(json['checkr_report_outcome'] as String),
+      checkrCandidateId: json['checkr_candidate_id'] as String?,
+      accountStatus: _accountStatusFrom(json['account_status'] as String),
+      setupProgress: _setupProgressFrom(json['setup_progress'] as String),
+      checkrReportOutcome:
+          checkrOutcomeFromString(json['checkr_report_outcome'] as String),
     );
   }
 }

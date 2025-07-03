@@ -7,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
 import 'package:poof_worker/core/config/flavors.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/account/providers/worker_account_repository_provider.dart';
 import 'package:poof_worker/features/account/data/models/models.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
@@ -77,7 +78,7 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
       if (isActive) {
         await ref.read(jobsNotifierProvider.notifier).goOnline();
       } else if (!isActive && !isApproved) {
-        router.goNamed('CheckrOutcomePage');
+        router.goNamed(AppRouteNames.checkrOutcomePage);
       } else {
         if (capturedContext.mounted) {
           scaffoldMessenger.showSnackBar(

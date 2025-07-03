@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/features/account/providers/providers.dart';
 import 'help_and_support_page.dart'; // Import the new page
@@ -34,7 +35,7 @@ class WorkerSideDrawer extends ConsumerWidget {
                     text: appLocalizations.workerDrawerMyProfile,
                     onTap: () {
                       context.pop();
-                      context.pushNamed('MyProfilePage');
+                      context.pushNamed(AppRouteNames.myProfilePage);
                     },
                   ),
                   _buildDrawerItem(
@@ -69,7 +70,7 @@ class WorkerSideDrawer extends ConsumerWidget {
                     text: appLocalizations.workerDrawerSettings,
                     onTap: () {
                       context.pop();
-                      context.pushNamed('SettingsPage');
+                      context.pushNamed(AppRouteNames.settingsPage);
                     },
                   ),
                   const Divider(height: 24, indent: 20, endIndent: 20),
@@ -78,7 +79,7 @@ class WorkerSideDrawer extends ConsumerWidget {
                     text: appLocalizations.workerDrawerSignOut,
                     onTap: () {
                       context.pop();
-                      context.goNamed('SigningOutPage');
+                      context.goNamed(AppRouteNames.signingOutPage);
                     },
                   ),
                 ],

@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/features/jobs/presentation/widgets/slide_button_widget.dart';
@@ -228,7 +229,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     if (route is PopupRoute) {
       Navigator.of(context).pop();
     } else {
-      context.goNamed('MainTab');
+      context.goNamed(AppRouteNames.mainTab);
     }
   }
 

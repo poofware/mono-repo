@@ -9,6 +9,7 @@ import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'package:poof_worker/features/account/data/models/models.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
 
 
@@ -31,6 +32,7 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
   late String _inviteUrl; // passed via GoRouter `extra`
   bool _overlayShown = false;
   bool _buttonBusy   = false;
+  bool _isNavigating = false; // NEW: Guard against race conditions
 
   // Ensures we call allowFirstFrame() exactly once
   bool _frameReleased = false;
@@ -50,7 +52,8 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
     _beginPolling();
 
     // Push the overlay in a micro-task (still before first layout frame).
-    Future.microtask(() {
+    // FIX: Make the microtask async to await the dialog closing.
+    Future.microtask(() async {
       if (_overlayShown || !mounted) return;
 
       final extra = GoRouterState.of(context).extra;
@@ -66,14 +69,21 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
         return;
       }
 
-      _inviteUrl   = extra;
+      _inviteUrl    = extra;
       _overlayShown = true;
-      _showInviteOverlay(
+      
+      // FIX: Await the dialog result. This pauses execution here until the
+      // WebView is popped by the user or by its internal JavaScript bridge.
+      await _showInviteOverlay(
         context,
         _inviteUrl,
         animate: false,
         firstLaunch: true,
       );
+
+      // FIX: After the dialog closes, do one final, immediate check.
+      // This ensures a smooth transition without waiting for the next timer tick.
+      await _check();
     });
   }
 
@@ -99,6 +109,9 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
   }
 
   Future<void> _check() async {
+    // FIX: Add a guard to prevent navigation attempts while one is already in progress.
+    if (!mounted || _isNavigating) return;
+
     final repo   = ref.read(workerAccountRepositoryProvider);
     final logger = ref.read(appLoggerProvider);
 
@@ -107,7 +120,11 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
       logger.d('Checkr status: ${st.status}');
       if (st.status == CheckrFlowStatus.complete) {
         _pollTimer?.cancel();
-        if (mounted) context.goNamed('CheckrInviteCompletePage');
+        if (mounted) {
+          // FIX: Set the navigating flag immediately before calling the router.
+          setState(() => _isNavigating = true);
+          context.goNamed(AppRouteNames.checkrInviteCompletePage);
+        }
       }
     } catch (_) {
       /* ignore transient errors */
@@ -155,7 +172,7 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
 
   // ─────────────────────  “Reopen / Check again”  ─────────────────────
   Future<void> _onButtonTap() async {
-    if (_buttonBusy) return;
+    if (_buttonBusy || _isNavigating) return;
 
     // Capture context before async gap
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -164,20 +181,24 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
 
     final cfg = PoofWorkerFlavorConfig.instance;
     if (cfg.testMode) {
-      router.goNamed('CheckrInviteCompletePage');
+      router.goNamed(AppRouteNames.checkrInviteCompletePage);
       return;
     }
 
     setState(() => _buttonBusy = true);
     await _check(); // may already be complete
-    if (!mounted) return;
+    if (!mounted || _isNavigating) return;
 
     // Still incomplete ⇒ fetch fresh URL & reopen overlay with animation.
     final repo = ref.read(workerAccountRepositoryProvider);
     try {
       final invite   = await repo.createCheckrInvitation();
-      _inviteUrl     = invite.invitationUrl;
-      if (mounted) _showInviteOverlay(context, _inviteUrl);
+      _inviteUrl      = invite.invitationUrl;
+      if (mounted) {
+        // FIX: Also await the result here and re-check after it closes.
+        await _showInviteOverlay(context, _inviteUrl);
+        await _check();
+      }
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
       scaffoldMessenger.showSnackBar(
@@ -240,4 +261,3 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
     );
   }
 }
-
