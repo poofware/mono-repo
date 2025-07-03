@@ -1,0 +1,54 @@
+x-build-network: &build-network
+  network: host
+
+x-networks: &networks
+  networks:
+    - app_network
+
+x-environment: &environment
+  environment:
+    HCP_TOKEN_ENC_KEY: ${HCP_TOKEN_ENC_KEY?Docker Compose Config Error! HCP_TOKEN_ENC_KEY is not set!}
+
+services:
+  meta-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.generated
+      target: meta-service-runner
+      <<: *build-network
+      args:
+        APP_PORT: ${APP_PORT?Docker Compose Config Error! APP_PORT is not set!}
+    container_name: meta-service_instance
+    image: meta-service
+    ports: 
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    profiles:
+      - app
+    <<:
+      - *networks
+      - *environment
+
+  smoke-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.generated
+      target: smoke-test-runner
+      <<: *build-network
+      args:
+        APP_URL_FROM_COMPOSE_NETWORK: ${APP_URL_FROM_COMPOSE_NETWORK?Docker Compose Config Error! APP_URL_FROM_COMPOSE_NETWORK is not set!}
+        ENV: ${ENV?Docker Compose Config Error! ENV is not set!}
+    profiles:
+      - app_integration_test
+    <<:
+      - *networks
+
+networks:
+  app_network:
+    external: true
+    name: ${COMPOSE_NETWORK_NAME?Docker Compose Config Error! COMPOSE_NETWORK_NAME is not set!}
+

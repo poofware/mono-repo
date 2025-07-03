@@ -1,0 +1,84 @@
+default_platform(:android)
+
+before_all do |lane, _|
+  # Decode the Google Play service account key from a Base64 CI secret
+  # into a temporary JSON file that `supply` can use.
+  require "base64"
+  require "fileutils"
+  
+  UI.message("Decoding Google Play service account key...")
+  FileUtils.mkdir_p("tmp")
+  ENV["SUPPLY_JSON_KEY"] = File.expand_path("tmp/google_play_key.json")
+  
+  google_play_key_base64 = ENV["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64"]
+  unless google_play_key_base64 && !google_play_key_base64.empty?
+    UI.user_error!("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 secret is not set.")
+  end
+
+  File.write(
+    ENV["SUPPLY_JSON_KEY"],
+    Base64.decode64(google_play_key_base64)
+  )
+end
+
+platform :android do
+  desc "Build the Android app, increment the version code, and upload to the Play Store."
+  lane :build_and_upload_to_playstore do |options|
+    # Determine the release track from lane options or environment variables.
+    track = options[:track] || ENV.fetch("ANDROID_RELEASE_TRACK", "internal")
+    UI.header("Starting build and upload to track: #{track}")
+
+    # Fetch the highest existing version code from the specified track to avoid collisions.
+    highest_code = google_play_track_version_codes(
+      package_name: ENV["APP_IDENTIFIER_ANDROID"],
+      track: track,
+      json_key: ENV["SUPPLY_JSON_KEY"]
+    ).max || 0
+
+    UI.message("Highest version code on track '#{track}' is: #{highest_code}")
+    next_version_code = highest_code + 1
+
+    # Update the versionCode in the app's build.gradle file.
+    # MODIFIED: Use File.expand_path to resolve the path robustly.
+    increment_version_code(
+      gradle_file_path: File.expand_path("../app/build.gradle"),
+      version_code: next_version_code
+    )
+    UI.success("Version code incremented to: #{next_version_code}")
+
+    # The Makefile is the single source of truth for building the app.
+    # It receives keystore and other secrets from the CI environment.
+    UI.message("Running Makefile to build the release AAB...")
+    make_cmd = "make -C ../.. build-android"
+    make_cmd += " ENV=#{ENV['MAKE_ENV']}" unless ENV['MAKE_ENV'].to_s.empty?
+    sh(make_cmd)
+
+    aab_dir = File.expand_path("../../build/app/outputs/bundle/release")
+    aab_path = Dir["#{aab_dir}/*.aab"].first
+    
+    UI.user_error!("Release AAB not found in '#{aab_dir}'. Check the Makefile command and build output.") unless aab_path
+    UI.success("Successfully found AAB: #{aab_path}")
+
+    # Upload the AAB to the Google Play Store using the `supply` action.
+    UI.message("Uploading AAB to Google Play Store...")
+
+    supply(
+      package_name: ENV["APP_IDENTIFIER_ANDROID"],
+      aab: aab_path,
+      track: track,
+      json_key: ENV["SUPPLY_JSON_KEY"],
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+    UI.success("Successfully uploaded to track: #{track}")
+  end
+end
+
+after_all do |_lane|
+  # Clean up the temporary JSON key file to ensure secrets are not left on the runner.
+  if ENV["SUPPLY_JSON_KEY"] && File.exist?(ENV["SUPPLY_JSON_KEY"])
+    UI.message("Cleaning up temporary service account key...")
+    FileUtils.rm_f(ENV["SUPPLY_JSON_KEY"])
+  end
+end

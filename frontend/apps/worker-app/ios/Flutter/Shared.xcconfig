@@ -1,0 +1,12 @@
+//
+// ios/Flutter/Shared.xcconfig
+//
+// Common config for both Debug and Release. 
+// Maps environment variables into Xcode build settings so they can be referenced
+// in Info.plist, entitlements, etc.
+//
+
+INFOPLIST_EXPAND_BUILD_SETTINGS = YES
+
+CURRENT_BACKEND_DOMAIN = $(CURRENT_BACKEND_DOMAIN)
+GCP_IOS_SDK_KEY   = $(GCP_IOS_SDK_KEY)

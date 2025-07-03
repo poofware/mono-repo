@@ -1,0 +1,16 @@
+{
+  "name": "Poof",
+  "short_name": "Poof",
+  "icons": [
+    {
+      "src": "assets/icons/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/#home",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#9e28b5"
+}
+

@@ -1,0 +1,11 @@
+# VCS / editor cruft
+.git
+.gitignore
+.DS_Store
+.idea
+.vscode
+
+# Node artefacts
+node_modules
+dist
+

@@ -1,0 +1,3 @@
+# Default release track to use if not specified in the lane options.
+# Can be 'internal', 'alpha', 'beta', or 'production'.
+track ENV.fetch("ANDROID_RELEASE_TRACK", "internal")

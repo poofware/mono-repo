@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <title>Poof Dashboard</title>
+  <meta name="application-name" content="Poof Dashboard">
+  <meta property="og:site_name" content="Poof Dashboard">
+  <meta name="apple-mobile-web-app-title" content="Poof Dashboard">
+  <meta name="application-title" content="Poof Dashboard">
+  <meta name="name" content="Poof Dashboard">
+  <meta property="og:title" content="Poof Dashboard">
+  <meta name="twitter:title" content="Poof Dashboard">
+  <meta name="msapplication-tooltip" content="Poof Dashboard">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type":  "WebSite",
+    "name":   "Poof Dashboard",
+    "url":    "https://thepoofapp.com/"
+  }
+  </script>
+
+  <!-- Icons / PWA -->
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <!-- The following two lines reference /assets/icons/... which assumes they are at the root.
+       If these are specific to pm-app, they should be relative like favicon.png,
+       e.g., "assets/icons/favicon.svg" if you have pm-app/web/assets/icons/favicon.svg -->
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="mask-icon" href="assets/icons/pinned-mask.svg" color="#9e28b5">
+  <meta name="theme-color" content="#FFFFFF">
+
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Initial styles to prevent content flash and set up loader -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      /* Set this to your app's main background color or a neutral loading color.
+         This will be the color seen before anything else loads.
+         Using white as a common default. Replace if your app is dark by default. */
+      background-color: #FFFFFF; /* Example: White */
+    }
+    .flutter-loader {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh; /* Full viewport height */
+      width: 100vw;  /* Full viewport width */
+      position: fixed; /* Cover the whole screen */
+      top: 0;
+      left: 0;
+      /* The loader div itself can have the same background as the body,
+         or be transparent if the body's background is already set. */
+      background-color: inherit; /* Inherits from body, or set explicitly */
+    }
+    .flutter-loader .spinner {
+      border: 4px solid #f3f3f3; /* Light grey for the spinner track */
+      border-top: 4px solid #9e28b5; /* Blue for the spinner active part - CHOOSE YOUR BRAND COLOR */
+      border-radius: 50%;
+      width: 50px;  /* Slightly larger spinner */
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <!-- This div will show a spinner until Flutter takes over -->
+  <div class="flutter-loader">
+    <div class="spinner"></div>
+  </div>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

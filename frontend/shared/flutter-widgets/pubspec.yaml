@@ -1,0 +1,11 @@
+name: poof_flutter_widgets
+description: Common auth package for Poof applications (Worker, PM, etc.)
+version: 0.0.1
+publish_to: none # If you don't want to publish to pub.dev
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+

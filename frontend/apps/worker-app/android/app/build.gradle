@@ -1,0 +1,119 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+// Flutter version info from local.properties
+def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.0'
+
+// Read new keystore environment variables
+def envStoreFile = System.getenv("ANDROID_KEYSTORE_PATH")      // e.g. /tmp/upload-keystore.p12
+if (!envStoreFile?.trim()) {
+    throw new GradleException("Please set ANDROID_KEYSTORE_PATH environment variable.")
+}
+println "[INFO] [Gradle Build] envStoreFile: $envStoreFile"
+
+def envStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")  // e.g. somePassword
+if (!envStorePassword?.trim()) {
+    throw new GradleException("Please set ANDROID_KEYSTORE_PASSWORD environment variable.")
+}
+println "[INFO] [Gradle Build] envStorePassword: xxxxxxx" // Don't print password for security reasons
+
+def envKeyAlias = System.getenv("ANDROID_KEY_ALIAS")          // e.g. upload
+if (!envKeyAlias?.trim()) {
+    throw new GradleException("Please set ANDROID_KEY_ALIAS environment variable.")
+}
+println "[INFO] [Gradle Build] envKeyAlias: $envKeyAlias"
+
+def envKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")       // e.g. somePassword
+if (!envKeyPassword?.trim()) {
+    throw new GradleException("Please set ANDROID_KEY_PASSWORD environment variable.")
+}
+println "[INFO] [Gradle Build] envKeyPassword: xxxxxxx" // Don't print password for security reasons
+
+// These are placeholders for your domain & Google Maps key:
+def currentBackendDomain = System.getenv("CURRENT_BACKEND_DOMAIN")
+if (!currentBackendDomain?.trim()) {
+    throw new GradleException("Please set CURRENT_BACKEND_DOMAIN environment variable.")
+}
+println "[INFO] [Gradle Build] currentBackendDomain: $currentBackendDomain"
+
+def gcpAndroidSdkKey = System.getenv("GCP_ANDROID_SDK_KEY")
+if (!gcpAndroidSdkKey?.trim()) {
+    throw new GradleException("Please set GCP_ANDROID_SDK_KEY environment variable.")
+}
+println "[INFO] [Gradle Build] gcpAndroidSdkKey: xxxxxxx" // Don't print key for security reasons
+
+android {
+    namespace 'com.thepoofapp.worker'
+    compileSdkVersion 35
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    lintOptions {
+        disable 'InvalidPackage'
+        checkReleaseBuilds false
+    }
+
+    defaultConfig {
+        applicationId "com.thepoofapp.worker"
+        minSdkVersion 23
+        targetSdkVersion 35
+        // MODIFIED: versionCode is now a literal integer for Fastlane to update.
+        versionCode 3
+        versionName flutterVersionName
+
+        // Pass placeholders to AndroidManifest.xml
+        manifestPlaceholders = [
+            CURRENT_BACKEND_DOMAIN : currentBackendDomain,
+            GCP_ANDROID_SDK_KEY : gcpAndroidSdkKey
+        ]
+    }
+
+    signingConfigs {
+        release {
+            // Use environment vars for keystore config:
+            storeFile      envStoreFile ? file(envStoreFile) : null
+            storePassword  envStorePassword
+            keyAlias       envKeyAlias
+            keyPassword    envKeyPassword
+            storeType      'pkcs12'   // Important for .p12 files
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            // e.g. minifyEnabled, proguardFiles, etc., if desired
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.10"
+    implementation "com.google.android.play:integrity:1.4.0"
+}

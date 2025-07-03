@@ -1,0 +1,7 @@
+# The package name of your app on Google Play (e.g., com.yourcompany.yourapp).
+# This is read from an environment variable for security and flexibility.
+package_name ENV.fetch("APP_IDENTIFIER_ANDROID")
+
+# The path to the Google Play service account JSON key file.
+# The Fastfile will create this file from a Base64 secret.
+json_key_file ENV.fetch("SUPPLY_JSON_KEY")

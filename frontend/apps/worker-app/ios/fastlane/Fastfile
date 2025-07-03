@@ -1,0 +1,183 @@
+default_platform(:ios)
+
+before_all do
+  # Create and configure the keychain
+  create_keychain(
+    name: "fastlane_tmp_keychain",
+    password: "fastlane_password", # Use a secure password
+    default_keychain: true,
+    unlock: true,
+    timeout: 3600,
+    lock_when_sleeps: true,
+    add_to_search_list: true
+  )
+
+  # Set environment variables for the keychain
+  ENV['FL_BUILD_KEYCHAIN'] = "fastlane_tmp_keychain"
+  ENV['FL_BUILD_KEYCHAIN_PASSWORD'] = "fastlane_password"
+end
+
+platform :ios do
+  lane :build_and_upload_to_testflight do
+    # Update code signing settings to use manual signing with the correct identity and profile
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: ENV['DEVELOPMENT_TEAM'],
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore #{ENV['APP_IDENTIFIER']}",
+      path: "Runner.xcodeproj",
+      targets: ["Runner"],
+      entitlements_file_path: "Runner/Runner.entitlements",     # → CODE_SIGN_ENTITLEMENTS
+      verbose: true
+    )
+
+    # Authenticate with App Store Connect using the API key
+    api_key = app_store_connect_api_key(
+      key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
+      issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
+      key_content: ENV['APP_STORE_CONNECT_API_KEY_KEY'],
+      is_key_content_base64: true,
+      duration: 800,
+      in_house: false
+    )
+
+    current_version = get_version_number(xcodeproj: "Runner.xcodeproj")
+    latest_build = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: ENV['APP_IDENTIFIER'],
+      version: current_version
+    )
+
+    increment_build_number(
+      build_number: latest_build + 1,
+      xcodeproj: "Runner.xcodeproj"
+    )
+
+    # Sync certificates and provisioning profiles with match
+    match(
+      type: "appstore",
+      api_key: api_key,
+      app_identifier: ENV['APP_IDENTIFIER'],
+      readonly: false,
+      keychain_name: ENV['FL_BUILD_KEYCHAIN'],
+      keychain_password: ENV['FL_BUILD_KEYCHAIN_PASSWORD'],
+      git_basic_authorization: ENV['MATCH_GIT_BASIC_AUTH'],
+      team_id: ENV['DEVELOPMENT_TEAM'],
+      skip_set_partition_list: false,
+      verbose: true,
+      force: true
+    )
+
+    # Unlock the keychain explicitly to avoid permission issues
+    unlock_keychain(
+      path: ENV['FL_BUILD_KEYCHAIN'],
+      password: ENV['FL_BUILD_KEYCHAIN_PASSWORD']
+    )
+
+    # Verify code signing identities
+    sh "security find-identity -v -p codesigning #{ENV['FL_BUILD_KEYCHAIN']}"
+
+    # Build the app with the correct configuration
+    make_cmd = "make -C ../.. build-ios"
+    make_cmd += " ENV=#{ENV['MAKE_ENV']}" unless ENV['MAKE_ENV'].to_s.empty?
+    make_cmd += " UNIQUE_RUN_NUMBER=persistent-staging-instance AUTO_LAUNCH_BACKEND=0" if ENV['MAKE_ENV'] == 'staging'
+    sh make_cmd
+
+    # Sign the app with the correct provisioning profile
+    gym(
+      skip_build_archive: true,
+      archive_path: File.expand_path("../../build/ios/archive/Runner.xcarchive"),
+      export_options: {
+        method: "app-store-connect",
+        provisioningProfiles: {
+          ENV['APP_IDENTIFIER'] => "match AppStore #{ENV['APP_IDENTIFIER']}"
+        },
+      },
+      scheme: "Runner",
+      configuration: "Release",
+      verbose: true
+    )
+
+    ipa_path = lane_context[:IPA_OUTPUT_PATH]
+    UI.user_error!("IPA not found — did gym export one?") unless File.exist?(ipa_path)
+
+    ##############################################################
+    # 1. Extract embedded provisioning profile and entitlements  #
+    ##############################################################
+    sh <<-"BASH"
+      set -euo pipefail
+      echo "🔍  Extracting embedded provisioning profile from $(basename "#{ipa_path}") …"
+
+      TMPDIR=$(mktemp -d)
+      unzip -q "#{ipa_path}" -d "$TMPDIR"
+      PROFILE_PATH=$(find "$TMPDIR/Payload" -name embedded.mobileprovision | head -n1)
+
+      OUT_DIR="build/ios"
+      mkdir -p "$OUT_DIR"
+
+      # 1. decode CMS → plist
+      # 2. plutil step-1: pull out :Entitlements as binary plist
+      # 3. plutil step-2: convert that fragment to JSON
+      /usr/bin/security cms -D -i "$PROFILE_PATH" \
+        | /usr/bin/plutil -extract Entitlements binary1 -o - - \
+        | /usr/bin/plutil -convert json -o "$OUT_DIR/profile_entitlements.json" -
+
+      echo "⭐  Embedded profile entitlements:"
+      cat "$OUT_DIR/profile_entitlements.json"
+    BASH
+
+    #############################################################
+    # 2. Dump signed entitlements from the freshly-exported IPA #
+    #############################################################
+    sh <<-"BASH"
+      set -euo pipefail
+      echo "🔍  Extracting signed entitlements from $(basename "#{ipa_path}") …"
+
+      TMPDIR=$(mktemp -d)
+      unzip -q "#{ipa_path}" -d "$TMPDIR"
+      APP_PATH=$(find "$TMPDIR/Payload" -maxdepth 1 -name "*.app" | head -n1)
+
+      OUT_DIR="build/ios"
+      mkdir -p "$OUT_DIR"
+
+      /usr/bin/codesign -d --entitlements :- "$APP_PATH" \
+        | /usr/bin/plutil -convert json -o "$OUT_DIR/entitlements.json" -
+
+      echo "⭐  Signed entitlements:"
+      cat "$OUT_DIR/entitlements.json"
+    BASH
+
+    ################################################
+    # 3. Verify the Associated-Domains entitlement #
+    ################################################
+    sh <<-"BASH"
+      set -euo pipefail
+      TMPDIR=$(mktemp -d)
+      unzip -q "#{ipa_path}" -d "$TMPDIR"
+      APP_PATH=$(find "$TMPDIR/Payload" -maxdepth 1 -name "*.app" | head -n1)
+
+      # Extract signed entitlements as JSON
+      ENT=$(/usr/bin/codesign -d --entitlements :- "$APP_PATH" \
+            | /usr/bin/plutil -convert json -o - -)
+
+      echo "🔍  Verifying Associated-Domains entitlement …"
+      echo "$ENT" | grep -q '"com.apple.developer.associated-domains"' \
+        && echo "✅  Entitlement present" \
+        || { echo "❌  Associated-Domains entitlement missing – aborting"; exit 1; }
+    BASH
+
+    # Upload to TestFlight
+    pilot(
+      skip_waiting_for_build_processing: true,
+      verbose: true,
+      api_key: api_key,
+      app_identifier: ENV['APP_IDENTIFIER']
+    )
+  end
+end
+
+after_all do
+  # Delete the keychain to clean up the CI environment
+  delete_keychain(name: ENV['FL_BUILD_KEYCHAIN'])
+end
+

@@ -1,0 +1,567 @@
+{
+  "@@locale": "es",
+  "apiErrorLocationOutOfBounds": "Estás demasiado lejos para iniciar este trabajo.",
+  "apiErrorNotWithinTimeWindow": "Este trabajo no se puede iniciar fuera de su horario de servicio.",
+  "apiErrorNoPhotosProvided": "Se requieren fotos de prueba para completar este trabajo.",
+  "apiErrorLocationInaccurate": "Tu señal de GPS es demasiado débil. Por favor, muévete a un área con una vista más clara del cielo e inténtalo de nuevo.",
+  "welcomeNewToPoof": "¿Nuevo en Poof?",
+  "welcomeSloganPart1": "Prepárate para convertir ",
+  "welcomeSloganTrash": "basura ",
+  "welcomeSloganTo": "en ",
+  "welcomeSloganCash": "dinero.",
+  "welcomeLoginButton": "Iniciar Sesión",
+  "welcomeCreateAccountButton": "Crear Cuenta",
+  "welcomeVideoNotLoaded": "El video no se pudo cargar.",
+  "loginTitle": "Iniciar Sesión",
+  "loginSubtitle": "Introduce tu número de teléfono para iniciar sesión.",
+  "loginContinueButton": "Continuar",
+  "loginEnterPhoneNumberPrompt": "Por favor, introduce un número de teléfono válido de 10 dígitos",
+  "loginFailedToProceed": "Error al proceder: {error}",
+  "@loginFailedToProceed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginUnexpectedError": "Error inesperado: {error}",
+  "@loginUnexpectedError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneNumberFieldLabel": "Número de Teléfono",
+  "phoneNumberFieldTooltip": "Seleccionar País",
+  "homePageCouldNotGetLocation": "No se pudo obtener la ubicación actual: {error}",
+  "@homePageCouldNotGetLocation": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homePageJobsSheetTitle": "Trabajos Disponibles",
+  "homePageSortByLabel": "Ordenar por:",
+  "homePageSortByDistance": "Distancia",
+  "homePageSortByPay": "Paga",
+  "homePageSearchHint": "Buscar por nombre de propiedad o dirección",
+  "homePageSearchCloseTooltip": "Cerrar Búsqueda",
+  "homePageSearchOpenTooltip": "Buscar Trabajos",
+  "homePageNoJobsMatchSearch": "No hay trabajos que coincidan con tu búsqueda.",
+  "homePageNoJobsAvailable": "No hay trabajos disponibles en este momento.",
+  "homePageOfflineMessage": "Estás desconectado. Conéctate para ver trabajos disponibles.",
+  "goOnlineButtonGoOnline": "Conectarse",
+  "goOnlineButtonGoOffline": "Desconectarse",
+  "goOnlineButtonFailedOnline": "Error al conectarse: {error}",
+  "@goOnlineButtonFailedOnline": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goOnlineButtonFailedOffline": "Error al desconectarse: {error}",
+  "@goOnlineButtonFailedOffline": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goOnlineButtonAccountInactive": "Cuenta inactiva. Por favor, contacta a soporte si esto es inesperado.",
+  "goOnlineButtonStatusCheckError": "No se pudo verificar tu estado: {error}",
+  "@goOnlineButtonStatusCheckError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "signingOutTitle": "Cerrando Sesión",
+  "signingOutMessage": "Cerrando sesión...",
+  "sessionExpiredTitle": "Sesión Expirada",
+  "sessionExpiredMessage": "Se perdió tu autenticación.\nRedirigiendo al inicio de sesión…",
+  "mainTabsHome": "Inicio",
+  "mainTabsJobs": "Trabajos",
+  "mainTabsEarnings": "Ganancias",
+  "myAppOfflineBanner": "Estás desconectado",
+  "jobAcceptSheetSelectDayPrompt": "Selecciona un día arriba para ver los detalles del trabajo.",
+  "jobAcceptSheetAcceptingButton": "Aceptando...",
+  "jobAcceptSheetAcceptButton": "Aceptar Trabajo",
+  "jobAcceptSheetHeaderAvgPay": "Pago Prom.",
+  "jobAcceptSheetHeaderAvgTime": "Tiempo Prom.",
+  "jobAcceptSheetHeaderDriveTime": "Tiempo Conduc.",
+  "jobAcceptSheetHeaderDistance": "Distancia",
+  "jobAcceptSheetSnackBarAccepted": "Trabajo \"{jobName}\" aceptado.",
+  "@jobAcceptSheetSnackBarAccepted": {
+    "placeholders": {
+      "jobName": {
+        "type": "String"
+      }
+    }
+  },
+  "jobAcceptSheetSnackBarFailed": "Error al aceptar el trabajo: {error}",
+  "@jobAcceptSheetSnackBarFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobAcceptSheetRecommendedStart": "Inicio Recomendado",
+  "jobAcceptSheetServiceWindow": "Ventana de Servicio",
+  "jobAcceptSheetBuildings": "Edificios",
+  "jobAcceptSheetPropertyTimeLocal": "({time} Local)",
+  "@jobAcceptSheetPropertyTimeLocal": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "definitionCardViewOnMapTooltip": "Ver en Mapa",
+  "definitionCardAvgSuffix": "prom.",
+  "createAccountTitle": "Crear Cuenta",
+  "createAccountSubtitle": "Unos pocos detalles para configurarte.",
+  "createAccountFirstNameLabel": "Nombre",
+  "createAccountLastNameLabel": "Apellido",
+  "createAccountEmailLabel": "Correo Electrónico",
+  "createAccountPhoneLabel": "Número de Teléfono",
+  "createAccountAllFieldsRequired": "Por favor, completa todos los campos.",
+  "createAccountNextButton": "Siguiente",
+  "phoneVerificationInfoTitle": "Verifica Tu Número de Teléfono",
+  "phoneVerificationInfoMessage": "Enviaremos un código de verificación SMS de un solo uso a:",
+  "phoneVerificationInfoNoNumber": "(No se proporcionó número de teléfono)",
+  "phoneVerificationInfoExplanation": "Este paso confirma tu número de móvil para que podamos mantener tu cuenta segura, enviarte actualizaciones importantes y asegurar que solo tú puedas acceder a la cuenta. Toca el botón de abajo para recibir el código de verificación por SMS.",
+  "phoneVerificationInfoSendCodeButton": "Enviar Código de Verificación",
+  "phoneVerificationInfoFailedSms": "Error al solicitar código SMS: {error}",
+  "@phoneVerificationInfoFailedSms": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "verifyNumberTitle": "Verifica Tu Número",
+  "verifyNumberMessage": "Introduce el código de 6 dígitos que enviamos a {phoneNumber}",
+  "@verifyNumberMessage": {
+      "placeholders": {
+          "phoneNumber": {"type": "String"}
+      }
+  },
+  "verifyNumberEnter6DigitCode": "Por favor, introduce un código válido de 6 dígitos",
+  "verifyNumberFailed": "Falló la verificación SMS: {error}",
+  "@verifyNumberFailed": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "verifyNumberDidNotReceiveCode": "¿No recibiste un código? ",
+  "verifyNumberResendCode": "Reenviar",
+  "verifyNumberResendCodeCooldown": "Reenviar en {seconds}s",
+  "@verifyNumberResendCodeCooldown": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "verifyNumberCodeResent": "¡Código reenviado!",
+  "verifyNumberFailedToResend": "Error al reenviar: {error}",
+  "@verifyNumberFailedToResend": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "verifyNumberVerifyButton": "Verificar",
+  "totpSignupTitle": "Asegura Tu Cuenta",
+  "totpSignupSubtitle": "Para tu seguridad, utilizamos un inicio de sesión sin contraseña con una aplicación de verificación.",
+  "totpSignupExplanation": "Por favor, instala una aplicación de autenticación si aún no tienes una.",
+  "totpSignupStep1Title": "Paso 1: Obtén una App de Autenticación",
+  "totpSignupStep2Title": "Paso 2: Añade Tu Cuenta",
+  "totpSignupOrManual": "o",
+  "totpSignupCopyKeyManualTooltip": "Copiar Clave para Configuración Manual",
+  "totpSignupWorksWithLabel": "Funciona con aplicaciones populares:",
+  "totpSignupOpenAuthenticatorButton": "Configuración Automática",
+  "totpSignupFailedToGenerate": "Error al generar secreto TOTP: {error}",
+  "@totpSignupFailedToGenerate": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "totpSignupNoSecretFound": "¡No se encontró el secreto TOTP! Por favor, regresa e inténtalo de nuevo.",
+  "totpSignupKeyCopied": "¡Clave secreta copiada al portapapeles!",
+  "totpSignupAfterSetupPrompt": "Después de añadir la cuenta a tu aplicación, toca Continuar.",
+  "totpVerifyTitle": "Introduce el Código de Verificación",
+  "totpVerifyMessage": "Introduce el código de 6 dígitos de tu aplicación de autenticación para {identifier}",
+  "@totpVerifyMessage": {
+    "placeholders": {
+      "identifier": { "type": "String" }
+    }
+  },
+  "totpVerifyAccountNameInfo": "En tu aplicación de autenticación, busca el código etiquetado como:",
+  "totpVerifyExplanation": "Introduce el código de 6 dígitos que se muestra en tu aplicación de autenticación.",
+  "totpVerifyButton": "Verificar y Finalizar",
+  "totpVerifyLoginFailed": "Falló el inicio de sesión: {error}",
+  "@totpVerifyLoginFailed": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "totpVerifyUnexpectedErrorWorkerNull": "Error inesperado: los datos del trabajador son nulos",
+  "workerDrawerMyProfile": "Mi Perfil",
+  "workerDrawerHelpSupport": "Ayuda y Soporte",
+  "workerDrawerSettings": "Configuración",
+  "workerDrawerSignOut": "Cerrar Sesión",
+  "acceptedJobsTitle": "Trabajos Aceptados",
+  "acceptedJobsSubtitle": "Gestiona y visualiza tu próximo trabajo",
+  "acceptedJobsSortByLabel": "Ordenar por:",
+  "acceptedJobsSortByMoney": "Dinero",
+  "acceptedJobsNoJobsForDay": "No se encontraron trabajos para este día.",
+  "acceptedJobsBrowseJobsButton": "Buscar Trabajos",
+  "acceptedJobsNoJobsAtAll": "Aún no tienes trabajos aceptados.",
+  "acceptedJobsSelectADay": "Selecciona un día arriba para ver tus trabajos.",
+  "acceptedJobsUnacceptNotImplemented": "Cancelar aceptación aún no implementado",
+  "acceptedJobsBottomSheetStartJobButton": "Iniciar Trabajo",
+  "acceptedJobsBottomSheetUnacceptButton": "Cancelar Aceptación",
+  "acceptedJobsBottomSheetUnacceptingButton": "Cancelando...",
+  "acceptedJobsUnacceptSuccessSnackbar": "Aceptación del trabajo \"{jobName}\" cancelada.",
+  "@acceptedJobsUnacceptSuccessSnackbar": {
+    "placeholders": {
+      "jobName": {
+        "type": "String"
+      }
+    }
+  },
+  "acceptedJobsUnacceptFailureSnackbar": "Error al cancelar la aceptación del trabajo: {error}",
+  "@acceptedJobsUnacceptFailureSnackbar": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "acceptedJobsBottomSheetPayLabel": "Paga",
+  "acceptedJobsBottomSheetDistanceLabel": "Distancia",
+  "acceptedJobsBottomSheetEstTimeLabel": "Tiempo Est.",
+  "acceptedJobsBottomSheetViewDetails": "Ver Detalles",
+  "acceptedJobsBottomSheetHideDetails": "Ocultar Detalles",
+  "acceptedJobsBottomSheetViewJobMap": "Ver Mapa del Trabajo",
+  "jobMapPageTitle": "Mapa del Trabajo",
+  "jobMapPageSubtitle": "{propertyName}",
+  "@jobMapPageSubtitle": {
+    "placeholders": {
+      "propertyName": {
+        "type": "String"
+      }
+    }
+  },
+  "earningsPageTitle": "Ganancias",
+  "earningsPageSubtitle": "Gestiona y visualiza tus ganancias",
+  "earningsPageCurrentBalanceLabel": "Saldo Actual",
+  "earningsPageTotalForWeekLabel": "Total de la semana",
+  "earningsPageWeeklyEarningsLabel": "Historial de Ganancias",
+  "weeklyEarningsPageTitleSuffix": "–",
+  "weeklyEarningsPageTotalLabel": "Ganancias Totales de la Semana: ",
+  "weeklyEarningsPageNoEarnings": "No hay ganancias para mostrar esta semana.",
+  "completedJobBottomSheetTitle": "Trabajo Completado",
+  "completedJobBottomSheetPropertyLabel": "Propiedad: {propertyName}",
+  "@completedJobBottomSheetPropertyLabel": {
+    "placeholders": {"propertyName": {"type": "String"}}
+  },
+  "completedJobBottomSheetAddressLabel": "Dirección: {address}",
+  "@completedJobBottomSheetAddressLabel": {
+    "placeholders": {"address": {"type": "String"}}
+  },
+  "completedJobBottomSheetPayLabel": "Paga: {payAmount}",
+  "@completedJobBottomSheetPayLabel": {
+    "placeholders": {"payAmount": {"type": "String"}}
+  },
+  "completedJobBottomSheetCompletedLabel": "Completado: {dateTime}",
+  "@completedJobBottomSheetCompletedLabel": {
+    "placeholders": {"dateTime": {"type": "String"}}
+  },
+  "completedJobBottomSheetTimeToCompleteLabel": "Tiempo para Completar: {duration}",
+  "@completedJobBottomSheetTimeToCompleteLabel": {
+    "placeholders": {"duration": {"type": "String"}}
+  },
+  "completedJobBottomSheetCloseButton": "CERRAR",
+  "jobInProgressPageTitle": "Trabajo en Curso",
+  "jobInProgressCancelButton": "Cancelar Trabajo",
+  "jobInProgressCancelDialogTitle": "¿Cancelar Trabajo?",
+  "jobInProgressCancelDialogContent": "¿Estás seguro de que quieres cancelar este trabajo? Esto podría afectar tu puntuación de fiabilidad.",
+  "jobInProgressCancelDialogConfirm": "Confirmar Cancelación",
+  "jobInProgressCancelDialogBack": "Volver",
+  "jobInProgressCompleteAction": "Deslizar para Completar",
+  "jobInProgressTakePictureButton": "Tomar Foto",
+  "jobInProgressPhotoConfirmDialogTitle": "Confirmar Foto",
+  "jobInProgressPhotoConfirmDialogContent": "¿Estás seguro de que quieres usar esta foto? No podrás volver a tomarla.",
+  "jobInProgressPhotoConfirmDialogConfirm": "Confirmar",
+  "jobInProgressPhotoConfirmDialogRetake": "Volver a tomar",
+  "jobInProgressNoPhotos": "Aún no se han tomado fotos.",
+  "jobInProgressPhotosTakenHeader": "Fotos Tomadas",
+  "jobInProgressMoreOptionsTooltip": "Más opciones",
+  "jobStartFailedSnackbar": "Error al iniciar el trabajo: {error}",
+  "@jobStartFailedSnackbar": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobCompleteFailedSnackbar": "Error al completar el trabajo: {error}",
+  "@jobCompleteFailedSnackbar": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobCancelFailedSnackbar": "Error al cancelar el trabajo: {error}",
+  "@jobCancelFailedSnackbar": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobCancelSuccessSnackbar": "El trabajo ha sido cancelado.",
+  "jobInProgressEstTimeLabel": "Estimado: {time}",
+  "@jobInProgressEstTimeLabel": {
+    "placeholders": {"time": {"type": "String"}}
+  },
+  "jobInProgressPictureSnackbar": "Tomando una foto... (marcador de posición)",
+  "jobInProgressMessageSnackbar": "Enviando mensaje... (marcador de posición)",
+  "settingsPageTitle": "Configuración",
+  "settingsPageEnableNotifications": "Habilitar Notificaciones",
+  "settingsPageDarkMode": "Modo Oscuro",
+  "addressInfoPageTitle": "Tu Dirección",
+  "addressInfoPageSubtitle": "Introduce la dirección de tu domicilio para la verificación y la asignación de tu zona de servicio.",
+  "addressInfoPageStreetLabel": "Dirección",
+  "addressInfoPageAptSuiteLabel": "Apto / Suite (opcional)",
+  "addressInfoPageCityLabel": "Ciudad",
+  "addressInfoPageStateLabel": "Estado",
+  "addressInfoPageZipLabel": "Código Postal",
+  "addressInfoPageContinueButton": "Continuar",
+  "addressInfoPageFieldsRequired": "Por favor, completa todos los campos requeridos.",
+  "vehicleSetupPageTitle": "Configuración del Vehículo",
+  "vehicleSetupPageSubtitle": "Dinos qué vehículo conducirás.",
+  "vehicleSetupPageInstructions": "Por favor, introduce los detalles del vehículo que utilizarás:",
+  "vehicleSetupPageYearLabel": "Año",
+  "vehicleSetupPageMakeLabel": "Marca",
+  "vehicleSetupPageModelLabel": "Modelo",
+  "vehicleSetupPageContinueButton": "Continuar",
+  "vehicleSetupPageInvalidInfo": "Por favor, proporciona información válida del vehículo.",
+  "checkrPageTitle": "Verificación de Antecedentes",
+  "checkrPageAuthTitle": "Autorización de Verificación de Antecedentes",
+  "checkrPageSubtitle": "Nos asociamos con Checkr para realizar verificaciones de antecedentes seguras.",
+  "checkrPageExplanation": "Por seguridad y cumplimiento, colaboramos con Checkr para realizar verificaciones de antecedentes. Tu información se cifra y procesa de forma segura.",
+  "checkrPageConfirmEmailLabel": "Confirma Tu Dirección de Correo Electrónico",
+  "checkrPageConfirmEmailExplanation": "Checkr enviará actualizaciones importantes sobre tu verificación de antecedentes al correo electrónico a continuación. Asegúrate de que sea correcto.",
+  "checkrPageEmailFieldLabel": "Correo Electrónico",
+  "checkrPageBeginButton": "Iniciar Verificación de Antecedentes",
+  "checkrPageSecureWindowNote": "Completarás la verificación en una ventana segura dentro de la aplicación.",
+  "checkrPageFailedToStart": "Error al iniciar la verificación de antecedentes: {error}",
+  "@checkrPageFailedToStart": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "checkrInProgressPageTitle": "Verificación de Antecedentes – Verificando",
+  "checkrInProgressPageMessage": "Estamos esperando que finalices la autorización de la verificación de antecedentes en el formulario seguro.",
+  "checkrInProgressPageCheckStatusPrompt": "Si completaste o cancelaste el formulario en otra ventana, toca abajo para verificar tu estado nuevamente.",
+  "checkrInProgressPageCheckingButton": "Verificando...",
+  "checkrInProgressPageCheckAgainButton": "¿Terminaste? Toca aquí para verificar de nuevo",
+  "checkrInProgressPageCouldNotReopen": "No se pudo reabrir el formulario: {error}",
+  "@checkrInProgressPageCouldNotReopen": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "checkrInviteCompletePageTitle": "¡Invitación Completa!",
+  "checkrInviteCompletePageMessage": "Ahora estamos procesando tu verificación de antecedentes. Puedes continuar mientras finalizamos los resultados.",
+  "checkrInviteCompletePageContinueButton": "Continuar",
+  "checkrWebViewPageTitle": "Completar Verificación de Antecedentes",
+  "checkrOutcomePageTitle": "Estado de la Verificación de Antecedentes",
+  "checkrOutcomePageCurrentStatusLabel": "Estado Actual: ",
+  "checkrOutcomePageEmailNotification": "Se enviarán actualizaciones detalladas del informe a {email}.",
+  "@checkrOutcomePageEmailNotification": {
+      "placeholders": {"email": {"type": "String"}}
+  },
+  "checkrOutcomePageYourEmailFallback": "tu correo electrónico",
+  "checkrOutcomePageQuestions": "¿Tienes preguntas? Por favor, contáctanos o visita tu Portal de Candidato de Checkr.",
+  "checkrOutcomePageOpenPortalButton": "Abrir Portal de Candidatos",
+  "checkrOutcomePageContinueDashboardButton": "Continuar al Panel",
+  "checkrOutcomePageErrorFetching": "Error al obtener datos: {error}",
+  "@checkrOutcomePageErrorFetching": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "checkrOutcomePageSubtitlePending": "Tu verificación de antecedentes está siendo procesada actualmente. Esto puede tardar algunos días. Te notificaremos cuando esté completa.",
+  "checkrOutcomePageSubtitleCanceled": "Hubo un problema con tu verificación de antecedentes. Por favor, revisa los detalles en tu Portal de Candidato de Checkr o contacta a soporte para más información.",
+  "checkrOutcomePageSubtitleApproved": "¡Buenas noticias! Tu verificación de antecedentes está completa y estás listo para el siguiente paso.",
+  "stripeConnectPageTitle": "Configura Tu Cuenta de Pagos",
+  "stripeConnectPageSubtitle": "Conecta tu cuenta de Stripe para comenzar a recibir pagos de forma rápida y segura.",
+  "stripeConnectPageHowItWorksTitle": "Cómo Funciona",
+  "stripeConnectPageStep1Title": "Inicia sesión o crea tu cuenta de Stripe",
+  "stripeConnectPageStep1Subtitle": "Conéctate de forma segura con la plataforma de Stripe",
+  "stripeConnectPageStep2Title": "Verifica tu identidad",
+  "stripeConnectPageStep2Subtitle": "Proporciona la información requerida para el cumplimiento",
+  "stripeConnectPageStep3Title": "Comienza a recibir pagos",
+  "stripeConnectPageStep3Subtitle": "Recibe pagos directamente en tu cuenta bancaria",
+  "stripeConnectPageTermsButton": "Términos de Servicio",
+  "stripeConnectPagePrivacyButton": "Política de Privacidad",
+  "stripeConnectPageTermsSnackbar": "Términos de Servicio (marcador de posición)",
+  "stripeConnectPagePrivacySnackbar": "Política de Privacidad (marcador de posición)",
+  "stripeConnectPageNeedHelpLabel": "¿Necesitas ayuda? ",
+  "stripeConnectPageContactSupportButton": "Contactar a Soporte",
+  "stripeConnectPageContactSupportSnackbar": "Contactar a soporte (marcador de posición)",
+  "stripeConnectPageConnectButton": "Conectar con Stripe",
+  "stripeConnectPageFailedToStart": "Error al iniciar el flujo de Stripe Connect: {error}",
+  "@stripeConnectPageFailedToStart": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "stripeConnectInProgressPageTitle": "Incorporación a Stripe Connect en Progreso",
+  "stripeConnectInProgressPageMessage": "Estamos esperando que finalices el flujo de incorporación a Stripe Connect en tu navegador o enlace externo.",
+  "stripeConnectInProgressPageCheckStatusPrompt": "Si completaste o cancelaste el flujo de Connect en otra ventana, toca abajo para verificar tu estado nuevamente.",
+  "stripeConnectInProgressPageCheckAgainButton": "¿Terminaste? Toca aquí para verificar de nuevo",
+  "stripeConnectNotCompletePageTitle": "Stripe Connect Incompleto",
+  "stripeConnectNotCompletePageMessage": "La configuración no se completó del todo. Estamos reiniciando el proceso por ti ahora...",
+  "stripeIdvPageTitle": "Verifica Tu Identidad",
+  "stripeIdvPageExplanation": "Completa tu verificación de forma segura para acceder a tu cuenta. Colaboramos con Stripe para garantizar un proceso de verificación seguro y confiable.",
+  "stripeIdvPageStepScanId": "Escanea tu ID o pasaporte",
+  "stripeIdvPageStepSelfie": "Toma una selfie clara",
+  "stripeIdvPageStepSubmit": "Enviar para verificación",
+  "stripeIdvPageBeforeYouBeginTitle": "Antes de comenzar:",
+  "stripeIdvPageTipDuration": "La verificación toma de 5 a 10 minutos",
+  "stripeIdvPageTipLighting": "Asegura una buena iluminación para las fotos",
+  "stripeIdvPageTipHaveId": "Ten a mano una identificación gubernamental válida",
+  "stripeIdvPageSecurityNote": "Tu información se cifra y transmite de forma segura. Solo recibimos los resultados de la verificación y no almacenamos datos personales sensibles.",
+  "stripeIdvPageNeedHelpLabel": "¿Necesitas ayuda? ",
+  "stripeIdvPageContactSupportButton": "Contactar a Soporte",
+  "stripeIdvPageContactSupportSnackbar": "Contactar a soporte (marcador de posición)",
+  "stripeIdvPageStartButton": "Iniciar Verificación de Identidad",
+  "stripeIdvPageFailedToStart": "Error al iniciar el flujo de verificación de ID: {error}",
+  "@stripeIdvPageFailedToStart": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "stripeIdvInProgressPageTitle": "Verificación de ID de Stripe en Progreso",
+  "stripeIdvInProgressPageMessage": "Estamos esperando que finalices el flujo de Verificación de ID de Stripe en tu navegador o enlace externo.",
+  "stripeIdvInProgressPageCheckStatusPrompt": "Si completaste o cancelaste la verificación de ID en otra ventana, toca abajo para verificar tu estado nuevamente.",
+  "stripeIdvInProgressPageCheckAgainButton": "¿Terminaste? Toca aquí para verificar de nuevo",
+  "stripeIdvNotCompletePageTitle": "Verificación de Identidad Incompleta",
+  "stripeIdvNotCompletePageMessage": "La verificación de identidad no se completó del todo. Estamos reiniciando el proceso por ti ahora...",
+  "myProfilePageTitle": "Mi Perfil",
+  "myProfilePageEditButton": "Editar",
+  "myProfilePageCancelButton": "Cancelar",
+  "myProfilePageYourNameFallback": "Tu Nombre",
+  "myProfilePageEmailLabel": "Correo Electrónico",
+  "myProfilePagePhoneLabel": "Número de Teléfono",
+  "myProfilePageAddressLabel": "Dirección",
+  "myProfilePageVehicleYearLabel": "Año del Vehículo",
+  "myProfilePageVehicleMakeLabel": "Marca del Vehículo",
+  "myProfilePageVehicleModelLabel": "Modelo del Vehículo",
+  "myProfilePageSaveChangesButton": "Guardar Cambios",
+  "myProfilePageSavingButton": "Guardando...",
+  "myProfilePageProfileUpdatedSnackbar": "¡Perfil actualizado!",
+  "myProfilePageContactSection": "Información de Contacto",
+  "myProfilePageVehicleSection": "Información del Vehículo",
+  "myProfilePageAccountManagementSection": "Gestión de Cuenta",
+  "myProfilePageManagePaymentsButton": "Gestionar Pagos",
+  "myProfilePageManagePaymentsSubtitle": "Actualiza tu cuenta bancaria o ve los detalles de pago en Stripe.",
+  "myProfilePageManageBackgroundCheckButton": "Ver Verificación de Antecedentes",
+  "myProfilePageManageBackgroundCheckSubtitle": "Abre tu portal de candidato de Checkr para ver el estado o los informes.",
+  "appSplashLogoPlaceholder": "EL LOGO IRÁ AQUÍ",
+  "checkrInviteWebViewBarrierLabel": "Invitación de Checkr",
+  "checkrStatusCanceled": "Cancelado",
+  "checkrStatusPending": "Pendiente",
+  "checkrStatusApproved": "Aprobado",
+  "checkrStatusPendingTestMode": "Pendiente (Modo de prueba)",
+  "countryNameCA": "Canadá",
+  "countryNameGB": "Reino Unido",
+  "countryNameUS": "Estados Unidos",
+  "pressToSlideCancelSlideToCancel": "Deslizar para cancelar",
+  "pressToSlideCancelStartButton": "Iniciar",
+  "timeUnitDays": "Días",
+  "timeUnitHours": "Horas",
+  "timeUnitMinutes": "Min",
+  "transportModeCar": "Coche",
+  "transportModeWalk": "A pie",
+  "verifyNumberTestModeNoResend": "Modo de prueba: sin reenvío real.",
+  "weeklyEarningsPageBackButtonTooltip": "Atrás",
+  "homePageJobsSheetRefreshTooltip": "Actualizar lista de trabajos",
+  "earningsPageRetryButton": "Reintentar",
+  "earningsPageNoData": "No hay datos de ganancias disponibles en este momento.",
+  "walletCardAvailableBalance": "Saldo Disponible",
+  "walletCardNextPayout": "Próximo pago: {date}",
+  "@walletCardNextPayout": {
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "format": "yMMMMEEEEd"
+      }
+    }
+  },
+  "earningsPageThisWeekTitle": "Esta Semana",
+  "payoutStatusPaid": "Pagado",
+  "payoutStatusPending": "Pendiente",
+  "payoutStatusProcessing": "Procesando",
+  "payoutStatusFailed": "Fallido",
+  "payoutStatusUnknown": "Desconocido",
+  "payoutStatusPaidTooltip": "Los fondos suelen tardar de 2 a 3 días hábiles en aparecer en su cuenta después de ser marcados como 'Pagado'.",
+  "payoutFailureNoticeTitle": "Acción Requerida: Fallo en el Pago",
+  "payoutFailureNoticeBody": "No pudimos procesar tu pago para la semana del {weekDate} porque: {reason}",
+  "@payoutFailureNoticeBody": {
+    "placeholders": {
+      "weekDate": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "payoutFailureFixOnStripeButton": "Arreglar en Stripe",
+  "payoutFailureContactSupportButton": "Contactar Soporte",
+  "payoutFailureReason_unknown": "Ocurrió un error desconocido. Por favor, contacta a soporte.",
+  "payoutFailureReason_account_closed": "Tu cuenta bancaria ha sido cerrada.",
+  "payoutFailureReason_bank_account_restricted": "Tu cuenta bancaria está restringida y no puede recibir pagos.",
+  "payoutFailureReason_invalid_account_number": "El número de cuenta bancaria proporcionado no es válido.",
+  "payoutFailureReason_payouts_not_allowed": "Los pagos no están permitidos actualmente para tu cuenta.",
+  "payoutFailureReason_worker_missing_stripe_connect_id": "Tu cuenta de pagos no está completamente configurada.",
+  "payoutFailureReason_stripe_account_payouts_disabled": "Los pagos han sido desactivados en tu cuenta de pagos.",
+  "payoutFailureReason_account_restricted": "Tu cuenta de pagos está restringida. Por favor, revisa tu panel de Stripe.",
+  "payoutFailureReason_no_account": "No hay una cuenta bancaria vinculada a tu perfil de pagos.",
+  "payoutFailureReason_debit_not_authorized": "Las transferencias de débito no están autorizadas para tu cuenta bancaria.",
+  "payoutFailureReason_invalid_currency": "Tu cuenta bancaria no admite la moneda del pago (USD).",
+  "payoutFailureReason_account_frozen": "Tu cuenta bancaria ha sido congelada.",
+  "payoutFailureReason_bank_ownership_changed": "La propiedad de tu cuenta bancaria ha cambiado.",
+  "payoutFailureReason_declined": "El pago fue rechazado por tu banco.",
+  "payoutFailureReason_incorrect_account_holder_name": "El nombre del titular de la cuenta bancaria es incorrecto.",
+  "payoutFailureReason_incorrect_account_holder_tax_id": "El ID de impuestos asociado con tu cuenta es incorrecto.",
+  "urlLauncherCannotLaunch": "No se pudo encontrar una aplicación para abrir este enlace.",
+  "apiErrorInvalidPayload": "Los datos enviados no son válidos. Por favor, revisa tu entrada e inténtalo de nuevo.",
+  "apiErrorValidationError": "Parte de la información no era válida. Por favor, revisa los campos e inténtalo de nuevo.",
+  "apiErrorUnauthorized": "No tienes autorización para realizar esta acción.",
+  "apiErrorTokenExpired": "Tu sesión ha expirado. Por favor, inicia sesión de nuevo.",
+  "apiErrorInvalidCredentials": "Credenciales inválidas. Por favor, inténtalo de nuevo.",
+  "apiErrorInvalidTotp": "El código de autenticación de dos factores es incorrecto.",
+  "apiErrorLockedAccount": "Esta cuenta está bloqueada temporalmente debido a demasiados intentos fallidos. Por favor, inténtalo más tarde.",
+  "apiErrorIpMismatch": "Tu dirección de red ha cambiado. Por seguridad, por favor inicia sesión de nuevo.",
+  "apiErrorInternalServerError": "Ocurrió un error inesperado en el servidor. Por favor, inténtalo más tarde.",
+  "apiErrorNotFound": "No se pudo encontrar el elemento solicitado.",
+  "apiErrorConflict": "La información proporcionada entra en conflicto con datos existentes.",
+  "apiErrorPhoneNotVerified": "Este número de teléfono no ha sido verificado. Por favor, completa el proceso de verificación.",
+  "apiErrorEmailNotVerified": "Esta dirección de correo electrónico no ha sido verificada. Por favor, completa el proceso de verificación.",
+  "apiErrorRowVersionConflict": "Este elemento fue actualizado por otro proceso. Por favor, actualiza e inténtalo de nuevo.",
+  "apiErrorNetworkOffline": "Parece que estás desconectado. Por favor, comprueba tu conexión e inténtalo de nuevo.",
+  "apiErrorNetworkTimeout": "La solicitud ha tardado demasiado. Por favor, comprueba tu conexión e inténtalo de nuevo.",
+  "apiErrorNetworkError": "Ocurrió un error de red. Por favor, inténtalo de nuevo.",
+  "apiErrorUnknown": "Ocurrió un error desconocido. Por favor, inténtalo de nuevo.",
+  "signupSuccessTitle": "¡Cuenta Creada!",
+  "signupSuccessMessage": "Tu cuenta ha sido creada con éxito. Ahora puedes iniciar sesión.",
+  "signupSuccessButton": "Proceder a Iniciar Sesión",
+  "signupExpiredTitle": "Registro Expirado",
+  "signupExpiredMessage": "Tu sesión ha expirado y tu cuenta no fue creada. Por favor, inicia el proceso de registro de nuevo.",
+  "signupExpiredButton": "Regresar al Inicio",
+  "helpAndSupportTitle": "Ayuda y Soporte",
+  "emailSupportLabel": "Soporte por Correo",
+  "helpPageIntro": "Para obtener el soporte más rápido, envía un correo electrónico a nuestro equipo. Asegúrate de incluir el correo electrónico de tu cuenta y una descripción detallada de tu problema para que podamos ayudarte lo más rápido posible.",
+  "forUrgentIssues": "Para asuntos urgentes, también puedes comunicarte con nosotros por teléfono:",
+  "emailSubjectGeneralHelp": "Solicitud de Ayuda: App Poof Worker"
+}

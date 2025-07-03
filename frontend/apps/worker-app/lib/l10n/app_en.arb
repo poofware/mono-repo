@@ -1,0 +1,567 @@
+{
+  "@@locale": "en",
+  "apiErrorLocationOutOfBounds": "You are too far from the job location to start.",
+  "apiErrorNotWithinTimeWindow": "This job cannot be started outside of its scheduled service window.",
+  "apiErrorNoPhotosProvided": "Proof photos are required to complete this job.",
+  "apiErrorLocationInaccurate": "Your GPS signal is too weak. Please move to an area with a clearer view of the sky and try again.",
+  "welcomeNewToPoof": "New to Poof?",
+  "welcomeSloganPart1": "Get ready to turn ",
+  "welcomeSloganTrash": "trash ",
+  "welcomeSloganTo": "to ",
+  "welcomeSloganCash": "cash.",
+  "welcomeLoginButton": "Login",
+  "welcomeCreateAccountButton": "Create Account",
+  "welcomeVideoNotLoaded": "Video couldn't be loaded.",
+  "loginTitle": "Login",
+  "loginSubtitle": "Enter your phone number to sign in.",
+  "loginContinueButton": "Continue",
+  "loginEnterPhoneNumberPrompt": "Please enter a valid 10-digit phone number",
+  "loginFailedToProceed": "Failed to proceed: {error}",
+  "@loginFailedToProceed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginUnexpectedError": "Unexpected error: {error}",
+  "@loginUnexpectedError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneNumberFieldLabel": "Phone Number",
+  "phoneNumberFieldTooltip": "Select Country",
+  "homePageCouldNotGetLocation": "Could not get current location: {error}",
+  "@homePageCouldNotGetLocation": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homePageJobsSheetTitle": "Available Jobs",
+  "homePageSortByLabel": "Sort by:",
+  "homePageSortByDistance": "Distance",
+  "homePageSortByPay": "Pay",
+  "homePageSearchHint": "Search by property name or address",
+  "homePageSearchCloseTooltip": "Close Search",
+  "homePageSearchOpenTooltip": "Search Jobs",
+  "homePageNoJobsMatchSearch": "No jobs match your search.",
+  "homePageNoJobsAvailable": "No jobs available right now.",
+  "homePageOfflineMessage": "You are offline. Go online to see available jobs.",
+  "goOnlineButtonGoOnline": "Go Online",
+  "goOnlineButtonGoOffline": "Go Offline",
+  "goOnlineButtonFailedOnline": "Failed to go online: {error}",
+  "@goOnlineButtonFailedOnline": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goOnlineButtonFailedOffline": "Failed to go offline: {error}",
+  "@goOnlineButtonFailedOffline": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goOnlineButtonAccountInactive": "Account is inactive. Please contact support if this is unexpected.",
+  "goOnlineButtonStatusCheckError": "Could not check your status: {error}",
+  "@goOnlineButtonStatusCheckError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "signingOutTitle": "Signing Out",
+  "signingOutMessage": "Signing out...",
+  "sessionExpiredTitle": "Session Expired",
+  "sessionExpiredMessage": "Your authentication was lost.\nRedirecting to sign-in…",
+  "mainTabsHome": "Home",
+  "mainTabsJobs": "Jobs",
+  "mainTabsEarnings": "Earnings",
+  "myAppOfflineBanner": "You are offline",
+  "jobAcceptSheetSelectDayPrompt": "Select a day above to see job details.",
+  "jobAcceptSheetAcceptingButton": "Accepting...",
+  "jobAcceptSheetAcceptButton": "Accept Job",
+  "jobAcceptSheetHeaderAvgPay": "Avg Pay",
+  "jobAcceptSheetHeaderAvgTime": "Avg Time",
+  "jobAcceptSheetHeaderDriveTime": "Drive Time",
+  "jobAcceptSheetHeaderDistance": "Distance",
+  "jobAcceptSheetSnackBarAccepted": "Job \"{jobName}\" accepted.",
+  "@jobAcceptSheetSnackBarAccepted": {
+    "placeholders": {
+      "jobName": {
+        "type": "String"
+      }
+    }
+  },
+  "jobAcceptSheetSnackBarFailed": "Failed to accept job: {error}",
+  "@jobAcceptSheetSnackBarFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobAcceptSheetRecommendedStart": "Recommended Start",
+  "jobAcceptSheetServiceWindow": "Service Window",
+  "jobAcceptSheetBuildings": "Buildings",
+  "jobAcceptSheetPropertyTimeLocal": "({time} Local)",
+  "@jobAcceptSheetPropertyTimeLocal": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "definitionCardViewOnMapTooltip": "View on Map",
+  "definitionCardAvgSuffix": "avg",
+  "createAccountTitle": "Create Account",
+  "createAccountSubtitle": "A few details to get you set up.",
+  "createAccountFirstNameLabel": "First Name",
+  "createAccountLastNameLabel": "Last Name",
+  "createAccountEmailLabel": "Email",
+  "createAccountPhoneLabel": "Phone Number",
+  "createAccountAllFieldsRequired": "Please fill out all fields.",
+  "createAccountNextButton": "Next",
+  "phoneVerificationInfoTitle": "Verify Your Phone Number",
+  "phoneVerificationInfoMessage": "We will send a one-time SMS verification code to:",
+  "phoneVerificationInfoNoNumber": "(No phone number provided)",
+  "phoneVerificationInfoExplanation": "This step confirms your mobile number so we can keep your account secure, send you important updates, and ensure that only you can access the account. Tap the button below to receive the verification code via SMS.",
+  "phoneVerificationInfoSendCodeButton": "Send Verification Code",
+  "phoneVerificationInfoFailedSms": "Failed to request SMS code: {error}",
+  "@phoneVerificationInfoFailedSms": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "verifyNumberTitle": "Verify Your Number",
+  "verifyNumberMessage": "Enter the 6-digit code we sent to {phoneNumber}",
+  "@verifyNumberMessage": {
+      "placeholders": {
+          "phoneNumber": {"type": "String"}
+      }
+  },
+  "verifyNumberEnter6DigitCode": "Please enter a valid 6-digit code",
+  "verifyNumberFailed": "SMS verification failed: {error}",
+  "@verifyNumberFailed": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "verifyNumberDidNotReceiveCode": "Didn't receive a code? ",
+  "verifyNumberResendCode": "Resend",
+  "verifyNumberResendCodeCooldown": "Resend in {seconds}s",
+  "@verifyNumberResendCodeCooldown": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "verifyNumberCodeResent": "Code resent!",
+  "verifyNumberFailedToResend": "Failed to resend: {error}",
+  "@verifyNumberFailedToResend": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "verifyNumberVerifyButton": "Verify",
+  "totpSignupTitle": "Secure Your Account",
+  "totpSignupSubtitle": "For your security, we use passwordless sign-in with a verification app.",
+  "totpSignupExplanation": "Please install an authenticator app if you don't already have one.",
+  "totpSignupStep1Title": "Step 1: Get an Authenticator App",
+  "totpSignupStep2Title": "Step 2: Add Your Account",
+  "totpSignupOrManual": "or",
+  "totpSignupCopyKeyManualTooltip": "Copy Key for Manual Setup",
+  "totpSignupWorksWithLabel": "Works with popular apps:",
+  "totpSignupOpenAuthenticatorButton": "Add Account Automatically",
+  "totpSignupFailedToGenerate": "Failed to generate TOTP secret: {error}",
+  "@totpSignupFailedToGenerate": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "totpSignupNoSecretFound": "No TOTP secret found! Please go back and try again.",
+  "totpSignupKeyCopied": "Secret key copied to clipboard!",
+  "totpSignupAfterSetupPrompt": "After adding the account to your app, tap Continue.",
+  "totpVerifyTitle": "Enter Verification Code",
+  "totpVerifyMessage": "Enter the 6-digit code from your authenticator app for {identifier}",
+  "@totpVerifyMessage": {
+    "placeholders": {
+      "identifier": { "type": "String" }
+    }
+  },
+  "totpVerifyAccountNameInfo": "In your authenticator app, look for the code labeled:",
+  "totpVerifyExplanation": "Enter the 6-digit code shown in your authenticator app.",
+  "totpVerifyButton": "Verify & Finish",
+  "totpVerifyLoginFailed": "Login failed: {error}",
+  "@totpVerifyLoginFailed": {
+      "placeholders": {
+          "error": {"type": "String"}
+      }
+  },
+  "totpVerifyUnexpectedErrorWorkerNull": "Unexpected error: worker data is null",
+  "workerDrawerMyProfile": "My Profile",
+  "workerDrawerHelpSupport": "Help & Support",
+  "workerDrawerSettings": "Settings",
+  "workerDrawerSignOut": "Sign Out",
+  "acceptedJobsTitle": "Accepted Jobs",
+  "acceptedJobsSubtitle": "Manage and view your upcoming work",
+  "acceptedJobsSortByLabel": "Sort by:",
+  "acceptedJobsSortByMoney": "Money",
+  "acceptedJobsNoJobsForDay": "No jobs found for this day.",
+  "acceptedJobsBrowseJobsButton": "Browse Jobs",
+  "acceptedJobsNoJobsAtAll": "You have no accepted jobs yet.",
+  "acceptedJobsSelectADay": "Select a day above to view your jobs.",
+  "acceptedJobsUnacceptNotImplemented": "Unaccept not yet implemented",
+  "acceptedJobsBottomSheetStartJobButton": "Start Job",
+  "acceptedJobsBottomSheetUnacceptButton": "Unaccept",
+  "acceptedJobsBottomSheetUnacceptingButton": "Unaccepting...",
+  "acceptedJobsUnacceptSuccessSnackbar": "Job \"{jobName}\" unaccepted.",
+  "@acceptedJobsUnacceptSuccessSnackbar": {
+    "placeholders": {
+      "jobName": {
+        "type": "String"
+      }
+    }
+  },
+  "acceptedJobsUnacceptFailureSnackbar": "Failed to unaccept job: {error}",
+  "@acceptedJobsUnacceptFailureSnackbar": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "acceptedJobsBottomSheetPayLabel": "Pay",
+  "acceptedJobsBottomSheetDistanceLabel": "Distance",
+  "acceptedJobsBottomSheetEstTimeLabel": "Est. Time",
+  "acceptedJobsBottomSheetViewDetails": "View Details",
+  "acceptedJobsBottomSheetHideDetails": "Hide Details",
+  "acceptedJobsBottomSheetViewJobMap": "View Job Map",
+  "jobMapPageTitle": "Job Map",
+  "jobMapPageSubtitle": "{propertyName}",
+  "@jobMapPageSubtitle": {
+    "placeholders": {
+      "propertyName": {
+        "type": "String"
+      }
+    }
+  },
+  "earningsPageTitle": "Earnings",
+  "earningsPageSubtitle": "Manage and view your earnings",
+  "earningsPageCurrentBalanceLabel": "Current Balance",
+  "earningsPageTotalForWeekLabel": "Total for the week",
+  "earningsPageWeeklyEarningsLabel": "Earnings History",
+  "weeklyEarningsPageTitleSuffix": "–",
+  "weeklyEarningsPageTotalLabel": "Total Week Earnings: ",
+  "weeklyEarningsPageNoEarnings": "No earnings to display for this week.",
+  "completedJobBottomSheetTitle": "Job Completed",
+  "completedJobBottomSheetPropertyLabel": "Property: {propertyName}",
+  "@completedJobBottomSheetPropertyLabel": {
+    "placeholders": {"propertyName": {"type": "String"}}
+  },
+  "completedJobBottomSheetAddressLabel": "Address: {address}",
+  "@completedJobBottomSheetAddressLabel": {
+    "placeholders": {"address": {"type": "String"}}
+  },
+  "completedJobBottomSheetPayLabel": "Pay: {payAmount}",
+  "@completedJobBottomSheetPayLabel": {
+    "placeholders": {"payAmount": {"type": "String"}}
+  },
+  "completedJobBottomSheetCompletedLabel": "Completed: {dateTime}",
+  "@completedJobBottomSheetCompletedLabel": {
+    "placeholders": {"dateTime": {"type": "String"}}
+  },
+  "completedJobBottomSheetTimeToCompleteLabel": "Time to Complete: {duration}",
+  "@completedJobBottomSheetTimeToCompleteLabel": {
+    "placeholders": {"duration": {"type": "String"}}
+  },
+  "completedJobBottomSheetCloseButton": "CLOSE",
+  "jobInProgressPageTitle": "Job in Progress",
+  "jobInProgressCancelButton": "Cancel Job",
+  "jobInProgressCancelDialogTitle": "Cancel Job?",
+  "jobInProgressCancelDialogContent": "Are you sure you want to cancel this job? This may affect your reliability score.",
+  "jobInProgressCancelDialogConfirm": "Confirm Cancel",
+  "jobInProgressCancelDialogBack": "Go Back",
+  "jobInProgressCompleteAction": "Slide to Complete",
+  "jobInProgressTakePictureButton": "Take Photo",
+  "jobInProgressPhotoConfirmDialogTitle": "Confirm Photo",
+  "jobInProgressPhotoConfirmDialogContent": "Are you sure you want to use this photo? You will not be able to retake it.",
+  "jobInProgressPhotoConfirmDialogConfirm": "Confirm",
+  "jobInProgressPhotoConfirmDialogRetake": "Retake",
+  "jobInProgressNoPhotos": "No photos taken yet.",
+  "jobInProgressPhotosTakenHeader": "Photos Taken",
+  "jobInProgressMoreOptionsTooltip": "More options",
+  "jobStartFailedSnackbar": "Failed to start job: {error}",
+  "@jobStartFailedSnackbar": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobCompleteFailedSnackbar": "Failed to complete job: {error}",
+  "@jobCompleteFailedSnackbar": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobCancelFailedSnackbar": "Failed to cancel job: {error}",
+  "@jobCancelFailedSnackbar": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobCancelSuccessSnackbar": "Job has been canceled.",
+  "jobInProgressEstTimeLabel": "Estimated: {time}",
+  "@jobInProgressEstTimeLabel": {
+    "placeholders": {"time": {"type": "String"}}
+  },
+  "jobInProgressPictureSnackbar": "Taking a picture... (placeholder)",
+  "jobInProgressMessageSnackbar": "Messaging... (placeholder)",
+  "settingsPageTitle": "Settings",
+  "settingsPageEnableNotifications": "Enable Notifications",
+  "settingsPageDarkMode": "Dark Mode",
+  "addressInfoPageTitle": "Your Address",
+  "addressInfoPageSubtitle": "Enter your home address for verification and service area matching.",
+  "addressInfoPageStreetLabel": "Street Address",
+  "addressInfoPageAptSuiteLabel": "Apt / Suite (optional)",
+  "addressInfoPageCityLabel": "City",
+  "addressInfoPageStateLabel": "State",
+  "addressInfoPageZipLabel": "Zip Code",
+  "addressInfoPageContinueButton": "Continue",
+  "addressInfoPageFieldsRequired": "Please fill out all required fields.",
+  "vehicleSetupPageTitle": "Vehicle Setup",
+  "vehicleSetupPageSubtitle": "Let us know what you'll be driving.",
+  "vehicleSetupPageInstructions": "Please enter the details of the vehicle you will use:",
+  "vehicleSetupPageYearLabel": "Year",
+  "vehicleSetupPageMakeLabel": "Make",
+  "vehicleSetupPageModelLabel": "Model",
+  "vehicleSetupPageContinueButton": "Continue",
+  "vehicleSetupPageInvalidInfo": "Please provide valid vehicle info.",
+  "checkrPageTitle": "Background Check",
+  "checkrPageAuthTitle": "Background Check Authorization",
+  "checkrPageSubtitle": "We partner with Checkr for secure background checks.",
+  "checkrPageExplanation": "For security and compliance, we partner with Checkr to perform secure background checks. Your information is encrypted and processed securely.",
+  "checkrPageConfirmEmailLabel": "Confirm Your Email Address",
+  "checkrPageConfirmEmailExplanation": "Checkr will send important updates regarding your background check to the email below. Make sure it’s correct.",
+  "checkrPageEmailFieldLabel": "Email",
+  "checkrPageBeginButton": "Begin Background Check",
+  "checkrPageSecureWindowNote": "You'll complete the check in a secure in-app window.",
+  "checkrPageFailedToStart": "Failed to start background check: {error}",
+  "@checkrPageFailedToStart": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "checkrInProgressPageTitle": "Background Check – Verifying",
+  "checkrInProgressPageMessage": "We're waiting for you to finish the background check authorization in the secure form.",
+  "checkrInProgressPageCheckStatusPrompt": "If you’ve completed or canceled the form in another window, tap below to check your status again.",
+  "checkrInProgressPageCheckingButton": "Checking…",
+  "checkrInProgressPageCheckAgainButton": "Did you finish? Tap here to check again",
+  "checkrInProgressPageCouldNotReopen": "Couldn’t reopen form: {error}",
+  "@checkrInProgressPageCouldNotReopen": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "checkrInviteCompletePageTitle": "Invitation Complete!",
+  "checkrInviteCompletePageMessage": "We’re now processing your background check. You can continue while we finalize the results.",
+  "checkrInviteCompletePageContinueButton": "Continue",
+  "checkrWebViewPageTitle": "Complete Background Check",
+  "checkrOutcomePageTitle": "Background Check Status",
+  "checkrOutcomePageCurrentStatusLabel": "Current Status: ",
+  "checkrOutcomePageEmailNotification": "Detailed report updates will be emailed to {email}.",
+  "@checkrOutcomePageEmailNotification": {
+      "placeholders": {"email": {"type": "String"}}
+  },
+  "checkrOutcomePageYourEmailFallback": "your email",
+  "checkrOutcomePageQuestions": "If you have questions, please contact us or visit your Checkr Candidate Portal.",
+  "checkrOutcomePageOpenPortalButton": "Open Candidate Portal",
+  "checkrOutcomePageContinueDashboardButton": "Continue to Dashboard",
+  "checkrOutcomePageErrorFetching": "Error fetching data: {error}",
+  "@checkrOutcomePageErrorFetching": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "checkrOutcomePageSubtitlePending": "Your background check is currently being processed. This can take a few days. We'll notify you once it's complete.",
+  "checkrOutcomePageSubtitleCanceled": "There was an issue with your background check. Please review the details in your Checkr Candidate Portal or contact support for more information.",
+  "checkrOutcomePageSubtitleApproved": "Good news! Your background check is complete and you are ready for the next step.",
+  "stripeConnectPageTitle": "Set Up Your Payment Account",
+  "stripeConnectPageSubtitle": "Connect your Stripe account to start getting paid quickly and securely.",
+  "stripeConnectPageHowItWorksTitle": "How it Works",
+  "stripeConnectPageStep1Title": "Log in or create your Stripe account",
+  "stripeConnectPageStep1Subtitle": "Connect securely with Stripe's platform",
+  "stripeConnectPageStep2Title": "Verify your identity",
+  "stripeConnectPageStep2Subtitle": "Provide required information for compliance",
+  "stripeConnectPageStep3Title": "Start receiving payments",
+  "stripeConnectPageStep3Subtitle": "Get paid directly to your bank account",
+  "stripeConnectPageTermsButton": "Terms of Service",
+  "stripeConnectPagePrivacyButton": "Privacy Policy",
+  "stripeConnectPageTermsSnackbar": "Terms of Service (placeholder)",
+  "stripeConnectPagePrivacySnackbar": "Privacy Policy (placeholder)",
+  "stripeConnectPageNeedHelpLabel": "Need help? ",
+  "stripeConnectPageContactSupportButton": "Contact Support",
+  "stripeConnectPageContactSupportSnackbar": "Contact support (placeholder)",
+  "stripeConnectPageConnectButton": "Connect With Stripe",
+  "stripeConnectPageFailedToStart": "Failed to start Stripe Connect flow: {error}",
+  "@stripeConnectPageFailedToStart": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "stripeConnectInProgressPageTitle": "Stripe Connect Onboarding In Progress",
+  "stripeConnectInProgressPageMessage": "We’re waiting for you to finish the Stripe Connect onboarding flow in your browser or external link.",
+  "stripeConnectInProgressPageCheckStatusPrompt": "If you’ve completed or canceled the Connect flow in another window, tap below to check your status again.",
+  "stripeConnectInProgressPageCheckAgainButton": "Did you finish? Tap here to check again",
+  "stripeConnectNotCompletePageTitle": "Stripe Connect Incomplete",
+  "stripeConnectNotCompletePageMessage": "The setup wasn't fully completed. We're restarting the process for you now...",
+  "stripeIdvPageTitle": "Verify Your Identity",
+  "stripeIdvPageExplanation": "Complete your verification securely to access your account. We partner with Stripe to ensure a safe and reliable verification process.",
+  "stripeIdvPageStepScanId": "Scan your ID or passport",
+  "stripeIdvPageStepSelfie": "Take a clear selfie",
+  "stripeIdvPageStepSubmit": "Submit for verification",
+  "stripeIdvPageBeforeYouBeginTitle": "Before you begin:",
+  "stripeIdvPageTipDuration": "Verification takes 5-10 minutes",
+  "stripeIdvPageTipLighting": "Ensure good lighting for photos",
+  "stripeIdvPageTipHaveId": "Have a valid government ID ready",
+  "stripeIdvPageSecurityNote": "Your information is encrypted and securely transmitted. We only receive verification results and do not store sensitive personal data.",
+  "stripeIdvPageNeedHelpLabel": "Need help? ",
+  "stripeIdvPageContactSupportButton": "Contact Support",
+  "stripeIdvPageContactSupportSnackbar": "Contact support (placeholder)",
+  "stripeIdvPageStartButton": "Start Identity Verification",
+  "stripeIdvPageFailedToStart": "Failed to start ID verification flow: {error}",
+  "@stripeIdvPageFailedToStart": {
+      "placeholders": {"error": {"type": "String"}}
+  },
+  "stripeIdvInProgressPageTitle": "Stripe ID Verification In Progress",
+  "stripeIdvInProgressPageMessage": "We’re waiting for you to finish the Stripe Identity Verification flow in your browser or external link.",
+  "stripeIdvInProgressPageCheckStatusPrompt": "If you’ve completed or canceled the ID verification in another window, tap below to check your status again.",
+  "stripeIdvInProgressPageCheckAgainButton": "Did you finish? Tap here to check again",
+  "stripeIdvNotCompletePageTitle": "Identity Verification Incomplete",
+  "stripeIdvNotCompletePageMessage": "The identity check wasn't fully completed. We're restarting the process for you now...",
+  "myProfilePageTitle": "My Profile",
+  "myProfilePageEditButton": "Edit",
+  "myProfilePageCancelButton": "Cancel",
+  "myProfilePageYourNameFallback": "Your Name",
+  "myProfilePageEmailLabel": "Email",
+  "myProfilePagePhoneLabel": "Phone Number",
+  "myProfilePageAddressLabel": "Street Address",
+  "myProfilePageVehicleYearLabel": "Vehicle Year",
+  "myProfilePageVehicleMakeLabel": "Vehicle Make",
+  "myProfilePageVehicleModelLabel": "Vehicle Model",
+  "myProfilePageSaveChangesButton": "Save Changes",
+  "myProfilePageSavingButton": "Saving…",
+  "myProfilePageProfileUpdatedSnackbar": "Profile updated!",
+  "myProfilePageContactSection": "Contact Information",
+  "myProfilePageVehicleSection": "Vehicle Information",
+  "myProfilePageAccountManagementSection": "Account Management",
+  "myProfilePageManagePaymentsButton": "Manage Payouts",
+  "myProfilePageManagePaymentsSubtitle": "Update your bank account or view payment details on Stripe.",
+  "myProfilePageManageBackgroundCheckButton": "View Background Check",
+  "myProfilePageManageBackgroundCheckSubtitle": "Open your Checkr candidate portal to view status or reports.",
+  "appSplashLogoPlaceholder": "LOGO WILL GO HERE",
+  "checkrInviteWebViewBarrierLabel": "Checkr Invitation",
+  "checkrStatusCanceled": "Canceled",
+  "checkrStatusPending": "Pending",
+  "checkrStatusApproved": "Approved",
+  "checkrStatusPendingTestMode": "Pending (Test Mode)",
+  "countryNameCA": "Canada",
+  "countryNameGB": "United Kingdom",
+  "countryNameUS": "United States",
+  "pressToSlideCancelSlideToCancel": "Slide to cancel",
+  "pressToSlideCancelStartButton": "Start",
+  "timeUnitDays": "Days",
+  "timeUnitHours": "Hours",
+  "timeUnitMinutes": "Min",
+  "transportModeCar": "Car",
+  "transportModeWalk": "Walk",
+  "verifyNumberTestModeNoResend": "Test Mode: no real resend.",
+  "weeklyEarningsPageBackButtonTooltip": "Back",
+  "homePageJobsSheetRefreshTooltip": "Refresh job list",
+  "earningsPageRetryButton": "Retry",
+  "earningsPageNoData": "No earnings data available at this time.",
+  "walletCardAvailableBalance": "Available Balance",
+  "walletCardNextPayout": "Next payout: {date}",
+  "@walletCardNextPayout": {
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "format": "yMMMMEEEEd"
+      }
+    }
+  },
+  "earningsPageThisWeekTitle": "This Week",
+  "payoutStatusPaid": "Paid",
+  "payoutStatusPending": "Pending",
+  "payoutStatusProcessing": "Processing",
+  "payoutStatusFailed": "Failed",
+  "payoutStatusUnknown": "Unknown",
+  "payoutStatusPaidTooltip": "Funds typically take 2-3 business days to appear in your account after being marked as 'Paid'.",
+  "payoutFailureNoticeTitle": "Action Required: Payout Failed",
+  "payoutFailureNoticeBody": "We were unable to process your payout for the week of {weekDate} because: {reason}",
+  "@payoutFailureNoticeBody": {
+    "placeholders": {
+      "weekDate": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "payoutFailureFixOnStripeButton": "Fix on Stripe",
+  "payoutFailureContactSupportButton": "Contact Support",
+  "payoutFailureReason_unknown": "An unknown error occurred. Please contact support.",
+  "payoutFailureReason_account_closed": "Your bank account has been closed.",
+  "payoutFailureReason_bank_account_restricted": "Your bank account is restricted and cannot receive payments.",
+  "payoutFailureReason_invalid_account_number": "The bank account number provided is invalid.",
+  "payoutFailureReason_payouts_not_allowed": "Payouts are not currently allowed for your account.",
+  "payoutFailureReason_worker_missing_stripe_connect_id": "Your payments account is not fully set up.",
+  "payoutFailureReason_stripe_account_payouts_disabled": "Payouts have been disabled on your payments account.",
+  "payoutFailureReason_account_restricted": "Your payments account is restricted. Please check your Stripe dashboard.",
+  "payoutFailureReason_no_account": "There is no bank account linked to your payments profile.",
+  "payoutFailureReason_debit_not_authorized": "Debit transfers are not authorized for your bank account.",
+  "payoutFailureReason_invalid_currency": "Your bank account does not support the payout currency (USD).",
+  "payoutFailureReason_account_frozen": "Your bank account has been frozen.",
+  "payoutFailureReason_bank_ownership_changed": "Your bank account ownership has changed.",
+  "payoutFailureReason_declined": "The payout was declined by your bank.",
+  "payoutFailureReason_incorrect_account_holder_name": "The name on your bank account is incorrect.",
+  "payoutFailureReason_incorrect_account_holder_tax_id": "The tax ID associated with your account is incorrect.",
+  "urlLauncherCannotLaunch": "Could not find an app to open this link.",
+  "apiErrorInvalidPayload": "The data sent was invalid. Please check your input and try again.",
+  "apiErrorValidationError": "Some information was invalid. Please check the fields and try again.",
+  "apiErrorUnauthorized": "You are not authorized to perform this action.",
+  "apiErrorTokenExpired": "Your session has expired. Please log in again.",
+  "apiErrorInvalidCredentials": "Invalid credentials provided. Please try again.",
+  "apiErrorInvalidTotp": "The two-factor authentication code is incorrect.",
+  "apiErrorLockedAccount": "This account is temporarily locked due to too many failed attempts. Please try again later.",
+  "apiErrorIpMismatch": "Your network address has changed. For security, please log in again.",
+  "apiErrorInternalServerError": "An unexpected server error occurred. Please try again later.",
+  "apiErrorNotFound": "The requested item could not be found.",
+  "apiErrorConflict": "The information provided conflicts with existing data.",
+  "apiErrorPhoneNotVerified": "This phone number has not been verified. Please complete the verification process.",
+  "apiErrorEmailNotVerified": "This email address has not been verified. Please complete the verification process.",
+  "apiErrorRowVersionConflict": "This item was updated by another process. Please refresh and try again.",
+  "apiErrorNetworkOffline": "You appear to be offline. Please check your connection and try again.",
+  "apiErrorNetworkTimeout": "The request timed out. Please check your connection and try again.",
+  "apiErrorNetworkError": "A network error occurred. Please try again.",
+  "apiErrorUnknown": "An unknown error occurred. Please try again.",
+  "signupSuccessTitle": "Account Created!",
+  "signupSuccessMessage": "Your account has been created successfully. You can now log in.",
+  "signupSuccessButton": "Proceed to Login",
+  "signupExpiredTitle": "Signup Expired",
+  "signupExpiredMessage": "Your session has expired and your account was not created. Please start the registration process again.",
+  "signupExpiredButton": "Return to Home",
+  "helpAndSupportTitle": "Help & Support",
+  "emailSupportLabel": "Email Support",
+  "helpPageIntro": "For the fastest support, please email our team. Be sure to include your account email and a detailed description of your issue so we can help you as quickly as possible.",
+  "forUrgentIssues": "For urgent issues, you can also reach us by phone:",
+  "emailSubjectGeneralHelp": "Help Request: Poof Worker App"
+}

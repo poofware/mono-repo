@@ -1,0 +1,22 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.poof.flutterauth'    //  ← matches Kotlin package
+    compileSdkVersion 35
+    defaultConfig { minSdkVersion 21 }
+
+    kotlinOptions { jvmTarget = '17' }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Upgraded to 1.4.1 (2025‑05‑14) for DEVICE_RECALL & new error codes.
+    implementation "com.google.android.play:integrity:1.4.0"
+}
+

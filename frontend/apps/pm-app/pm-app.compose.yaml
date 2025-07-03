@@ -1,0 +1,21 @@
+x-build-network: &build-network
+  network: host
+
+services:
+  pm-app:
+    build:
+      context: .
+      dockerfile: pm-app.Dockerfile
+      <<: *build-network
+    image: ${APP_NAME:?Docker Compose Config Error! APP_NAME is not set!}
+    container_name: ${APP_NAME:?Docker Compose Config Error! APP_NAME is not set!}_instance
+    ports:
+      - "${APP_HOST_PORT:-8080}:${APP_PORT:-8080}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    profiles:
+      - app
+

@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+source "https://rubygems.org"
+
+# It's recommended to lock to a specific major.minor version to prevent CI breaking on new releases.
+gem "fastlane", ">= 2.228.0"
+
+# Community plugin for incrementing the Android versionCode in build.gradle.
+gem "fastlane-plugin-increment_version_code", "~> 0.4.3"
+
+gem "abbrev", "~> 0.1.2"
+gem "english", "~> 0.8.0"
+gem "logger", "~> 1.7"
+gem "shellwords", "~> 0.2.2"

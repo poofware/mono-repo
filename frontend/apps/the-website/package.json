@@ -1,0 +1,14 @@
+{
+  "name": "the-website",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite --open",
+    "build": "vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
+

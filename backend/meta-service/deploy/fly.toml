@@ -1,0 +1,33 @@
+app = "meta-service"
+primary_region = "atl"
+
+[env]
+  ENV = "production"
+
+[build]
+  image = "docker.io/username/meta-service:latest"
+
+# Define the internal port for the reverse proxy (combined deployment)
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+# Health check for the combined deployment (proxy)
+[[services.http_checks]]
+  interval = "10s"
+  timeout = "2s"
+  grace_period = "5s"
+  method = "GET"
+  path = "/health"    # Hits the Go health check service via NGINX
+  protocol = "http"
+  restart_limit = 0
+
+[vm]
+  memory = "2gb"           # Allocate 2GB RAM for the combined deployment
+  size = "shared-cpu-2x"   # Allocate 2 shared CPUs

@@ -1,0 +1,21 @@
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-ngrok_instance
+    restart: unless-stopped
+    command: >
+      http ${APP_URL_FROM_COMPOSE_NETWORK?Docker Compose Config Error! APP_URL_FROM_COMPOSE_NETWORK is not set!} --log stdout
+    ports:
+      - "0:${NGROK_PORT:-4040}"
+    profiles:
+      - ngrok
+    networks:
+      - app_network
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN?Docker Compose Config Error! NGROK_AUTHTOKEN is not set!}
+
+networks:
+  app_network:
+    external: true
+    name: ${COMPOSE_NETWORK_NAME?Docker Compose Config Error! COMPOSE_NETWORK_NAME is not set!}
+
