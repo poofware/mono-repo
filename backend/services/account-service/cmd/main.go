@@ -17,6 +17,7 @@ import (
 	"github.com/poofware/go-middleware"
 	"github.com/poofware/go-repositories"
 	"github.com/poofware/go-utils"
+	"github.com/sendgrid/sendgrid-go" // Import SendGrid
 )
 
 func main() {
@@ -52,12 +53,14 @@ func main() {
 	workerSMSRepo := repositories.NewWorkerSMSVerificationRepository(application.DB)
 
 	// Services
+	sgClient := sendgrid.NewSendClient(cfg.SendgridAPIKey) // Instantiate SendGrid client
 	pmService := services.NewPMService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo)
 	workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo)
-	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo)
+	// MODIFIED: Inject SendGrid client and Config into WorkerStripeService
+	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo, sgClient)
 	stripeWebhookCheckService := services.NewStripeWebhookCheckService()
 
-	checkrService, err := services.NewCheckrService(cfg, workerRepo)
+	checkrService, err := services.NewCheckrService(cfg, workerRepo, sgClient)
 	if err != nil {
 		utils.Logger.Fatal("Failed to initialize CheckrService:", err)
 	}

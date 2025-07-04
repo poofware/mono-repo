@@ -25,19 +25,21 @@ const (
 )
 
 type EarningsService struct {
-	jobInstRepo repositories.JobInstanceRepository
-	payoutRepo  internal_repositories.WorkerPayoutRepository
-	defRepo     repositories.JobDefinitionRepository
-	propRepo    repositories.PropertyRepository
-	cfg         *config.Config
+	jobInstRepo  repositories.JobInstanceRepository
+	payoutRepo   internal_repositories.WorkerPayoutRepository
+	defRepo      repositories.JobDefinitionRepository
+	propRepo     repositories.PropertyRepository
+	payoutSvc    *PayoutService // NEW: Dependency on PayoutService
+	cfg          *config.Config
 }
 
-func NewEarningsService(cfg *config.Config, jobInstRepo repositories.JobInstanceRepository, payoutRepo internal_repositories.WorkerPayoutRepository, defRepo repositories.JobDefinitionRepository, propRepo repositories.PropertyRepository) *EarningsService {
+func NewEarningsService(cfg *config.Config, jobInstRepo repositories.JobInstanceRepository, payoutRepo internal_repositories.WorkerPayoutRepository, defRepo repositories.JobDefinitionRepository, propRepo repositories.PropertyRepository, payoutSvc *PayoutService) *EarningsService {
 	return &EarningsService{
 		jobInstRepo: jobInstRepo,
 		payoutRepo:  payoutRepo,
 		defRepo:     defRepo,
 		propRepo:    propRepo,
+		payoutSvc:   payoutSvc, // NEW
 		cfg:         cfg,
 	}
 }
@@ -65,6 +67,24 @@ func (s *EarningsService) GetEarningsSummary(ctx context.Context, workerIDStr st
 		return nil, err
 	}
 
+	// --- NEW: Reconcile stale payouts ---
+	var reconciledPayouts []*internal_models.WorkerPayout
+	for _, p := range payouts {
+		// If payout is stuck in PROCESSING for more than 48 hours, poll Stripe for its status.
+		if p.Status == internal_models.PayoutStatusProcessing && p.UpdatedAt.Before(time.Now().Add(-48*time.Hour)) {
+			reconciled, reconcileErr := s.payoutSvc.ReconcileStalePayout(ctx, p)
+			if reconcileErr != nil {
+				utils.Logger.WithError(reconcileErr).Warnf("Failed to reconcile stale payout %s", p.ID)
+				reconciledPayouts = append(reconciledPayouts, p) // Keep original if reconcile fails
+			} else {
+				reconciledPayouts = append(reconciledPayouts, reconciled)
+			}
+		} else {
+			reconciledPayouts = append(reconciledPayouts, p)
+		}
+	}
+	// --- End of New Logic ---
+
 	// 2. Group jobs by ID for efficient lookup and calculate initial total.
 	jobsByID, twoMonthTotal := s._groupJobsByIDAndCalcTotal(completedJobs)
 
@@ -75,7 +95,7 @@ func (s *EarningsService) GetEarningsSummary(ctx context.Context, workerIDStr st
 	}
 
 	// 3. Process existing payouts to build the "Earnings History".
-	pastWeeksDTOs, processedJobIDs := s._processPaidHistory(payouts, jobsByID, defMap, propMap)
+	pastWeeksDTOs, processedJobIDs := s._processPaidHistory(reconciledPayouts, jobsByID, defMap, propMap)
 
 	// 4. Build the "Current Period" DTO from all jobs that have NOT been processed in a payout.
 	currentPeriodDTO := s._buildCurrentPeriodDTO(completedJobs, processedJobIDs, defMap, propMap, nowForLogic)

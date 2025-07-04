@@ -46,8 +46,9 @@ func main() {
 	}
 
 	// Services
-	earningsService := services.NewEarningsService(cfg, jobInstRepo, payoutRepo, defRepo, propRepo) // UPDATED
 	payoutService := services.NewPayoutService(cfg, workerRepo, jobInstRepo, payoutRepo)
+	// MODIFIED: Inject PayoutService into EarningsService
+	earningsService := services.NewEarningsService(cfg, jobInstRepo, payoutRepo, defRepo, propRepo, payoutService)
 	webhookCheckService := services.NewStripeWebhookCheckService()
 
 	// Start dynamic webhook manager

@@ -33,15 +33,17 @@ type Config struct {
 	RSAPublicKey                        *rsa.PublicKey
 	LDFlag_PrefillStripeExpressKYC      bool
 	LDFlag_AllowOOSSetupFlow            bool
-	LDFlag_SeedDbWithTestAccounts     bool
+	LDFlag_SeedDbWithTestAccounts       bool
 	LDFlag_CheckrStagingMode            bool
 	LDFlag_DynamicCheckrWebhookEndpoint bool
 	LDFlag_ValidatePhoneWithTwilio      bool
 	LDFlag_ValidateEmailWithSendGrid    bool
-	LDFlag_UsingIsolatedSchema            bool
+	LDFlag_UsingIsolatedSchema          bool
 	LDFlag_DynamicStripeWebhookEndpoint bool
 	LDFlag_DoRealMobileDeviceAttestation    bool
 	LDFlag_CORSHighSecurity 			bool
+	LDFlag_SendgridFromEmail            string
+	LDFlag_SendgridSandboxMode          bool // NEW
 }
 
 const (
@@ -322,34 +324,51 @@ func LoadConfig() *Config {
 	}
 	utils.Logger.Debugf("cors_high_security flag: %t", corsHighSecurityFlag)
 
+	sendgridSandboxMode, err := ldClientShared.BoolVariation("sendgrid_sandbox_mode", context, false)
+	if err != nil {
+		ldClientShared.Close()
+		utils.Logger.WithError(err).Fatal("Error retrieving sendgrid_sandbox_mode flag")
+	}
+	utils.Logger.Debugf("sendgrid_sandbox_mode flag: %t", sendgridSandboxMode)
+
+	sendgridFromEmail, err := ldClientShared.StringVariation("sendgrid_from_email", context, "")
+	if err != nil {
+		ldClientShared.Close()
+		utils.Logger.WithError(err).Fatal("Error retrieving sendgrid_from_email flag")
+	}
+	utils.Logger.Debugf("sendgrid_from_email flag: %s", sendgridFromEmail)
+
 	return &Config{
-		OrganizationName:                     OrganizationName,
-		AppName:                              AppName,
-		AppPort:                              appPort,
-		AppUrl:                               appUrl,
-		UniqueRunNumber:                      UniqueRunNumber,
-		UniqueRunnerID:                       UniqueRunnerID,
-		DBUrl:                                dbURL,
-		DBEncryptionKey:                      decodedKey,
-		StripeSecretKey:                      stripeSecretKey,
-		StripeWebhookSecret:                  stripeWebhookSecret,
-		CheckrAPIKey:                         checkrAPIKey,
-		TwilioAccountSID:                     twilioAccountSID,
-		TwilioAuthToken:                      twilioAuthToken,
-		SendgridAPIKey:                       sendgridAPIKey,
-		RSAPrivateKey:                        privateKey,
-		RSAPublicKey:                         publicKey,
-		LDFlag_PrefillStripeExpressKYC:       prefillStripeExpressKyc,
-		LDFlag_AllowOOSSetupFlow:             allowOOSSetupFlow,
-		LDFlag_SeedDbWithTestAccounts:        seedTestAccounts,
-		LDFlag_CheckrStagingMode:             checkrStagingMode,
-		LDFlag_DynamicCheckrWebhookEndpoint:  dynamicCheckrWebhook,
-		LDFlag_ValidatePhoneWithTwilio:       validatePhoneWithTwilio,
-		LDFlag_ValidateEmailWithSendGrid:     validateEmailWithSendGrid,
-		LDFlag_UsingIsolatedSchema:           usingIsolatedSchema,
-		LDFlag_DynamicStripeWebhookEndpoint:  dynamicStripeWebhook,
+		OrganizationName:                    OrganizationName,
+		AppName:                             AppName,
+		AppPort:                             appPort,
+		AppUrl:                              appUrl,
+		UniqueRunNumber:                     UniqueRunNumber,
+		UniqueRunnerID:                      UniqueRunnerID,
+		DBUrl:                               dbURL,
+		DBEncryptionKey:                     decodedKey,
+		StripeSecretKey:                     stripeSecretKey,
+		StripeWebhookSecret:                 stripeWebhookSecret,
+		CheckrAPIKey:                        checkrAPIKey,
+		TwilioAccountSID:                    twilioAccountSID,
+		TwilioAuthToken:                     twilioAuthToken,
+		SendgridAPIKey:                      sendgridAPIKey,
+		RSAPrivateKey:                       privateKey,
+		RSAPublicKey:                        publicKey,
+		LDFlag_PrefillStripeExpressKYC:      prefillStripeExpressKyc,
+		LDFlag_AllowOOSSetupFlow:            allowOOSSetupFlow,
+		LDFlag_SeedDbWithTestAccounts:       seedTestAccounts,
+		LDFlag_CheckrStagingMode:            checkrStagingMode,
+		LDFlag_DynamicCheckrWebhookEndpoint: dynamicCheckrWebhook,
+		LDFlag_ValidatePhoneWithTwilio:      validatePhoneWithTwilio,
+		LDFlag_ValidateEmailWithSendGrid:    validateEmailWithSendGrid,
+		LDFlag_UsingIsolatedSchema:          usingIsolatedSchema,
+		LDFlag_DynamicStripeWebhookEndpoint: dynamicStripeWebhook,
 		LDFlag_DoRealMobileDeviceAttestation: doRealMobileDeviceAttestation,
-		LDFlag_CORSHighSecurity:              corsHighSecurityFlag,
+		LDFlag_CORSHighSecurity:             corsHighSecurityFlag,
+		LDFlag_SendgridFromEmail:            sendgridFromEmail,
+		LDFlag_SendgridSandboxMode:          sendgridSandboxMode, // NEW
 	}
 }
 
+func (c *Config) Close() {}
