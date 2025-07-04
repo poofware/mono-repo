@@ -12,7 +12,6 @@ import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
 
-
 import '../../providers/providers.dart';
 import 'checkr_invite_webview_page.dart';
 
@@ -31,7 +30,7 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
   Timer? _pollTimer;
   late String _inviteUrl; // passed via GoRouter `extra`
   bool _overlayShown = false;
-  bool _buttonBusy   = false;
+  bool _isLoading = false;
   bool _isNavigating = false; // NEW: Guard against race conditions
 
   // Ensures we call allowFirstFrame() exactly once
@@ -69,9 +68,9 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
         return;
       }
 
-      _inviteUrl    = extra;
+      _inviteUrl = extra;
       _overlayShown = true;
-      
+
       // FIX: Await the dialog result. This pauses execution here until the
       // WebView is popped by the user or by its internal JavaScript bridge.
       await _showInviteOverlay(
@@ -99,20 +98,22 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
 
     // TEST mode ⇒ user advances manually – no auto-redirect nor overlay.
     if (cfg.testMode) {
-      _releaseFirstFrame();       // release splash hold once
+      _releaseFirstFrame(); // release splash hold once
       return;
     }
 
     // Normal mode → periodic polling.
-    _pollTimer =
-        Timer.periodic(const Duration(milliseconds: 2500), (_) => _check());
+    _pollTimer = Timer.periodic(
+      const Duration(milliseconds: 2500),
+      (_) => _check(),
+    );
   }
 
   Future<void> _check() async {
     // FIX: Add a guard to prevent navigation attempts while one is already in progress.
     if (!mounted || _isNavigating) return;
 
-    final repo   = ref.read(workerAccountRepositoryProvider);
+    final repo = ref.read(workerAccountRepositoryProvider);
     final logger = ref.read(appLoggerProvider);
 
     try {
@@ -138,17 +139,21 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
     bool animate = true,
     bool firstLaunch = false,
   }) async {
-    final appLocalizations = AppLocalizations.of(ctx); // Get AppLocalizations instance
-    final duration =
-        animate ? const Duration(milliseconds: 300) : Duration.zero;
+    final appLocalizations = AppLocalizations.of(
+      ctx,
+    ); // Get AppLocalizations instance
+    final duration = animate
+        ? const Duration(milliseconds: 300)
+        : Duration.zero;
     final builder = animate
-        ? (BuildContext _, Animation<double> anim, __, Widget child) {
-            final slide = Tween(begin: const Offset(0, 1), end: Offset.zero)
-                .chain(CurveTween(curve: Curves.easeOutCubic))
-                .animate(anim);
+        ? (BuildContext _, Animation<double> anim, _, Widget child) {
+            final slide = Tween(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(anim);
             return SlideTransition(position: slide, child: child);
           }
-        : (BuildContext _, __, ___, Widget child) => child;
+        : (BuildContext _, _, _, Widget child) => child;
 
     if (firstLaunch) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _releaseFirstFrame());
@@ -156,23 +161,22 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
 
     await showGeneralDialog(
       context: ctx,
-      barrierLabel: appLocalizations.checkrInviteWebViewBarrierLabel, // Localized barrier label
+      barrierLabel: appLocalizations
+          .checkrInviteWebViewBarrierLabel, // Localized barrier label
       barrierDismissible: false,
       barrierColor: Colors.transparent,
       transitionDuration: duration,
       transitionBuilder: builder,
-      pageBuilder: (_, __, ___) => Material(
-        color: Theme.of(ctx).scaffoldBackgroundColor,
-        child: SafeArea(
-          child: CheckrInviteWebViewPage(invitationUrl: url),
-        ),
+      pageBuilder: (dialogContext, _, _) => Material(
+        color: Theme.of(dialogContext).scaffoldBackgroundColor,
+        child: SafeArea(child: CheckrInviteWebViewPage(invitationUrl: url)),
       ),
     );
   }
 
   // ─────────────────────  “Reopen / Check again”  ─────────────────────
   Future<void> _onButtonTap() async {
-    if (_buttonBusy || _isNavigating) return;
+    if (_isLoading || _isNavigating) return;
 
     // Capture context before async gap
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -185,15 +189,15 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
       return;
     }
 
-    setState(() => _buttonBusy = true);
+    setState(() => _isLoading = true);
     await _check(); // may already be complete
     if (!mounted || _isNavigating) return;
 
     // Still incomplete ⇒ fetch fresh URL & reopen overlay with animation.
     final repo = ref.read(workerAccountRepositoryProvider);
     try {
-      final invite   = await repo.createCheckrInvitation();
-      _inviteUrl      = invite.invitationUrl;
+      final invite = await repo.createCheckrInvitation();
+      _inviteUrl = invite.invitationUrl;
       if (mounted) {
         // FIX: Also await the result here and re-check after it closes.
         await _showInviteOverlay(context, _inviteUrl);
@@ -207,10 +211,16 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
     } catch (e) {
       if (!capturedContext.mounted) return;
       scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(capturedContext).loginUnexpectedError(e.toString()))),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(
+              capturedContext,
+            ).loginUnexpectedError(e.toString()),
+          ),
+        ),
       );
     } finally {
-      if (mounted) setState(() => _buttonBusy = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -248,10 +258,9 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
                 ),
                 const Spacer(),
                 WelcomeButton(
-                  text: _buttonBusy
-                      ? appLocalizations.checkrInProgressPageCheckingButton
-                      : appLocalizations.checkrInProgressPageCheckAgainButton,
-                  onPressed: _buttonBusy ? null : _onButtonTap,
+                  text: appLocalizations.checkrInProgressPageCheckAgainButton,
+                  isLoading: _isLoading,
+                  onPressed: _isLoading ? null : _onButtonTap,
                 ),
               ],
             ),
@@ -261,3 +270,4 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
     );
   }
 }
+

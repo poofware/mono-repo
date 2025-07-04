@@ -6,6 +6,7 @@ export 'src/mixins/authenticated_api_mixin.dart';
 export 'src/utils/header_utils.dart';
 export 'src/utils/request_utils.dart';
 export 'src/utils/platform_utils.dart';
+export 'src/utils/device_id_manager.dart';
 export 'src/exceptions/api_exceptions.dart';
 export 'src/models/models.dart';
 export 'src/token_storage.dart';

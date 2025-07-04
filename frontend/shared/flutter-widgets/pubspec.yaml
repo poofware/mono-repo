@@ -3,8 +3,6 @@ description: Common auth package for Poof applications (Worker, PM, etc.)
 version: 0.0.1
 publish_to: none # If you don't want to publish to pub.dev
 
-resolution: workspace
-
 environment:
   sdk: ^3.8.1
 

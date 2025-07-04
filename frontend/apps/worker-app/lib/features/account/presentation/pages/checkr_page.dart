@@ -197,18 +197,18 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
                   padding: const EdgeInsets.only(top: 16.0),
                   child: Column(
                     children: [
-                      WelcomeButton(
-                        text: appLocalizations.checkrPageBeginButton,
-                        isLoading: _isLoading,
-                        onPressed: _isLoading ? null : _startCheckrFlow,
-                      ),
-                      const SizedBox(height: 12),
                       Center(
                         child: Text(
                           appLocalizations.checkrPageSecureWindowNote,
                           style:
                               const TextStyle(fontSize: 14, color: Colors.grey),
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      WelcomeButton(
+                        text: appLocalizations.checkrPageBeginButton,
+                        isLoading: _isLoading,
+                        onPressed: _isLoading ? null : _startCheckrFlow,
                       ),
                     ],
                   ),

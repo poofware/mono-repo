@@ -110,7 +110,6 @@ class WorkerAccountApi with AuthenticatedApiMixin {
 
   Future<CheckrOutcomeResponse> getCheckrOutcome() async {
     final resp = await sendAuthenticatedRequest(
-      //
       method: 'GET',
       path: '/account/worker/checkr/outcome',
     );

@@ -8,7 +8,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart';
-import 'package:poof_flutter_auth/src/utils/device_id_manager.dart';
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
@@ -67,22 +66,31 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
     final cfg = PoofWorkerFlavorConfig.instance;
 
     try {
-      CheckrReportOutcome fetchedOutcome;
+      // --- START OF MODIFICATION ---
+
       if (!cfg.testMode) {
-        final resp = await repo.getCheckrOutcome();
-        fetchedOutcome = resp.outcome;
+        final worker = await repo.getWorker();
+        if (mounted) {
+          setState(() {
+            _outcome = worker.checkrReportOutcome;
+            _email = worker.email;
+            _isLoading = false;
+          });
+        }
       } else {
-        fetchedOutcome = CheckrReportOutcome.reviewCharges;
+        // TEST MODE: Revert to the original, simple logic.
+        // We only need to set a dummy outcome for the main page UI.
+        final worker = ref.read(workerStateNotifierProvider).worker;
+        if (mounted) {
+          setState(() {
+            _outcome = CheckrReportOutcome.reviewCharges; // Dummy outcome
+            _email = worker?.email ?? 'test@example.com';
+            _isLoading = false;
+          });
+        }
       }
 
-      final worker = ref.read(workerStateNotifierProvider).worker;
-      if (mounted) {
-        setState(() {
-          _outcome = fetchedOutcome;
-          _email = worker?.email ?? '';
-          _isLoading = false;
-        });
-      }
+      // --- END OF MODIFICATION ---
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -165,8 +173,9 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
     required String platform,
     required String deviceId,
   }) {
-    final env =
-        PoofWorkerFlavorConfig.instance.name == 'PROD' ? 'production' : 'staging';
+    final env = PoofWorkerFlavorConfig.instance.name == 'PROD'
+        ? 'production'
+        : 'staging';
     final sessionTokenPath =
         '${PoofWorkerFlavorConfig.instance.apiServiceURL}/account/worker/checkr/session-token';
 
@@ -193,6 +202,10 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
             'X-Device-ID':'$deviceId'
           }),
           candidateId:'$candidateId',
+          styles:{
+            '.bgc-candidate-link':{display:'none'},
+            '.bgc-dashboard-link':{display:'none'}
+          },
           expandScreenings:true,
           enableLogging:true,
         }).render('#root');
@@ -243,47 +256,52 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
         child: _webViewAuthFailed
             ? _buildAuthFailedState(appLocalizations)
             : _webViewReady
-                ? Column(
-                    children: [
-                      // Give the webview flexible space
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(20)),
-                          child: WebViewWidget(controller: _webViewController),
-                        ),
+            ? Column(
+                children: [
+                  // Give the webview flexible space
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(20),
                       ),
-                      // Add a button at the bottom
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                            16,
-                            12,
-                            16,
-                            MediaQuery.of(sheetContext).padding.bottom + 12),
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final success = await tryLaunchUrl(
-                                'https://candidate.checkr.com/');
-                            if (!success && mounted) {
-                              scaffoldMessenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(appLocalizations
-                                      .urlLauncherCannotLaunch),
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.open_in_new),
-                          label: Text(appLocalizations
-                              .checkrOutcomePageOpenPortalButton),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 50),
-                          ),
-                        ),
+                      child: WebViewWidget(controller: _webViewController),
+                    ),
+                  ),
+                  // Add a button at the bottom
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      12,
+                      16,
+                      MediaQuery.of(sheetContext).padding.bottom + 12,
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final success = await tryLaunchUrl(
+                          'https://candidate.checkr.com/',
+                        );
+                        if (!success && mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                appLocalizations.urlLauncherCannotLaunch,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_new),
+                      label: Text(
+                        appLocalizations.checkrOutcomePageOpenPortalButton,
                       ),
-                    ],
-                  )
-                : const Center(child: CircularProgressIndicator()),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : const Center(child: CircularProgressIndicator()),
       ),
     );
   }
@@ -295,14 +313,14 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (_, __) {},
+      onPopInvokedWithResult: (_, _) {},
       child: Scaffold(
         body: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _error != null
-                  ? _buildErrorState()
-                  : _buildContentState(),
+              ? _buildErrorState()
+              : _buildContentState(),
         ),
       ),
     );
@@ -387,23 +405,25 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
                       ),
                   const SizedBox(height: 24),
                   Text(
-                    appLocalizations.checkrOutcomePageTitle,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  )
+                        appLocalizations.checkrOutcomePageTitle,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
                       .animate()
                       .fadeIn(delay: 300.ms)
                       .slideY(begin: 0.1, curve: Curves.easeOutCubic),
                   Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  )
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          subtitle,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
                       .animate()
                       .fadeIn(delay: 400.ms)
                       .slideY(begin: 0.1, curve: Curves.easeOutCubic),
@@ -431,10 +451,11 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
                         const Divider(height: 24),
                         Text(
                           appLocalizations.checkrOutcomePageEmailNotification(
-                              _email.isEmpty
-                                  ? appLocalizations
+                            _email.isEmpty
+                                ? appLocalizations
                                       .checkrOutcomePageYourEmailFallback
-                                  : _email),
+                                : _email,
+                          ),
                           style: theme.textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 12),
@@ -443,8 +464,9 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
                             style: theme.textTheme.bodyMedium,
                             children: [
                               TextSpan(
-                                  text: appLocalizations
-                                      .checkrOutcomePageQuestions1),
+                                text: appLocalizations
+                                    .checkrOutcomePageQuestions1,
+                              ),
                               TextSpan(
                                 text:
                                     appLocalizations.checkrOutcomePageContactUs,
@@ -454,11 +476,13 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
                                 ),
                                 recognizer: TapGestureRecognizer()
                                   ..onTap = () => tryLaunchUrl(
-                                      'mailto:team@thepoofapp.com?subject=${Uri.encodeComponent(appLocalizations.emailSubjectGeneralHelp)}'),
+                                    'mailto:team@thepoofapp.com?subject=${Uri.encodeComponent(appLocalizations.emailSubjectGeneralHelp)}',
+                                  ),
                               ),
                               TextSpan(
-                                  text: appLocalizations
-                                      .checkrOutcomePageQuestions2),
+                                text: appLocalizations
+                                    .checkrOutcomePageQuestions2,
+                              ),
                             ],
                           ),
                         ),
@@ -467,10 +491,11 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
                           Text(
                             appLocalizations
                                 .checkrOutcomePageLimitedFunctionalityWarning,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontStyle: FontStyle.italic),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
-                        ]
+                        ],
                       ],
                     ),
                   ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
@@ -492,7 +517,8 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
                       onPressed: _showDetailsSheet,
                       icon: const Icon(Icons.info_outline),
                       label: Text(
-                          appLocalizations.acceptedJobsBottomSheetViewDetails),
+                        appLocalizations.acceptedJobsBottomSheetViewDetails,
+                      ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,
                         side: BorderSide(color: theme.colorScheme.outline),
@@ -526,15 +552,17 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.sentiment_dissatisfied_outlined,
-                size: 64, color: Colors.orange.shade700),
+            Icon(
+              Icons.sentiment_dissatisfied_outlined,
+              size: 64,
+              color: Colors.orange.shade700,
+            ),
             const SizedBox(height: 24),
             Text(
               'Session Expired',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
