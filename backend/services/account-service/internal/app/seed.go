@@ -12,69 +12,16 @@ import (
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 	"github.com/poofware/go-utils"
+	"golang.org/x/crypto/bcrypt"
 )
 
+// SeedDefaultWorker checks whether a default Worker with a fixed UUID exists.
+// If not, and if the LDFlag_SeedDbWithDefaultAccount is true, it inserts a
+// "fully registered" default Worker record, except for Stripe-related fields.
 // Helper to check for unique violation error (PostgreSQL specific code)
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
-
-/* ------------------------------------------------------------------
-   Seed a permanent Worker account for Google Play Store reviewers
------------------------------------------------------------------- */
-func SeedGooglePlayReviewerAccount(workerRepo repositories.WorkerRepository) error {
-	ctx := context.Background()
-	googlePlayReviewerWorkerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa3333")
-
-	// --- Worker: ACTIVE, setup DONE for Google Play Reviewer ---
-	wReviewer := &models.Worker{
-		ID:          googlePlayReviewerWorkerID,
-		Email:       "play-reviewer@thepoofapp.com",
-		PhoneNumber: utils.GooglePlayStoreReviewerPhone,
-		TOTPSecret:  "googleplayreviewerworkersecretok",
-		FirstName:   "GooglePlay",
-		LastName:    "Reviewer",
-	}
-	if err := workerRepo.Create(ctx, wReviewer); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("Google Play Reviewer Worker already present (id=%s); skipping.", wReviewer.ID)
-		} else {
-			return fmt.Errorf("insert google play reviewer worker: %w", err)
-		}
-	} else {
-		utils.Logger.Infof("Created Google Play Reviewer Worker id=%s, now updating status.", wReviewer.ID)
-		if err := workerRepo.UpdateWithRetry(ctx, wReviewer.ID, func(stored *models.Worker) error {
-			stored.StreetAddress = "1600 Amphitheatre Parkway"
-			stored.City = "Mountain View"
-			stored.State = "CA"
-			stored.ZipCode = "94043"
-			stored.VehicleYear = 2023
-			stored.VehicleMake = "Google"
-			stored.VehicleModel = "Pixel Car"
-			stored.AccountStatus = models.AccountStatusActive
-			stored.SetupProgress = models.SetupProgressDone
-			return nil
-		}); err != nil {
-			return fmt.Errorf("update google play reviewer worker status: %w", err)
-		}
-		utils.Logger.Infof("Updated Google Play Reviewer Worker to account_status=ACTIVE and setup_progress=DONE.")
-	}
-	return nil
-}
-
-/* ------------------------------------------------------------------
-   SeedAllAccounts – unconditionally seeds permanent accounts (e.g. for reviewers).
------------------------------------------------------------------- */
-func SeedAllAccounts(
-	workerRepo repositories.WorkerRepository,
-	pmRepo repositories.PropertyManagerRepository,
-) error {
-	if err := SeedGooglePlayReviewerAccount(workerRepo); err != nil {
-		return fmt.Errorf("seed google play reviewer account: %w", err)
-	}
-	// In the future, other permanent accounts could be seeded here.
-	return nil
 }
 
 /* ------------------------------------------------------------------
@@ -111,7 +58,7 @@ func SeedDefaultWorker(workerRepo repositories.WorkerRepository) error {
 			stored.VehicleMake = "Toyota"
 			stored.VehicleModel = "Corolla"
 			// This worker is now at the beginning of the setup flow.
-			stored.SetupProgress = models.SetupProgressBackgroundCheck
+			stored.SetupProgress = models.SetupProgressAwaitingPersonalInfo
 			return nil
 		}); err != nil {
 			return fmt.Errorf("update default worker (incomplete) status: %w", err)
@@ -124,7 +71,7 @@ func SeedDefaultWorker(workerRepo repositories.WorkerRepository) error {
 		ID:          defaultWorkerStatusActiveID,
 		Email:       "team@thepoofapp.com",
 		PhoneNumber: "+15552220000",
-		TOTPSecret:  "defaultworkerstatusactivestotpsecretokay",
+		TOTPSecret:  "defaultworkerstatusactivestotpsecret",
 		FirstName:   "DefaultWorker",
 		LastName:    "SetupActive",
 	}
@@ -156,14 +103,62 @@ func SeedDefaultWorker(workerRepo repositories.WorkerRepository) error {
 	return nil
 }
 
+func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
+	// This could be a fixed ID for your default admin,
+	// or you can skip if you prefer to check by username/email only.
+	defaultAdminID, err := uuid.Parse("11111111-2222-3333-4444-555555555555")
+	if err != nil {
+		return fmt.Errorf("failed to parse default admin UUID: %w", err)
+	}
+
+	// Try to fetch by username (or by ID if you prefer).
+	existing, err := adminRepo.GetByUsername(context.Background(), "seedadmin")
+	if err != nil && err != pgx.ErrNoRows {
+		return fmt.Errorf("error checking for existing admin: %w", err)
+	}
+	if existing != nil {
+		utils.Logger.Infof("Default admin already exists (username=%s); skipping seed.", existing.Username)
+		return nil
+	}
+
+	// If no record, create a new default admin.
+	// 1) Create a bcrypt-hash of some known password:
+	hashedPass, err := bcrypt.GenerateFromPassword([]byte("P@ssword123"), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to bcrypt-hash default admin password: %w", err)
+	}
+
+	// 2) TOTP secret: if you want a real TOTP, generate a Base32 secret or store a known string.
+	//   - Just be aware if your code expects to decrypt the TOTP secret in the DB, you might store
+	//     it unencrypted for local testing, or see the encryption logic in your admin repository.
+	totpSecret := "defaultadminstatusactivestotpsecret"
+
+	admin := &models.Admin{
+		ID:           defaultAdminID,
+		Email:        "seedadmin@example.com",
+		Username:     "seedadmin",
+		PasswordHash: string(hashedPass),
+		TOTPSecret:   totpSecret,
+		// CreatedAt + UpdatedAt can be set by the DB defaults if you want
+	}
+
+	// 3) Insert into DB
+	if err := adminRepo.Create(context.Background(), admin); err != nil {
+		return fmt.Errorf("failed to insert default admin: %w", err)
+	}
+
+	utils.Logger.Infof("Successfully seeded default admin (ID=%s, username=%s).", defaultAdminID, admin.Username)
+	return nil
+}
 /* ------------------------------------------------------------------
-   Seed a minimal PropertyManager record (just the manager account). 
+   Seed a minimal PropertyManager record (just the manager account).
+   (We no longer seed property, buildings, or job definitions here.)
 ------------------------------------------------------------------ */
 func SeedDefaultPropertyManagerAccountOnly(pmRepo repositories.PropertyManagerRepository) error {
 	ctx := context.Background()
 	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 
-	// Create a minimal property manager record (no properties). 
+	// Create a minimal property manager record (no properties).
 	pm := &models.PropertyManager{
 		ID:              pmID,
 		Email:           "team@thepoofapp.com",
@@ -198,7 +193,7 @@ func SeedDefaultPropertyManagerAccountOnly(pmRepo repositories.PropertyManagerRe
 }
 
 /* ------------------------------------------------------------------
-   SeedAllTestAccounts – convenience called from main() or app init. 
+   SeedAllTestAccounts – convenience called from main() or app init.
 ------------------------------------------------------------------ */
 func SeedAllTestAccounts(
 	workerRepo repositories.WorkerRepository,

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Primary color used throughout the app
+  // Accent color as defined by your theme
+  static const Color themeAccent = Color(0xFF1CBCAC); // Your accent teal
+
   static const Color poofColor =Color.fromARGB(255, 151, 40, 181);
 
   static const Color lightPoofColor =Color.fromARGB(150, 151, 40, 181);

@@ -19,7 +19,11 @@ const (
 	JobsCancel = "/api/v1/jobs/cancel"
 
 	// Manager or system endpoint
-	JobsDefinitionStatus = "/api/v1/jobs/definition/status"
-	JobsDefinitionCreate = "/api/v1/manager/jobs/definition"
+	JobsDefinitionStatus = "/api/v1/jobs/pm/definition/status"
+	JobsDefinitionCreate = "/api/v1/jobs/pm/definition"
+
+	JobsPMInstances = "/api/v1/jobs/pm/instances"
+
+	//Need endpoint 
 )
 

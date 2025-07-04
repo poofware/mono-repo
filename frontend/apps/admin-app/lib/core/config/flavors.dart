@@ -1,6 +1,5 @@
 // lib/core/config/flavors.dart
 
-import 'dart:io' show Platform;
 import 'package:flutter_flavor/flutter_flavor.dart';
 import 'package:flutter/material.dart';
 
@@ -23,16 +22,14 @@ class PoofAdminFlavorConfig {
     BannerLocation location = BannerLocation.topStart,
     required this.authServiceURL,
     required this.apiServiceURL,
-    this.testMode = false, // <-- Default false
+    this.testMode = false,
   }) {
-    // We still create a FlavorConfig for display
     flavorConfig = FlavorConfig(
       name: name,
       color: color,
       location: location,
       variables: const {},
     );
-
     _instance = this;
   }
 
@@ -40,9 +37,19 @@ class PoofAdminFlavorConfig {
   Color get color => flavorConfig.color;
   BannerLocation get location => flavorConfig.location;
 
-  /// A helper that returns different localhost URLs depending on the platform
-  static String getLocalHostBaseUrl({int port = 8080}) {
-    return 'http://127.0.0.1:$port';
+  static ({String authServiceURL, String apiServiceURL}) buildServiceUrls({
+    required String configuredDomain,
+    required String apiVersion,
+  }) {
+    final String baseApiUrl = configuredDomain.isNotEmpty ? 'https://$configuredDomain' : '';
+    final String authUrl = '$baseApiUrl/auth/$apiVersion';
+    final String apiUrl = '$baseApiUrl/api/$apiVersion';
+
+    if (configuredDomain.isNotEmpty) {
+      debugPrint('[PoofAdminFlavorConfig] Using ABSOLUTE backend path: $configuredDomain');
+    } else {
+      debugPrint('[PoofAdminFlavorConfig] Using RELATIVE backend paths (derived from empty domain)');
+    }
+    return (authServiceURL: authUrl, apiServiceURL: apiUrl);
   }
 }
-

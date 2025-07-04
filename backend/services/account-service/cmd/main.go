@@ -33,16 +33,12 @@ func main() {
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	pmRepo := repositories.NewPropertyManagerRepository(application.DB, cfg.DBEncryptionKey)
 	propRepo := repositories.NewPropertyRepository(application.DB)
-	bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
-	dumpRepo := repositories.NewDumpsterRepository(application.DB)
+    bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
+    dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	unitRepo := repositories.NewUnitRepository(application.DB)
+    jobDefRepo := repositories.NewJobDefinitionRepository(application.DB)
+	adminRepo := repositories.NewAdminRepository(application.DB, cfg.DBEncryptionKey)
 
-	// Unconditionally seed permanent accounts (e.g., for Google Play reviewers).
-	if err := app.SeedAllAccounts(workerRepo, pmRepo); err != nil { //
-		utils.Logger.Fatal("Failed to seed permanent accounts:", err)
-	}
-
-	// Conditionally seed test accounts if the feature flag is enabled.
 	if cfg.LDFlag_SeedDbWithTestAccounts {
 		if err := app.SeedAllTestAccounts(workerRepo, pmRepo); err != nil {
 			utils.Logger.Fatal("Failed to seed default accounts:", err)
@@ -92,15 +88,15 @@ func main() {
 	}()
 
 	stripeCtx, stripeCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer stripeCancel()
-	if err := workerStripeService.Start(stripeCtx); err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to start Stripe dynamic webhooks")
-	}
-	defer func() {
-		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer stopCancel()
-		_ = workerStripeService.Stop(stopCtx) // already logs on error
-	}()
+    defer stripeCancel()
+    if err := workerStripeService.Start(stripeCtx); err != nil {
+        utils.Logger.WithError(err).Fatal("Failed to start Stripe dynamic webhooks")
+    }
+    defer func() {
+        stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer stopCancel()
+        _ = workerStripeService.Stop(stopCtx) // already logs on error
+    }()
 
 	// Router
 	router := mux.NewRouter()
@@ -145,14 +141,12 @@ func main() {
 	secured.HandleFunc(routes.WorkerStripeConnectFlowStatus, workerStripeController.ConnectFlowStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerStripeIdentityFlowURL, workerStripeController.IdentityFlowURLHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerStripeIdentityFlowStatus, workerStripeController.IdentityFlowStatusHandler).Methods(http.MethodGet)
-	secured.HandleFunc(routes.WorkerStripeExpressLoginLink, workerStripeController.ExpressLoginLinkHandler).Methods(http.MethodGet) // NEW
 
 	// Worker Checkr
 	secured.HandleFunc(routes.WorkerCheckrInvitation, workerCheckrController.CreateInvitationHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.WorkerCheckrStatus, workerCheckrController.GetCheckrStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrReportETA, workerCheckrController.GetCheckrReportETAHandler).Methods(http.MethodGet)
-	secured.HandleFunc(routes.WorkerCheckrOutcome, workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
-	secured.HandleFunc(routes.WorkerCheckrSessionToken, workerCheckrController.CreateSessionTokenHandler).Methods(http.MethodPost) // NEW
+	secured.HandleFunc(routes.WorkerCheckrOutcome,    workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
 
 	allowedOrigins := []string{cfg.AppUrl}
 	if !cfg.LDFlag_CORSHighSecurity {

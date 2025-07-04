@@ -15,6 +15,7 @@
 import 'package:integration_test/integration_test.dart';
 
 // ── Individual test files ───────────────────────────────────────
+import 'jobs_integration_test.dart' as jobs;
 import 'pm_auth_integration_test.dart' as pm_auth;
 // import 'new_test.dart'           as newTest;   // add more here
 
@@ -23,7 +24,8 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   // Run each test suite
-  pm_auth.main();
+ // pm_auth.main();
+  jobs.main();
   // newTest.main();                               // add more here
 }
 

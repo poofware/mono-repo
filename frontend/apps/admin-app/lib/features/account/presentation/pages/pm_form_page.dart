@@ -1,0 +1,183 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:poof_admin/features/account/data/models/property_manager_admin.dart';
+import 'package:poof_admin/features/account/state/pm_form_notifier.dart';
+import 'package:poof_admin/features/account/state/pm_form_state.dart';
+
+class PmFormPage extends ConsumerStatefulWidget {
+  final PropertyManagerAdmin? pm;
+  const PmFormPage({super.key, this.pm});
+
+  bool get isEditMode => pm != null;
+
+  @override
+  ConsumerState<PmFormPage> createState() => _PmFormPageState();
+}
+
+class _PmFormPageState extends ConsumerState<PmFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _businessNameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _addressController;
+  late final TextEditingController _cityController;
+  late final TextEditingController _stateController;
+  late final TextEditingController _zipController;
+
+  @override
+  void initState() {
+    super.initState();
+    _businessNameController =
+        TextEditingController(text: widget.pm?.businessName);
+    _emailController = TextEditingController(text: widget.pm?.email);
+    _phoneController = TextEditingController(text: widget.pm?.phone);
+    _addressController =
+        TextEditingController(text: widget.pm?.businessAddress);
+    _cityController = TextEditingController(text: widget.pm?.city);
+    _stateController = TextEditingController(text: widget.pm?.state);
+    _zipController = TextEditingController(text: widget.pm?.zipCode);
+  }
+
+  @override
+  void dispose() {
+    _businessNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _zipController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final data = {
+      'business_name': _businessNameController.text.trim(),
+      'email': _emailController.text.trim(),
+      'phone': _phoneController.text.trim(),
+      'business_address': _addressController.text.trim(),
+      'city': _cityController.text.trim(),
+      'state': _stateController.text.trim(),
+      'zip_code': _zipController.text.trim(),
+    };
+
+    final notifier = ref.read(pmFormProvider.notifier);
+    final success = widget.isEditMode
+        ? await notifier.updatePm(widget.pm!.id, data)
+        : await notifier.createPm(data);
+
+    if (success && mounted) {
+      context.pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formState = ref.watch(pmFormProvider);
+    final fieldErrors =
+        formState.maybeWhen(error: (_, errors) => errors, orElse: () => null);
+
+    ref.listen<PmFormState>(pmFormProvider, (_, state) {
+      state.whenOrNull(
+        error: (message, errors) {
+          // Only show SnackBar for general errors, not field-specific ones
+          if (errors == null || errors.isEmpty) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(message)));
+          }
+        },
+      );
+    });
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.isEditMode
+            ? 'Edit Property Manager'
+            : 'Create Property Manager'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTextField(
+                  _businessNameController, 'Business Name', fieldErrors),
+              _buildTextField(_emailController, 'Email', fieldErrors,
+                  isEmail: true),
+              _buildTextField(
+                  _phoneController, 'Phone Number (Optional)', fieldErrors,
+                  isPhone: true, isRequired: false),
+              _buildTextField(
+                  _addressController, 'Business Address', fieldErrors),
+              _buildTextField(_cityController, 'City', fieldErrors),
+              _buildTextField(_stateController, 'State', fieldErrors),
+              _buildTextField(_zipController, 'Zip Code', fieldErrors),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: formState.maybeWhen(
+                      loading: () => null, orElse: () => _submit),
+                  style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16)),
+                  child: formState.maybeWhen(
+                    loading: () => const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(color: Colors.white)),
+                    orElse: () => const Text('Save'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    Map<String, String>? fieldErrors, {
+    bool isRequired = true,
+    bool isEmail = false,
+    bool isPhone = false,
+  }) {
+    // Convert label to snake_case for map lookup
+    final fieldKey = label.toLowerCase().replaceAll(' ', '_');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          errorText: fieldErrors?[fieldKey],
+        ),
+        keyboardType: isEmail
+            ? TextInputType.emailAddress
+            : (isPhone ? TextInputType.phone : TextInputType.text),
+        validator: (value) {
+          if (isRequired && (value == null || value.isEmpty)) {
+            return '$label is required.';
+          }
+          if (isEmail &&
+              value != null &&
+              !RegExp(r'^.+@.+\..+$').hasMatch(value)) {
+            return 'Please enter a valid email.';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+}

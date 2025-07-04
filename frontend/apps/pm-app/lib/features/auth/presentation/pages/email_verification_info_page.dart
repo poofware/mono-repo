@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import 'package:poof_pm/core/theme/app_constants.dart';
 import 'package:poof_pm/core/config/flavors.dart';
+import 'package:poof_pm/core/providers/app_logger_provider.dart';
+import 'package:poof_pm/features/auth/presentation/widgets/auth_form_card.dart';
+import 'package:poof_pm/features/auth/presentation/widgets/auth_page_wrapper.dart';
 import 'package:poof_pm/features/auth/providers/pm_auth_providers.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
-import 'package:poof_pm/core/providers/app_logger_provider.dart';
 
 /// Explains that we will send a one-time code to the user's email
-/// (they already provided it earlier). Provides a button to 
+/// (they already provided it earlier). Provides a button to
 /// "Send Verification Code," and navigates to /verify_email_code.
 class EmailVerificationInfoPage extends ConsumerStatefulWidget {
   const EmailVerificationInfoPage({super.key});
 
   @override
-  ConsumerState<EmailVerificationInfoPage> createState()
-      => _EmailVerificationInfoPageState();
+  ConsumerState<EmailVerificationInfoPage> createState() =>
+      _EmailVerificationInfoPageState();
 }
 
 class _EmailVerificationInfoPageState
@@ -34,7 +34,8 @@ class _EmailVerificationInfoPageState
 
     if (pmSignUpState.email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No email to verify! Go back and fill your info.')),
+        const SnackBar(
+            content: Text('No email to verify! Go back and fill your info.')),
       );
       setState(() => _isSending = false);
       return;
@@ -68,63 +69,69 @@ class _EmailVerificationInfoPageState
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final pmSignUpState = ref.watch(pmSignUpStateNotifierProvider);
     final email = pmSignUpState.email.isEmpty
         ? 'someone@example.com'
         : pmSignUpState.email;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: AppConstants.kDefaultPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Back
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
+    return AuthPageWrapper(
+      showBackButton: true,
+      // MODIFICATION: Replaced boilerplate Container with AuthFormCard.
+      child: AuthFormCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Verify Your Email',
+              style: textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
               ),
-
-              const SizedBox(height: AppConstants.kLargeVerticalSpacing),
-              const Text(
-                'Verify Your Email',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: AppConstants.kDefaultVerticalSpacing),
-
-              Text(
-                'We’ll send a code to:',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Step 3 of 4: Email Verification',
+              style: textTheme.bodyMedium
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'To secure your account, we need to verify your email address. We will send a one-time verification code to:',
+              style: textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
                 email,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                    textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: AppConstants.kLargeVerticalSpacing),
-
-              const Text(
-                'Email verification ensures only you can access this account. '
-                'Tap below to send a verification code to your inbox.',
-                style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: _isSending ? null : _onSendCode,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+                backgroundColor: colorScheme.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-              const Spacer(),
-
-              _isSending
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _onSendCode,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50),
-                      ),
-                      child: const Text('Send Verification Code'),
-                    ),
-            ],
-          ),
+              child: _isSending
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 3, color: Colors.white))
+                  : const Text('Send Verification Code',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
