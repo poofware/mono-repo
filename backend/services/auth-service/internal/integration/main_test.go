@@ -15,9 +15,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/poofware/auth-service/internal/config"
 	"github.com/poofware/auth-service/internal/dtos"
+	internal_utils "github.com/poofware/auth-service/internal/utils"
 	"github.com/poofware/go-middleware"
+	"github.com/poofware/go-models"
+	"github.com/poofware/go-repositories"
+	"github.com/poofware/go-utils"
 	"github.com/poofware/go-testhelpers"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +54,36 @@ func TestMain(m *testing.M) {
 // =============================================================================
 // SHARED HELPER FUNCTIONS
 // =============================================================================
-
+func createTestAdminWithPassword(t *testing.T, ctx context.Context, username, password string) *models.Admin {
+		t.Helper()
+	
+		adminRepo := repositories.NewAdminRepository(h.DB, cfg.DBEncryptionKey)
+	
+		// Generate a TOTP secret for the admin
+		secret, err := internal_utils.GenerateTOTPSecret(utils.OrganizationName, username)
+		require.NoError(t, err)
+	
+		// Create the admin model
+		admin := &models.Admin{
+			ID:         uuid.New(),
+			Username:   username,
+			TOTPSecret: secret,
+		}
+	
+		// Hash the provided password
+		admin.PasswordHash, err = utils.HashPassword(password)
+		require.NoError(t, err)
+	
+		// Create the admin in the database
+		err = adminRepo.Create(ctx, admin)
+		require.NoError(t, err)
+	
+		// Fetch it back to ensure it was created correctly
+		createdAdmin, err := adminRepo.GetByID(ctx, admin.ID)
+		require.NoError(t, err)
+		require.NotNil(t, createdAdmin)
+		return createdAdmin
+	}
 // --- Generic Request Helper ---
 
 func doRequest(t *testing.T, method, url string, body []byte, headers map[string]string) *http.Response {

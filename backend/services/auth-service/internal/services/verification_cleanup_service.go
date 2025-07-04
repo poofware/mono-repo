@@ -10,16 +10,16 @@ import (
 
 // VerificationCleanupService handles purging old/expired PM/Worker email and SMS codes.
 type VerificationCleanupService interface {
-    // CleanupDaily deletes expired verification codes for PM and Worker.
+    // CleanupDaily deletes expired verification codes for all user types.
     CleanupDaily(ctx context.Context) error
 }
 
 // verificationCleanupService is the concrete struct implementing VerificationCleanupService.
 type verificationCleanupService struct {
-    pmEmailRepo     repositories.PMEmailVerificationRepository
-    pmSMSRepo       repositories.PMSMSVerificationRepository
-    workerEmailRepo repositories.WorkerEmailVerificationRepository
-    workerSMSRepo   repositories.WorkerSMSVerificationRepository
+    pmEmailRepo      repositories.PMEmailVerificationRepository
+    pmSMSRepo        repositories.PMSMSVerificationRepository
+    workerEmailRepo  repositories.WorkerEmailVerificationRepository
+    workerSMSRepo    repositories.WorkerSMSVerificationRepository
 }
 
 // NewVerificationCleanupService constructs a new instance of verificationCleanupService.
@@ -30,10 +30,10 @@ func NewVerificationCleanupService(
     workerSMSRepo repositories.WorkerSMSVerificationRepository,
 ) VerificationCleanupService {
     return &verificationCleanupService{
-        pmEmailRepo:     pmEmailRepo,
-        pmSMSRepo:       pmSMSRepo,
-        workerEmailRepo: workerEmailRepo,
-        workerSMSRepo:   workerSMSRepo,
+        pmEmailRepo:      pmEmailRepo,
+        pmSMSRepo:        pmSMSRepo,
+        workerEmailRepo:  workerEmailRepo,
+        workerSMSRepo:    workerSMSRepo,
     }
 }
 
@@ -57,8 +57,6 @@ func (s *verificationCleanupService) CleanupDaily(ctx context.Context) error {
         logger.WithError(err).Error("Failed to cleanup worker_sms_verification_codes")
         return err
     }
-
     logger.Info("Daily verification-codes cleanup completed successfully.")
     return nil
 }
-

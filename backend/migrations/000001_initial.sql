@@ -88,6 +88,23 @@ BEGIN
     RETURN TRUE; -- All elements passed
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ----------------------------------------------------------------------
+--  admins
+-- ----------------------------------------------------------------------
+CREATE TABLE admins (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    totp_secret VARCHAR(255),
+    account_status ACCOUNT_STATUS_TYPE NOT NULL DEFAULT 'INCOMPLETE',
+    setup_progress SETUP_PROGRESS_TYPE NOT NULL DEFAULT 'ID_VERIFY',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    row_version BIGINT NOT NULL DEFAULT 1
+);
+CREATE INDEX idx_admins_username ON admins (username);
+
 -- ----------------------------------------------------------------------
 --  property_managers
 -- ----------------------------------------------------------------------
@@ -302,6 +319,21 @@ CREATE INDEX idx_job_instances_status ON job_instances (status);
 CREATE INDEX idx_job_instances_definition_id ON job_instances (definition_id);
 
 -- ----------------------------------------------------------------------
+--  admin_refresh_tokens
+-- ----------------------------------------------------------------------
+CREATE TABLE admin_refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID REFERENCES admins (id) ON DELETE CASCADE,
+    refresh_token VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    revoked BOOLEAN DEFAULT FALSE,
+    ip_address VARCHAR(45),
+    device_id VARCHAR(255)
+);
+CREATE INDEX idx_admin_refresh_tokens_token ON admin_refresh_tokens (refresh_token);
+
+-- ----------------------------------------------------------------------
 --  pm_refresh_tokens
 -- ----------------------------------------------------------------------
 CREATE TABLE pm_refresh_tokens (
@@ -330,6 +362,17 @@ CREATE TABLE worker_refresh_tokens (
     device_id VARCHAR(255)
 );
 CREATE INDEX idx_worker_refresh_tokens ON worker_refresh_tokens (refresh_token);
+
+-- ----------------------------------------------------------------------
+--  admin_login_attempts
+-- ----------------------------------------------------------------------
+CREATE TABLE admin_login_attempts (
+    admin_id UUID PRIMARY KEY REFERENCES admins (id) ON DELETE CASCADE,
+    attempt_count INT NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
 
 -- ----------------------------------------------------------------------
 --  pm_login_attempts
@@ -439,6 +482,17 @@ CREATE INDEX idx_worker_sms_verification_codes_phone
 ON worker_sms_verification_codes (worker_phone);
 
 -- ----------------------------------------------------------------------
+--  admin_blacklisted_tokens
+-- ----------------------------------------------------------------------
+CREATE TABLE admin_blacklisted_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    token_id VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+CREATE INDEX idx_admin_blacklisted_tokens_token_id ON admin_blacklisted_tokens (token_id);
+
+-- ----------------------------------------------------------------------
 --  pm_blacklisted_tokens
 -- ----------------------------------------------------------------------
 CREATE TABLE pm_blacklisted_tokens (
@@ -522,7 +576,6 @@ CREATE TABLE worker_payouts (
     status PAYOUT_STATUS_TYPE NOT NULL DEFAULT 'PENDING',
     stripe_transfer_id VARCHAR(255),
     stripe_payout_id VARCHAR(255),
-    job_instance_ids UUID [] NOT NULL DEFAULT '{}',
     last_failure_reason TEXT,
     retry_count INT NOT NULL DEFAULT 0,
     last_attempt_at TIMESTAMPTZ,
@@ -544,6 +597,7 @@ DROP TABLE IF EXISTS worker_score_events;
 DROP TABLE IF EXISTS poof_representatives;
 DROP TABLE IF EXISTS worker_blacklisted_tokens;
 DROP TABLE IF EXISTS pm_blacklisted_tokens;
+DROP TABLE IF EXISTS admin_blacklisted_tokens;
 DROP TABLE IF EXISTS worker_sms_verification_codes;
 DROP TABLE IF EXISTS worker_email_verification_codes;
 DROP TABLE IF EXISTS pm_sms_verification_codes;
@@ -551,8 +605,10 @@ DROP TABLE IF EXISTS pm_email_verification_codes;
 DROP TABLE IF EXISTS rate_limit_attempts;
 DROP TABLE IF EXISTS worker_login_attempts;
 DROP TABLE IF EXISTS pm_login_attempts;
+DROP TABLE IF EXISTS admin_login_attempts;
 DROP TABLE IF EXISTS worker_refresh_tokens;
 DROP TABLE IF EXISTS pm_refresh_tokens;
+DROP TABLE IF EXISTS admin_refresh_tokens;
 DROP TABLE IF EXISTS job_instances;
 DROP TABLE IF EXISTS job_definitions;
 DROP TABLE IF EXISTS dumpsters;
@@ -561,6 +617,7 @@ DROP TABLE IF EXISTS property_buildings;
 DROP TABLE IF EXISTS properties;
 DROP TABLE IF EXISTS workers;
 DROP TABLE IF EXISTS property_managers;
+DROP TABLE IF EXISTS admins;
 DROP FUNCTION IF EXISTS validate_daily_pay_estimates_array(JSONB);
 DROP TABLE IF EXISTS app_attest_keys;
 

@@ -22,7 +22,7 @@ import (
 )
 
 // TestLoginThrottlingAndAccountLockout verifies that repeated failed login attempts
-// result in a temporary account lockout for both PMs and Workers.
+// result in a temporary account lockout for all user types.
 func TestLoginThrottlingAndAccountLockout(t *testing.T) {
 	h.T = t
 	ctx := context.Background()
@@ -102,6 +102,30 @@ func TestLoginThrottlingAndAccountLockout(t *testing.T) {
 		// 2. The 11th attempt should fail due to lockout, even with the correct code
 		t.Log("Worker Lockout: Verifying account is now locked.")
 		resp := loginWorkerWithExpectation(t, phone, h.GenerateTOTPCode(totpData.Secret), deviceID, http.StatusUnauthorized)
+
+		var errResp utils.ErrorResponse
+		err := json.NewDecoder(resp.Body).Decode(&errResp)
+		require.NoError(t, err)
+		require.Contains(t, errResp.Message, "locked", "Error message should indicate account is locked")
+	})
+
+	// --- Test Admin Lockout ---
+	t.Run("AdminLockoutAfterTenFailedAttempts", func(t *testing.T) {
+		h.T = t
+		username := "lockout-admin-" + utils.RandomString(6)
+		password := "password123"
+		admin := createTestAdminWithPassword(t, ctx, username, password)
+		defer h.DB.Exec(ctx, `DELETE FROM admins WHERE id=$1`, admin.ID)
+		// 1. Perform 10 failed login attempts with a bad TOTP code
+		t.Logf("Admin Lockout: Performing %d failed login attempts for %s", cfg.MaxLoginAttempts, username)
+		for range cfg.MaxLoginAttempts {
+			loginAdminWithExpectation(t, username, password, "000000", http.StatusUnauthorized)
+		}
+
+		// 2. The 11th attempt should fail due to lockout, even with the correct code
+		t.Log("Admin Lockout: Verifying account is now locked.")
+		correctTOTP := h.GenerateTOTPCode(admin.TOTPSecret)
+		resp := loginAdminWithExpectation(t, username, password, correctTOTP, http.StatusUnauthorized)
 
 		var errResp utils.ErrorResponse
 		err := json.NewDecoder(resp.Body).Decode(&errResp)
@@ -447,6 +471,7 @@ func getChallengeByID(ctx context.Context, id uuid.UUID) (*models.AttestationCha
 // loginPMWithExpectation is a helper to perform a PM login and check the status code.
 // It returns the full http.Response for further inspection.
 func loginPMWithExpectation(t *testing.T, email, totpCode string, expectedStatus int) *http.Response {
+	t.Helper()
 	reqDTO := dtos.LoginPMRequest{Email: email, TOTPCode: totpCode}
 	body, _ := json.Marshal(reqDTO)
 	url := h.BaseURL + "/auth/v1/pm/login"
@@ -463,6 +488,7 @@ func loginPMWithExpectation(t *testing.T, email, totpCode string, expectedStatus
 // loginWorkerWithExpectation is a helper to perform a Worker login and check the status code.
 // It returns the full http.Response for further inspection.
 func loginWorkerWithExpectation(t *testing.T, phone, totpCode, deviceID string, expectedStatus int) *http.Response {
+	t.Helper()
 	reqDTO := dtos.LoginWorkerRequest{PhoneNumber: phone, TOTPCode: totpCode}
 	body, _ := json.Marshal(reqDTO)
 	url := h.BaseURL + "/auth/v1/worker/login"
@@ -475,5 +501,21 @@ func loginWorkerWithExpectation(t *testing.T, phone, totpCode, deviceID string, 
 	})
 
 	require.Equal(t, expectedStatus, resp.StatusCode, "Worker login returned unexpected status code")
+	return resp
+}
+
+// loginAdminWithExpectation is a helper for Admin login security tests.
+func loginAdminWithExpectation(t *testing.T, username, password, totpCode string, expectedStatus int) *http.Response {
+	t.Helper()
+	reqDTO := dtos.LoginAdminRequest{Username: username, Password: password, TOTPCode: totpCode}
+	body, _ := json.Marshal(reqDTO)
+	url := h.BaseURL + "/auth/v1/admin/login"
+
+	resp := doRequest(t, http.MethodPost, url, body, map[string]string{
+		"Content-Type": "application/json",
+		"X-Platform":   "web",
+	})
+
+	require.Equal(t, expectedStatus, resp.StatusCode, "Admin login returned unexpected status code")
 	return resp
 }
