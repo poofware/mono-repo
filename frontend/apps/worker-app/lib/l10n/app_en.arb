@@ -200,7 +200,7 @@
   },
   "totpVerifyAccountNameInfo": "In your authenticator app, look for the code labeled:",
   "totpVerifyExplanation": "Enter the 6-digit code shown in your authenticator app.",
-  "totpVerifyButton": "Verify & Finish",
+  "totpVerifyButton": "Verify",
   "totpVerifyLoginFailed": "Login failed: {error}",
   "@totpVerifyLoginFailed": {
       "placeholders": {
@@ -476,9 +476,12 @@
   "checkrStatusPending": "Pending",
   "checkrStatusApproved": "Approved",
   "checkrStatusPendingTestMode": "Pending (Test Mode)",
-  "countryNameCA": "Canada",
-  "countryNameGB": "United Kingdom",
   "countryNameUS": "United States",
+  "countryNameCA": "Canada",
+  "countryNameMX": "Mexico",
+  "countryNameGB": "United Kingdom",
+  "countryNameAU": "Australia",
+  "countryNameDE": "Germany",
   "pressToSlideCancelSlideToCancel": "Slide to cancel",
   "pressToSlideCancelStartButton": "Start",
   "timeUnitDays": "Days",

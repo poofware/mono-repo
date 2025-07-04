@@ -201,7 +201,7 @@
   },
   "totpVerifyAccountNameInfo": "En tu aplicación de autenticación, busca el código etiquetado como:",
   "totpVerifyExplanation": "Introduce el código de 6 dígitos que se muestra en tu aplicación de autenticación.",
-  "totpVerifyButton": "Verificar y Finalizar",
+  "totpVerifyButton": "Verificar",
   "totpVerifyLoginFailed": "Falló el inicio de sesión: {error}",
   "@totpVerifyLoginFailed": {
       "placeholders": {
@@ -477,9 +477,12 @@
   "checkrStatusPending": "Pendiente",
   "checkrStatusApproved": "Aprobado",
   "checkrStatusPendingTestMode": "Pendiente (Modo de prueba)",
-  "countryNameCA": "Canadá",
-  "countryNameGB": "Reino Unido",
   "countryNameUS": "Estados Unidos",
+  "countryNameCA": "Canadá",
+  "countryNameMX": "México",
+  "countryNameGB": "Reino Unido",
+  "countryNameAU": "Australia",
+  "countryNameDE": "Alemania",
   "pressToSlideCancelSlideToCancel": "Deslizar para cancelar",
   "pressToSlideCancelStartButton": "Iniciar",
   "timeUnitDays": "Días",
