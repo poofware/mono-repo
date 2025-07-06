@@ -228,7 +228,7 @@ class _AcceptedJobsPageState extends ConsumerState<AcceptedJobsPage>
     // Listen for changes and update the selection reactively.
     ref.listen(
       jobsNotifierProvider.select((s) => s.acceptedJobs.length),
-      (_, __) {
+      (_, _) {
         // Using length is a simple way to detect add/remove.
         _updateSelectedDate();
       },

@@ -171,7 +171,7 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   sliver: SliverList.separated(
                     itemCount: displayedWeeks.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final week = displayedWeeks[index];
                       return _buildPastWeekTile(

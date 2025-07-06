@@ -121,7 +121,7 @@ class EarningsBarChart extends StatelessWidget {
           barTouchData: BarTouchData(
             enabled: true,
             touchTooltipData: BarTouchTooltipData(
-              getTooltipItem: (group, _, rod, __) {
+              getTooltipItem: (group, _, rod, _) {
                 final day = days[group.x];
                 final dayStr = DateFormat('MMM d').format(day);
                 return BarTooltipItem(

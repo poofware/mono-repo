@@ -453,6 +453,8 @@
   "myProfilePageEditButton": "Editar",
   "myProfilePageCancelButton": "Cancelar",
   "myProfilePageYourNameFallback": "Tu Nombre",
+  "myProfilePageFirstNameLabel": "Nombre",
+  "myProfilePageLastNameLabel": "Apellido",
   "myProfilePageEmailLabel": "Correo Electrónico",
   "myProfilePagePhoneLabel": "Número de Teléfono",
   "myProfilePageAddressLabel": "Dirección",
@@ -573,3 +575,4 @@
   "forUrgentIssues": "Para asuntos urgentes, también puedes comunicarte con nosotros por teléfono:",
   "emailSubjectGeneralHelp": "Solicitud de Ayuda: App Poof Worker"
 }
+

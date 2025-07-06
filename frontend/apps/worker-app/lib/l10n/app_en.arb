@@ -452,6 +452,8 @@
   "myProfilePageEditButton": "Edit",
   "myProfilePageCancelButton": "Cancel",
   "myProfilePageYourNameFallback": "Your Name",
+  "myProfilePageFirstNameLabel": "First Name",
+  "myProfilePageLastNameLabel": "Last Name",
   "myProfilePageEmailLabel": "Email",
   "myProfilePagePhoneLabel": "Phone Number",
   "myProfilePageAddressLabel": "Street Address",
@@ -572,3 +574,4 @@
   "forUrgentIssues": "For urgent issues, you can also reach us by phone:",
   "emailSubjectGeneralHelp": "Help Request: Poof Worker App"
 }
+
