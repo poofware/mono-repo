@@ -128,10 +128,34 @@ class MockAdminPmsApi {
   Future<PmsSnapshot> getSnapshot(String pmId) async {
     await Future.delayed(Duration(milliseconds: 400 + _random.nextInt(500)));
     final snapshot = _data.firstWhere((s) => s.propertyManager.id == pmId);
-    
-    // Filter out soft-deleted properties before returning
-    final activeProperties = snapshot.properties.where((p) => p.deletedAt == null).toList();
-    return snapshot.copyWith(properties: activeProperties);
+
+    // Filter out soft-deleted properties
+    final activeProperties =
+        snapshot.properties.where((p) => p.deletedAt == null);
+
+    // Filter soft-deleted children within each property
+    final propertiesWithFilteredChildren = activeProperties.map((prop) {
+      final activeBuildings = prop.buildings.where((b) => b.deletedAt == null).map((building) {
+        final activeUnits =
+            building.units.where((u) => u.deletedAt == null).toList();
+        // create a new BuildingAdmin with only active units
+        return BuildingAdmin.fromJson(
+            building.toJson()..['units'] = activeUnits.map((e) => e.toJson()).toList());
+      }).toList();
+
+      final activeDumpsters =
+          prop.dumpsters.where((d) => d.deletedAt == null).toList();
+      final activeJobDefs =
+          prop.jobDefinitions.where((j) => j.deletedAt == null).toList();
+
+      return prop.copyWith(
+        buildings: activeBuildings,
+        dumpsters: activeDumpsters,
+        jobDefinitions: activeJobDefs,
+      );
+    }).toList();
+
+    return snapshot.copyWith(properties: propertiesWithFilteredChildren);
   }
 
   // --- Create Methods ---
@@ -179,6 +203,96 @@ class MockAdminPmsApi {
     }
     return newProp;
   }
+
+  Future<BuildingAdmin> createBuilding(Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
+    final propertyId = data['property_id'] as String;
+    final newBuilding = BuildingAdmin.fromJson({
+      ...data,
+      'id': _uuid.v4(),
+      'units': [],
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    for (final snapshot in _data) {
+      final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
+      if (propIndex != -1) {
+        snapshot.properties[propIndex].buildings.add(newBuilding);
+        return newBuilding;
+      }
+    }
+    throw ApiException(404, 'Property not found to add building to.');
+  }
+
+  Future<UnitAdmin> createUnit(Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
+    final propertyId = data['property_id'] as String;
+    final buildingId = data['building_id'] as String;
+
+    final newUnit = UnitAdmin.fromJson({
+      ...data,
+      'id': _uuid.v4(),
+      'tenant_token': _uuid.v4(),
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    for (final snapshot in _data) {
+      try {
+        final prop = snapshot.properties.firstWhere((p) => p.id == propertyId);
+        final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
+        if (buildingIndex != -1) {
+          prop.buildings[buildingIndex].units.add(newUnit);
+          return newUnit;
+        }
+      } catch (e) {
+        // Continue to next snapshot
+      }
+    }
+    throw ApiException(404, 'Building or Property not found to add unit to.');
+  }
+
+  Future<DumpsterAdmin> createDumpster(Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
+    final propertyId = data['property_id'] as String;
+    final newDumpster = DumpsterAdmin.fromJson({
+      ...data,
+      'id': _uuid.v4(),
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    for (final snapshot in _data) {
+      final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
+      if (propIndex != -1) {
+        snapshot.properties[propIndex].dumpsters.add(newDumpster);
+        return newDumpster;
+      }
+    }
+    throw ApiException(404, 'Property not found to add dumpster to.');
+  }
+
+  Future<JobDefinitionAdmin> createJobDefinition(Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
+    final propertyId = data['property_id'] as String;
+    final newJobDef = JobDefinitionAdmin.fromJson({
+      ...data,
+      'id': _uuid.v4(),
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    for (final snapshot in _data) {
+      final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
+      if (propIndex != -1) {
+        snapshot.properties[propIndex].jobDefinitions.add(newJobDef);
+        return newJobDef;
+      }
+    }
+    throw ApiException(404, 'Property not found to add job definition to.');
+  }
+
 
   // --- Update Methods (PATCH) ---
 
@@ -242,6 +356,7 @@ class MockAdminPmsApi {
   }
 
   Future<void> deleteProperty(String propertyId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
     // Find the index of the snapshot containing the property
     final snapshotIndex = _data.indexWhere((s) => s.properties.any((p) => p.id == propertyId));
 
@@ -259,7 +374,77 @@ class MockAdminPmsApi {
     } else {
       throw ApiException(404, 'Property not found');
     }
+  }
 
-  // TODO: Implement create/update/delete for Building, Unit, Dumpster, JobDefinition
-}
+  Future<void> deleteBuilding(String buildingId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    for (final snapshot in _data) {
+      for (int i = 0; i < snapshot.properties.length; i++) {
+        final prop = snapshot.properties[i];
+        final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
+        if (buildingIndex != -1) {
+          final oldBuilding = prop.buildings[buildingIndex];
+          final newBuilding = oldBuilding.copyWith(deletedAt: DateTime.now());
+          prop.buildings[buildingIndex] = newBuilding;
+          return;
+        }
+      }
+    }
+    throw ApiException(404, 'Building not found');
+  }
+
+  Future<void> deleteUnit(String unitId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    for (final snapshot in _data) {
+      for (final prop in snapshot.properties) {
+        for (int i = 0; i < prop.buildings.length; i++) {
+          final building = prop.buildings[i];
+          final unitIndex = building.units.indexWhere((u) => u.id == unitId);
+          if (unitIndex != -1) {
+            final oldUnit = building.units[unitIndex];
+            final newUnit = oldUnit.copyWith(deletedAt: DateTime.now());
+            building.units[unitIndex] = newUnit;
+            return;
+          }
+        }
+      }
+    }
+    throw ApiException(404, 'Unit not found');
+  }
+
+  Future<void> deleteDumpster(String dumpsterId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    for (final snapshot in _data) {
+      for (int i = 0; i < snapshot.properties.length; i++) {
+        final prop = snapshot.properties[i];
+        final dumpsterIndex = prop.dumpsters.indexWhere((d) => d.id == dumpsterId);
+        if (dumpsterIndex != -1) {
+          final oldDumpster = prop.dumpsters[dumpsterIndex];
+          final newDumpster = oldDumpster.copyWith(deletedAt: DateTime.now());
+          prop.dumpsters[dumpsterIndex] = newDumpster;
+          return;
+        }
+      }
+    }
+    throw ApiException(404, 'Dumpster not found');
+  }
+
+  Future<void> deleteJobDefinition(String jobDefinitionId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    for (final snapshot in _data) {
+      for (int i = 0; i < snapshot.properties.length; i++) {
+        final prop = snapshot.properties[i];
+        final jobDefIndex =
+            prop.jobDefinitions.indexWhere((j) => j.id == jobDefinitionId);
+        if (jobDefIndex != -1) {
+          final oldJobDef = prop.jobDefinitions[jobDefIndex];
+          final newJobDef = oldJobDef.copyWith(deletedAt: DateTime.now());
+          prop.jobDefinitions[jobDefIndex] = newJobDef;
+          return;
+        }
+      }
+    }
+    throw ApiException(404, 'Job Definition not found');
+  }
+
 }

@@ -28,6 +28,22 @@ class AdminPmsRepository {
     return _api.createProperty(data);
   }
 
+  Future<BuildingAdmin> createBuilding(Map<String, dynamic> data) {
+    return _api.createBuilding(data);
+  }
+
+  Future<UnitAdmin> createUnit(Map<String, dynamic> data) {
+    return _api.createUnit(data);
+  }
+
+  Future<DumpsterAdmin> createDumpster(Map<String, dynamic> data) {
+    return _api.createDumpster(data);
+  }
+
+  Future<JobDefinitionAdmin> createJobDefinition(Map<String, dynamic> data) {
+    return _api.createJobDefinition(data);
+  }
+
   // --- Update Methods ---
 
   Future<PropertyManagerAdmin> updatePropertyManager(String pmId, Map<String, dynamic> data) {
@@ -46,5 +62,21 @@ class AdminPmsRepository {
 
   Future<void> deleteProperty(String propertyId) {
     return _api.deleteProperty(propertyId);
+  }
+
+  Future<void> deleteBuilding(String buildingId) {
+    return _api.deleteBuilding(buildingId);
+  }
+
+  Future<void> deleteUnit(String unitId) {
+    return _api.deleteUnit(unitId);
+  }
+
+  Future<void> deleteDumpster(String dumpsterId) {
+    return _api.deleteDumpster(dumpsterId);
+  }
+
+  Future<void> deleteJobDefinition(String jobDefinitionId) {
+    return _api.deleteJobDefinition(jobDefinitionId);
   }
 }

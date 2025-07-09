@@ -70,25 +70,29 @@ class PropertyCard extends ConsumerWidget {
                 const Divider(height: 32),
                 DetailSection(
                   title: 'Buildings',
-                  onAdd: () {
-                    // TODO: Implement Add Building
-                  },
-                  child: BuildingView(buildings: property.buildings),
+                  onAdd: () => context.go(
+                    '/dashboard/pms/${property.managerId}/properties/${property.id}/buildings/new',
+                  ),
+                  child: BuildingView(property: property),
                 ),
                 const SizedBox(height: 16),
                 DetailSection(
                   title: 'Dumpsters',
-                  onAdd: () {
-                    // TODO: Implement Add Dumpster
-                  },
-                  child: DumpsterView(dumpsters: property.dumpsters),
+                  onAdd: () => context.go(
+                    '/dashboard/pms/${property.managerId}/properties/${property.id}/dumpsters/new',
+                  ),
+                  child: DumpsterView(
+                    dumpsters: property.dumpsters,
+                    pmId: property.managerId,
+                    propertyId: property.id,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 DetailSection(
                   title: 'Job Definitions',
-                  onAdd: () {
-                    // TODO: Implement Add Job Definition
-                  },
+                  onAdd: () => context.go(
+                    '/dashboard/pms/${property.managerId}/properties/${property.id}/job-definitions/new',
+                  ),
                   child: JobDefinitionView(jobDefinitions: property.jobDefinitions),
                 ),
               ],

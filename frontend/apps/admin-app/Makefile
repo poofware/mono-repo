@@ -6,6 +6,11 @@
 
 SHELL := /bin/bash
 
+# Connect devops-toolkit
+REPO_ROOT      := $(shell git -C $(CURDIR) rev-parse --show-toplevel)
+ifndef INCLUDED_TOOLKIT_BOOTSTRAP
+  include $(REPO_ROOT)/devops-toolkit/bootstrap.mk
+endif
 # ------------------------------
 # Internal Variable Declaration
 # ------------------------------

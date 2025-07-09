@@ -68,11 +68,30 @@ class PropertyAdmin {
             ? null
             : DateTime.parse(json['deleted_at'] as String);
 
-   PropertyAdmin copyWith({DateTime? deletedAt}) =>
-      PropertyAdmin.fromJson({
-        ...toJson(),
-        if (deletedAt != null) 'deleted_at': deletedAt.toIso8601String(),
-      });
+  PropertyAdmin copyWith({
+    DateTime? deletedAt,
+    List<BuildingAdmin>? buildings,
+    List<DumpsterAdmin>? dumpsters,
+    List<JobDefinitionAdmin>? jobDefinitions,
+  }) =>
+      PropertyAdmin(
+        id: id,
+        managerId: managerId,
+        propertyName: propertyName,
+        address: address,
+        city: city,
+        state: state,
+        zipCode: zipCode,
+        timeZone: timeZone,
+        latitude: latitude,
+        longitude: longitude,
+        buildings: buildings ?? this.buildings,
+        dumpsters: dumpsters ?? this.dumpsters,
+        jobDefinitions: jobDefinitions ?? this.jobDefinitions,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        deletedAt: deletedAt ?? this.deletedAt,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,

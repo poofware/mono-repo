@@ -45,6 +45,15 @@ class BuildingAdmin {
 
   BuildingAdmin deepCopy() => BuildingAdmin.fromJson(toJson());
 
+  BuildingAdmin copyWith({DateTime? deletedAt}) {
+    final json = toJson();
+    if (deletedAt != null) {
+      json['deleted_at'] = deletedAt.toIso8601String();
+    }
+    // This creates a new instance from the potentially modified JSON map
+    return BuildingAdmin.fromJson(json);
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'property_id': propertyId,

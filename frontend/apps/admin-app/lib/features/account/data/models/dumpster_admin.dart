@@ -32,6 +32,14 @@ class DumpsterAdmin {
             ? null
             : DateTime.parse(json['deleted_at'] as String);
 
+  DumpsterAdmin copyWith({DateTime? deletedAt}) {
+    final json = toJson();
+    if (deletedAt != null) {
+      json['deleted_at'] = deletedAt.toIso8601String();
+    }
+    return DumpsterAdmin.fromJson(json);
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'property_id': propertyId,

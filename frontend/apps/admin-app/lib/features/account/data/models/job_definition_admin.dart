@@ -32,7 +32,15 @@ class JobDefinitionAdmin {
         deletedAt = json['deleted_at'] == null
             ? null
             : DateTime.parse(json['deleted_at'] as String);
-  
+
+  JobDefinitionAdmin copyWith({DateTime? deletedAt}) {
+    final json = toJson();
+    if (deletedAt != null) {
+      json['deleted_at'] = deletedAt.toIso8601String();
+    }
+    return JobDefinitionAdmin.fromJson(json);
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'manager_id': managerId,

@@ -3,10 +3,18 @@ import 'package:poof_admin/features/account/data/api/mock_admin_pms_api.dart';
 import 'package:poof_admin/features/account/data/models/pms_snapshot.dart';
 import 'package:poof_admin/features/account/data/models/property_manager_admin.dart';
 import 'package:poof_admin/features/account/data/repositories/admin_pm_repository.dart';
+import 'package:poof_admin/features/account/state/building_form_notifier.dart';
+import 'package:poof_admin/features/account/state/building_form_state.dart';
+import 'package:poof_admin/features/account/state/dumpster_form_notifier.dart';
+import 'package:poof_admin/features/account/state/dumpster_form_state.dart';
+import 'package:poof_admin/features/account/state/job_definition_form_notifier.dart';
+import 'package:poof_admin/features/account/state/job_definition_form_state.dart';
 import 'package:poof_admin/features/account/state/pm_detail_notifier.dart';
 import 'package:poof_admin/features/account/state/pm_detail_state.dart';
 import 'package:poof_admin/features/account/state/property_form_notifier.dart';
 import 'package:poof_admin/features/account/state/property_form_state.dart';
+import 'package:poof_admin/features/account/state/unit_form_notifier.dart';
+import 'package:poof_admin/features/account/state/unit_form_state.dart';
 
 /// Provider for the (mock) API service. Singleton.
 final pmsApiProvider = Provider<MockAdminPmsApi>((ref) {
@@ -45,4 +53,28 @@ final pmsDetailProvider =
 final propertyFormProvider =
     StateNotifierProvider.autoDispose<PropertyFormNotifier, PropertyFormState>((ref) {
   return PropertyFormNotifier(ref);
+});
+
+/// Provider for the Building form.
+final buildingFormProvider =
+    StateNotifierProvider.autoDispose<BuildingFormNotifier, BuildingFormState>((ref) {
+  return BuildingFormNotifier(ref);
+});
+
+/// Provider for the Unit form.
+final unitFormProvider =
+    StateNotifierProvider.autoDispose<UnitFormNotifier, UnitFormState>((ref) {
+  return UnitFormNotifier(ref);
+});
+
+/// Provider for the Dumpster form.
+final dumpsterFormProvider =
+    StateNotifierProvider.autoDispose<DumpsterFormNotifier, DumpsterFormState>((ref) {
+  return DumpsterFormNotifier(ref);
+});
+
+/// Provider for the JobDefinition form.
+final jobDefinitionFormProvider =
+    StateNotifierProvider.autoDispose<JobDefinitionFormNotifier, JobDefinitionFormState>((ref) {
+  return JobDefinitionFormNotifier(ref);
 });

@@ -1,0 +1,30 @@
+// NEW FILE
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:poof_admin/features/account/data/api/api_exception.dart';
+import 'package:poof_admin/features/account/providers/pm_providers.dart';
+import 'package:poof_admin/features/account/state/job_definition_form_state.dart';
+
+class JobDefinitionFormNotifier extends StateNotifier<JobDefinitionFormState> {
+  final Ref _ref;
+
+  JobDefinitionFormNotifier(this._ref) : super(const JobDefinitionFormState.initial());
+
+  Future<bool> createJobDefinition(String pmId, Map<String, dynamic> data) async {
+    state = const JobDefinitionFormState.loading();
+    try {
+      final repo = _ref.read(pmsRepositoryProvider);
+      await repo.createJobDefinition(data);
+      _ref.invalidate(pmSnapshotProvider(pmId));
+      state = const JobDefinitionFormState.success('Job Definition created successfully!');
+      return true;
+    } on ApiException catch (e) {
+      state = JobDefinitionFormState.error(e.message, e.fieldErrors);
+      return false;
+    } catch (e) {
+      state = JobDefinitionFormState.error(e.toString());
+      return false;
+    }
+  }
+
+  // TODO: Implement updateJobDefinition
+}

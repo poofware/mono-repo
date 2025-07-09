@@ -32,6 +32,14 @@ class UnitAdmin {
             ? null
             : DateTime.parse(json['deleted_at'] as String);
 
+  UnitAdmin copyWith({DateTime? deletedAt}) {
+    final json = toJson();
+    if (deletedAt != null) {
+      json['deleted_at'] = deletedAt.toIso8601String();
+    }
+    return UnitAdmin.fromJson(json);
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'property_id': propertyId,

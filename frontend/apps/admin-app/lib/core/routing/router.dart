@@ -2,13 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_admin/core/app_state/app_state_notifier.dart';
-import 'package:poof_admin/features/account/data/models/property_admin.dart';
-import 'package:poof_admin/features/account/data/models/property_manager_admin.dart';
+import 'package:poof_admin/features/account/data/models/pm_models.dart';
+import 'package:poof_admin/features/account/presentation/pages/building_form_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/dashboard_page.dart';
+import 'package:poof_admin/features/account/presentation/pages/dumpster_form_page.dart';
+import 'package:poof_admin/features/account/presentation/pages/job_definition_form_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/pm_dashboard_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/pm_detail_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/pm_form_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/property_form_page.dart';
+import 'package:poof_admin/features/account/presentation/pages/unit_form_page.dart';
 import 'package:poof_admin/features/auth/presentation/pages/login_page.dart';
 import 'package:poof_admin/features/auth/presentation/pages/session_expired_page.dart';
 import 'package:poof_admin/features/auth/presentation/pages/signing_out_page.dart';
@@ -115,6 +118,103 @@ final List<RouteBase> _adminAppRoutes = [
                     final property = state.extra as PropertyAdmin?;
                     return PropertyFormPage(pmId: pmId, property: property);
                   }),
+              // Create new Building for a Property
+              GoRoute(
+                path: 'properties/:propertyId/buildings/new',
+                name: 'BuildingFormPageNew',
+                builder: (context, state) {
+                  final pmId = state.pathParameters['pmId']!;
+                  final propertyId = state.pathParameters['propertyId']!;
+                  return BuildingFormPage(pmId: pmId, propertyId: propertyId);
+                },
+              ),
+              // Edit existing Building for a Property
+              GoRoute(
+                path: 'properties/:propertyId/buildings/:buildingId/edit',
+                name: 'BuildingFormPageEdit',
+                builder: (context, state) {
+                  final pmId = state.pathParameters['pmId']!;
+                  final propertyId = state.pathParameters['propertyId']!;
+                  final building = state.extra as BuildingAdmin?;
+                  return BuildingFormPage(
+                      pmId: pmId, propertyId: propertyId, building: building);
+                },
+              ),
+              // Create new Unit for a Building
+              GoRoute(
+                path: 'properties/:propertyId/buildings/:buildingId/units/new',
+                name: 'UnitFormPageNew',
+                builder: (context, state) {
+                  final pmId = state.pathParameters['pmId']!;
+                  final propertyId = state.pathParameters['propertyId']!;
+                  final buildingId = state.pathParameters['buildingId']!;
+                  return UnitFormPage(
+                      pmId: pmId, propertyId: propertyId, buildingId: buildingId);
+                },
+              ),
+              // Edit existing Unit for a Building
+              GoRoute(
+                path: 'properties/:propertyId/buildings/:buildingId/units/:unitId/edit',
+                name: 'UnitFormPageEdit',
+                builder: (context, state) {
+                  final pmId = state.pathParameters['pmId']!;
+                  final propertyId = state.pathParameters['propertyId']!;
+                  final buildingId = state.pathParameters['buildingId']!;
+                  final unit = state.extra as UnitAdmin?;
+                  return UnitFormPage(
+                      pmId: pmId,
+                      propertyId: propertyId,
+                      buildingId: buildingId,
+                      unit: unit);
+                },
+              ),
+              // Create new Dumpster for a Property
+              GoRoute(
+                path: 'properties/:propertyId/dumpsters/new',
+                name: 'DumpsterFormPageNew',
+                builder: (context, state) {
+                  final pmId = state.pathParameters['pmId']!;
+                  final propertyId = state.pathParameters['propertyId']!;
+                  return DumpsterFormPage(pmId: pmId, propertyId: propertyId);
+                },
+              ),
+              // Edit existing Dumpster for a Property
+              GoRoute(
+                path: 'properties/:propertyId/dumpsters/:dumpsterId/edit',
+                name: 'DumpsterFormPageEdit',
+                builder: (context, state) {
+                  final pmId = state.pathParameters['pmId']!;
+                  final propertyId = state.pathParameters['propertyId']!;
+                  final dumpster = state.extra as DumpsterAdmin?;
+                  return DumpsterFormPage(
+                      pmId: pmId, propertyId: propertyId, dumpster: dumpster);
+                },
+              ),
+              // Create new Job Definition for a Property
+              GoRoute(
+                path: 'properties/:propertyId/job-definitions/new',
+                name: 'JobDefinitionFormPageNew',
+                builder: (context, state) {
+                  final pmId = state.pathParameters['pmId']!;
+                  final propertyId = state.pathParameters['propertyId']!;
+                  return JobDefinitionFormPage(
+                      pmId: pmId, propertyId: propertyId);
+                },
+              ),
+              // Edit existing Job Definition for a Property
+              GoRoute(
+                path: 'properties/:propertyId/job-definitions/:jobDefinitionId/edit',
+                name: 'JobDefinitionFormPageEdit',
+                builder: (context, state) {
+                  final pmId = state.pathParameters['pmId']!;
+                  final propertyId = state.pathParameters['propertyId']!;
+                  final jobDefinition = state.extra as JobDefinitionAdmin?;
+                  return JobDefinitionFormPage(
+                      pmId: pmId,
+                      propertyId: propertyId,
+                      jobDefinition: jobDefinition);
+                },
+              ),
             ],
           ),
         ],
