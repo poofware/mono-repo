@@ -32,6 +32,7 @@ done
 # Enable Docker BuildKit
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
+export COMPOSE_BAKE=false
 
 # Decide progress mode based on $VERBOSE
 progress="auto"
