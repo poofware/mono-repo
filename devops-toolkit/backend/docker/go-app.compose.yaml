@@ -9,6 +9,9 @@ x-environment: &environment
   environment:
     HCP_TOKEN_ENC_KEY: ${HCP_TOKEN_ENC_KEY?Docker Compose Config Error! HCP_TOKEN_ENC_KEY is not set!}
 
+x-build-labels: &build-labels
+  com.docker.compose.project: ${COMPOSE_PROJECT_NAME:?Docker Compose Config Error! COMPOSE_PROJECT_NAME is not set!}
+
 x-build-args: &build-args
   APP_NAME: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}
   APP_PORT: ${APP_PORT:-8080}
@@ -39,6 +42,9 @@ services:
       <<: *build-network
       args:
         <<: *build-args
+      labels:
+        <<: *build-labels
+        com.docker.compose.service: go-app
     image: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}
     container_name: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}_instance
     ports:
@@ -59,7 +65,7 @@ services:
   # ----------------------
   # 2) Integration Test Service - Ephemeral
   # ----------------------
-  go-integration-test:
+  go-app-integration-test:
     build:
       context: .
       additional_contexts:
@@ -71,6 +77,9 @@ services:
       args:
         <<: *build-args
         APP_URL_FROM_COMPOSE_NETWORK: ${APP_URL_FROM_COMPOSE_NETWORK?Docker Compose Config Error! APP_URL_FROM_COMPOSE_NETWORK is not set!}
+      labels:
+        <<: *build-labels
+        com.docker.compose.service: go-app-integration-test
     image: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-integration-test
     container_name: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-integration-test_instance
     profiles:
@@ -83,13 +92,16 @@ services:
   # ----------------------
   # 3) Unit Test Service - Ephemeral
   # ----------------------
-  # ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-unit-test:
+  # go-app-unit-test:
   #   build:
   #     context: .
   #     additional_contexts:
   #       devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
   #     dockerfile: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}/backend/docker/go-app.Dockerfile
   #     target: unit-test-runner
+  #     labels:
+  #       <<: *build-labels
+  #       com.docker.compose.service: go-app-unit-test
   #   <<: *networks
   # TODO: Uncomment when unit tests are implemented
   
@@ -106,6 +118,9 @@ services:
       <<: *build-network
       args:
         APP_URL_FROM_ANYWHERE: ${APP_URL_FROM_ANYWHERE:-}
+      labels:
+        <<: *build-labels
+        com.docker.compose.service: go-app-health-check
     image: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-health-check
     container_name: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-health-check_instance
     profiles:
