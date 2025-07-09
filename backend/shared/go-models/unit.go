@@ -16,5 +16,6 @@ type Unit struct {
 	UnitNumber  string     `json:"unit_number"`
 	TenantToken string    `json:"tenant_token"`
 	CreatedAt   time.Time  `json:"created_at"`
+    DeletedAt   *time.Time `json:"deleted_at,omitempty"` // NEW
 }
 

@@ -33,11 +33,12 @@ func main() {
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	pmRepo := repositories.NewPropertyManagerRepository(application.DB, cfg.DBEncryptionKey)
 	propRepo := repositories.NewPropertyRepository(application.DB)
-    bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
-    dumpRepo := repositories.NewDumpsterRepository(application.DB)
+	bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
+	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	unitRepo := repositories.NewUnitRepository(application.DB)
-    jobDefRepo := repositories.NewJobDefinitionRepository(application.DB)
+	jobDefRepo := repositories.NewJobDefinitionRepository(application.DB)
 	adminRepo := repositories.NewAdminRepository(application.DB, cfg.DBEncryptionKey)
+	auditRepo := repositories.NewAdminAuditLogRepository(application.DB) // NEW
 
 	if cfg.LDFlag_SeedDbWithTestAccounts {
 		if err := app.SeedAllTestAccounts(workerRepo, pmRepo); err != nil {
@@ -52,6 +53,7 @@ func main() {
 	workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo)
 	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo)
 	stripeWebhookCheckService := services.NewStripeWebhookCheckService()
+	adminService := services.NewAdminService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo, jobDefRepo, auditRepo) // NEW
 
 	checkrService, err := services.NewCheckrService(cfg, workerRepo)
 	if err != nil {
@@ -60,6 +62,7 @@ func main() {
 
 	// Controllers
 	pmController := controllers.NewPMController(pmService)
+	adminController := controllers.NewAdminController(adminService) // NEW
 
 	stripeWebhookController := controllers.NewStripeWebhookController(cfg, workerStripeService, stripeWebhookCheckService)
 	healthController := controllers.NewHealthController(application)
@@ -146,7 +149,20 @@ func main() {
 	secured.HandleFunc(routes.WorkerCheckrInvitation, workerCheckrController.CreateInvitationHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.WorkerCheckrStatus, workerCheckrController.GetCheckrStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrReportETA, workerCheckrController.GetCheckrReportETAHandler).Methods(http.MethodGet)
-	secured.HandleFunc(routes.WorkerCheckrOutcome,    workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
+	secured.HandleFunc(routes.WorkerCheckrOutcome, workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
+
+	// NEW: Admin Routes - assuming an AdminAuthMiddleware would be used here in a real scenario
+	adminRouter := router.PathPrefix("/api/v1/account/admin").Subrouter()
+	adminRouter.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation)) // Placeholder: Should be an admin-specific middleware
+	adminRouter.HandleFunc(routes.AdminPM, adminController.CreatePropertyManagerHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminPM, adminController.UpdatePropertyManagerHandler).Methods(http.MethodPatch)
+	adminRouter.HandleFunc(routes.AdminPM, adminController.DeletePropertyManagerHandler).Methods(http.MethodDelete)
+	adminRouter.HandleFunc(routes.AdminPMSearch, adminController.SearchPropertyManagersHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminPMSnapshot, adminController.GetPropertyManagerSnapshotHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminProperties, adminController.CreatePropertyHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminBuildings, adminController.CreateBuildingHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminUnits, adminController.CreateUnitHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminDumpsters, adminController.CreateDumpsterHandler).Methods(http.MethodPost)
 
 	allowedOrigins := []string{cfg.AppUrl}
 	if !cfg.LDFlag_CORSHighSecurity {

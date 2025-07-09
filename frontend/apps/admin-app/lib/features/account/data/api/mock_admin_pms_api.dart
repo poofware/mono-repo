@@ -341,6 +341,98 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Property not found');
   }
 
+  Future<BuildingAdmin> updateBuilding(
+      String buildingId, Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    for (final snapshot in _data) {
+      for (final prop in snapshot.properties) {
+        final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
+        if (buildingIndex != -1) {
+          final oldBuilding = prop.buildings[buildingIndex];
+          final updatedBuilding = BuildingAdmin.fromJson({
+            ...oldBuilding.toJson(),
+            ...data,
+            'id': buildingId,
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+          prop.buildings[buildingIndex] = updatedBuilding;
+          return updatedBuilding;
+        }
+      }
+    }
+    throw ApiException(404, 'Building not found');
+  }
+
+  Future<UnitAdmin> updateUnit(String unitId, Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    for (final snapshot in _data) {
+      for (final prop in snapshot.properties) {
+        for (final building in prop.buildings) {
+          final unitIndex = building.units.indexWhere((u) => u.id == unitId);
+          if (unitIndex != -1) {
+            final oldUnit = building.units[unitIndex];
+            final updatedUnit = UnitAdmin.fromJson({
+              ...oldUnit.toJson(),
+              ...data,
+              'id': unitId,
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+            building.units[unitIndex] = updatedUnit;
+            return updatedUnit;
+          }
+        }
+      }
+    }
+    throw ApiException(404, 'Unit not found');
+  }
+
+  Future<DumpsterAdmin> updateDumpster(
+      String dumpsterId, Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    for (final snapshot in _data) {
+      final propIndex =
+          snapshot.properties.indexWhere((p) => p.dumpsters.any((d) => d.id == dumpsterId));
+      if (propIndex != -1) {
+        final prop = snapshot.properties[propIndex];
+        final dumpsterIndex = prop.dumpsters.indexWhere((d) => d.id == dumpsterId);
+        final oldDumpster = prop.dumpsters[dumpsterIndex];
+        final updatedDumpster = DumpsterAdmin.fromJson({
+          ...oldDumpster.toJson(),
+          ...data,
+          'id': dumpsterId,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        prop.dumpsters[dumpsterIndex] = updatedDumpster;
+        return updatedDumpster;
+      }
+    }
+    throw ApiException(404, 'Dumpster not found');
+  }
+
+  Future<JobDefinitionAdmin> updateJobDefinition(
+      String jobDefinitionId, Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    for (final snapshot in _data) {
+      final propIndex = snapshot.properties
+          .indexWhere((p) => p.jobDefinitions.any((j) => j.id == jobDefinitionId));
+      if (propIndex != -1) {
+        final prop = snapshot.properties[propIndex];
+        final jobDefIndex =
+            prop.jobDefinitions.indexWhere((j) => j.id == jobDefinitionId);
+        final oldJobDef = prop.jobDefinitions[jobDefIndex];
+        final updatedJobDef = JobDefinitionAdmin.fromJson({
+          ...oldJobDef.toJson(),
+          ...data,
+          'id': jobDefinitionId,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        prop.jobDefinitions[jobDefIndex] = updatedJobDef;
+        return updatedJobDef;
+      }
+    }
+    throw ApiException(404, 'Job Definition not found');
+  }
+
   // --- Delete Methods (Soft Delete) ---
 
   Future<void> deletePropertyManager(String pmId) async {

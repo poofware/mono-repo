@@ -20,6 +20,7 @@ type PropertyRepository interface {
 
 	Update(ctx context.Context, p *models.Property) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	SoftDelete(ctx context.Context, id uuid.UUID) error // NEW
 
 	ListAllProperties(ctx context.Context) ([]*models.Property, error)
 }
@@ -59,12 +60,12 @@ func (r *propertyRepo) Create(ctx context.Context, p *models.Property) error {
 }
 
 func (r *propertyRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Property, error) {
-	row := r.db.QueryRow(ctx, baseSelectProperty()+" WHERE id=$1", id)
+	row := r.db.QueryRow(ctx, baseSelectProperty()+" WHERE id=$1 AND deleted_at IS NULL", id)
 	return scanProperty(row)
 }
 
 func (r *propertyRepo) ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*models.Property, error) {
-	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE manager_id=$1 ORDER BY created_at", managerID)
+	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE manager_id=$1 AND deleted_at IS NULL ORDER BY created_at", managerID)
 	if err != nil {
 		return nil, err
 	}
@@ -106,8 +107,13 @@ func (r *propertyRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+func (r *propertyRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `UPDATE properties SET deleted_at=NOW() WHERE id=$1`, id)
+	return err
+}
+
 func (r *propertyRepo) ListAllProperties(ctx context.Context) ([]*models.Property, error) {
-	rows, err := r.db.Query(ctx, baseSelectProperty()+" ORDER BY created_at")
+	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE deleted_at IS NULL ORDER BY created_at")
 	if err != nil {
 		return nil, err
 	}
@@ -125,12 +131,12 @@ func (r *propertyRepo) ListAllProperties(ctx context.Context) ([]*models.Propert
 }
 
 func baseSelectProperty() string {
-    return `
+	return `
         SELECT
             id, manager_id, property_name,
             address, city, state, zip_code, time_zone,
             latitude, longitude,
-            created_at
+            created_at, deleted_at
         FROM properties
     `
 }
@@ -149,6 +155,7 @@ func scanProperty(row pgx.Row) (*models.Property, error) {
 		&p.Latitude,
 		&p.Longitude,
 		&p.CreatedAt,
+		&p.DeletedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -158,4 +165,3 @@ func scanProperty(row pgx.Row) (*models.Property, error) {
 	}
 	return &p, nil
 }
-

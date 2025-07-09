@@ -22,6 +22,7 @@ type DumpsterRepository interface {
 	Update(ctx context.Context, d *models.Dumpster) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteByPropertyID(ctx context.Context, propertyID uuid.UUID) error
+	SoftDelete(ctx context.Context, id uuid.UUID) error // NEW
 }
 
 /* ------------------------------------------------------------------
@@ -55,12 +56,12 @@ func (r *dumpsterRepo) CreateMany(ctx context.Context, list []models.Dumpster) e
 /* ---------- Reads ---------- */
 
 func (r *dumpsterRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Dumpster, error) {
-	row := r.db.QueryRow(ctx, baseSelectDumpster()+" WHERE id=$1", id)
+	row := r.db.QueryRow(ctx, baseSelectDumpster()+" WHERE id=$1 AND deleted_at IS NULL", id)
 	return scanDumpster(row)
 }
 
 func (r *dumpsterRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.Dumpster, error) {
-	rows, err := r.db.Query(ctx, baseSelectDumpster()+" WHERE property_id=$1 ORDER BY dumpster_number", propertyID)
+	rows, err := r.db.Query(ctx, baseSelectDumpster()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY dumpster_number", propertyID)
 	if err != nil {
 		return nil, err
 	}
@@ -98,18 +99,23 @@ func (r *dumpsterRepo) DeleteByPropertyID(ctx context.Context, propertyID uuid.U
 	return err
 }
 
+func (r *dumpsterRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `UPDATE dumpsters SET deleted_at=NOW() WHERE id=$1`, id)
+	return err
+}
+
 /* ---------- internals ---------- */
 
 func baseSelectDumpster() string {
 	return `
-		SELECT id,property_id,dumpster_number,latitude,longitude
+		SELECT id,property_id,dumpster_number,latitude,longitude,deleted_at
 		FROM dumpsters`
 }
 
 func scanDumpster(row pgx.Row) (*models.Dumpster, error) {
 	var d models.Dumpster
 	if err := row.Scan(
-		&d.ID, &d.PropertyID, &d.DumpsterNumber, &d.Latitude, &d.Longitude,
+		&d.ID, &d.PropertyID, &d.DumpsterNumber, &d.Latitude, &d.Longitude, &d.DeletedAt,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -118,4 +124,3 @@ func scanDumpster(row pgx.Row) (*models.Dumpster, error) {
 	}
 	return &d, nil
 }
-

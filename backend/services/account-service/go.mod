@@ -11,9 +11,9 @@ require (
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/launchdarkly/go-sdk-common/v3 v3.1.0
 	github.com/launchdarkly/go-server-sdk/v7 v7.10.0
-	github.com/poofware/go-dtos v0.0.0-20250530002052-50ccb97a7e4c
+	github.com/poofware/go-dtos v0.0.0-20250630022628-aa25168206d6
 	github.com/poofware/go-middleware v0.0.0-20250630000242-2b08a6db51fd
-	github.com/poofware/go-models v0.0.0-20250625174000-827ad2621e44
+	github.com/poofware/go-models v0.0.0-20250630022329-6cfdfe42b837
 	github.com/poofware/go-repositories v0.0.0-20250630182314-3b41c01a1492
 	github.com/poofware/go-testhelpers v0.0.0-20250623155146-c502e35b0d10
 	github.com/poofware/go-utils v0.0.0-20250630000146-7d946433b1f0

@@ -26,5 +26,21 @@ class JobDefinitionFormNotifier extends StateNotifier<JobDefinitionFormState> {
     }
   }
 
-  // TODO: Implement updateJobDefinition
+  Future<bool> updateJobDefinition(
+      String jobDefinitionId, String pmId, Map<String, dynamic> data) async {
+    state = const JobDefinitionFormState.loading();
+    try {
+      final repo = _ref.read(pmsRepositoryProvider);
+      await repo.updateJobDefinition(jobDefinitionId, data);
+      _ref.invalidate(pmSnapshotProvider(pmId));
+      state = const JobDefinitionFormState.success('Job Definition updated successfully!');
+      return true;
+    } on ApiException catch (e) {
+      state = JobDefinitionFormState.error(e.message, e.fieldErrors);
+      return false;
+    } catch (e) {
+      state = JobDefinitionFormState.error(e.toString());
+      return false;
+    }
+  }
 }

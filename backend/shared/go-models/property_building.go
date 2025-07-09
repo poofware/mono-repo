@@ -1,6 +1,9 @@
 package models
 
-import "github.com/google/uuid"
+import (
+    "time"
+    "github.com/google/uuid"
+)
 
 type PropertyBuilding struct {
     ID          uuid.UUID         `json:"id"`
@@ -9,4 +12,5 @@ type PropertyBuilding struct {
     Address     *string            `json:"address"`
     Latitude    float64           `json:"latitude,omitempty"`
     Longitude   float64           `json:"longitude,omitempty"`
+    DeletedAt    *time.Time `json:"deleted_at,omitempty"` // NEW
 }

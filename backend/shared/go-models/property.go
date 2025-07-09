@@ -17,4 +17,5 @@ type Property struct {
     Latitude     float64          `json:"latitude"`
     Longitude    float64          `json:"longitude"`
     CreatedAt    time.Time         `json:"created_at"`
+    DeletedAt    *time.Time `json:"deleted_at,omitempty"` // NEW
 }

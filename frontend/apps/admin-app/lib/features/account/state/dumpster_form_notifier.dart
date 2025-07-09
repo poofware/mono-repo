@@ -26,5 +26,21 @@ class DumpsterFormNotifier extends StateNotifier<DumpsterFormState> {
     }
   }
 
-  // TODO: Implement updateDumpster
+  Future<bool> updateDumpster(
+      String dumpsterId, String pmId, Map<String, dynamic> data) async {
+    state = const DumpsterFormState.loading();
+    try {
+      final repo = _ref.read(pmsRepositoryProvider);
+      await repo.updateDumpster(dumpsterId, data);
+      _ref.invalidate(pmSnapshotProvider(pmId));
+      state = const DumpsterFormState.success('Dumpster updated successfully!');
+      return true;
+    } on ApiException catch (e) {
+      state = DumpsterFormState.error(e.message, e.fieldErrors);
+      return false;
+    } catch (e) {
+      state = DumpsterFormState.error(e.toString());
+      return false;
+    }
+  }
 }

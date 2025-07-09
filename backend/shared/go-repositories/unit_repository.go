@@ -23,6 +23,7 @@ type UnitRepository interface {
 	Update(ctx context.Context, u *models.Unit) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteByPropertyID(ctx context.Context, propID uuid.UUID) error
+	SoftDelete(ctx context.Context, id uuid.UUID) error // NEW
 
 	// NEW: for tenant tokens
 	FindByTenantToken(ctx context.Context, token string) (*models.Unit, error)
@@ -57,11 +58,11 @@ func (r *unitRepo) CreateMany(ctx context.Context, list []models.Unit) error {
 /* ---------- reads ---------- */
 
 func (r *unitRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Unit, error) {
-	return scanUnit(r.db.QueryRow(ctx, baseSelectUnit()+" WHERE id=$1", id))
+	return scanUnit(r.db.QueryRow(ctx, baseSelectUnit()+" WHERE id=$1 AND deleted_at IS NULL", id))
 }
 
 func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*models.Unit, error) {
-	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE property_id=$1 ORDER BY unit_number", propID)
+	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY unit_number", propID)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +71,7 @@ func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*m
 }
 
 func (r *unitRepo) ListByBuildingID(ctx context.Context, bldgID uuid.UUID) ([]*models.Unit, error) {
-	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE building_id=$1 ORDER BY unit_number", bldgID)
+	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE building_id=$1 AND deleted_at IS NULL ORDER BY unit_number", bldgID)
 	if err != nil {
 		return nil, err
 	}
@@ -99,9 +100,14 @@ func (r *unitRepo) DeleteByPropertyID(ctx context.Context, propID uuid.UUID) err
 	return err
 }
 
+func (r *unitRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `UPDATE units SET deleted_at=NOW() WHERE id=$1`, id)
+	return err
+}
+
 // NEW: find exactly one unit by tenant_token (if multiple, we take the first).
 func (r *unitRepo) FindByTenantToken(ctx context.Context, token string) (*models.Unit, error) {
-	row := r.db.QueryRow(ctx, baseSelectUnit()+" WHERE tenant_token=$1 LIMIT 1", token)
+	row := r.db.QueryRow(ctx, baseSelectUnit()+" WHERE tenant_token=$1 AND deleted_at IS NULL LIMIT 1", token)
 	return scanUnit(row)
 }
 
@@ -109,7 +115,7 @@ func (r *unitRepo) FindByTenantToken(ctx context.Context, token string) (*models
 
 func baseSelectUnit() string {
 	return `
-		SELECT id,property_id,building_id,unit_number,tenant_token,created_at
+		SELECT id,property_id,building_id,unit_number,tenant_token,created_at,deleted_at
 		FROM units`
 }
 
@@ -117,7 +123,7 @@ func scanUnit(row pgx.Row) (*models.Unit, error) {
 	var u models.Unit
 	if err := row.Scan(
 		&u.ID, &u.PropertyID, &u.BuildingID,
-		&u.UnitNumber, &u.TenantToken, &u.CreatedAt,
+		&u.UnitNumber, &u.TenantToken, &u.CreatedAt, &u.DeletedAt,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -138,4 +144,3 @@ func scanUnits(rows pgx.Rows) ([]*models.Unit, error) {
 	}
 	return out, rows.Err()
 }
-

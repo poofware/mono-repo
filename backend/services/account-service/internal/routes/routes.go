@@ -53,4 +53,15 @@ const (
 	WorkerCheckrReportETA    = "/api/v1/account/worker/checkr/report-eta"
 	WorkerCheckrOutcome      = "/api/v1/account/worker/checkr/outcome"
 	WorkerCheckrSessionToken = "/api/v1/account/worker/checkr/session-token"
+
+	// ───────────────────────────────
+	// Admin Panel (NEW)
+	// ───────────────────────────────
+	AdminPM         = "/api/v1/account/property-managers"
+	AdminPMSearch   = "/api/v1/account/property-managers/search"
+	AdminPMSnapshot = "/api/v1/account/property-manager/snapshot"
+	AdminProperties = "/api/v1/account/properties"
+	AdminBuildings  = "/api/v1/account/property-buildings"
+	AdminUnits      = "/api/v1/account/units"
+	AdminDumpsters  = "/api/v1/account/dumpsters"
 )

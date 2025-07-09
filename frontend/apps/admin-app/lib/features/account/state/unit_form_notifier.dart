@@ -26,5 +26,21 @@ class UnitFormNotifier extends StateNotifier<UnitFormState> {
     }
   }
 
-  // TODO: Implement updateUnit
+  Future<bool> updateUnit(
+      String unitId, String pmId, Map<String, dynamic> data) async {
+    state = const UnitFormState.loading();
+    try {
+      final repo = _ref.read(pmsRepositoryProvider);
+      await repo.updateUnit(unitId, data);
+      _ref.invalidate(pmSnapshotProvider(pmId));
+      state = const UnitFormState.success('Unit updated successfully!');
+      return true;
+    } on ApiException catch (e) {
+      state = UnitFormState.error(e.message, e.fieldErrors);
+      return false;
+    } catch (e) {
+      state = UnitFormState.error(e.toString());
+      return false;
+    }
+  }
 }

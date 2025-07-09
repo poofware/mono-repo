@@ -62,7 +62,7 @@ class _DumpsterFormPageState extends ConsumerState<DumpsterFormPage> {
 
     final notifier = ref.read(dumpsterFormProvider.notifier);
     final success = widget.isEditMode
-        ? false // TODO: await notifier.updateDumpster(widget.dumpster!.id, widget.pmId, data)
+        ? await notifier.updateDumpster(widget.dumpster!.id, widget.pmId, data)
         : await notifier.createDumpster(widget.pmId, data);
 
     if (success && mounted) {

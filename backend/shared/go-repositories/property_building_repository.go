@@ -22,6 +22,7 @@ type PropertyBuildingRepository interface {
 	Update(ctx context.Context, b *models.PropertyBuilding) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteByPropertyID(ctx context.Context, propertyID uuid.UUID) error
+	SoftDelete(ctx context.Context, id uuid.UUID) error // NEW
 }
 
 /* ------------------------------------------------------------------
@@ -57,12 +58,12 @@ func (r *buildingRepo) CreateMany(ctx context.Context, list []models.PropertyBui
 /* ---------- Reads ---------- */
 
 func (r *buildingRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PropertyBuilding, error) {
-	row := r.db.QueryRow(ctx, baseSelectBuilding()+" WHERE id=$1", id)
+	row := r.db.QueryRow(ctx, baseSelectBuilding()+" WHERE id=$1 AND deleted_at IS NULL", id)
 	return scanBuilding(row)
 }
 
 func (r *buildingRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.PropertyBuilding, error) {
-	rows, err := r.db.Query(ctx, baseSelectBuilding()+" WHERE property_id=$1 ORDER BY building_name NULLS LAST", propertyID)
+	rows, err := r.db.Query(ctx, baseSelectBuilding()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY building_name NULLS LAST", propertyID)
 	if err != nil {
 		return nil, err
 	}
@@ -100,18 +101,23 @@ func (r *buildingRepo) DeleteByPropertyID(ctx context.Context, propertyID uuid.U
 	return err
 }
 
+func (r *buildingRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `UPDATE property_buildings SET deleted_at=NOW() WHERE id=$1`, id)
+	return err
+}
+
 /* ---------- internals ---------- */
 
 func baseSelectBuilding() string {
 	return `
-		SELECT id,property_id,building_name,address,latitude,longitude
+		SELECT id,property_id,building_name,address,latitude,longitude,deleted_at
 		FROM property_buildings`
 }
 
 func scanBuilding(row pgx.Row) (*models.PropertyBuilding, error) {
 	var b models.PropertyBuilding
 	if err := row.Scan(
-		&b.ID, &b.PropertyID, &b.BuildingName, &b.Address, &b.Latitude, &b.Longitude,
+		&b.ID, &b.PropertyID, &b.BuildingName, &b.Address, &b.Latitude, &b.Longitude, &b.DeletedAt,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -120,4 +126,3 @@ func scanBuilding(row pgx.Row) (*models.PropertyBuilding, error) {
 	}
 	return &b, nil
 }
-

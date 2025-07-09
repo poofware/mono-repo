@@ -66,7 +66,7 @@ class _BuildingFormPageState extends ConsumerState<BuildingFormPage> {
 
     final notifier = ref.read(buildingFormProvider.notifier);
     final success = widget.isEditMode
-        ? false // TODO: await notifier.updateBuilding(widget.building!.id, widget.pmId, data)
+        ? await notifier.updateBuilding(widget.building!.id, widget.pmId, data)
         : await notifier.createBuilding(widget.pmId, data);
 
     if (success && mounted) {

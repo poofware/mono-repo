@@ -26,5 +26,21 @@ class BuildingFormNotifier extends StateNotifier<BuildingFormState> {
     }
   }
 
-  // TODO: Implement updateBuilding
+  Future<bool> updateBuilding(
+      String buildingId, String pmId, Map<String, dynamic> data) async {
+    state = const BuildingFormState.loading();
+    try {
+      final repo = _ref.read(pmsRepositoryProvider);
+      await repo.updateBuilding(buildingId, data);
+      _ref.invalidate(pmSnapshotProvider(pmId));
+      state = const BuildingFormState.success('Building updated successfully!');
+      return true;
+    } on ApiException catch (e) {
+      state = BuildingFormState.error(e.message, e.fieldErrors);
+      return false;
+    } catch (e) {
+      state = BuildingFormState.error(e.toString());
+      return false;
+    }
+  }
 }

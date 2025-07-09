@@ -1,6 +1,9 @@
 package models
 
-import "github.com/google/uuid"
+import (
+  "time"
+  "github.com/google/uuid"
+)
 
 type Dumpster struct {
     ID         uuid.UUID `json:"id"`
@@ -8,4 +11,6 @@ type Dumpster struct {
     PropertyID uuid.UUID `json:"property_id"`
     Latitude   float64   `json:"latitude"`
     Longitude  float64   `json:"longitude"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"` // NEW
 }
+

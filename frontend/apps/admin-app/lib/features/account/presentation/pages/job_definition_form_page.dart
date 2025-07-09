@@ -59,7 +59,7 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
 
     final notifier = ref.read(jobDefinitionFormProvider.notifier);
     final success = widget.isEditMode
-        ? false // TODO: await notifier.updateJobDefinition(widget.jobDefinition!.id, widget.pmId, data)
+        ? await notifier.updateJobDefinition(widget.jobDefinition!.id, widget.pmId, data)
         : await notifier.createJobDefinition(widget.pmId, data);
 
     if (success && mounted) {

@@ -57,7 +57,7 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
 
     final notifier = ref.read(unitFormProvider.notifier);
     final success = widget.isEditMode
-        ? false // TODO: await notifier.updateUnit(widget.unit!.id, widget.pmId, data)
+        ? await notifier.updateUnit(widget.unit!.id, widget.pmId, data)
         : await notifier.createUnit(widget.pmId, data);
 
     if (success && mounted) {
@@ -93,10 +93,11 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
             children: [
               _buildTextField(_unitNumberController, 'Unit Number', fieldErrors),
               const SizedBox(height: 8),
-              Text(
-                'A unique tenant token will be generated automatically upon creation.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              if (!widget.isEditMode)
+                Text(
+                  'A unique tenant token will be generated automatically upon creation.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
