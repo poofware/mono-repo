@@ -50,7 +50,7 @@ class DumpsterView extends ConsumerWidget {
                       icon: const Icon(Icons.edit_outlined),
                       tooltip: 'Edit Dumpster',
                       onPressed: () => context.go(
-                        '/dashboard/pms/$pmId/properties/$propertyId/dumpsters/${d.id}/edit',
+                        '/dashboard/pms/$pmId/properties/$propertyId/dumpsters/edit',
                         extra: d,
                       ),
                     ),

@@ -51,7 +51,7 @@ class UnitListView extends ConsumerWidget {
                       icon: const Icon(Icons.edit_outlined),
                       tooltip: 'Edit Unit',
                       onPressed: () => context.go(
-                        '/dashboard/pms/$pmId/properties/$propertyId/buildings/$buildingId/units/${unit.id}/edit',
+                        '/dashboard/pms/$pmId/properties/$propertyId/buildings/$buildingId/units/edit',
                         extra: unit,
                       ),
                     ),

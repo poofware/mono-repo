@@ -5,18 +5,24 @@ class ApiException implements Exception {
   final int statusCode;
   final String message;
   final Map<String, String>? fieldErrors;
+  final dynamic entity; // To carry the conflicting entity on 409
 
   ApiException(
     this.statusCode,
     this.message, [
     this.fieldErrors,
+    this.entity,
   ]);
 
   @override
   String toString() {
+    String output = 'ApiException: $statusCode - $message';
     if (fieldErrors != null && fieldErrors!.isNotEmpty) {
-      return 'ApiException: $statusCode - $message. Field Errors: $fieldErrors';
+      output += '. Field Errors: $fieldErrors';
     }
-    return 'ApiException: $statusCode - $message';
+    if (entity != null) {
+      output += '. Entity: $entity';
+    }
+    return output;
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_admin/features/account/data/models/property_manager_admin.dart';
+import 'package:poof_admin/features/account/providers/pm_providers.dart';
 import 'package:poof_admin/features/account/state/pm_form_notifier.dart';
 import 'package:poof_admin/features/account/state/pm_form_state.dart';
 
@@ -51,6 +52,16 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
     super.dispose();
   }
 
+  void _resetFormFields(PropertyManagerAdmin pm) {
+    _businessNameController.text = pm.businessName;
+    _emailController.text = pm.email;
+    _phoneController.text = pm.phone ?? '';
+    _addressController.text = pm.businessAddress;
+    _cityController.text = pm.city;
+    _stateController.text = pm.state;
+    _zipController.text = pm.zipCode;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -90,6 +101,38 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
             ScaffoldMessenger.of(context)
                 .showSnackBar(SnackBar(content: Text(message)));
           }
+        },
+        conflict: (latestEntity, message) {
+          showDialog(
+            context: context,
+            barrierDismissible: false, // User must choose an action
+            builder: (BuildContext dialogContext) {
+              return AlertDialog(
+                title: const Text('Conflict Detected'),
+                content: Text(
+                    '$message\n\nYour unsaved changes are still in the form. You can overwrite the server version or reload to see the latest data.'),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('Reload'),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      _resetFormFields(latestEntity);
+                      // Reset state to initial so dialog doesn't pop up again
+                      ref.read(pmFormProvider.notifier).state =
+                          const PmFormState.initial();
+                    },
+                  ),
+                  ElevatedButton(
+                    child: const Text('Overwrite'),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      _submit(); // Re-attempt submission
+                    },
+                  ),
+                ],
+              );
+            },
+          );
         },
       );
     });
@@ -152,7 +195,8 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
     bool isPhone = false,
   }) {
     // Convert label to snake_case for map lookup
-    final fieldKey = label.toLowerCase().replaceAll(' ', '_');
+    final fieldKey =
+        label.toLowerCase().split('(').first.trim().replaceAll(' ', '_');
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),

@@ -24,6 +24,8 @@ mixin _$PmFormState {
     required TResult Function(String message) success,
     required TResult Function(String message, Map<String, String>? fieldErrors)
     error,
+    required TResult Function(PropertyManagerAdmin latestEntity, String message)
+    conflict,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
@@ -31,6 +33,8 @@ mixin _$PmFormState {
     TResult? Function()? loading,
     TResult? Function(String message)? success,
     TResult? Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult? Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
@@ -38,6 +42,8 @@ mixin _$PmFormState {
     TResult Function()? loading,
     TResult Function(String message)? success,
     TResult Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -46,6 +52,7 @@ mixin _$PmFormState {
     required TResult Function(_Loading value) loading,
     required TResult Function(_Success value) success,
     required TResult Function(_Error value) error,
+    required TResult Function(_Conflict value) conflict,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
@@ -53,6 +60,7 @@ mixin _$PmFormState {
     TResult? Function(_Loading value)? loading,
     TResult? Function(_Success value)? success,
     TResult? Function(_Error value)? error,
+    TResult? Function(_Conflict value)? conflict,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
@@ -60,6 +68,7 @@ mixin _$PmFormState {
     TResult Function(_Loading value)? loading,
     TResult Function(_Success value)? success,
     TResult Function(_Error value)? error,
+    TResult Function(_Conflict value)? conflict,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
 }
@@ -140,6 +149,8 @@ class _$InitialImpl with DiagnosticableTreeMixin implements _Initial {
     required TResult Function(String message) success,
     required TResult Function(String message, Map<String, String>? fieldErrors)
     error,
+    required TResult Function(PropertyManagerAdmin latestEntity, String message)
+    conflict,
   }) {
     return initial();
   }
@@ -151,6 +162,8 @@ class _$InitialImpl with DiagnosticableTreeMixin implements _Initial {
     TResult? Function()? loading,
     TResult? Function(String message)? success,
     TResult? Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult? Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
   }) {
     return initial?.call();
   }
@@ -162,6 +175,8 @@ class _$InitialImpl with DiagnosticableTreeMixin implements _Initial {
     TResult Function()? loading,
     TResult Function(String message)? success,
     TResult Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
     required TResult orElse(),
   }) {
     if (initial != null) {
@@ -177,6 +192,7 @@ class _$InitialImpl with DiagnosticableTreeMixin implements _Initial {
     required TResult Function(_Loading value) loading,
     required TResult Function(_Success value) success,
     required TResult Function(_Error value) error,
+    required TResult Function(_Conflict value) conflict,
   }) {
     return initial(this);
   }
@@ -188,6 +204,7 @@ class _$InitialImpl with DiagnosticableTreeMixin implements _Initial {
     TResult? Function(_Loading value)? loading,
     TResult? Function(_Success value)? success,
     TResult? Function(_Error value)? error,
+    TResult? Function(_Conflict value)? conflict,
   }) {
     return initial?.call(this);
   }
@@ -199,6 +216,7 @@ class _$InitialImpl with DiagnosticableTreeMixin implements _Initial {
     TResult Function(_Loading value)? loading,
     TResult Function(_Success value)? success,
     TResult Function(_Error value)? error,
+    TResult Function(_Conflict value)? conflict,
     required TResult orElse(),
   }) {
     if (initial != null) {
@@ -266,6 +284,8 @@ class _$LoadingImpl with DiagnosticableTreeMixin implements _Loading {
     required TResult Function(String message) success,
     required TResult Function(String message, Map<String, String>? fieldErrors)
     error,
+    required TResult Function(PropertyManagerAdmin latestEntity, String message)
+    conflict,
   }) {
     return loading();
   }
@@ -277,6 +297,8 @@ class _$LoadingImpl with DiagnosticableTreeMixin implements _Loading {
     TResult? Function()? loading,
     TResult? Function(String message)? success,
     TResult? Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult? Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
   }) {
     return loading?.call();
   }
@@ -288,6 +310,8 @@ class _$LoadingImpl with DiagnosticableTreeMixin implements _Loading {
     TResult Function()? loading,
     TResult Function(String message)? success,
     TResult Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
     required TResult orElse(),
   }) {
     if (loading != null) {
@@ -303,6 +327,7 @@ class _$LoadingImpl with DiagnosticableTreeMixin implements _Loading {
     required TResult Function(_Loading value) loading,
     required TResult Function(_Success value) success,
     required TResult Function(_Error value) error,
+    required TResult Function(_Conflict value) conflict,
   }) {
     return loading(this);
   }
@@ -314,6 +339,7 @@ class _$LoadingImpl with DiagnosticableTreeMixin implements _Loading {
     TResult? Function(_Loading value)? loading,
     TResult? Function(_Success value)? success,
     TResult? Function(_Error value)? error,
+    TResult? Function(_Conflict value)? conflict,
   }) {
     return loading?.call(this);
   }
@@ -325,6 +351,7 @@ class _$LoadingImpl with DiagnosticableTreeMixin implements _Loading {
     TResult Function(_Loading value)? loading,
     TResult Function(_Success value)? success,
     TResult Function(_Error value)? error,
+    TResult Function(_Conflict value)? conflict,
     required TResult orElse(),
   }) {
     if (loading != null) {
@@ -421,6 +448,8 @@ class _$SuccessImpl with DiagnosticableTreeMixin implements _Success {
     required TResult Function(String message) success,
     required TResult Function(String message, Map<String, String>? fieldErrors)
     error,
+    required TResult Function(PropertyManagerAdmin latestEntity, String message)
+    conflict,
   }) {
     return success(message);
   }
@@ -432,6 +461,8 @@ class _$SuccessImpl with DiagnosticableTreeMixin implements _Success {
     TResult? Function()? loading,
     TResult? Function(String message)? success,
     TResult? Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult? Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
   }) {
     return success?.call(message);
   }
@@ -443,6 +474,8 @@ class _$SuccessImpl with DiagnosticableTreeMixin implements _Success {
     TResult Function()? loading,
     TResult Function(String message)? success,
     TResult Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
     required TResult orElse(),
   }) {
     if (success != null) {
@@ -458,6 +491,7 @@ class _$SuccessImpl with DiagnosticableTreeMixin implements _Success {
     required TResult Function(_Loading value) loading,
     required TResult Function(_Success value) success,
     required TResult Function(_Error value) error,
+    required TResult Function(_Conflict value) conflict,
   }) {
     return success(this);
   }
@@ -469,6 +503,7 @@ class _$SuccessImpl with DiagnosticableTreeMixin implements _Success {
     TResult? Function(_Loading value)? loading,
     TResult? Function(_Success value)? success,
     TResult? Function(_Error value)? error,
+    TResult? Function(_Conflict value)? conflict,
   }) {
     return success?.call(this);
   }
@@ -480,6 +515,7 @@ class _$SuccessImpl with DiagnosticableTreeMixin implements _Success {
     TResult Function(_Loading value)? loading,
     TResult Function(_Success value)? success,
     TResult Function(_Error value)? error,
+    TResult Function(_Conflict value)? conflict,
     required TResult orElse(),
   }) {
     if (success != null) {
@@ -607,6 +643,8 @@ class _$ErrorImpl with DiagnosticableTreeMixin implements _Error {
     required TResult Function(String message) success,
     required TResult Function(String message, Map<String, String>? fieldErrors)
     error,
+    required TResult Function(PropertyManagerAdmin latestEntity, String message)
+    conflict,
   }) {
     return error(message, fieldErrors);
   }
@@ -618,6 +656,8 @@ class _$ErrorImpl with DiagnosticableTreeMixin implements _Error {
     TResult? Function()? loading,
     TResult? Function(String message)? success,
     TResult? Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult? Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
   }) {
     return error?.call(message, fieldErrors);
   }
@@ -629,6 +669,8 @@ class _$ErrorImpl with DiagnosticableTreeMixin implements _Error {
     TResult Function()? loading,
     TResult Function(String message)? success,
     TResult Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
     required TResult orElse(),
   }) {
     if (error != null) {
@@ -644,6 +686,7 @@ class _$ErrorImpl with DiagnosticableTreeMixin implements _Error {
     required TResult Function(_Loading value) loading,
     required TResult Function(_Success value) success,
     required TResult Function(_Error value) error,
+    required TResult Function(_Conflict value) conflict,
   }) {
     return error(this);
   }
@@ -655,6 +698,7 @@ class _$ErrorImpl with DiagnosticableTreeMixin implements _Error {
     TResult? Function(_Loading value)? loading,
     TResult? Function(_Success value)? success,
     TResult? Function(_Error value)? error,
+    TResult? Function(_Conflict value)? conflict,
   }) {
     return error?.call(this);
   }
@@ -666,6 +710,7 @@ class _$ErrorImpl with DiagnosticableTreeMixin implements _Error {
     TResult Function(_Loading value)? loading,
     TResult Function(_Success value)? success,
     TResult Function(_Error value)? error,
+    TResult Function(_Conflict value)? conflict,
     required TResult orElse(),
   }) {
     if (error != null) {
@@ -688,5 +733,190 @@ abstract class _Error implements PmFormState {
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ErrorImplCopyWith<_$ErrorImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$ConflictImplCopyWith<$Res> {
+  factory _$$ConflictImplCopyWith(
+    _$ConflictImpl value,
+    $Res Function(_$ConflictImpl) then,
+  ) = __$$ConflictImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({PropertyManagerAdmin latestEntity, String message});
+}
+
+/// @nodoc
+class __$$ConflictImplCopyWithImpl<$Res>
+    extends _$PmFormStateCopyWithImpl<$Res, _$ConflictImpl>
+    implements _$$ConflictImplCopyWith<$Res> {
+  __$$ConflictImplCopyWithImpl(
+    _$ConflictImpl _value,
+    $Res Function(_$ConflictImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of PmFormState
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? latestEntity = null, Object? message = null}) {
+    return _then(
+      _$ConflictImpl(
+        null == latestEntity
+            ? _value.latestEntity
+            : latestEntity // ignore: cast_nullable_to_non_nullable
+                as PropertyManagerAdmin,
+        null == message
+            ? _value.message
+            : message // ignore: cast_nullable_to_non_nullable
+                as String,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$ConflictImpl with DiagnosticableTreeMixin implements _Conflict {
+  const _$ConflictImpl(this.latestEntity, this.message);
+
+  @override
+  final PropertyManagerAdmin latestEntity;
+  @override
+  final String message;
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
+    return 'PmFormState.conflict(latestEntity: $latestEntity, message: $message)';
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(DiagnosticsProperty('type', 'PmFormState.conflict'))
+      ..add(DiagnosticsProperty('latestEntity', latestEntity))
+      ..add(DiagnosticsProperty('message', message));
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$ConflictImpl &&
+            (identical(other.latestEntity, latestEntity) ||
+                other.latestEntity == latestEntity) &&
+            (identical(other.message, message) || other.message == message));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, latestEntity, message);
+
+  /// Create a copy of PmFormState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$ConflictImplCopyWith<_$ConflictImpl> get copyWith =>
+      __$$ConflictImplCopyWithImpl<_$ConflictImpl>(this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function() initial,
+    required TResult Function() loading,
+    required TResult Function(String message) success,
+    required TResult Function(String message, Map<String, String>? fieldErrors)
+    error,
+    required TResult Function(PropertyManagerAdmin latestEntity, String message)
+    conflict,
+  }) {
+    return conflict(latestEntity, message);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function()? initial,
+    TResult? Function()? loading,
+    TResult? Function(String message)? success,
+    TResult? Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult? Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
+  }) {
+    return conflict?.call(latestEntity, message);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function()? initial,
+    TResult Function()? loading,
+    TResult Function(String message)? success,
+    TResult Function(String message, Map<String, String>? fieldErrors)? error,
+    TResult Function(PropertyManagerAdmin latestEntity, String message)?
+    conflict,
+    required TResult orElse(),
+  }) {
+    if (conflict != null) {
+      return conflict(latestEntity, message);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(_Initial value) initial,
+    required TResult Function(_Loading value) loading,
+    required TResult Function(_Success value) success,
+    required TResult Function(_Error value) error,
+    required TResult Function(_Conflict value) conflict,
+  }) {
+    return conflict(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(_Initial value)? initial,
+    TResult? Function(_Loading value)? loading,
+    TResult? Function(_Success value)? success,
+    TResult? Function(_Error value)? error,
+    TResult? Function(_Conflict value)? conflict,
+  }) {
+    return conflict?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(_Initial value)? initial,
+    TResult Function(_Loading value)? loading,
+    TResult Function(_Success value)? success,
+    TResult Function(_Error value)? error,
+    TResult Function(_Conflict value)? conflict,
+    required TResult orElse(),
+  }) {
+    if (conflict != null) {
+      return conflict(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class _Conflict implements PmFormState {
+  const factory _Conflict(
+    final PropertyManagerAdmin latestEntity,
+    final String message,
+  ) = _$ConflictImpl;
+
+  PropertyManagerAdmin get latestEntity;
+  String get message;
+
+  /// Create a copy of PmFormState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$ConflictImplCopyWith<_$ConflictImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

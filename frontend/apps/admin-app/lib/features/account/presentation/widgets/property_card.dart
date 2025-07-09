@@ -45,7 +45,7 @@ class PropertyCard extends ConsumerWidget {
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Edit Property',
               onPressed: () => context.go(
-                '/dashboard/pms/${property.managerId}/properties/${property.id}/edit',
+                '/dashboard/pms/${property.managerId}/properties/edit',
                 extra: property,
               ),
             ),

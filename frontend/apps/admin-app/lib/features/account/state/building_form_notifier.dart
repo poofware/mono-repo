@@ -31,7 +31,8 @@ class BuildingFormNotifier extends StateNotifier<BuildingFormState> {
     state = const BuildingFormState.loading();
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.updateBuilding(buildingId, data);
+      final payload = {'id': buildingId, ...data};
+      await repo.updateBuilding(payload);
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const BuildingFormState.success('Building updated successfully!');
       return true;

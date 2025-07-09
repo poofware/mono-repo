@@ -31,7 +31,8 @@ class DumpsterFormNotifier extends StateNotifier<DumpsterFormState> {
     state = const DumpsterFormState.loading();
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.updateDumpster(dumpsterId, data);
+      final payload = {'id': dumpsterId, ...data};
+      await repo.updateDumpster(payload);
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const DumpsterFormState.success('Dumpster updated successfully!');
       return true;

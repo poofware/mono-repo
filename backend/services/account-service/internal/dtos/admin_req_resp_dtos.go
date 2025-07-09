@@ -1,11 +1,10 @@
 // backend/services/account-service/internal/dtos/admin_req_resp_dtos.go
-// NEW FILE
 package dtos
 
 import (
 	"github.com/google/uuid"
-	"github.com/poofware/go-dtos"
 	"github.com/poofware/go-models"
+	shared_dtos "github.com/poofware/go-dtos"
 )
 
 // Generic request for soft-deleting an entity.
@@ -50,10 +49,10 @@ type SearchPropertyManagersRequest struct {
 }
 
 type PagedPropertyManagersResponse struct {
-	Data     []go_dtos.PropertyManager `json:"data"`
-	Total    int                       `json:"total"`
-	Page     int                       `json:"page"`
-	PageSize int                       `json:"page_size"`
+	Data     []shared_dtos.PropertyManager `json:"data"`
+	Total    int                           `json:"total"`
+	Page     int                           `json:"page"`
+	PageSize int                           `json:"page_size"`
 }
 
 // ----- Property DTOs -----
@@ -70,6 +69,18 @@ type CreatePropertyRequest struct {
 	Longitude    float64   `json:"longitude" validate:"required,longitude"`
 }
 
+type UpdatePropertyRequest struct {
+	ID           uuid.UUID `json:"id" validate:"required"`
+	PropertyName *string   `json:"property_name,omitempty" validate:"omitempty,min=2"`
+	Address      *string   `json:"address,omitempty" validate:"omitempty,min=5"`
+	City         *string   `json:"city,omitempty" validate:"omitempty,min=2"`
+	State        *string   `json:"state,omitempty" validate:"omitempty,len=2"`
+	ZipCode      *string   `json:"zip_code,omitempty" validate:"omitempty,min=5,max=10"`
+	TimeZone     *string   `json:"time_zone,omitempty" validate:"omitempty"`
+	Latitude     *float64  `json:"latitude,omitempty" validate:"omitempty,latitude"`
+	Longitude    *float64  `json:"longitude,omitempty" validate:"omitempty,longitude"`
+}
+
 // ----- Building DTOs -----
 
 type CreateBuildingRequest struct {
@@ -80,12 +91,25 @@ type CreateBuildingRequest struct {
 	Longitude    float64   `json:"longitude,omitempty"`
 }
 
+type UpdateBuildingRequest struct {
+	ID           uuid.UUID `json:"id" validate:"required"`
+	BuildingName *string   `json:"building_name,omitempty" validate:"omitempty"`
+	Address      *string   `json:"address,omitempty"`
+	Latitude     *float64  `json:"latitude,omitempty" validate:"omitempty,latitude"`
+	Longitude    *float64  `json:"longitude,omitempty" validate:"omitempty,longitude"`
+}
+
 // ----- Unit DTOs -----
 
 type CreateUnitRequest struct {
 	PropertyID uuid.UUID `json:"property_id" validate:"required"`
 	BuildingID uuid.UUID `json:"building_id" validate:"required"`
 	UnitNumber string    `json:"unit_number" validate:"required"`
+}
+
+type UpdateUnitRequest struct {
+	ID         uuid.UUID `json:"id" validate:"required"`
+	UnitNumber *string   `json:"unit_number,omitempty" validate:"omitempty,min=1"`
 }
 
 // ----- Dumpster DTOs -----
@@ -97,6 +121,13 @@ type CreateDumpsterRequest struct {
 	Longitude      float64   `json:"longitude,omitempty"`
 }
 
+type UpdateDumpsterRequest struct {
+	ID             uuid.UUID `json:"id" validate:"required"`
+	DumpsterNumber *string   `json:"dumpster_number,omitempty" validate:"omitempty,min=1"`
+	Latitude       *float64  `json:"latitude,omitempty" validate:"omitempty,latitude"`
+	Longitude      *float64  `json:"longitude,omitempty" validate:"omitempty,longitude"`
+}
+
 // ----- Snapshot DTOs -----
 
 type SnapshotRequest struct {
@@ -104,7 +135,7 @@ type SnapshotRequest struct {
 }
 
 type PropertyManagerSnapshotResponse struct {
-	go_dtos.PropertyManager
+	shared_dtos.PropertyManager
 	Properties []PropertySnapshot `json:"properties"`
 }
 

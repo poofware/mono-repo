@@ -111,7 +111,7 @@ final List<RouteBase> _adminAppRoutes = [
                   }),
               // Edit existing Property for this PM
               GoRoute(
-                  path: 'properties/:propertyId/edit',
+                  path: 'properties/edit',
                   name: 'PropertyFormPageEdit',
                   builder: (context, state) {
                     final pmId = state.pathParameters['pmId']!;
@@ -130,7 +130,7 @@ final List<RouteBase> _adminAppRoutes = [
               ),
               // Edit existing Building for a Property
               GoRoute(
-                path: 'properties/:propertyId/buildings/:buildingId/edit',
+                path: 'properties/:propertyId/buildings/edit',
                 name: 'BuildingFormPageEdit',
                 builder: (context, state) {
                   final pmId = state.pathParameters['pmId']!;
@@ -154,7 +154,7 @@ final List<RouteBase> _adminAppRoutes = [
               ),
               // Edit existing Unit for a Building
               GoRoute(
-                path: 'properties/:propertyId/buildings/:buildingId/units/:unitId/edit',
+                path: 'properties/:propertyId/buildings/:buildingId/units/edit',
                 name: 'UnitFormPageEdit',
                 builder: (context, state) {
                   final pmId = state.pathParameters['pmId']!;
@@ -180,7 +180,7 @@ final List<RouteBase> _adminAppRoutes = [
               ),
               // Edit existing Dumpster for a Property
               GoRoute(
-                path: 'properties/:propertyId/dumpsters/:dumpsterId/edit',
+                path: 'properties/:propertyId/dumpsters/edit',
                 name: 'DumpsterFormPageEdit',
                 builder: (context, state) {
                   final pmId = state.pathParameters['pmId']!;
@@ -203,7 +203,7 @@ final List<RouteBase> _adminAppRoutes = [
               ),
               // Edit existing Job Definition for a Property
               GoRoute(
-                path: 'properties/:propertyId/job-definitions/:jobDefinitionId/edit',
+                path: 'properties/:propertyId/job-definitions/edit',
                 name: 'JobDefinitionFormPageEdit',
                 builder: (context, state) {
                   final pmId = state.pathParameters['pmId']!;

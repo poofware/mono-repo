@@ -11,9 +11,11 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
     state = const PmDetailState.loading('Deleting Property Manager...');
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.deletePropertyManager(pmId);
+      await repo.deletePropertyManager({'id': pmId});
 
-      _ref.invalidate(pmsListProvider);
+      // The list page (PmsDashboardPage) will refresh via its own mechanisms.
+      // We still invalidate the snapshot provider in case the user tries to
+      // access it again, ensuring they see the deleted state.
       _ref.invalidate(pmSnapshotProvider(pmId));
 
       state = const PmDetailState.success('Property Manager deleted.');
@@ -28,7 +30,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
     state = const PmDetailState.loading('Deleting Property...');
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.deleteProperty(propertyId);
+      await repo.deleteProperty({'id': propertyId});
 
       _ref.invalidate(pmSnapshotProvider(pmId)); // Refresh the detail view
 
@@ -44,7 +46,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
     state = const PmDetailState.loading('Deleting Building...');
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.deleteBuilding(buildingId);
+      await repo.deleteBuilding({'id': buildingId});
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const PmDetailState.success('Building deleted.');
       return true;
@@ -58,7 +60,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
     state = const PmDetailState.loading('Deleting Unit...');
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.deleteUnit(unitId);
+      await repo.deleteUnit({'id': unitId});
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const PmDetailState.success('Unit deleted.');
       return true;
@@ -72,7 +74,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
     state = const PmDetailState.loading('Deleting Dumpster...');
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.deleteDumpster(dumpsterId);
+      await repo.deleteDumpster({'id': dumpsterId});
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const PmDetailState.success('Dumpster deleted.');
       return true;
@@ -86,7 +88,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
     state = const PmDetailState.loading('Deleting Job Definition...');
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.deleteJobDefinition(jobDefinitionId);
+      await repo.deleteJobDefinition({'id': jobDefinitionId});
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const PmDetailState.success('Job Definition deleted.');
       return true;

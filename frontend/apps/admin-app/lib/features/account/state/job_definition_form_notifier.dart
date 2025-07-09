@@ -31,7 +31,8 @@ class JobDefinitionFormNotifier extends StateNotifier<JobDefinitionFormState> {
     state = const JobDefinitionFormState.loading();
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.updateJobDefinition(jobDefinitionId, data);
+      final payload = {'id': jobDefinitionId, ...data};
+      await repo.updateJobDefinition(payload);
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const JobDefinitionFormState.success('Job Definition updated successfully!');
       return true;

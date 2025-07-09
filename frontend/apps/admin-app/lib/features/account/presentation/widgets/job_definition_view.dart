@@ -44,7 +44,7 @@ class JobDefinitionView extends ConsumerWidget {
                       icon: const Icon(Icons.edit_outlined),
                       tooltip: 'Edit Job Definition',
                       onPressed: () => context.go(
-                        '/dashboard/pms/${job.managerId}/properties/${job.propertyId}/job-definitions/${job.id}/edit',
+                        '/dashboard/pms/${job.managerId}/properties/${job.propertyId}/job-definitions/edit',
                         extra: job,
                       ),
                     ),

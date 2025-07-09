@@ -152,6 +152,9 @@ func main() {
 	secured.HandleFunc(routes.WorkerCheckrOutcome, workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
 
 	// NEW: Admin Routes - assuming an AdminAuthMiddleware would be used here in a real scenario
+	// NOTE: Using a path prefix with absolute route constants from `routes` can be problematic.
+	// This is kept as-is to match the provided structure, but in a real-world scenario,
+	// either the prefix would be removed or route constants would be relative paths.
 	adminRouter := router.PathPrefix("/api/v1/account/admin").Subrouter()
 	adminRouter.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation)) // Placeholder: Should be an admin-specific middleware
 	adminRouter.HandleFunc(routes.AdminPM, adminController.CreatePropertyManagerHandler).Methods(http.MethodPost)
@@ -159,10 +162,22 @@ func main() {
 	adminRouter.HandleFunc(routes.AdminPM, adminController.DeletePropertyManagerHandler).Methods(http.MethodDelete)
 	adminRouter.HandleFunc(routes.AdminPMSearch, adminController.SearchPropertyManagersHandler).Methods(http.MethodPost)
 	adminRouter.HandleFunc(routes.AdminPMSnapshot, adminController.GetPropertyManagerSnapshotHandler).Methods(http.MethodPost)
+
 	adminRouter.HandleFunc(routes.AdminProperties, adminController.CreatePropertyHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminProperties, adminController.UpdatePropertyHandler).Methods(http.MethodPatch)
+	adminRouter.HandleFunc(routes.AdminProperties, adminController.DeletePropertyHandler).Methods(http.MethodDelete)
+
 	adminRouter.HandleFunc(routes.AdminBuildings, adminController.CreateBuildingHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminBuildings, adminController.UpdateBuildingHandler).Methods(http.MethodPatch)
+	adminRouter.HandleFunc(routes.AdminBuildings, adminController.DeleteBuildingHandler).Methods(http.MethodDelete)
+
 	adminRouter.HandleFunc(routes.AdminUnits, adminController.CreateUnitHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminUnits, adminController.UpdateUnitHandler).Methods(http.MethodPatch)
+	adminRouter.HandleFunc(routes.AdminUnits, adminController.DeleteUnitHandler).Methods(http.MethodDelete)
+
 	adminRouter.HandleFunc(routes.AdminDumpsters, adminController.CreateDumpsterHandler).Methods(http.MethodPost)
+	adminRouter.HandleFunc(routes.AdminDumpsters, adminController.UpdateDumpsterHandler).Methods(http.MethodPatch)
+	adminRouter.HandleFunc(routes.AdminDumpsters, adminController.DeleteDumpsterHandler).Methods(http.MethodDelete)
 
 	allowedOrigins := []string{cfg.AppUrl}
 	if !cfg.LDFlag_CORSHighSecurity {

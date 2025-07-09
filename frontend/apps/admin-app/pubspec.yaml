@@ -37,6 +37,7 @@ dependencies:
   flutter_svg: ^2.1.0
   freezed_annotation: ^2.4.1
   json_annotation: ^4.8.1
+  infinite_scroll_pagination: ^5.1.0
 
   poof_flutter_auth:
     git:

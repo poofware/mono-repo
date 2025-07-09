@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:poof_admin/core/models/paginated_response.dart';
 import 'package:poof_admin/features/account/data/api/api_exception.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
 import 'package:uuid/uuid.dart';
@@ -102,31 +103,70 @@ class MockAdminPmsApi {
         ),
       ],
     ));
+    // Add more data for pagination testing
+    for (var i = 2; i <= 50; i++) {
+      _data.add(PmsSnapshot(
+        propertyManager: PropertyManagerAdmin(
+          id: _uuid.v4(),
+          email: 'manager$i@corp.com',
+          businessName: 'Global Real Estate #$i',
+          businessAddress: '$i Business Park',
+          city: 'Metropolis',
+          state: 'NY',
+          zipCode: '10001',
+          createdAt: DateTime.now().subtract(Duration(days: i * 2)),
+          updatedAt: DateTime.now().subtract(Duration(days: i)),
+        ),
+        properties: [],
+      ));
+    }
     _initialized = true;
     debugPrint('[MockAdminPmsApi] Initialized with seed data.');
   }
 
   // --- Search / Get ---
 
-  Future<List<PropertyManagerAdmin>> searchPropertyManagers(String query) async {
+  Future<PaginatedResponse<PropertyManagerAdmin>> searchPropertyManagers(
+      Map<String, dynamic> body) async {
     await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
-    final lowerQuery = query.toLowerCase();
+
+    final query = (body['query'] as String? ?? '').toLowerCase();
+    final page = body['page'] as int? ?? 1;
+    final pageSize = body['page_size'] as int? ?? 20;
 
     final activePms = _data.where((s) => s.propertyManager.deletedAt == null);
 
-    if (query.isEmpty) {
-      return activePms.map((s) => s.propertyManager.copyWith()).toList();
+    final filteredPms = query.isEmpty
+        ? activePms.map((s) => s.propertyManager.copyWith()).toList()
+        : activePms
+            .where((s) =>
+                s.propertyManager.businessName.toLowerCase().contains(query) ||
+                s.propertyManager.email.toLowerCase().contains(query))
+            .map((s) => s.propertyManager.copyWith())
+            .toList();
+
+    final totalCount = filteredPms.length;
+    final startIndex = (page - 1) * pageSize;
+
+    if (startIndex >= totalCount) {
+      return PaginatedResponse(
+          items: [], totalCount: totalCount, hasMore: false);
     }
-    return activePms
-        .where((s) =>
-            s.propertyManager.businessName.toLowerCase().contains(lowerQuery) ||
-            s.propertyManager.email.toLowerCase().contains(lowerQuery))
-        .map((s) => s.propertyManager.copyWith())
-        .toList();
+
+    final endIndex = min(startIndex + pageSize, totalCount);
+    final pageItems = filteredPms.sublist(startIndex, endIndex);
+    final hasMore = endIndex < totalCount;
+
+    return PaginatedResponse(
+      items: pageItems,
+      totalCount: totalCount,
+      hasMore: hasMore,
+    );
   }
 
-  Future<PmsSnapshot> getSnapshot(String pmId) async {
+  Future<PmsSnapshot> getSnapshot(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 400 + _random.nextInt(500)));
+    final pmId = data['manager_id'] as String;
     final snapshot = _data.firstWhere((s) => s.propertyManager.id == pmId);
 
     // Filter out soft-deleted properties
@@ -297,19 +337,21 @@ class MockAdminPmsApi {
   // --- Update Methods (PATCH) ---
 
   Future<PropertyManagerAdmin> updatePropertyManager(
-      String pmId, Map<String, dynamic> data) async {
+      Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     _updateConflictCounter++;
-    if (_updateConflictCounter % 3 == 0) {
-      throw ApiException(409, 'Conflict detected. Please refresh and try again.');
-    }
 
+    final pmId = data['id'] as String;
     final pmIndex = _data.indexWhere((s) => s.propertyManager.id == pmId);
     if (pmIndex == -1) {
       throw ApiException(404, 'Property Manager not found');
     }
-
     final oldPm = _data[pmIndex].propertyManager;
+    
+    if (_updateConflictCounter % 3 == 0) {
+      throw ApiException(409, 'Conflict detected. This record was updated by someone else.', null, oldPm);
+    }
+    
     final updatedPm = PropertyManagerAdmin.fromJson({
       ...oldPm.toJson(), // Start with old data
       ...data, // Overwrite with new data
@@ -322,8 +364,9 @@ class MockAdminPmsApi {
   }
 
   Future<PropertyAdmin> updateProperty(
-      String propertyId, Map<String, dynamic> data) async {
+      Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    final propertyId = data['id'] as String;
     for (final snapshot in _data) {
       final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
       if (propIndex != -1) {
@@ -342,8 +385,9 @@ class MockAdminPmsApi {
   }
 
   Future<BuildingAdmin> updateBuilding(
-      String buildingId, Map<String, dynamic> data) async {
+      Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    final buildingId = data['id'] as String;
     for (final snapshot in _data) {
       for (final prop in snapshot.properties) {
         final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
@@ -363,8 +407,9 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Building not found');
   }
 
-  Future<UnitAdmin> updateUnit(String unitId, Map<String, dynamic> data) async {
+  Future<UnitAdmin> updateUnit(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    final unitId = data['id'] as String;
     for (final snapshot in _data) {
       for (final prop in snapshot.properties) {
         for (final building in prop.buildings) {
@@ -387,8 +432,9 @@ class MockAdminPmsApi {
   }
 
   Future<DumpsterAdmin> updateDumpster(
-      String dumpsterId, Map<String, dynamic> data) async {
+      Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    final dumpsterId = data['id'] as String;
     for (final snapshot in _data) {
       final propIndex =
           snapshot.properties.indexWhere((p) => p.dumpsters.any((d) => d.id == dumpsterId));
@@ -410,8 +456,9 @@ class MockAdminPmsApi {
   }
 
   Future<JobDefinitionAdmin> updateJobDefinition(
-      String jobDefinitionId, Map<String, dynamic> data) async {
+      Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
+    final jobDefinitionId = data['id'] as String;
     for (final snapshot in _data) {
       final propIndex = snapshot.properties
           .indexWhere((p) => p.jobDefinitions.any((j) => j.id == jobDefinitionId));
@@ -435,8 +482,9 @@ class MockAdminPmsApi {
 
   // --- Delete Methods (Soft Delete) ---
 
-  Future<void> deletePropertyManager(String pmId) async {
+  Future<void> deletePropertyManager(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 400));
+    final pmId = data['id'] as String;
     final pmIndex = _data.indexWhere((s) => s.propertyManager.id == pmId);
     if (pmIndex != -1) {
       final oldPm = _data[pmIndex].propertyManager;
@@ -447,8 +495,9 @@ class MockAdminPmsApi {
     }
   }
 
-  Future<void> deleteProperty(String propertyId) async {
+  Future<void> deleteProperty(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    final propertyId = data['id'] as String;
     // Find the index of the snapshot containing the property
     final snapshotIndex = _data.indexWhere((s) => s.properties.any((p) => p.id == propertyId));
 
@@ -468,8 +517,9 @@ class MockAdminPmsApi {
     }
   }
 
-  Future<void> deleteBuilding(String buildingId) async {
+  Future<void> deleteBuilding(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    final buildingId = data['id'] as String;
     for (final snapshot in _data) {
       for (int i = 0; i < snapshot.properties.length; i++) {
         final prop = snapshot.properties[i];
@@ -485,8 +535,9 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Building not found');
   }
 
-  Future<void> deleteUnit(String unitId) async {
+  Future<void> deleteUnit(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    final unitId = data['id'] as String;
     for (final snapshot in _data) {
       for (final prop in snapshot.properties) {
         for (int i = 0; i < prop.buildings.length; i++) {
@@ -504,8 +555,9 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Unit not found');
   }
 
-  Future<void> deleteDumpster(String dumpsterId) async {
+  Future<void> deleteDumpster(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    final dumpsterId = data['id'] as String;
     for (final snapshot in _data) {
       for (int i = 0; i < snapshot.properties.length; i++) {
         final prop = snapshot.properties[i];
@@ -521,8 +573,9 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Dumpster not found');
   }
 
-  Future<void> deleteJobDefinition(String jobDefinitionId) async {
+  Future<void> deleteJobDefinition(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    final jobDefinitionId = data['id'] as String;
     for (final snapshot in _data) {
       for (int i = 0; i < snapshot.properties.length; i++) {
         final prop = snapshot.properties[i];

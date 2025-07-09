@@ -33,8 +33,9 @@ class PropertyFormNotifier extends StateNotifier<PropertyFormState> {
     try {
       final repo = _ref.read(pmsRepositoryProvider);
       final pmId = data['manager_id'] as String;
+      final payload = {'id': propertyId, ...data};
 
-      await repo.updateProperty(propertyId, data);
+      await repo.updateProperty(payload);
 
       _ref.invalidate(pmSnapshotProvider(pmId)); // Refresh the detail view
 

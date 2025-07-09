@@ -212,6 +212,64 @@ func (c *AdminController) CreatePropertyHandler(w http.ResponseWriter, r *http.R
 	utils.RespondWithJSON(w, http.StatusCreated, prop)
 }
 
+// PATCH /api/v1/account/admin/properties
+func (c *AdminController) UpdatePropertyHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.UpdatePropertyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	prop, err := c.adminService.UpdateProperty(r.Context(), adminID, req)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, prop)
+}
+
+// DELETE /api/v1/account/admin/properties
+func (c *AdminController) DeletePropertyHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.DeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	if err := c.adminService.SoftDeleteProperty(r.Context(), adminID, req.ID); err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, dtos.ConfirmationResponse{
+		Message: "Property soft-deleted successfully",
+		ID:      req.ID.String(),
+	})
+}
+
 // POST /api/v1/account/admin/property-buildings
 func (c *AdminController) CreateBuildingHandler(w http.ResponseWriter, r *http.Request) {
 	adminID, err := c.getAdminID(r)
@@ -238,6 +296,64 @@ func (c *AdminController) CreateBuildingHandler(w http.ResponseWriter, r *http.R
 	}
 
 	utils.RespondWithJSON(w, http.StatusCreated, building)
+}
+
+// PATCH /api/v1/account/admin/property-buildings
+func (c *AdminController) UpdateBuildingHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.UpdateBuildingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	building, err := c.adminService.UpdateBuilding(r.Context(), adminID, req)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, building)
+}
+
+// DELETE /api/v1/account/admin/property-buildings
+func (c *AdminController) DeleteBuildingHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.DeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	if err := c.adminService.SoftDeleteBuilding(r.Context(), adminID, req.ID); err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, dtos.ConfirmationResponse{
+		Message: "Building soft-deleted successfully",
+		ID:      req.ID.String(),
+	})
 }
 
 // POST /api/v1/account/admin/units
@@ -268,6 +384,64 @@ func (c *AdminController) CreateUnitHandler(w http.ResponseWriter, r *http.Reque
 	utils.RespondWithJSON(w, http.StatusCreated, unit)
 }
 
+// PATCH /api/v1/account/admin/units
+func (c *AdminController) UpdateUnitHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.UpdateUnitRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	unit, err := c.adminService.UpdateUnit(r.Context(), adminID, req)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, unit)
+}
+
+// DELETE /api/v1/account/admin/units
+func (c *AdminController) DeleteUnitHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.DeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	if err := c.adminService.SoftDeleteUnit(r.Context(), adminID, req.ID); err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, dtos.ConfirmationResponse{
+		Message: "Unit soft-deleted successfully",
+		ID:      req.ID.String(),
+	})
+}
+
 // POST /api/v1/account/admin/dumpsters
 func (c *AdminController) CreateDumpsterHandler(w http.ResponseWriter, r *http.Request) {
 	adminID, err := c.getAdminID(r)
@@ -294,4 +468,62 @@ func (c *AdminController) CreateDumpsterHandler(w http.ResponseWriter, r *http.R
 	}
 
 	utils.RespondWithJSON(w, http.StatusCreated, dumpster)
+}
+
+// PATCH /api/v1/account/admin/dumpsters
+func (c *AdminController) UpdateDumpsterHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.UpdateDumpsterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	dumpster, err := c.adminService.UpdateDumpster(r.Context(), adminID, req)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, dumpster)
+}
+
+// DELETE /api/v1/account/admin/dumpsters
+func (c *AdminController) DeleteDumpsterHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.DeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	if err := c.adminService.SoftDeleteDumpster(r.Context(), adminID, req.ID); err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, dtos.ConfirmationResponse{
+		Message: "Dumpster soft-deleted successfully",
+		ID:      req.ID.String(),
+	})
 }

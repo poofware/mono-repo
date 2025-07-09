@@ -1,3 +1,4 @@
+import 'package:poof_admin/core/models/paginated_response.dart';
 import 'package:poof_admin/features/account/data/api/mock_admin_pms_api.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
 
@@ -10,12 +11,13 @@ class AdminPmsRepository {
 
   // --- Getters ---
 
-  Future<PmsSnapshot> getSnapshot(String pmId) {
-    return _api.getSnapshot(pmId);
+  Future<PmsSnapshot> getSnapshot(Map<String, dynamic> data) {
+    return _api.getSnapshot(data);
   }
 
-  Future<List<PropertyManagerAdmin>> searchPropertyManagers(String query) {
-    return _api.searchPropertyManagers(query);
+  Future<PaginatedResponse<PropertyManagerAdmin>> searchPropertyManagers(
+      Map<String, dynamic> data) {
+    return _api.searchPropertyManagers(data);
   }
 
   // --- Create Methods ---
@@ -46,53 +48,53 @@ class AdminPmsRepository {
 
   // --- Update Methods ---
 
-  Future<PropertyManagerAdmin> updatePropertyManager(String pmId, Map<String, dynamic> data) {
-    return _api.updatePropertyManager(pmId, data);
+  Future<PropertyManagerAdmin> updatePropertyManager(Map<String, dynamic> data) {
+    return _api.updatePropertyManager(data);
   }
 
-  Future<PropertyAdmin> updateProperty(String propertyId, Map<String, dynamic> data) {
-    return _api.updateProperty(propertyId, data);
+  Future<PropertyAdmin> updateProperty(Map<String, dynamic> data) {
+    return _api.updateProperty(data);
   }
 
-  Future<BuildingAdmin> updateBuilding(String buildingId, Map<String, dynamic> data) {
-    return _api.updateBuilding(buildingId, data);
+  Future<BuildingAdmin> updateBuilding(Map<String, dynamic> data) {
+    return _api.updateBuilding(data);
   }
 
-  Future<UnitAdmin> updateUnit(String unitId, Map<String, dynamic> data) {
-    return _api.updateUnit(unitId, data);
+  Future<UnitAdmin> updateUnit(Map<String, dynamic> data) {
+    return _api.updateUnit(data);
   }
 
-  Future<DumpsterAdmin> updateDumpster(String dumpsterId, Map<String, dynamic> data) {
-    return _api.updateDumpster(dumpsterId, data);
+  Future<DumpsterAdmin> updateDumpster(Map<String, dynamic> data) {
+    return _api.updateDumpster(data);
   }
 
-  Future<JobDefinitionAdmin> updateJobDefinition(String jobDefinitionId, Map<String, dynamic> data) {
-    return _api.updateJobDefinition(jobDefinitionId, data);
+  Future<JobDefinitionAdmin> updateJobDefinition(Map<String, dynamic> data) {
+    return _api.updateJobDefinition(data);
   }
 
   // --- Delete Methods ---
 
-  Future<void> deletePropertyManager(String pmId) {
-    return _api.deletePropertyManager(pmId);
+  Future<void> deletePropertyManager(Map<String, dynamic> data) {
+    return _api.deletePropertyManager(data);
   }
 
-  Future<void> deleteProperty(String propertyId) {
-    return _api.deleteProperty(propertyId);
+  Future<void> deleteProperty(Map<String, dynamic> data) {
+    return _api.deleteProperty(data);
   }
 
-  Future<void> deleteBuilding(String buildingId) {
-    return _api.deleteBuilding(buildingId);
+  Future<void> deleteBuilding(Map<String, dynamic> data) {
+    return _api.deleteBuilding(data);
   }
 
-  Future<void> deleteUnit(String unitId) {
-    return _api.deleteUnit(unitId);
+  Future<void> deleteUnit(Map<String, dynamic> data) {
+    return _api.deleteUnit(data);
   }
 
-  Future<void> deleteDumpster(String dumpsterId) {
-    return _api.deleteDumpster(dumpsterId);
+  Future<void> deleteDumpster(Map<String, dynamic> data) {
+    return _api.deleteDumpster(data);
   }
 
-  Future<void> deleteJobDefinition(String jobDefinitionId) {
-    return _api.deleteJobDefinition(jobDefinitionId);
+  Future<void> deleteJobDefinition(Map<String, dynamic> data) {
+    return _api.deleteJobDefinition(data);
   }
 }

@@ -31,7 +31,8 @@ class UnitFormNotifier extends StateNotifier<UnitFormState> {
     state = const UnitFormState.loading();
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.updateUnit(unitId, data);
+      final payload = {'id': unitId, ...data};
+      await repo.updateUnit(payload);
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const UnitFormState.success('Unit updated successfully!');
       return true;

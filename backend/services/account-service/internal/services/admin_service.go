@@ -1,5 +1,4 @@
 // backend/services/account-service/internal/services/admin_service.go
-// NEW FILE
 package services
 
 import (
@@ -9,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/go-dtos"
+	internal_dtos "github.com/poofware/account-service/internal/dtos"
+	shared_dtos "github.com/poofware/go-dtos" // FIXED
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 	"github.com/poofware/go-utils"
@@ -62,7 +61,7 @@ func (s *AdminService) logAudit(ctx context.Context, adminID, targetID uuid.UUID
 }
 
 // CreatePropertyManager creates a new property manager.
-func (s *AdminService) CreatePropertyManager(ctx context.Context, adminID uuid.UUID, req dtos.CreatePropertyManagerRequest) (*go_dtos.PropertyManager, error) {
+func (s *AdminService) CreatePropertyManager(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreatePropertyManagerRequest) (*shared_dtos.PropertyManager, error) {
 	existing, _ := s.pmRepo.GetByEmail(ctx, req.Email)
 	if existing != nil {
 		return nil, &utils.AppError{StatusCode: http.StatusConflict, Code: utils.ErrCodeConflict, Message: "Email already in use"}
@@ -86,12 +85,12 @@ func (s *AdminService) CreatePropertyManager(ctx context.Context, adminID uuid.U
 	}
 
 	s.logAudit(ctx, adminID, pm.ID, models.AuditCreate, models.TargetPropertyManager, pm)
-	dto := go_dtos.NewPMFromModel(*pm)
+	dto := shared_dtos.NewPMFromModel(*pm)
 	return &dto, nil
 }
 
 // UpdatePropertyManager updates an existing property manager.
-func (s *AdminService) UpdatePropertyManager(ctx context.Context, adminID uuid.UUID, req dtos.UpdatePropertyManagerRequest) (*go_dtos.PropertyManager, error) {
+func (s *AdminService) UpdatePropertyManager(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdatePropertyManagerRequest) (*shared_dtos.PropertyManager, error) {
 	var updatedPM *models.PropertyManager
 	err := s.pmRepo.UpdateWithRetry(ctx, req.ID, func(pm *models.PropertyManager) error {
 		if req.Email != nil {
@@ -133,13 +132,16 @@ func (s *AdminService) UpdatePropertyManager(ctx context.Context, adminID uuid.U
 	}
 
 	s.logAudit(ctx, adminID, updatedPM.ID, models.AuditUpdate, models.TargetPropertyManager, updatedPM)
-	dto := go_dtos.NewPMFromModel(*updatedPM)
+	dto := shared_dtos.NewPMFromModel(*updatedPM)
 	return &dto, nil
 }
 
 // SoftDeletePropertyManager marks a property manager as deleted.
 func (s *AdminService) SoftDeletePropertyManager(ctx context.Context, adminID, pmID uuid.UUID) error {
 	if err := s.pmRepo.SoftDelete(ctx, pmID); err != nil {
+		if err == pgx.ErrNoRows {
+			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Property manager not found"}
+		}
 		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to delete property manager", Err: err}
 	}
 	s.logAudit(ctx, adminID, pmID, models.AuditDelete, models.TargetPropertyManager, nil)
@@ -147,7 +149,7 @@ func (s *AdminService) SoftDeletePropertyManager(ctx context.Context, adminID, p
 }
 
 // SearchPropertyManagers searches for property managers with pagination.
-func (s *AdminService) SearchPropertyManagers(ctx context.Context, req dtos.SearchPropertyManagersRequest) (*dtos.PagedPropertyManagersResponse, error) {
+func (s *AdminService) SearchPropertyManagers(ctx context.Context, req internal_dtos.SearchPropertyManagersRequest) (*internal_dtos.PagedPropertyManagersResponse, error) {
 	if req.Page < 1 {
 		req.Page = 1
 	}
@@ -161,13 +163,13 @@ func (s *AdminService) SearchPropertyManagers(ctx context.Context, req dtos.Sear
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Search failed", Err: err}
 	}
 
-	dtos := make([]go_dtos.PropertyManager, len(pms))
+	dtosList := make([]shared_dtos.PropertyManager, len(pms))
 	for i, pm := range pms {
-		dtos[i] = go_dtos.NewPMFromModel(*pm)
+		dtosList[i] = shared_dtos.NewPMFromModel(*pm)
 	}
 
-	return &dtos.PagedPropertyManagersResponse{
-		Data:     dtos,
+	return &internal_dtos.PagedPropertyManagersResponse{
+		Data:     dtosList,
 		Total:    total,
 		Page:     req.Page,
 		PageSize: req.PageSize,
@@ -175,14 +177,14 @@ func (s *AdminService) SearchPropertyManagers(ctx context.Context, req dtos.Sear
 }
 
 // GetPropertyManagerSnapshot retrieves the full hierarchy for a property manager.
-func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, managerID uuid.UUID) (*dtos.PropertyManagerSnapshotResponse, error) {
+func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, managerID uuid.UUID) (*internal_dtos.PropertyManagerSnapshotResponse, error) {
 	pm, err := s.pmRepo.GetByID(ctx, managerID)
 	if err != nil || pm == nil {
 		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Property manager not found"}
 	}
 
-	pmDTO := go_dtos.NewPMFromModel(*pm)
-	snapshot := &dtos.PropertyManagerSnapshotResponse{PropertyManager: pmDTO}
+	pmDTO := shared_dtos.NewPMFromModel(*pm)
+	snapshot := &internal_dtos.PropertyManagerSnapshotResponse{PropertyManager: pmDTO}
 
 	props, err := s.propRepo.ListByManagerID(ctx, managerID)
 	if err != nil {
@@ -200,13 +202,13 @@ func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, managerID
 			unitMap[u.BuildingID] = append(unitMap[u.BuildingID], u)
 		}
 
-		bldgDTOs := make([]dtos.Building, len(buildings))
+		bldgDTOs := make([]internal_dtos.Building, len(buildings))
 		for i, b := range buildings {
-			bldgDTOs[i] = dtos.NewBuildingFromModel(b, unitMap[b.ID])
+			bldgDTOs[i] = internal_dtos.NewBuildingFromModel(b, unitMap[b.ID])
 		}
 
-		propDTO := dtos.NewPropertyFromModel(p, bldgDTOs, dumpsters)
-		snapshot.Properties = append(snapshot.Properties, dtos.PropertySnapshot{
+		propDTO := internal_dtos.NewPropertyFromModel(p, bldgDTOs, dumpsters)
+		snapshot.Properties = append(snapshot.Properties, internal_dtos.PropertySnapshot{
 			Property:       propDTO,
 			JobDefinitions: jobDefs,
 		})
@@ -215,11 +217,14 @@ func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, managerID
 }
 
 // CreateProperty creates a new property for a manager.
-func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, req dtos.CreatePropertyRequest) (*models.Property, error) {
+func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreatePropertyRequest) (*models.Property, error) {
 	// Check if parent manager exists
-	_, err := s.pmRepo.GetByID(ctx, req.ManagerID)
-	if err != nil || err == pgx.ErrNoRows {
-		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
+	pm, err := s.pmRepo.GetByID(ctx, req.ManagerID)
+	if err != nil || pm == nil {
+		if err == pgx.ErrNoRows || pm == nil {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for property manager", Err: err}
 	}
 
 	prop := &models.Property{
@@ -243,11 +248,69 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 	return prop, nil
 }
 
+// UpdateProperty updates an existing property.
+func (s *AdminService) UpdateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdatePropertyRequest) (*models.Property, error) {
+	var updatedProp *models.Property
+	err := s.propRepo.UpdateWithRetry(ctx, req.ID, func(p *models.Property) error {
+		if req.PropertyName != nil {
+			p.PropertyName = *req.PropertyName
+		}
+		if req.Address != nil {
+			p.Address = *req.Address
+		}
+		if req.City != nil {
+			p.City = *req.City
+		}
+		if req.State != nil {
+			p.State = *req.State
+		}
+		if req.ZipCode != nil {
+			p.ZipCode = *req.ZipCode
+		}
+		if req.TimeZone != nil {
+			p.TimeZone = *req.TimeZone
+		}
+		if req.Latitude != nil {
+			p.Latitude = *req.Latitude
+		}
+		if req.Longitude != nil {
+			p.Longitude = *req.Longitude
+		}
+		updatedProp = p
+		return nil
+	})
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Property not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to update property", Err: err}
+	}
+
+	s.logAudit(ctx, adminID, updatedProp.ID, models.AuditUpdate, models.TargetProperty, updatedProp)
+	return updatedProp, nil
+}
+
+// SoftDeleteProperty marks a property as deleted.
+func (s *AdminService) SoftDeleteProperty(ctx context.Context, adminID, propID uuid.UUID) error {
+	if err := s.propRepo.SoftDelete(ctx, propID); err != nil {
+		if err == pgx.ErrNoRows {
+			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Property not found"}
+		}
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to delete property", Err: err}
+	}
+	s.logAudit(ctx, adminID, propID, models.AuditDelete, models.TargetProperty, nil)
+	return nil
+}
+
 // CreateBuilding creates a new building for a property.
-func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, req dtos.CreateBuildingRequest) (*models.PropertyBuilding, error) {
-	_, err := s.propRepo.GetByID(ctx, req.PropertyID)
-	if err != nil || err == pgx.ErrNoRows {
-		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property not found"}
+func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateBuildingRequest) (*models.PropertyBuilding, error) {
+	prop, err := s.propRepo.GetByID(ctx, req.PropertyID)
+	if err != nil || prop == nil {
+		if err == pgx.ErrNoRows || prop == nil {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for parent property", Err: err}
 	}
 
 	building := &models.PropertyBuilding{
@@ -266,11 +329,57 @@ func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, re
 	return building, nil
 }
 
+// UpdateBuilding updates an existing building.
+func (s *AdminService) UpdateBuilding(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdateBuildingRequest) (*models.PropertyBuilding, error) {
+	var updatedBldg *models.PropertyBuilding
+	err := s.bldgRepo.UpdateWithRetry(ctx, req.ID, func(b *models.PropertyBuilding) error {
+		if req.BuildingName != nil {
+			b.BuildingName = *req.BuildingName
+		}
+		if req.Address != nil {
+			b.Address = req.Address
+		}
+		if req.Latitude != nil {
+			b.Latitude = *req.Latitude
+		}
+		if req.Longitude != nil {
+			b.Longitude = *req.Longitude
+		}
+		updatedBldg = b
+		return nil
+	})
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Building not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to update building", Err: err}
+	}
+
+	s.logAudit(ctx, adminID, updatedBldg.ID, models.AuditUpdate, models.TargetBuilding, updatedBldg)
+	return updatedBldg, nil
+}
+
+// SoftDeleteBuilding marks a building as deleted.
+func (s *AdminService) SoftDeleteBuilding(ctx context.Context, adminID, bldgID uuid.UUID) error {
+	if err := s.bldgRepo.SoftDelete(ctx, bldgID); err != nil {
+		if err == pgx.ErrNoRows {
+			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Building not found"}
+		}
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to delete building", Err: err}
+	}
+	s.logAudit(ctx, adminID, bldgID, models.AuditDelete, models.TargetBuilding, nil)
+	return nil
+}
+
 // CreateUnit creates a new unit for a building.
-func (s *AdminService) CreateUnit(ctx context.Context, adminID uuid.UUID, req dtos.CreateUnitRequest) (*models.Unit, error) {
-	_, err := s.bldgRepo.GetByID(ctx, req.BuildingID)
-	if err != nil || err == pgx.ErrNoRows {
-		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent building not found"}
+func (s *AdminService) CreateUnit(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateUnitRequest) (*models.Unit, error) {
+	bldg, err := s.bldgRepo.GetByID(ctx, req.BuildingID)
+	if err != nil || bldg == nil {
+		if err == pgx.ErrNoRows || bldg == nil {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent building not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for parent building", Err: err}
 	}
 
 	unit := &models.Unit{
@@ -288,11 +397,48 @@ func (s *AdminService) CreateUnit(ctx context.Context, adminID uuid.UUID, req dt
 	return unit, nil
 }
 
+// UpdateUnit updates an existing unit.
+func (s *AdminService) UpdateUnit(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdateUnitRequest) (*models.Unit, error) {
+	var updatedUnit *models.Unit
+	err := s.unitRepo.UpdateWithRetry(ctx, req.ID, func(u *models.Unit) error {
+		if req.UnitNumber != nil {
+			u.UnitNumber = *req.UnitNumber
+		}
+		updatedUnit = u
+		return nil
+	})
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Unit not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to update unit", Err: err}
+	}
+
+	s.logAudit(ctx, adminID, updatedUnit.ID, models.AuditUpdate, models.TargetUnit, updatedUnit)
+	return updatedUnit, nil
+}
+
+// SoftDeleteUnit marks a unit as deleted.
+func (s *AdminService) SoftDeleteUnit(ctx context.Context, adminID, unitID uuid.UUID) error {
+	if err := s.unitRepo.SoftDelete(ctx, unitID); err != nil {
+		if err == pgx.ErrNoRows {
+			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Unit not found"}
+		}
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to delete unit", Err: err}
+	}
+	s.logAudit(ctx, adminID, unitID, models.AuditDelete, models.TargetUnit, nil)
+	return nil
+}
+
 // CreateDumpster creates a new dumpster for a property.
-func (s *AdminService) CreateDumpster(ctx context.Context, adminID uuid.UUID, req dtos.CreateDumpsterRequest) (*models.Dumpster, error) {
-	_, err := s.propRepo.GetByID(ctx, req.PropertyID)
-	if err != nil || err == pgx.ErrNoRows {
-		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property not found"}
+func (s *AdminService) CreateDumpster(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateDumpsterRequest) (*models.Dumpster, error) {
+	prop, err := s.propRepo.GetByID(ctx, req.PropertyID)
+	if err != nil || prop == nil {
+		if err == pgx.ErrNoRows || prop == nil {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for parent property", Err: err}
 	}
 
 	dumpster := &models.Dumpster{
@@ -308,4 +454,44 @@ func (s *AdminService) CreateDumpster(ctx context.Context, adminID uuid.UUID, re
 	}
 	s.logAudit(ctx, adminID, dumpster.ID, models.AuditCreate, models.TargetDumpster, dumpster)
 	return dumpster, nil
+}
+
+// UpdateDumpster updates an existing dumpster.
+func (s *AdminService) UpdateDumpster(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdateDumpsterRequest) (*models.Dumpster, error) {
+	var updatedDumpster *models.Dumpster
+	err := s.dumpsterRepo.UpdateWithRetry(ctx, req.ID, func(d *models.Dumpster) error {
+		if req.DumpsterNumber != nil {
+			d.DumpsterNumber = *req.DumpsterNumber
+		}
+		if req.Latitude != nil {
+			d.Latitude = *req.Latitude
+		}
+		if req.Longitude != nil {
+			d.Longitude = *req.Longitude
+		}
+		updatedDumpster = d
+		return nil
+	})
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Dumpster not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to update dumpster", Err: err}
+	}
+
+	s.logAudit(ctx, adminID, updatedDumpster.ID, models.AuditUpdate, models.TargetDumpster, updatedDumpster)
+	return updatedDumpster, nil
+}
+
+// SoftDeleteDumpster marks a dumpster as deleted.
+func (s *AdminService) SoftDeleteDumpster(ctx context.Context, adminID, dumpsterID uuid.UUID) error {
+	if err := s.dumpsterRepo.SoftDelete(ctx, dumpsterID); err != nil {
+		if err == pgx.ErrNoRows {
+			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Dumpster not found"}
+		}
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to delete dumpster", Err: err}
+	}
+	s.logAudit(ctx, adminID, dumpsterID, models.AuditDelete, models.TargetDumpster, nil)
+	return nil
 }

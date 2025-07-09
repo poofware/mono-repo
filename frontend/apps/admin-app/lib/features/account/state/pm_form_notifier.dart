@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_admin/features/account/data/api/api_exception.dart';
+import 'package:poof_admin/features/account/data/models/property_manager_admin.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 import 'package:poof_admin/features/account/state/pm_form_state.dart';
 
@@ -14,7 +15,8 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
       final repo = _ref.read(pmsRepositoryProvider);
       await repo.createPropertyManager(data);
 
-      _ref.invalidate(pmsListProvider); // Refresh the list
+      // The list page will refresh automatically via its PagingController
+      // when the user navigates back.
       state = const PmFormState.success('Property Manager created successfully!');
       return true;
     } on ApiException catch (e) {
@@ -30,16 +32,22 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
     state = const PmFormState.loading();
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      await repo.updatePropertyManager(pmId, data);
+      final payload = {'id': pmId, ...data};
+      await repo.updatePropertyManager(payload);
 
-      // Invalidate both list and detail providers
-      _ref.invalidate(pmsListProvider);
+      // Invalidate detail provider to refresh it.
+      // The list page will handle its own refresh.
       _ref.invalidate(pmSnapshotProvider(pmId));
 
       state = const PmFormState.success('Property Manager updated successfully!');
       return true;
     } on ApiException catch (e) {
-      if (e.statusCode == 409) {
+      if (e.statusCode == 409 && e.entity is PropertyManagerAdmin) {
+        state = PmFormState.conflict(
+          e.entity as PropertyManagerAdmin,
+          e.message,
+        );
+      } else if (e.statusCode == 409) {
         state = PmFormState.error(
             'Conflict: This record was updated by someone else. Please refresh and try again.');
       } else {
