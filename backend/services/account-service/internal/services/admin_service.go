@@ -318,6 +318,13 @@ func (s *AdminService) SoftDeleteProperty(ctx context.Context, adminID, propID u
 		}
 	}
 
+	// NEW: Soft-delete all units associated with the property.
+	// This is critical for cases where a property might have units but no buildings,
+	// or to clean up units from already-deleted buildings.
+	if err := s.unitRepo.DeleteByPropertyID(ctx, propID); err != nil {
+		utils.Logger.WithError(err).Errorf("Failed to cascade soft-delete to units for property %s", propID)
+	}
+
 	// Soft-delete dumpsters associated with the property
 	if err := s.dumpsterRepo.DeleteByPropertyID(ctx, propID); err != nil {
 		utils.Logger.WithError(err).Errorf("Failed to cascade soft-delete to dumpsters for property %s", propID)

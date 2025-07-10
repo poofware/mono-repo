@@ -128,7 +128,8 @@ func (r *unitRepo) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *unitRepo) DeleteByPropertyID(ctx context.Context, propID uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM units WHERE property_id=$1`, propID)
+	// FIXED: Use UPDATE to set deleted_at instead of a hard DELETE
+	_, err := r.db.Exec(ctx, `UPDATE units SET deleted_at=NOW() WHERE property_id=$1`, propID)
 	return err
 }
 
