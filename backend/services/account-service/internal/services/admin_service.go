@@ -137,6 +137,20 @@ func (s *AdminService) UpdatePropertyManager(ctx context.Context, adminID uuid.U
 
 // SoftDeletePropertyManager marks a property manager as deleted.
 func (s *AdminService) SoftDeletePropertyManager(ctx context.Context, adminID, pmID uuid.UUID) error {
+
+	// Cascade delete to all properties owned by this manager
+	properties, err := s.propRepo.ListByManagerID(ctx, pmID)
+	if err != nil && err != pgx.ErrNoRows {
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to list properties for deletion", Err: err}
+	}
+	for _, prop := range properties {
+		if err := s.SoftDeleteProperty(ctx, adminID, prop.ID); err != nil {
+			// We continue even if one property fails to ensure we try to delete as much as possible
+			utils.Logger.WithError(err).Errorf("Failed to cascade soft-delete to property %s", prop.ID)
+		}
+	}
+
+	// Now delete the manager itself
 	if err := s.pmRepo.SoftDelete(ctx, pmID); err != nil {
 		if err == pgx.ErrNoRows {
 			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Property manager not found"}
@@ -292,6 +306,24 @@ func (s *AdminService) UpdateProperty(ctx context.Context, adminID uuid.UUID, re
 
 // SoftDeleteProperty marks a property as deleted.
 func (s *AdminService) SoftDeleteProperty(ctx context.Context, adminID, propID uuid.UUID) error {
+
+	// Cascade delete to all buildings within this property
+	buildings, err := s.bldgRepo.ListByPropertyID(ctx, propID)
+	if err != nil && err != pgx.ErrNoRows {
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to list buildings for deletion", Err: err}
+	}
+	for _, bldg := range buildings {
+		if err := s.SoftDeleteBuilding(ctx, adminID, bldg.ID); err != nil {
+			utils.Logger.WithError(err).Errorf("Failed to cascade soft-delete to building %s", bldg.ID)
+		}
+	}
+
+	// Soft-delete dumpsters associated with the property
+	if err := s.dumpsterRepo.DeleteByPropertyID(ctx, propID); err != nil {
+		utils.Logger.WithError(err).Errorf("Failed to cascade soft-delete to dumpsters for property %s", propID)
+	}
+
+	// Now delete the property itself
 	if err := s.propRepo.SoftDelete(ctx, propID); err != nil {
 		if err == pgx.ErrNoRows {
 			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Property not found"}
@@ -361,6 +393,19 @@ func (s *AdminService) UpdateBuilding(ctx context.Context, adminID uuid.UUID, re
 
 // SoftDeleteBuilding marks a building as deleted.
 func (s *AdminService) SoftDeleteBuilding(ctx context.Context, adminID, bldgID uuid.UUID) error {
+
+	// Cascade delete to all units within this building
+	units, err := s.unitRepo.ListByBuildingID(ctx, bldgID)
+	if err != nil && err != pgx.ErrNoRows {
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to list units for deletion", Err: err}
+	}
+	for _, unit := range units {
+		if err := s.SoftDeleteUnit(ctx, adminID, unit.ID); err != nil {
+			utils.Logger.WithError(err).Errorf("Failed to cascade soft-delete to unit %s", unit.ID)
+		}
+	}
+
+	// Now delete the building itself
 	if err := s.bldgRepo.SoftDelete(ctx, bldgID); err != nil {
 		if err == pgx.ErrNoRows {
 			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Building not found"}

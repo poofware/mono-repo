@@ -123,12 +123,11 @@ func (r *dumpsterRepo) update(ctx context.Context, d *models.Dumpster, check boo
 }
 
 func (r *dumpsterRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM dumpsters WHERE id=$1`, id)
-	return err
+	return r.SoftDelete(ctx, id)
 }
 
 func (r *dumpsterRepo) DeleteByPropertyID(ctx context.Context, propertyID uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM dumpsters WHERE property_id=$1`, propertyID)
+	_, err := r.db.Exec(ctx, `UPDATE dumpsters SET deleted_at=NOW() WHERE property_id=$1`, propertyID)
 	return err
 }
 
