@@ -1,0 +1,307 @@
+
+==== backend/shared/go-models/admin_audit_log.go ====
+```go
+// backend/shared/go-models/admin_audit_log.go
+package models
+
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type AuditAction string
+
+const (
+	AuditCreate AuditAction = "CREATE"
+	AuditUpdate AuditAction = "UPDATE"
+	AuditDelete AuditAction = "DELETE"
+	AuditRead   AuditAction = "READ"
+)
+
+type AuditTargetType string
+
+const (
+	TargetPropertyManager AuditTargetType = "PROPERTY_MANAGER"
+	TargetProperty        AuditTargetType = "PROPERTY"
+	TargetBuilding        AuditTargetType = "BUILDING"
+	TargetUnit            AuditTargetType = "UNIT"
+	TargetDumpster        AuditTargetType = "DUMPSTER"
+	TargetJobDefinition   AuditTargetType = "JOB_DEFINITION"
+)
+
+type AdminAuditLog struct {
+	ID         uuid.UUID       `json:"id"`
+	AdminID    uuid.UUID       `json:"admin_id"`
+	Action     AuditAction     `json:"action"`
+	TargetID   uuid.UUID       `json:"target_id"`
+	TargetType AuditTargetType `json:"target_type"`
+	Details    json.RawMessage `json:"details,omitempty"` // JSONB field for before/after states
+	CreatedAt  time.Time       `json:"created_at"`
+}
+```
+==== backend/shared/go-models/dumpster.go ====
+```go
+package models
+
+import (
+	"github.com/google/uuid"
+	"time"
+)
+
+type Dumpster struct {
+	Versioned
+	ID             uuid.UUID `json:"id"`
+	DumpsterNumber string    `json:"dumpster_number"`
+	PropertyID     uuid.UUID `json:"property_id"`
+	Latitude       float64   `json:"latitude"`
+	Longitude      float64   `json:"longitude"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (d *Dumpster) GetID() string { return d.ID.String() }
+```
+==== backend/shared/go-models/property.go ====
+```go
+package models
+
+import (
+	"github.com/google/uuid"
+	"time"
+)
+
+type Property struct {
+	Versioned
+	ID           uuid.UUID  `json:"id"`
+	ManagerID    uuid.UUID  `json:"manager_id"`
+	PropertyName string     `json:"property_name"`
+	Address      string     `json:"address"`
+	City         string     `json:"city"`
+	State        string     `json:"state"`
+	ZipCode      string     `json:"zip_code"`
+	TimeZone     string     `json:"time_zone"`
+	Latitude     float64    `json:"latitude"`
+	Longitude    float64    `json:"longitude"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (p *Property) GetID() string { return p.ID.String() }
+```
+==== backend/shared/go-models/property_building.go ====
+```go
+package models
+
+import (
+	"github.com/google/uuid"
+	"time"
+)
+
+type PropertyBuilding struct {
+	Versioned
+	ID           uuid.UUID  `json:"id"`
+	PropertyID   uuid.UUID  `json:"property_id"`
+	BuildingName string     `json:"building_name,omitempty"`
+	Address      *string    `json:"address"`
+	Latitude     float64    `json:"latitude,omitempty"`
+	Longitude    float64    `json:"longitude,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (b *PropertyBuilding) GetID() string { return b.ID.String() }
+```
+==== backend/shared/go-models/property_manager.go ====
+```go
+package models
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type PropertyManager struct {
+	Versioned
+
+	ID              uuid.UUID         `json:"id"`
+	Email           string            `json:"email"`
+	PhoneNumber     *string           `json:"phone_number,omitempty"`
+	TOTPSecret      string            `json:"totp_secret,omitempty"`
+	BusinessName    string            `json:"business_name"`
+	BusinessAddress string            `json:"business_address"`
+	City            string            `json:"city"`
+	State           string            `json:"state"`
+	ZipCode         string            `json:"zip_code"`
+	AccountStatus   AccountStatusType `json:"account_status"`
+	SetupProgress   SetupProgressType `json:"setup_progress"`
+	CreatedAt       time.Time         `json:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+	DeletedAt       *time.Time        `json:"deleted_at,omitempty"`
+}
+
+// ----- concurrency helpers -----
+func (pm *PropertyManager) GetID() string { return pm.ID.String() }
+```
+==== backend/shared/go-models/unit.go ====
+```go
+// go-models/unit.go
+package models
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// Unit represents a tenant-addressable space inside a specific building
+// that lives on a property.
+type Unit struct {
+	Versioned
+	ID          uuid.UUID  `json:"id"`
+	PropertyID  uuid.UUID  `json:"property_id"`
+	BuildingID  uuid.UUID  `json:"building_id"`
+	UnitNumber  string     `json:"unit_number"`
+	TenantToken string     `json:"tenant_token"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (u *Unit) GetID() string { return u.ID.String() }
+```
+==== backend/shared/go-repositories/admin_audit_log_repository.go ====
+```go
+// backend/shared/go-repositories/admin_audit_log_repository.go
+package repositories
+
+import (
+	"context"
+	"github.com/poofware/go-models"
+)
+
+type AdminAuditLogRepository interface {
+	Create(ctx context.Context, logEntry *models.AdminAuditLog) error
+}
+
+type adminAuditLogRepo struct {
+	db DB
+}
+
+func NewAdminAuditLogRepository(db DB) AdminAuditLogRepository {
+	return &adminAuditLogRepo{db: db}
+}
+
+func (r *adminAuditLogRepo) Create(ctx context.Context, logEntry *models.AdminAuditLog) error {
+	q := `
+        INSERT INTO admin_audit_logs (
+            id, admin_id, action, target_id, target_type, details, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `
+	_, err := r.db.Exec(ctx, q,
+		logEntry.ID,
+		logEntry.AdminID,
+		logEntry.Action,
+		logEntry.TargetID,
+		logEntry.TargetType,
+		logEntry.Details,
+	)
+	return err
+}
+```
+==== backend/shared/go-utils/password.go ====
+```go
+// go-utils/password.go
+package utils
+
+import "golang.org/x/crypto/bcrypt"
+
+// HashPassword generates a bcrypt hash of the password.
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
+// CheckPasswordHash compares a plaintext password with a stored bcrypt hash.
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+```
+==== backend/shared/go-testhelpers/auth.go ====
+```go
+package testhelpers
+
+import (
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/pquerna/otp/totp"
+	"github.com/stretchr/testify/require"
+)
+
+// CreateMobileJWT creates a JWT for mobile clients (Worker) with device-specific claims.
+func (h *TestHelper) CreateMobileJWT(userID uuid.UUID, deviceID, attestationValue string) string {
+	now := time.Now().Unix()
+	claims := jwt.MapClaims{
+		"iss":       "Poof",
+		"sub":       userID.String(),
+		"iat":       now,
+		"exp":       now + 15*60,
+		"role":      "worker", // Added role
+		"device_id": deviceID,
+		"att":       attestationValue,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	signed, err := token.SignedString(h.PrivateKey)
+	require.NoError(h.T, err, "Failed to sign test worker JWT (mobile style)")
+	return signed
+}
+
+// CreateWebJWT creates a JWT for web clients (Property Manager) with an IP-based claim.
+func (h *TestHelper) CreateWebJWT(userID uuid.UUID, ipAddress string) string {
+	now := time.Now().Unix()
+	claims := jwt.MapClaims{
+		"iss":  "Poof",
+		"sub":  userID.String(),
+		"iat":  now,
+		"exp":  now + 15*60,
+		"role": "pm", // Added role
+		"ip":   ipAddress,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	signed, err := token.SignedString(h.PrivateKey)
+	require.NoError(h.T, err, "Failed to sign test PM JWT (web style)")
+	return signed
+}
+
+// CreateAdminJWT creates a JWT for web clients (Admin) with an IP-based claim.
+func (h *TestHelper) CreateAdminJWT(userID uuid.UUID, ipAddress string) string {
+	now := time.Now().Unix()
+	claims := jwt.MapClaims{
+		"iss":  "Poof",
+		"sub":  userID.String(),
+		"iat":  now,
+		"exp":  now + 15*60,
+		"role": "admin", // Added role
+		"ip":   ipAddress,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	signed, err := token.SignedString(h.PrivateKey)
+	require.NoError(h.T, err, "Failed to sign test Admin JWT (web style)")
+	return signed
+}
+
+// GenerateTOTPCode generates a valid TOTP code for a given secret.
+func (h *TestHelper) GenerateTOTPCode(secret string) string {
+	code, err := totp.GenerateCode(secret, time.Now())
+	require.NoError(h.T, err)
+	return code
+}
+```

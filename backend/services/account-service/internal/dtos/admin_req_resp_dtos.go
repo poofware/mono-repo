@@ -1,10 +1,9 @@
-// backend/services/account-service/internal/dtos/admin_req_resp_dtos.go
 package dtos
 
 import (
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
 	shared_dtos "github.com/poofware/go-dtos"
+	"github.com/poofware/go-models"
 )
 
 // Generic request for soft-deleting an entity.

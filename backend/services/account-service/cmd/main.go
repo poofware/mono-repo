@@ -41,7 +41,7 @@ func main() {
 	auditRepo := repositories.NewAdminAuditLogRepository(application.DB) // NEW
 
 	if cfg.LDFlag_SeedDbWithTestAccounts {
-		if err := app.SeedAllTestAccounts(workerRepo, pmRepo,adminRepo); err != nil {
+		if err := app.SeedAllTestAccounts(workerRepo, pmRepo, adminRepo); err != nil {
 			utils.Logger.Fatal("Failed to seed default accounts:", err)
 		}
 	}
@@ -91,15 +91,15 @@ func main() {
 	}()
 
 	stripeCtx, stripeCancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer stripeCancel()
-    if err := workerStripeService.Start(stripeCtx); err != nil {
-        utils.Logger.WithError(err).Fatal("Failed to start Stripe dynamic webhooks")
-    }
-    defer func() {
-        stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-        defer stopCancel()
-        _ = workerStripeService.Stop(stopCtx) // already logs on error
-    }()
+	defer stripeCancel()
+	if err := workerStripeService.Start(stripeCtx); err != nil {
+		utils.Logger.WithError(err).Fatal("Failed to start Stripe dynamic webhooks")
+	}
+	defer func() {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stopCancel()
+		_ = workerStripeService.Stop(stopCtx) // already logs on error
+	}()
 
 	// Router
 	router := mux.NewRouter()
@@ -144,19 +144,19 @@ func main() {
 	secured.HandleFunc(routes.WorkerStripeConnectFlowStatus, workerStripeController.ConnectFlowStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerStripeIdentityFlowURL, workerStripeController.IdentityFlowURLHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerStripeIdentityFlowStatus, workerStripeController.IdentityFlowStatusHandler).Methods(http.MethodGet)
+	secured.HandleFunc(routes.WorkerStripeExpressLoginLink, workerStripeController.ExpressLoginLinkHandler).Methods(http.MethodGet)
 
 	// Worker Checkr
 	secured.HandleFunc(routes.WorkerCheckrInvitation, workerCheckrController.CreateInvitationHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.WorkerCheckrStatus, workerCheckrController.GetCheckrStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrReportETA, workerCheckrController.GetCheckrReportETAHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrOutcome, workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
+	secured.HandleFunc(routes.WorkerCheckrSessionToken, workerCheckrController.CreateSessionTokenHandler).Methods(http.MethodGet)
 
-	// NEW: Admin Routes - assuming an AdminAuthMiddleware would be used here in a real scenario
-	// NOTE: Using a path prefix with absolute route constants from `routes` can be problematic.
-	// This is kept as-is to match the provided structure, but in a real-world scenario,
-	// either the prefix would be removed or route constants would be relative paths.
-	adminRouter := router.PathPrefix("/api/v1/account/admin").Subrouter()
-	adminRouter.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation)) // Placeholder: Should be an admin-specific middleware
+	// Admin Routes (with admin-specific authentication)
+	adminRouter := router.PathPrefix(routes.AdminBase).Subrouter()
+	adminRouter.Use(middleware.AdminAuthMiddleware(cfg.RSAPublicKey))
+
 	adminRouter.HandleFunc(routes.AdminPM, adminController.CreatePropertyManagerHandler).Methods(http.MethodPost)
 	adminRouter.HandleFunc(routes.AdminPM, adminController.UpdatePropertyManagerHandler).Methods(http.MethodPatch)
 	adminRouter.HandleFunc(routes.AdminPM, adminController.DeletePropertyManagerHandler).Methods(http.MethodDelete)

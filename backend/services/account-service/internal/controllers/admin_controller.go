@@ -1,5 +1,3 @@
-// backend/services/account-service/internal/controllers/admin_controller.go
-// NEW FILE
 package controllers
 
 import (

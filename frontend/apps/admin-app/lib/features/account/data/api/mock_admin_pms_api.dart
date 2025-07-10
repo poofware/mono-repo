@@ -81,8 +81,17 @@ class MockAdminPmsApi {
             DumpsterAdmin(id: _uuid.v4(), propertyId: prop1Id, dumpsterNumber: 'D-01', latitude: 34.0520, longitude: -118.2430, createdAt: DateTime.now(), updatedAt: DateTime.now()),
           ],
           jobDefinitions: [
-            JobDefinitionAdmin(id: _uuid.v4(), managerId: pm1Id, propertyId: prop1Id, title: 'Daily Trash Pickup', frequency: 'DAILY', createdAt: DateTime.now(), updatedAt: DateTime.now()),
-          ],
+                        JobDefinitionAdmin(
+              id: _uuid.v4(),
+              managerId: pm1Id,
+              propertyId: prop1Id,
+              title: 'Daily Trash Pickup',
+              scheduleType: 'DAILY',
+              jobWindowMinutes: 120,
+              payRate: 25.50,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now()),
+            ],
         ),
          PropertyAdmin(
           id: prop2Id,
@@ -321,6 +330,8 @@ class MockAdminPmsApi {
       'id': _uuid.v4(),
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
+      'building_ids': data['building_ids'] ?? [],
+      'dumpster_ids': data['dumpster_ids'] ?? [],
     });
 
     for (final snapshot in _data) {
@@ -473,7 +484,7 @@ class MockAdminPmsApi {
           'id': jobDefinitionId,
           'updated_at': DateTime.now().toIso8601String(),
         });
-        prop.jobDefinitions[jobDefIndex] = updatedJobDef;
+        snapshot.properties[propIndex].jobDefinitions[jobDefIndex] = updatedJobDef;
         return updatedJobDef;
       }
     }

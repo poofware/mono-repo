@@ -1,4 +1,5 @@
-// NEW FILE
+// frontend/apps/admin-app/lib/features/account/presentation/widgets/job_definition_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -33,10 +34,28 @@ class JobDefinitionView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: jobDefinitions
-          .map((job) => ListTile(
+          .map((job) {
+            final associations = <String>[];
+            if (job.buildingIds.isNotEmpty) {
+              associations.add('${job.buildingIds.length} bldgs');
+            }
+            if (job.dumpsterIds.isNotEmpty) {
+              associations.add('${job.dumpsterIds.length} dmpstrs');
+            }
+
+            return ListTile(
                 dense: true,
+                isThreeLine: associations.isNotEmpty,
                 title: Text(job.title),
-                subtitle: Text('Frequency: ${job.frequency}'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        'Schedule: ${job.scheduleType} | Pay: \$${job.payRate.toStringAsFixed(2)}'),
+                    if (associations.isNotEmpty)
+                      Text('Linked To: ${associations.join(', ')}', style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -57,7 +76,9 @@ class JobDefinitionView extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ))
+              );
+            }
+          )
           .toList(),
     );
   }

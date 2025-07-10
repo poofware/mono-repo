@@ -55,13 +55,14 @@ const (
 	WorkerCheckrSessionToken = "/api/v1/account/worker/checkr/session-token"
 
 	// ───────────────────────────────
-	// Admin Panel (NEW)
+	// Admin Panel (Relative Paths)
 	// ───────────────────────────────
-	AdminPM         = "/api/v1/account/property-managers"
-	AdminPMSearch   = "/api/v1/account/property-managers/search"
-	AdminPMSnapshot = "/api/v1/account/property-manager/snapshot"
-	AdminProperties = "/api/v1/account/properties"
-	AdminBuildings  = "/api/v1/account/property-buildings"
-	AdminUnits      = "/api/v1/account/units"
-	AdminDumpsters  = "/api/v1/account/dumpsters"
+	AdminBase       = "/api/v1/account/admin" // Base prefix for the admin sub-router
+	AdminPM         = "/property-managers"
+	AdminPMSearch   = "/property-managers/search"
+	AdminPMSnapshot = "/property-manager/snapshot"
+	AdminProperties = "/properties"
+	AdminBuildings  = "/property-buildings"
+	AdminUnits      = "/units"
+	AdminDumpsters  = "/dumpsters"
 )

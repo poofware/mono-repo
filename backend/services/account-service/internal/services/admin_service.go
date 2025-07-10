@@ -1,4 +1,3 @@
-// backend/services/account-service/internal/services/admin_service.go
 package services
 
 import (
@@ -9,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	shared_dtos "github.com/poofware/go-dtos" // FIXED
+	shared_dtos "github.com/poofware/go-dtos"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 	"github.com/poofware/go-utils"
