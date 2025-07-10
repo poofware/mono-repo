@@ -28,12 +28,12 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
     }
   }
 
-  Future<bool> updatePm(String pmId, Map<String, dynamic> data) async {
+  Future<bool> updatePm(Map<String, dynamic> data) async {
     state = const PmFormState.loading();
     try {
       final repo = _ref.read(pmsRepositoryProvider);
-      final payload = {'id': pmId, ...data};
-      await repo.updatePropertyManager(payload);
+      final pmId = data['id'] as String;
+      await repo.updatePropertyManager(data);
 
       // Invalidate detail provider to refresh it.
       // The list page will handle its own refresh.

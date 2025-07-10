@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings" // NEW: Added missing import
+	"strings"
 	"testing"
 	"time"
 
@@ -15,7 +15,7 @@ import (
 	"github.com/poofware/account-service/internal/routes"
 	shared_dtos "github.com/poofware/go-dtos"
 	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils" // NEW: Added import for Ptr helper
+	"github.com/poofware/go-utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -111,7 +111,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	require.Equal(t, createdDumpster.ID, snapshot.Properties[0].Dumpsters[0].ID)
 
 	// 5. Update PM
-	updatePMReq := dtos.UpdatePropertyManagerRequest{ID: pmID, BusinessName: utils.Ptr("Updated Hierarchy PM")} // FIXED: Was h.StrPtr
+	updatePMReq := dtos.UpdatePropertyManagerRequest{ID: pmID, BusinessName: utils.Ptr("Updated Hierarchy PM")}
 	updatePMBody, _ := json.Marshal(updatePMReq)
 	req = h.BuildAuthRequest(http.MethodPatch, h.BaseURL+"/api/v1/account/admin"+routes.AdminPM, adminToken, updatePMBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
@@ -135,8 +135,17 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	json.NewDecoder(resp.Body).Decode(&snapshot)
-	require.Len(t, snapshot.Properties[0].Buildings[0].Units, 0, "Unit should be soft-deleted and not appear in snapshot")
+	// --- Assert Deletion with better debugging ---
+	require.NotEmpty(t, snapshot.Properties, "Snapshot should contain at least one property")
+	require.NotEmpty(t, snapshot.Properties[0].Buildings, "Property should contain at least one building")
 
+	// Add detailed logging if the assertion is about to fail
+	if len(snapshot.Properties[0].Buildings[0].Units) != 0 {
+		snapshotJSON, _ := json.MarshalIndent(snapshot, "", "  ")
+		t.Logf("Snapshot still contains units after one was deleted. Full snapshot:\n%s", string(snapshotJSON))
+	}
+
+	require.Len(t, snapshot.Properties[0].Buildings[0].Units, 0, "Unit should be soft-deleted and not appear in snapshot, but found %d", len(snapshot.Properties[0].Buildings[0].Units))
 	// 8. Soft Delete PM
 	deletePMReq := dtos.DeleteRequest{ID: pmID}
 	deletePMBody, _ := json.Marshal(deletePMReq)

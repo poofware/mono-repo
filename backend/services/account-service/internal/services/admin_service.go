@@ -318,9 +318,8 @@ func (s *AdminService) SoftDeleteProperty(ctx context.Context, adminID, propID u
 		}
 	}
 
-	// NEW: Soft-delete all units associated with the property.
-	// This is critical for cases where a property might have units but no buildings,
-	// or to clean up units from already-deleted buildings.
+	// Soft-delete all units directly associated with the property.
+	// This is a critical fallback for units that might be orphaned from buildings.
 	if err := s.unitRepo.DeleteByPropertyID(ctx, propID); err != nil {
 		utils.Logger.WithError(err).Errorf("Failed to cascade soft-delete to units for property %s", propID)
 	}

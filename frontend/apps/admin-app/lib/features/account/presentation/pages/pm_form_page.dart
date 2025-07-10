@@ -78,9 +78,13 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
     };
 
     final notifier = ref.read(pmFormProvider.notifier);
-    final success = widget.isEditMode
-        ? await notifier.updatePm(widget.pm!.id, data)
-        : await notifier.createPm(data);
+    final success;
+    if (widget.isEditMode) {
+      final payload = {'id': widget.pm!.id, ...data};
+      success = await notifier.updatePm(payload);
+    } else {
+      success = await notifier.createPm(data);
+    }
 
     if (success && mounted) {
       context.pop();
@@ -150,6 +154,8 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (widget.isEditMode && widget.pm != null)
+                 _buildReadOnlyTextField('Property Manager ID', widget.pm!.id),
               _buildTextField(
                   _businessNameController, 'Business Name', fieldErrors),
               _buildTextField(_emailController, 'Email', fieldErrors,
@@ -181,6 +187,22 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyTextField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        initialValue: value,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          fillColor: Theme.of(context).disabledColor.withOpacity(0.05),
+          filled: true,
         ),
       ),
     );

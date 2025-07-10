@@ -39,7 +39,6 @@ type dumpsterRepo struct {
 
 func NewDumpsterRepository(db DB) DumpsterRepository {
 	r := &dumpsterRepo{db: db}
-	// FIXED: Add deleted_at check
 	selectStmt := baseSelectDumpster() + " WHERE id=$1 AND deleted_at IS NULL"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanDumpster)
 	return r
@@ -73,7 +72,6 @@ func (r *dumpsterRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Dumps
 }
 
 func (r *dumpsterRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.Dumpster, error) {
-	// FIXED: Add deleted_at check
 	rows, err := r.db.Query(ctx, baseSelectDumpster()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY dumpster_number", propertyID)
 	if err != nil {
 		return nil, err
@@ -132,7 +130,6 @@ func (r *dumpsterRepo) DeleteByPropertyID(ctx context.Context, propertyID uuid.U
 }
 
 func (r *dumpsterRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	// FIXED: Use UPDATE to set deleted_at instead of DELETE
 	tag, err := r.db.Exec(ctx, `UPDATE dumpsters SET deleted_at=NOW() WHERE id=$1`, id)
 	if err != nil {
 		return err

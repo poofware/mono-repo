@@ -39,7 +39,6 @@ type buildingRepo struct {
 
 func NewPropertyBuildingRepository(db DB) PropertyBuildingRepository {
 	r := &buildingRepo{db: db}
-	// FIXED: Add deleted_at check
 	selectStmt := baseSelectBuilding() + " WHERE id=$1 AND deleted_at IS NULL"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanBuilding)
 	return r
@@ -73,7 +72,6 @@ func (r *buildingRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Prope
 }
 
 func (r *buildingRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.PropertyBuilding, error) {
-	// FIXED: Add deleted_at check
 	rows, err := r.db.Query(ctx, baseSelectBuilding()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY building_name NULLS LAST", propertyID)
 	if err != nil {
 		return nil, err
@@ -128,12 +126,11 @@ func (r *buildingRepo) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *buildingRepo) DeleteByPropertyID(ctx context.Context, propertyID uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM property_buildings WHERE property_id=$1`, propertyID)
+	_, err := r.db.Exec(ctx, `UPDATE property_buildings SET deleted_at=NOW() WHERE property_id=$1`, propertyID)
 	return err
 }
 
 func (r *buildingRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	// FIXED: Use UPDATE to set deleted_at instead of DELETE
 	tag, err := r.db.Exec(ctx, `UPDATE property_buildings SET deleted_at=NOW() WHERE id=$1`, id)
 	if err != nil {
 		return err

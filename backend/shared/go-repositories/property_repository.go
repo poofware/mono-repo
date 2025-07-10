@@ -39,7 +39,6 @@ type propertyRepo struct {
 
 func NewPropertyRepository(db DB) PropertyRepository {
 	r := &propertyRepo{db: db}
-	// FIXED: Add deleted_at check
 	selectStmt := baseSelectProperty() + " WHERE id=$1 AND deleted_at IS NULL"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, scanProperty)
 	return r
@@ -72,7 +71,6 @@ func (r *propertyRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Prope
 }
 
 func (r *propertyRepo) ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*models.Property, error) {
-	// FIXED: Add deleted_at check
 	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE manager_id=$1 AND deleted_at IS NULL ORDER BY created_at", managerID)
 	if err != nil {
 		return nil, err
@@ -130,7 +128,6 @@ func (r *propertyRepo) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *propertyRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	// FIXED: Use UPDATE to set deleted_at instead of DELETE
 	tag, err := r.db.Exec(ctx, `UPDATE properties SET deleted_at=NOW() WHERE id=$1`, id)
 	if err != nil {
 		return err
@@ -142,7 +139,6 @@ func (r *propertyRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *propertyRepo) ListAllProperties(ctx context.Context) ([]*models.Property, error) {
-	// FIXED: Add deleted_at check
 	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE deleted_at IS NULL ORDER BY created_at")
 	if err != nil {
 		return nil, err

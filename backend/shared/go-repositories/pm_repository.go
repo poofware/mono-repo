@@ -30,7 +30,6 @@ type PropertyManagerRepository interface {
 	UpdateIfVersion(ctx context.Context, pm *models.PropertyManager, expected int64) (pgconn.CommandTag, error)
 	UpdateWithRetry(ctx context.Context, id uuid.UUID, mutate func(*models.PropertyManager) error) error
 
-	// NEW
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 	Search(ctx context.Context, filters map[string]any, limit, offset int) ([]*models.PropertyManager, int, error)
 }
@@ -50,7 +49,6 @@ type pmRepo struct {
 
 func NewPropertyManagerRepository(db DB, key []byte) PropertyManagerRepository {
 	r := &pmRepo{db: db, encKey: key}
-	// FIXED: Add deleted_at check
 	selectStmt := baseSelectPM() + " WHERE id=$1 AND deleted_at IS NULL"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanPM)
 	return r
@@ -87,19 +85,16 @@ func (r *pmRepo) Create(ctx context.Context, pm *models.PropertyManager) error {
 /* ---------- Reads ---------- */
 
 func (r *pmRepo) GetByEmail(ctx context.Context, email string) (*models.PropertyManager, error) {
-	// FIXED: Add deleted_at check
 	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE email=$1 AND deleted_at IS NULL", email)
 	return r.scanPM(row)
 }
 
 func (r *pmRepo) GetByPhoneNumber(ctx context.Context, phone string) (*models.PropertyManager, error) {
-	// FIXED: Add deleted_at check
 	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE phone_number=$1 AND deleted_at IS NULL", phone)
 	return r.scanPM(row)
 }
 
 func (r *pmRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PropertyManager, error) {
-	// FIXED: Add deleted_at check
 	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1 AND deleted_at IS NULL", id)
 	return r.scanPM(row)
 }
@@ -121,9 +116,8 @@ func (r *pmRepo) UpdateWithRetry(ctx context.Context, id uuid.UUID, mutate func(
 	return r.BaseVersionedRepo.UpdateWithRetry(ctx, id.String(), mutate, r.UpdateIfVersion)
 }
 
-// NEW SoftDelete
+// SoftDelete
 func (r *pmRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	// FIXED: Use UPDATE to set deleted_at instead of DELETE
 	tag, err := r.db.Exec(ctx, `UPDATE property_managers SET deleted_at=NOW() WHERE id=$1`, id)
 	if err != nil {
 		return err
@@ -134,7 +128,7 @@ func (r *pmRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// NEW Search
+// Search
 func (r *pmRepo) Search(ctx context.Context, filters map[string]any, limit, offset int) ([]*models.PropertyManager, int, error) {
 	var qb strings.Builder
 	var args []any
@@ -156,7 +150,6 @@ func (r *pmRepo) Search(ctx context.Context, filters map[string]any, limit, offs
 			args = append(args, fmt.Sprintf("%%%v%%", value))
 			idx++
 		}
-		// FIXED: Append conditions with AND
 		whereClause := " AND " + strings.Join(conditions, " AND ")
 		qb.WriteString(whereClause)
 		countQb.WriteString(whereClause)
