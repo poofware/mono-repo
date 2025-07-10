@@ -38,6 +38,7 @@ type TestHelper struct {
 	UniqueRunnerID  string
 
 	// Repositories
+	AdminRepo       repositories.AdminRepository // NEW
 	WorkerRepo      repositories.WorkerRepository
 	PMRepo          repositories.PropertyManagerRepository
 	PropertyRepo    repositories.PropertyRepository
@@ -138,6 +139,7 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 		AppName:             appName,
 		UniqueRunnerID:      uniqueRunID,
 		UniqueRunNumber:     uniqueRunNum,
+		AdminRepo:           repositories.NewAdminRepository(dbPool, dbEncryptionKey), // NEW
 		WorkerRepo:          repositories.NewWorkerRepository(dbPool, dbEncryptionKey),
 		PMRepo:              repositories.NewPropertyManagerRepository(dbPool, dbEncryptionKey),
 		PropertyRepo:        repositories.NewPropertyRepository(dbPool),

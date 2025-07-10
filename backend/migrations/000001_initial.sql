@@ -122,6 +122,7 @@ CREATE TABLE property_managers (
     setup_progress SETUP_PROGRESS_TYPE NOT NULL DEFAULT 'ID_VERIFY',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
     row_version BIGINT NOT NULL DEFAULT 1
 );
 CREATE INDEX idx_pm_email ON property_managers (email);
@@ -180,7 +181,10 @@ CREATE TABLE properties (
     time_zone VARCHAR(50) NOT NULL,
     latitude DECIMAL(9, 6) NOT NULL DEFAULT 0,
     longitude DECIMAL(9, 6) NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    row_version BIGINT NOT NULL DEFAULT 1
 );
 CREATE INDEX idx_properties_manager_id ON properties (manager_id);
 
@@ -193,7 +197,11 @@ CREATE TABLE property_buildings (
     building_name VARCHAR(100),
     address VARCHAR(255),
     latitude DECIMAL(9, 6),
-    longitude DECIMAL(9, 6)
+    longitude DECIMAL(9, 6),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    row_version BIGINT NOT NULL DEFAULT 1
 );
 CREATE INDEX idx_property_buildings_property_id
 ON property_buildings (property_id);
@@ -208,6 +216,9 @@ CREATE TABLE units (
     unit_number VARCHAR(50) NOT NULL,
     tenant_token VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    row_version BIGINT NOT NULL DEFAULT 1,
     CONSTRAINT check_tenant_token_not_empty CHECK (tenant_token <> '')
 );
 CREATE INDEX idx_units_tenant_token ON units (tenant_token);
@@ -221,7 +232,11 @@ CREATE TABLE dumpsters (
     property_id UUID REFERENCES properties (id) ON DELETE CASCADE,
     dumpster_number VARCHAR(50) NOT NULL,
     latitude DECIMAL(9, 6) NOT NULL,
-    longitude DECIMAL(9, 6) NOT NULL
+    longitude DECIMAL(9, 6) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    row_version BIGINT NOT NULL DEFAULT 1
 );
 CREATE INDEX idx_dumpsters_property_id ON dumpsters (property_id);
 
@@ -317,6 +332,24 @@ CREATE TABLE job_instances (
 CREATE INDEX idx_job_instances_service_date ON job_instances (service_date);
 CREATE INDEX idx_job_instances_status ON job_instances (status);
 CREATE INDEX idx_job_instances_definition_id ON job_instances (definition_id);
+
+-- ----------------------------------------------------------------------
+--  admin_audit_logs
+-- ----------------------------------------------------------------------
+CREATE TYPE audit_action AS ENUM ('CREATE', 'UPDATE', 'DELETE', 'READ');
+CREATE TYPE audit_target_type AS ENUM ('PROPERTY_MANAGER', 'PROPERTY', 'BUILDING', 'UNIT', 'DUMPSTER', 'JOB_DEFINITION');
+
+CREATE TABLE admin_audit_logs (
+    id UUID PRIMARY KEY,
+    admin_id UUID NOT NULL REFERENCES admins(id),
+    action audit_action NOT NULL,
+    target_id UUID NOT NULL,
+    target_type audit_target_type NOT NULL,
+    details JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_admin_audit_logs_admin_id ON admin_audit_logs(admin_id);
+CREATE INDEX idx_admin_audit_logs_target ON admin_audit_logs(target_type, target_id);
 
 -- ----------------------------------------------------------------------
 --  admin_refresh_tokens
@@ -620,6 +653,9 @@ DROP TABLE IF EXISTS property_managers;
 DROP TABLE IF EXISTS admins;
 DROP FUNCTION IF EXISTS validate_daily_pay_estimates_array(JSONB);
 DROP TABLE IF EXISTS app_attest_keys;
+DROP TABLE IF EXISTS admin_audit_logs;
+DROP TYPE IF EXISTS audit_action;
+DROP TYPE IF EXISTS audit_target_type;
 
 DROP TYPE IF EXISTS PAYOUT_STATUS_TYPE;
 DROP TYPE IF EXISTS JOB_FREQUENCY_TYPE;

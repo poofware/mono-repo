@@ -39,7 +39,8 @@ type buildingRepo struct {
 
 func NewPropertyBuildingRepository(db DB) PropertyBuildingRepository {
 	r := &buildingRepo{db: db}
-	selectStmt := baseSelectBuilding() + " WHERE id=$1"
+	// FIXED: Add deleted_at check
+	selectStmt := baseSelectBuilding() + " WHERE id=$1 AND deleted_at IS NULL"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanBuilding)
 	return r
 }
@@ -72,7 +73,8 @@ func (r *buildingRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Prope
 }
 
 func (r *buildingRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.PropertyBuilding, error) {
-	rows, err := r.db.Query(ctx, baseSelectBuilding()+" WHERE property_id=$1 ORDER BY building_name NULLS LAST", propertyID)
+	// FIXED: Add deleted_at check
+	rows, err := r.db.Query(ctx, baseSelectBuilding()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY building_name NULLS LAST", propertyID)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +82,7 @@ func (r *buildingRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUI
 
 	var out []*models.PropertyBuilding
 	for rows.Next() {
-		b, err := r.scanBuilding(rows) // FIXED
+		b, err := r.scanBuilding(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +133,8 @@ func (r *buildingRepo) DeleteByPropertyID(ctx context.Context, propertyID uuid.U
 }
 
 func (r *buildingRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM property_buildings WHERE id=$1`, id)
+	// FIXED: Use UPDATE to set deleted_at instead of DELETE
+	tag, err := r.db.Exec(ctx, `UPDATE property_buildings SET deleted_at=NOW() WHERE id=$1`, id)
 	if err != nil {
 		return err
 	}

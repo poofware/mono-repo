@@ -50,7 +50,8 @@ type pmRepo struct {
 
 func NewPropertyManagerRepository(db DB, key []byte) PropertyManagerRepository {
 	r := &pmRepo{db: db, encKey: key}
-	selectStmt := baseSelectPM() + " WHERE id=$1"
+	// FIXED: Add deleted_at check
+	selectStmt := baseSelectPM() + " WHERE id=$1 AND deleted_at IS NULL"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanPM)
 	return r
 }
@@ -86,17 +87,20 @@ func (r *pmRepo) Create(ctx context.Context, pm *models.PropertyManager) error {
 /* ---------- Reads ---------- */
 
 func (r *pmRepo) GetByEmail(ctx context.Context, email string) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE email=$1", email)
+	// FIXED: Add deleted_at check
+	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE email=$1 AND deleted_at IS NULL", email)
 	return r.scanPM(row)
 }
 
 func (r *pmRepo) GetByPhoneNumber(ctx context.Context, phone string) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE phone_number=$1", phone)
+	// FIXED: Add deleted_at check
+	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE phone_number=$1 AND deleted_at IS NULL", phone)
 	return r.scanPM(row)
 }
 
 func (r *pmRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1", id)
+	// FIXED: Add deleted_at check
+	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1 AND deleted_at IS NULL", id)
 	return r.scanPM(row)
 }
 
@@ -119,7 +123,8 @@ func (r *pmRepo) UpdateWithRetry(ctx context.Context, id uuid.UUID, mutate func(
 
 // NEW SoftDelete
 func (r *pmRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM property_managers WHERE id=$1`, id)
+	// FIXED: Use UPDATE to set deleted_at instead of DELETE
+	tag, err := r.db.Exec(ctx, `UPDATE property_managers SET deleted_at=NOW() WHERE id=$1`, id)
 	if err != nil {
 		return err
 	}
@@ -136,9 +141,10 @@ func (r *pmRepo) Search(ctx context.Context, filters map[string]any, limit, offs
 	idx := 1
 
 	countQb := strings.Builder{}
-	countQb.WriteString("SELECT count(*) FROM property_managers")
+	countQb.WriteString("SELECT count(*) FROM property_managers WHERE deleted_at IS NULL")
 
 	qb.WriteString(baseSelectPM())
+	qb.WriteString(" WHERE deleted_at IS NULL")
 
 	var conditions []string
 	if len(filters) > 0 {
@@ -150,7 +156,8 @@ func (r *pmRepo) Search(ctx context.Context, filters map[string]any, limit, offs
 			args = append(args, fmt.Sprintf("%%%v%%", value))
 			idx++
 		}
-		whereClause := " WHERE " + strings.Join(conditions, " AND ")
+		// FIXED: Append conditions with AND
+		whereClause := " AND " + strings.Join(conditions, " AND ")
 		qb.WriteString(whereClause)
 		countQb.WriteString(whereClause)
 	}

@@ -38,7 +38,8 @@ type unitRepo struct {
 
 func NewUnitRepository(db DB) UnitRepository {
 	r := &unitRepo{db: db}
-	selectStmt := baseSelectUnit() + " WHERE id=$1"
+	// FIXED: Add deleted_at check
+	selectStmt := baseSelectUnit() + " WHERE id=$1 AND deleted_at IS NULL"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanUnit)
 	return r
 }
@@ -71,7 +72,8 @@ func (r *unitRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Unit, err
 }
 
 func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*models.Unit, error) {
-	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE property_id=$1 ORDER BY unit_number", propID)
+	// FIXED: Add deleted_at check
+	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY unit_number", propID)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +82,8 @@ func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*m
 }
 
 func (r *unitRepo) ListByBuildingID(ctx context.Context, bldgID uuid.UUID) ([]*models.Unit, error) {
-	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE building_id=$1 ORDER BY unit_number", bldgID)
+	// FIXED: Add deleted_at check
+	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE building_id=$1 AND deleted_at IS NULL ORDER BY unit_number", bldgID)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +133,8 @@ func (r *unitRepo) DeleteByPropertyID(ctx context.Context, propID uuid.UUID) err
 }
 
 func (r *unitRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM units WHERE id=$1`, id)
+	// FIXED: Use UPDATE to set deleted_at instead of DELETE
+	tag, err := r.db.Exec(ctx, `UPDATE units SET deleted_at=NOW() WHERE id=$1`, id)
 	if err != nil {
 		return err
 	}
@@ -141,7 +145,8 @@ func (r *unitRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *unitRepo) FindByTenantToken(ctx context.Context, token string) (*models.Unit, error) {
-	row := r.db.QueryRow(ctx, baseSelectUnit()+" WHERE tenant_token=$1 LIMIT 1", token)
+	// FIXED: Add deleted_at check
+	row := r.db.QueryRow(ctx, baseSelectUnit()+" WHERE tenant_token=$1 AND deleted_at IS NULL LIMIT 1", token)
 	return r.scanUnit(row)
 }
 
