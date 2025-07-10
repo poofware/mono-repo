@@ -119,9 +119,9 @@ func (r *unitRepo) update(ctx context.Context, u *models.Unit, check bool, expec
 	return r.db.Exec(ctx, sql, args...)
 }
 
+// The original implementation was a hard delete. This is now corrected to be an alias for SoftDelete.
 func (r *unitRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM units WHERE id=$1`, id)
-	return err
+	return r.SoftDelete(ctx, id)
 }
 
 func (r *unitRepo) DeleteByPropertyID(ctx context.Context, propID uuid.UUID) error {

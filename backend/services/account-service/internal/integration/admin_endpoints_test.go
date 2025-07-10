@@ -1,5 +1,3 @@
-//go:build (dev_test || staging_test) && integration
-
 package integration
 
 import (
@@ -128,6 +126,14 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// 6.5. Directly verify soft-deletion in the database
+	t.Logf("Verifying soft deletion of unit %s directly in the database...", createdUnit.ID)
+	var deletedAt *time.Time
+	err = h.DB.QueryRow(ctx, "SELECT deleted_at FROM units WHERE id=$1", createdUnit.ID).Scan(&deletedAt)
+	require.NoError(t, err, "DB query for deleted_at should not fail for the given unit ID")
+	require.NotNil(t, deletedAt, "deleted_at field in the database should NOT be NULL after soft delete")
+	t.Logf("DB check PASSED: Unit %s was successfully soft-deleted at %s", createdUnit.ID, deletedAt.Format(time.RFC3339))
 
 	// 7. Get Snapshot again and assert deletion
 	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPMSnapshot, adminToken, snapshotBody, "web", "127.0.0.1")

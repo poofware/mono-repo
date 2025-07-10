@@ -1,4 +1,3 @@
-
 // NEW FILE
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,6 +116,7 @@ class _PropertyFormPageState extends ConsumerState<PropertyFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildReadOnlyTextField('Manager ID', widget.pmId),
               _buildTextField(_nameController, 'Property Name', fieldErrors),
               _buildTextField(_addressController, 'Address', fieldErrors),
               _buildTextField(_cityController, 'City', fieldErrors),
@@ -161,6 +161,22 @@ class _PropertyFormPageState extends ConsumerState<PropertyFormPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyTextField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        initialValue: value,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          fillColor: Theme.of(context).disabledColor.withOpacity(0.05),
+          filled: true,
         ),
       ),
     );
