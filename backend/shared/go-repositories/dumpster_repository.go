@@ -39,7 +39,7 @@ type dumpsterRepo struct {
 
 func NewDumpsterRepository(db DB) DumpsterRepository {
 	r := &dumpsterRepo{db: db}
-	selectStmt := baseSelectDumpster() + " WHERE id=$1 AND deleted_at IS NULL"
+	selectStmt := baseSelectDumpster() + " WHERE id=$1"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanDumpster)
 	return r
 }
@@ -72,7 +72,7 @@ func (r *dumpsterRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Dumps
 }
 
 func (r *dumpsterRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.Dumpster, error) {
-	rows, err := r.db.Query(ctx, baseSelectDumpster()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY dumpster_number", propertyID)
+	rows, err := r.db.Query(ctx, baseSelectDumpster()+" WHERE property_id=$1 ORDER BY dumpster_number", propertyID)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (r *dumpsterRepo) DeleteByPropertyID(ctx context.Context, propertyID uuid.U
 }
 
 func (r *dumpsterRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx, `UPDATE dumpsters SET deleted_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
+	tag, err := r.db.Exec(ctx, `DELETE FROM dumpsters WHERE id=$1`, id)
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (r *dumpsterRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 func baseSelectDumpster() string {
 	return `
 		SELECT id,property_id,dumpster_number,latitude,longitude,
-		created_at, updated_at, deleted_at, row_version
+		created_at, updated_at, row_version
 		FROM dumpsters`
 }
 
@@ -154,7 +154,7 @@ func (r *dumpsterRepo) scanDumpster(row pgx.Row) (*models.Dumpster, error) {
 	var d models.Dumpster
 	if err := row.Scan(
 		&d.ID, &d.PropertyID, &d.DumpsterNumber, &d.Latitude, &d.Longitude,
-		&d.CreatedAt, &d.UpdatedAt, &d.DeletedAt, &d.RowVersion,
+		&d.CreatedAt, &d.UpdatedAt, &d.RowVersion,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil

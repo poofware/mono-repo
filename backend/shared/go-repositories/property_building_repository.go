@@ -1,5 +1,3 @@
-// backend/shared/go-repositories/property_building_repository.go
-
 package repositories
 
 import (
@@ -41,7 +39,7 @@ type buildingRepo struct {
 
 func NewPropertyBuildingRepository(db DB) PropertyBuildingRepository {
 	r := &buildingRepo{db: db}
-	selectStmt := baseSelectBuilding() + " WHERE id=$1 AND deleted_at IS NULL"
+	selectStmt := baseSelectBuilding() + " WHERE id=$1"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanBuilding)
 	return r
 }
@@ -74,7 +72,7 @@ func (r *buildingRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Prope
 }
 
 func (r *buildingRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.PropertyBuilding, error) {
-	rows, err := r.db.Query(ctx, baseSelectBuilding()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY building_name NULLS LAST", propertyID)
+	rows, err := r.db.Query(ctx, baseSelectBuilding()+" WHERE property_id=$1 ORDER BY building_name NULLS LAST", propertyID)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +131,7 @@ func (r *buildingRepo) DeleteByPropertyID(ctx context.Context, propertyID uuid.U
 }
 
 func (r *buildingRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx, `UPDATE property_buildings SET deleted_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
+	tag, err := r.db.Exec(ctx, `DELETE FROM property_buildings WHERE id=$1`, id)
 	if err != nil {
 		return err
 	}
@@ -148,7 +146,7 @@ func (r *buildingRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 func baseSelectBuilding() string {
 	return `
 		SELECT id,property_id,building_name,address,latitude,longitude,
-		created_at, updated_at, deleted_at, row_version
+		created_at, updated_at, row_version
 		FROM property_buildings`
 }
 
@@ -156,7 +154,7 @@ func (r *buildingRepo) scanBuilding(row pgx.Row) (*models.PropertyBuilding, erro
 	var b models.PropertyBuilding
 	if err := row.Scan(
 		&b.ID, &b.PropertyID, &b.BuildingName, &b.Address, &b.Latitude, &b.Longitude,
-		&b.CreatedAt, &b.UpdatedAt, &b.DeletedAt, &b.RowVersion,
+		&b.CreatedAt, &b.UpdatedAt, &b.RowVersion,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil

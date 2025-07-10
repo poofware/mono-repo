@@ -86,17 +86,17 @@ func (r *pmRepo) Create(ctx context.Context, pm *models.PropertyManager) error {
 /* ---------- Reads ---------- */
 
 func (r *pmRepo) GetByEmail(ctx context.Context, email string) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE email=$1 AND deleted_at IS NULL", email)
+	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE email=$1", email)
 	return r.scanPM(row)
 }
 
 func (r *pmRepo) GetByPhoneNumber(ctx context.Context, phone string) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE phone_number=$1 AND deleted_at IS NULL", phone)
+	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE phone_number=$1", phone)
 	return r.scanPM(row)
 }
 
 func (r *pmRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1 AND deleted_at IS NULL", id)
+	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1", id)
 	return r.scanPM(row)
 }
 
@@ -119,8 +119,14 @@ func (r *pmRepo) UpdateWithRetry(ctx context.Context, id uuid.UUID, mutate func(
 
 // NEW SoftDelete
 func (r *pmRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `UPDATE property_managers SET deleted_at=NOW(), updated_at=NOW() WHERE id=$1`, id)
-	return err
+	tag, err := r.db.Exec(ctx, `DELETE FROM property_managers WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 // NEW Search
@@ -130,21 +136,23 @@ func (r *pmRepo) Search(ctx context.Context, filters map[string]any, limit, offs
 	idx := 1
 
 	countQb := strings.Builder{}
-	countQb.WriteString("SELECT count(*) FROM property_managers WHERE deleted_at IS NULL")
+	countQb.WriteString("SELECT count(*) FROM property_managers")
 
 	qb.WriteString(baseSelectPM())
-	qb.WriteString(" WHERE deleted_at IS NULL")
 
-	for key, value := range filters {
-		// Basic validation to prevent injection on key
-		if !isValidColumn(key) {
-			return nil, 0, fmt.Errorf("invalid filter key: %s", key)
+	var conditions []string
+	if len(filters) > 0 {
+		for key, value := range filters {
+			if !isValidColumn(key) {
+				return nil, 0, fmt.Errorf("invalid filter key: %s", key)
+			}
+			conditions = append(conditions, fmt.Sprintf("%s ILIKE $%d", key, idx))
+			args = append(args, fmt.Sprintf("%%%v%%", value))
+			idx++
 		}
-		condition := fmt.Sprintf(" AND %s ILIKE $%d", key, idx)
-		qb.WriteString(condition)
-		countQb.WriteString(condition)
-		args = append(args, fmt.Sprintf("%%%v%%", value))
-		idx++
+		whereClause := " WHERE " + strings.Join(conditions, " AND ")
+		qb.WriteString(whereClause)
+		countQb.WriteString(whereClause)
 	}
 
 	var total int
@@ -227,7 +235,7 @@ func baseSelectPM() string {
 		SELECT id,email,phone_number,totp_secret,
 		       business_name,business_address,city,state,zip_code,
 		       account_status,setup_progress,
-		       row_version,created_at,updated_at,deleted_at
+		       row_version,created_at,updated_at
 		FROM property_managers`
 }
 
@@ -240,7 +248,7 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 		&pm.ID, &pm.Email, &pm.PhoneNumber, &enc,
 		&pm.BusinessName, &pm.BusinessAddress, &pm.City, &pm.State, &pm.ZipCode,
 		&acc, &prog,
-		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &pm.DeletedAt,
+		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

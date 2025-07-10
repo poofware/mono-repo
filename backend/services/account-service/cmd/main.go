@@ -41,7 +41,7 @@ func main() {
 	auditRepo := repositories.NewAdminAuditLogRepository(application.DB) // NEW
 
 	if cfg.LDFlag_SeedDbWithTestAccounts {
-		if err := app.SeedAllTestAccounts(workerRepo, pmRepo); err != nil {
+		if err := app.SeedAllTestAccounts(workerRepo, pmRepo,adminRepo); err != nil {
 			utils.Logger.Fatal("Failed to seed default accounts:", err)
 		}
 	}

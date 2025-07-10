@@ -1,5 +1,3 @@
-// go-repositories/unit_repository.go
-
 package repositories
 
 import (
@@ -40,7 +38,7 @@ type unitRepo struct {
 
 func NewUnitRepository(db DB) UnitRepository {
 	r := &unitRepo{db: db}
-	selectStmt := baseSelectUnit() + " WHERE id=$1 AND deleted_at IS NULL"
+	selectStmt := baseSelectUnit() + " WHERE id=$1"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanUnit)
 	return r
 }
@@ -73,7 +71,7 @@ func (r *unitRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Unit, err
 }
 
 func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*models.Unit, error) {
-	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY unit_number", propID)
+	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE property_id=$1 ORDER BY unit_number", propID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +80,7 @@ func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*m
 }
 
 func (r *unitRepo) ListByBuildingID(ctx context.Context, bldgID uuid.UUID) ([]*models.Unit, error) {
-	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE building_id=$1 AND deleted_at IS NULL ORDER BY unit_number", bldgID)
+	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE building_id=$1 ORDER BY unit_number", bldgID)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +130,7 @@ func (r *unitRepo) DeleteByPropertyID(ctx context.Context, propID uuid.UUID) err
 }
 
 func (r *unitRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx, `UPDATE units SET deleted_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
+	tag, err := r.db.Exec(ctx, `DELETE FROM units WHERE id=$1`, id)
 	if err != nil {
 		return err
 	}
@@ -143,7 +141,7 @@ func (r *unitRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *unitRepo) FindByTenantToken(ctx context.Context, token string) (*models.Unit, error) {
-	row := r.db.QueryRow(ctx, baseSelectUnit()+" WHERE tenant_token=$1 AND deleted_at IS NULL LIMIT 1", token)
+	row := r.db.QueryRow(ctx, baseSelectUnit()+" WHERE tenant_token=$1 LIMIT 1", token)
 	return r.scanUnit(row)
 }
 
@@ -152,7 +150,7 @@ func (r *unitRepo) FindByTenantToken(ctx context.Context, token string) (*models
 func baseSelectUnit() string {
 	return `
 		SELECT id,property_id,building_id,unit_number,tenant_token,
-		created_at, updated_at, deleted_at, row_version
+		created_at, updated_at, row_version
 		FROM units`
 }
 
@@ -161,7 +159,7 @@ func (r *unitRepo) scanUnit(row pgx.Row) (*models.Unit, error) {
 	if err := row.Scan(
 		&u.ID, &u.PropertyID, &u.BuildingID,
 		&u.UnitNumber, &u.TenantToken,
-		&u.CreatedAt, &u.UpdatedAt, &u.DeletedAt, &u.RowVersion,
+		&u.CreatedAt, &u.UpdatedAt, &u.RowVersion,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 	"github.com/poofware/go-utils"
@@ -135,7 +136,6 @@ func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
 
 	admin := &models.Admin{
 		ID:           defaultAdminID,
-		Email:        "seedadmin@example.com",
 		Username:     "seedadmin",
 		PasswordHash: string(hashedPass),
 		TOTPSecret:   totpSecret,
@@ -198,12 +198,16 @@ func SeedDefaultPropertyManagerAccountOnly(pmRepo repositories.PropertyManagerRe
 func SeedAllTestAccounts(
 	workerRepo repositories.WorkerRepository,
 	pmRepo repositories.PropertyManagerRepository,
+	adminRepo repositories.AdminRepository,
 ) error {
 	if err := SeedDefaultWorker(workerRepo); err != nil {
 		return fmt.Errorf("seed default worker: %w", err)
 	}
 	if err := SeedDefaultPropertyManagerAccountOnly(pmRepo); err != nil {
 		return fmt.Errorf("seed default property manager account: %w", err)
+	}
+	if err := SeedDefaultAdmin(adminRepo); err != nil {
+		return fmt.Errorf("seed default admin: %w", err)
 	}
 	return nil
 }
