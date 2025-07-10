@@ -242,7 +242,7 @@ func baseSelectPM() string {
 		SELECT id,email,phone_number,totp_secret,
 		       business_name,business_address,city,state,zip_code,
 		       account_status,setup_progress,
-		       row_version,created_at,updated_at
+		       row_version,created_at,updated_at,deleted_at
 		FROM property_managers`
 }
 
@@ -255,7 +255,7 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 		&pm.ID, &pm.Email, &pm.PhoneNumber, &enc,
 		&pm.BusinessName, &pm.BusinessAddress, &pm.City, &pm.State, &pm.ZipCode,
 		&acc, &prog,
-		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt,
+		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &pm.DeletedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

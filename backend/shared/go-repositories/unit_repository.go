@@ -155,7 +155,7 @@ func (r *unitRepo) FindByTenantToken(ctx context.Context, token string) (*models
 func baseSelectUnit() string {
 	return `
 		SELECT id,property_id,building_id,unit_number,tenant_token,
-		created_at, updated_at, row_version
+		created_at, updated_at, row_version, deleted_at
 		FROM units`
 }
 
@@ -164,7 +164,7 @@ func (r *unitRepo) scanUnit(row pgx.Row) (*models.Unit, error) {
 	if err := row.Scan(
 		&u.ID, &u.PropertyID, &u.BuildingID,
 		&u.UnitNumber, &u.TenantToken,
-		&u.CreatedAt, &u.UpdatedAt, &u.RowVersion,
+		&u.CreatedAt, &u.UpdatedAt, &u.RowVersion, &u.DeletedAt,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil

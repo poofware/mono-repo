@@ -149,7 +149,7 @@ func (r *buildingRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 func baseSelectBuilding() string {
 	return `
 		SELECT id,property_id,building_name,address,latitude,longitude,
-		created_at, updated_at, row_version
+		created_at, updated_at, row_version, deleted_at
 		FROM property_buildings`
 }
 
@@ -157,7 +157,7 @@ func (r *buildingRepo) scanBuilding(row pgx.Row) (*models.PropertyBuilding, erro
 	var b models.PropertyBuilding
 	if err := row.Scan(
 		&b.ID, &b.PropertyID, &b.BuildingName, &b.Address, &b.Latitude, &b.Longitude,
-		&b.CreatedAt, &b.UpdatedAt, &b.RowVersion,
+		&b.CreatedAt, &b.UpdatedAt, &b.RowVersion, &b.DeletedAt,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil

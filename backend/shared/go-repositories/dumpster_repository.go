@@ -149,7 +149,7 @@ func (r *dumpsterRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 func baseSelectDumpster() string {
 	return `
 		SELECT id,property_id,dumpster_number,latitude,longitude,
-		created_at, updated_at, row_version
+		created_at, updated_at, row_version, deleted_at
 		FROM dumpsters`
 }
 
@@ -157,7 +157,7 @@ func (r *dumpsterRepo) scanDumpster(row pgx.Row) (*models.Dumpster, error) {
 	var d models.Dumpster
 	if err := row.Scan(
 		&d.ID, &d.PropertyID, &d.DumpsterNumber, &d.Latitude, &d.Longitude,
-		&d.CreatedAt, &d.UpdatedAt, &d.RowVersion,
+		&d.CreatedAt, &d.UpdatedAt, &d.RowVersion, &d.DeletedAt,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil

@@ -166,7 +166,7 @@ func baseSelectProperty() string {
             id, manager_id, property_name,
             address, city, state, zip_code, time_zone,
             latitude, longitude,
-            created_at, updated_at, row_version
+            created_at, updated_at, row_version, deleted_at
         FROM properties
     `
 }
@@ -187,6 +187,7 @@ func scanProperty(row pgx.Row) (*models.Property, error) {
 		&p.CreatedAt,
 		&p.UpdatedAt,
 		&p.RowVersion,
+		&p.DeletedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
