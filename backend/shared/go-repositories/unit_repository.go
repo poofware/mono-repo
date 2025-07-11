@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/poofware/go-models"
@@ -161,18 +162,26 @@ func baseSelectUnit() string {
 
 func (r *unitRepo) scanUnit(row pgx.Row) (*models.Unit, error) {
 	var u models.Unit
-	if err := row.Scan(
-		&u.ID, &u.PropertyID, &u.BuildingID,
-		&u.UnitNumber, &u.TenantToken,
-		&u.CreatedAt, &u.UpdatedAt, &u.RowVersion, &u.DeletedAt,
-	); err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
+		// Use pgx's native type for nullable timestamps to ensure robust scanning.
+		var deletedAt pgtype.Timestamptz
+		 if err := row.Scan(
+			 &u.ID, &u.PropertyID, &u.BuildingID,
+			 &u.UnitNumber, &u.TenantToken,
+			&u.CreatedAt, &u.UpdatedAt, &u.RowVersion, &deletedAt,
+		 ); err != nil {
+			 if err == pgx.ErrNoRows {
+				 return nil, nil
+			 }
+			 return nil, err
+		 }
+		// Manually assign the value from the pgtype wrapper to the model's pointer.
+		if deletedAt.Status == pgtype.Present {
+			u.DeletedAt = &deletedAt.Time
+		} else {
+			u.DeletedAt = nil
 		}
-		return nil, err
-	}
-	return &u, nil
-}
+		 return &u, nil
+	 }
 
 func (r *unitRepo) scanUnits(rows pgx.Rows) ([]*models.Unit, error) {
 	var out []*models.Unit

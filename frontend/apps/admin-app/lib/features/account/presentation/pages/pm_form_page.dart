@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_admin/features/account/data/models/property_manager_admin.dart';
+import 'package:poof_admin/features/account/presentation/widgets/us_states_dropdown.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 import 'package:poof_admin/features/account/state/pm_form_notifier.dart';
 import 'package:poof_admin/features/account/state/pm_form_state.dart';
@@ -23,8 +24,8 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
   late final TextEditingController _cityController;
-  late final TextEditingController _stateController;
   late final TextEditingController _zipController;
+  String? _selectedState;
 
   @override
   void initState() {
@@ -36,7 +37,7 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
     _addressController =
         TextEditingController(text: widget.pm?.businessAddress);
     _cityController = TextEditingController(text: widget.pm?.city);
-    _stateController = TextEditingController(text: widget.pm?.state);
+    _selectedState = widget.pm?.state;
     _zipController = TextEditingController(text: widget.pm?.zipCode);
   }
 
@@ -47,19 +48,20 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
     _phoneController.dispose();
     _addressController.dispose();
     _cityController.dispose();
-    _stateController.dispose();
     _zipController.dispose();
     super.dispose();
   }
 
   void _resetFormFields(PropertyManagerAdmin pm) {
-    _businessNameController.text = pm.businessName;
-    _emailController.text = pm.email;
-    _phoneController.text = pm.phone ?? '';
-    _addressController.text = pm.businessAddress;
-    _cityController.text = pm.city;
-    _stateController.text = pm.state;
-    _zipController.text = pm.zipCode;
+    setState(() {
+      _businessNameController.text = pm.businessName;
+      _emailController.text = pm.email;
+      _phoneController.text = pm.phone ?? '';
+      _addressController.text = pm.businessAddress;
+      _cityController.text = pm.city;
+      _selectedState = pm.state;
+      _zipController.text = pm.zipCode;
+    });
   }
 
   Future<void> _submit() async {
@@ -73,7 +75,7 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
       'phone': _phoneController.text.trim(),
       'business_address': _addressController.text.trim(),
       'city': _cityController.text.trim(),
-      'state': _stateController.text.trim(),
+      'state': _selectedState!,
       'zip_code': _zipController.text.trim(),
     };
 
@@ -166,7 +168,15 @@ class _PmFormPageState extends ConsumerState<PmFormPage> {
               _buildTextField(
                   _addressController, 'Business Address', fieldErrors),
               _buildTextField(_cityController, 'City', fieldErrors),
-              _buildTextField(_stateController, 'State', fieldErrors),
+              StateDropdown(
+                selectedValue: _selectedState,
+                errorText: fieldErrors?['state'],
+                onChanged: (newValue) {
+                  setState(() {
+                    _selectedState = newValue;
+                  });
+                },
+              ),
               _buildTextField(_zipController, 'Zip Code', fieldErrors),
               const SizedBox(height: 32),
               SizedBox(

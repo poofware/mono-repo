@@ -1,8 +1,8 @@
-// NEW FILE
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_admin/features/account/data/models/property_admin.dart';
+import 'package:poof_admin/features/account/presentation/widgets/us_states_dropdown.dart';
 import 'package:poof_admin/features/account/state/property_form_notifier.dart';
 import 'package:poof_admin/features/account/state/property_form_state.dart';
 
@@ -27,11 +27,11 @@ class _PropertyFormPageState extends ConsumerState<PropertyFormPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _addressController;
   late final TextEditingController _cityController;
-  late final TextEditingController _stateController;
   late final TextEditingController _zipController;
   late final TextEditingController _timezoneController;
   late final TextEditingController _latController;
   late final TextEditingController _lonController;
+  String? _selectedState;
 
   @override
   void initState() {
@@ -40,7 +40,7 @@ class _PropertyFormPageState extends ConsumerState<PropertyFormPage> {
     _nameController = TextEditingController(text: p?.propertyName);
     _addressController = TextEditingController(text: p?.address);
     _cityController = TextEditingController(text: p?.city);
-    _stateController = TextEditingController(text: p?.state);
+    _selectedState = p?.state;
     _zipController = TextEditingController(text: p?.zipCode);
     _timezoneController = TextEditingController(text: p?.timeZone);
     _latController = TextEditingController(text: p?.latitude.toString());
@@ -52,7 +52,6 @@ class _PropertyFormPageState extends ConsumerState<PropertyFormPage> {
     _nameController.dispose();
     _addressController.dispose();
     _cityController.dispose();
-    _stateController.dispose();
     _zipController.dispose();
     _timezoneController.dispose();
     _latController.dispose();
@@ -70,7 +69,7 @@ class _PropertyFormPageState extends ConsumerState<PropertyFormPage> {
       'property_name': _nameController.text.trim(),
       'address': _addressController.text.trim(),
       'city': _cityController.text.trim(),
-      'state': _stateController.text.trim(),
+      'state': _selectedState!,
       'zip_code': _zipController.text.trim(),
       'time_zone': _timezoneController.text.trim(),
       'latitude': double.tryParse(_latController.text.trim()) ?? 0.0,
@@ -123,7 +122,16 @@ class _PropertyFormPageState extends ConsumerState<PropertyFormPage> {
               Row(
                 children: [
                   Expanded(
-                      child: _buildTextField(_stateController, 'State', fieldErrors)),
+                    child: StateDropdown(
+                      selectedValue: _selectedState,
+                      errorText: fieldErrors?['state'],
+                      onChanged: (newValue) {
+                        setState(() {
+                          _selectedState = newValue;
+                        });
+                      },
+                    ),
+                  ),
                   const SizedBox(width: 16),
                   Expanded(child: _buildTextField(_zipController, 'Zip Code', fieldErrors)),
                 ],

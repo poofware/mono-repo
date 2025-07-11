@@ -124,6 +124,8 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _buildReadOnlyTextField('Manager ID', widget.pmId),
+                  _buildReadOnlyTextField('Property ID', widget.propertyId),
                   _buildTextField(_titleController, 'Title', fieldErrors),
                   _buildDropdown(_scheduleType, 'Schedule Type',
                       ['DAILY', 'WEEKLY', 'MONTHLY']),
@@ -178,6 +180,22 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyTextField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        initialValue: value,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          fillColor: Theme.of(context).disabledColor.withOpacity(0.05),
+          filled: true,
+        ),
       ),
     );
   }
