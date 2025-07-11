@@ -96,6 +96,7 @@ class _DumpsterFormPageState extends ConsumerState<DumpsterFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildReadOnlyTextField('Property ID', widget.propertyId),
               _buildTextField(_numberController, 'Dumpster Number', fieldErrors),
               Row(
                 children: [
@@ -128,6 +129,22 @@ class _DumpsterFormPageState extends ConsumerState<DumpsterFormPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyTextField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        initialValue: value,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          fillColor: Theme.of(context).disabledColor.withOpacity(0.05),
+          filled: true,
         ),
       ),
     );

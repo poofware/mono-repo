@@ -100,6 +100,7 @@ class _BuildingFormPageState extends ConsumerState<BuildingFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildReadOnlyTextField('Property ID', widget.propertyId),
               _buildTextField(_nameController, 'Building Name', fieldErrors),
               _buildTextField(_addressController, 'Address (Optional)', fieldErrors, isRequired: false),
               Row(
@@ -133,6 +134,22 @@ class _BuildingFormPageState extends ConsumerState<BuildingFormPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyTextField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        initialValue: value,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          fillColor: Theme.of(context).disabledColor.withOpacity(0.05),
+          filled: true,
         ),
       ),
     );

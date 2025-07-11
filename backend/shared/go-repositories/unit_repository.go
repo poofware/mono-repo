@@ -71,7 +71,12 @@ func (r *unitRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Unit, err
 }
 
 func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*models.Unit, error) {
-	rows, err := r.db.Query(ctx, baseSelectUnit()+" WHERE property_id=$1 AND deleted_at IS NULL ORDER BY unit_number", propID)
+		// The snapshot requires ALL units, including soft-deleted ones. The service layer is responsible for filtering.
+	// Therefore, we remove the "AND deleted_at IS NULL" clause here.
+	// We also inline the SELECT statement to ensure the `deleted_at` column is always included, fixing the scan issue.
+	const query = `SELECT id,property_id,building_id,unit_number,tenant_token,
+		created_at, updated_at, row_version, deleted_at FROM units WHERE property_id=$1 ORDER BY unit_number`
+	rows, err := r.db.Query(ctx, query, propID)
 	if err != nil {
 		return nil, err
 	}

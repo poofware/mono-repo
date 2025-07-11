@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"time"
 	"encoding/json"
 	"net/http"
 
@@ -210,8 +211,19 @@ func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, managerID
 		dumpsters, _ := s.dumpsterRepo.ListByPropertyID(ctx, p.ID)
 		jobDefs, _ := s.jobDefRepo.ListByPropertyID(ctx, p.ID)
 
+		utils.Logger.Infof("[SnapshotDebug] For Property %s, unitRepo.ListByPropertyID returned %d units.", p.ID, len(allUnits))
+
 		unitMap := make(map[uuid.UUID][]*models.Unit)
 		for _, u := range allUnits {
+						deletedAtStr := "nil"
+			if u.DeletedAt != nil {
+				deletedAtStr = u.DeletedAt.Format(time.RFC3339)
+			}
+			utils.Logger.Infof("[SnapshotDebug]  - Processing Unit ID: %s, DeletedAt: %s", u.ID, deletedAtStr)
+			if u.DeletedAt != nil {
+				utils.Logger.Warnf("[SnapshotDebug]  - SKIPPING soft-deleted Unit ID: %s", u.ID)
+				continue
+			}
 			unitMap[u.BuildingID] = append(unitMap[u.BuildingID], u)
 		}
 
