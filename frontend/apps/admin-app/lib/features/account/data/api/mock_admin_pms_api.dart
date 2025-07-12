@@ -39,6 +39,9 @@ class MockAdminPmsApi {
         zipCode: '12345',
         createdAt: DateTime.now().subtract(const Duration(days: 10)),
         updatedAt: DateTime.now().subtract(const Duration(days: 5)),
+        accountStatus: 'ACTIVE',
+        flags: [],
+
       ),
       properties: [
         PropertyAdmin(
@@ -125,6 +128,9 @@ class MockAdminPmsApi {
           zipCode: '10001',
           createdAt: DateTime.now().subtract(Duration(days: i * 2)),
           updatedAt: DateTime.now().subtract(Duration(days: i)),
+          accountStatus: 'ACTIVE',
+          flags: [],
+
         ),
         properties: [],
       ));
@@ -228,6 +234,9 @@ class MockAdminPmsApi {
       zipCode: data['zip_code'] as String,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      accountStatus: 'ACTIVE',
+      flags: [],
+
     );
     _data.add(PmsSnapshot(propertyManager: newPm, properties: []));
     return newPm;
@@ -276,20 +285,19 @@ class MockAdminPmsApi {
 
   Future<UnitAdmin> createUnit(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
-    final propertyId = data['property_id'] as String;
     final buildingId = data['building_id'] as String;
 
     final newUnit = UnitAdmin.fromJson({
       ...data,
       'id': _uuid.v4(),
-      'tenant_token': _uuid.v4(),
+      // tenant_token is now provided in `data`
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
     });
 
     for (final snapshot in _data) {
       try {
-        final prop = snapshot.properties.firstWhere((p) => p.id == propertyId);
+        final prop = snapshot.properties.firstWhere((p) => p.buildings.any((b) => b.id == buildingId));
         final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
         if (buildingIndex != -1) {
           prop.buildings[buildingIndex].units.add(newUnit);
@@ -300,6 +308,37 @@ class MockAdminPmsApi {
       }
     }
     throw ApiException(404, 'Building or Property not found to add unit to.');
+  }
+
+  Future<void> createUnits(List<Map<String, dynamic>> unitsData) async {
+    await Future.delayed(Duration(milliseconds: 400 + _random.nextInt(500)));
+    if (unitsData.isEmpty) return;
+
+    final buildingId = unitsData.first['building_id'] as String;
+
+    final newUnits = unitsData.map((data) {
+      return UnitAdmin.fromJson({
+        ...data,
+        'id': _uuid.v4(),
+        'tenant_token': data['tenant_token'] ?? _uuid.v4(), // Use provided or generate
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    }).toList();
+
+    for (final snapshot in _data) {
+      try {
+        final prop = snapshot.properties.firstWhere((p) => p.buildings.any((b) => b.id == buildingId));
+        final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
+        if (buildingIndex != -1) {
+          prop.buildings[buildingIndex].units.addAll(newUnits);
+          return; // Exit after finding and updating
+        }
+      } catch (e) {
+        // Continue to next snapshot
+      }
+    }
+    throw ApiException(404, 'Building or Property not found to add units to.');
   }
 
   Future<DumpsterAdmin> createDumpster(Map<String, dynamic> data) async {

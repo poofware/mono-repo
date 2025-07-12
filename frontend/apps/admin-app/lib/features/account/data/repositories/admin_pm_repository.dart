@@ -38,6 +38,10 @@ class AdminPmsRepository {
     return _api.createUnit(data);
   }
 
+  Future<void> createUnits(List<Map<String, dynamic>> data) {
+    return _api.createUnits(data);
+  }
+
   Future<DumpsterAdmin> createDumpster(Map<String, dynamic> data) {
     return _api.createDumpster(data);
   }

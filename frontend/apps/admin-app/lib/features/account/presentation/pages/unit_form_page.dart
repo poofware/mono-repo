@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import 'package:poof_admin/features/account/data/models/unit_admin.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 import 'package:poof_admin/features/account/state/unit_form_notifier.dart';
@@ -30,17 +31,24 @@ class UnitFormPage extends ConsumerStatefulWidget {
 class _UnitFormPageState extends ConsumerState<UnitFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _unitNumberController;
+  late final TextEditingController _tenantTokenController;
+  final _uuid = const Uuid();
 
   @override
   void initState() {
     super.initState();
     final u = widget.unit;
     _unitNumberController = TextEditingController(text: u?.unitNumber);
+    _tenantTokenController = TextEditingController(text: u?.tenantToken);
+    if (!widget.isEditMode) {
+      _tenantTokenController.text = _uuid.v4();
+    }
   }
 
   @override
   void dispose() {
     _unitNumberController.dispose();
+    _tenantTokenController.dispose();
     super.dispose();
   }
 
@@ -53,6 +61,7 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
       'property_id': widget.propertyId,
       'building_id': widget.buildingId,
       'unit_number': _unitNumberController.text.trim(),
+      'tenant_token': _tenantTokenController.text.trim(),
     };
 
     final notifier = ref.read(unitFormProvider.notifier);
@@ -92,16 +101,11 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildTextField(_unitNumberController, 'Unit Number', fieldErrors),
-              const SizedBox(height: 8),
-              if (!widget.isEditMode)
-                Text(
-                  'A unique tenant token will be generated automatically upon creation.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
+               _buildTenantTokenField(fieldErrors),
+              const SizedBox(height: 24),
+               SizedBox(
+                 width: double.infinity,
+                 child: ElevatedButton(
                   onPressed: formState.maybeWhen(loading: () => null, orElse: () => _submit),
                   style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16)),
@@ -120,6 +124,35 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
       ),
     );
   }
+Widget _buildTenantTokenField(Map<String, String>? fieldErrors) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        controller: _tenantTokenController,
+        decoration: InputDecoration(
+          labelText: 'Tenant Token',
+          border: const OutlineInputBorder(),
+          errorText: fieldErrors?['tenant_token'],
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Generate New Token',
+            onPressed: () {
+              setState(() {
+                _tenantTokenController.text = _uuid.v4();
+              });
+            },
+          ),
+        ),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Tenant Token is required.';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
 
   Widget _buildTextField(
     TextEditingController controller,

@@ -31,9 +31,9 @@ final pmsSearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// A family provider to fetch the detailed snapshot for a specific PM.
 final pmSnapshotProvider = FutureProvider.autoDispose.family<PmsSnapshot, String>((ref, pmId) {
-  // By watching the detail provider, this will auto-refresh when actions
-  // like deletion succeed.
-  ref.watch(pmsDetailProvider);
+  // This provider is responsible for fetching the data.
+  // It is invalidated by notifiers (like pmsDetailProvider) when an action
+  // (create, update, delete) completes, which correctly triggers a refresh.
   return ref.watch(pmsRepositoryProvider).getSnapshot({'manager_id': pmId});
 });
 

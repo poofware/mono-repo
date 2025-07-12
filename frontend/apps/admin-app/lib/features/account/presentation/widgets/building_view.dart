@@ -1,5 +1,6 @@
 // NEW FILE
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_admin/features/account/data/models/property_admin.dart';
@@ -22,6 +23,161 @@ class BuildingView extends ConsumerWidget {
     if (confirmed) {
       await ref.read(pmsDetailProvider.notifier).deleteBuilding(buildingId, pmId);
     }
+  }
+
+  void _showAddUnitChoiceDialog(BuildContext context, WidgetRef ref, String pmId, String propertyId, String buildingId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add New Unit(s)'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.add_box_outlined),
+                title: const Text('Add a Single Unit'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.go(
+                    '/dashboard/pms/$pmId/properties/$propertyId/buildings/$buildingId/units/new',
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_to_photos_outlined),
+                title: const Text('Add Multiple Units (Bulk)'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showBulkCreateDialog(context, ref, pmId, propertyId, buildingId);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showBulkCreateDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String pmId,
+    String propertyId,
+    String buildingId,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final prefixController = TextEditingController();
+    final startController = TextEditingController();
+    final endController = TextEditingController();
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // User must take action
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Bulk Create Units'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  TextFormField(
+                    controller: prefixController,
+                    decoration: const InputDecoration(
+                      labelText: 'Unit Prefix (e.g., A-)',
+                      hintText: 'Optional',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: startController,
+                    decoration: const InputDecoration(
+                      labelText: 'Start Number',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      if (int.tryParse(value) == null) {
+                        return 'Invalid number';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: endController,
+                    decoration: const InputDecoration(
+                      labelText: 'End Number',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      final end = int.tryParse(value);
+                      final start = int.tryParse(startController.text);
+                      if (end == null) return 'Invalid number';
+                      if (start != null && end < start) {
+                        return 'Must be >= start';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              child: const Text('Create'),
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final success = await ref
+                      .read(pmsDetailProvider.notifier)
+                      .createBulkUnits(
+                        pmId: pmId,
+                        propertyId: propertyId,
+                        buildingId: buildingId,
+                        prefix: prefixController.text.trim(),
+                        start: int.parse(startController.text),
+                        end: int.parse(endController.text),
+                      );
+                  if (success && dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    ).whenComplete(() {
+      prefixController.dispose();
+      startController.dispose();
+      endController.dispose();
+    });
   }
 
   @override
@@ -67,8 +223,12 @@ class BuildingView extends ConsumerWidget {
                         TextButton.icon(
                           icon: const Icon(Icons.add),
                           label: const Text('Add Unit'),
-                          onPressed: () => context.go(
-                            '/dashboard/pms/${property.managerId}/properties/${property.id}/buildings/${building.id}/units/new',
+                          onPressed: () => _showAddUnitChoiceDialog(
+                            context,
+                            ref,
+                            property.managerId,
+                            property.id,
+                            building.id,
                           ),
                         ),
                       ],

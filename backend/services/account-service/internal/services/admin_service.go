@@ -241,8 +241,8 @@ func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, managerID
 	return snapshot, nil
 }
 
-// CreateProperty creates a new property for a manager.
-func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreatePropertyRequest) (*models.Property, error) {
+// CreateProperty creates a new property for a manager and returns it as a DTO.
+func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreatePropertyRequest) (*internal_dtos.Property, error) {
 	// Check if parent manager exists
 	pm, err := s.pmRepo.GetByID(ctx, req.ManagerID)
 	if err != nil || pm == nil {
@@ -270,7 +270,10 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 	}
 
 	s.logAudit(ctx, adminID, prop.ID, models.AuditCreate, models.TargetProperty, prop)
-	return prop, nil
+
+	// Construct the DTO with empty slices for buildings and dumpsters
+	propDTO := internal_dtos.NewPropertyFromModel(prop, []internal_dtos.Building{}, []*models.Dumpster{})
+	return &propDTO, nil
 }
 
 // UpdateProperty updates an existing property.
@@ -352,8 +355,8 @@ func (s *AdminService) SoftDeleteProperty(ctx context.Context, adminID, propID u
 	return nil
 }
 
-// CreateBuilding creates a new building for a property.
-func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateBuildingRequest) (*models.PropertyBuilding, error) {
+// CreateBuilding creates a new building for a property and returns it as a DTO.
+func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateBuildingRequest) (*internal_dtos.Building, error) {
 	prop, err := s.propRepo.GetByID(ctx, req.PropertyID)
 	if err != nil || prop == nil {
 		if err == pgx.ErrNoRows || prop == nil {
@@ -375,7 +378,10 @@ func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, re
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to create building", Err: err}
 	}
 	s.logAudit(ctx, adminID, building.ID, models.AuditCreate, models.TargetBuilding, building)
-	return building, nil
+
+	// Construct the DTO with an empty slice for units
+	buildingDTO := internal_dtos.NewBuildingFromModel(building, []*models.Unit{})
+	return &buildingDTO, nil
 }
 
 // UpdateBuilding updates an existing building.

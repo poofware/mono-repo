@@ -7,6 +7,8 @@ class PropertyManagerAdmin {
   final String city;
   final String state;
   final String zipCode;
+  final String accountStatus;
+  final List<String> flags;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -20,6 +22,8 @@ class PropertyManagerAdmin {
     required this.city,
     required this.state,
     required this.zipCode,
+    required this.accountStatus,
+    required this.flags,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -34,6 +38,10 @@ class PropertyManagerAdmin {
         city = json['city'] as String,
         state = json['state'] as String,
         zipCode = json['zip_code'] as String,
+        accountStatus = json['account_status'] as String? ?? 'UNKNOWN',
+        flags = (json['flags'] as List<dynamic>?)
+               ?.map((f) => f.toString())
+                .toList() ?? [],
         createdAt = DateTime.parse(json['created_at'] as String),
         updatedAt = DateTime.parse(json['updated_at'] as String),
         deletedAt = json['deleted_at'] == null
@@ -56,6 +64,8 @@ class PropertyManagerAdmin {
         'city': city,
         'state': state,
         'zip_code': zipCode,
+         'account_status': accountStatus,
+        'flags': flags,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
         'deleted_at': deletedAt?.toIso8601String(),

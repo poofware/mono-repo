@@ -201,13 +201,13 @@ func (c *AdminController) CreatePropertyHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	prop, err := c.adminService.CreateProperty(r.Context(), adminID, req)
+	propDTO, err := c.adminService.CreateProperty(r.Context(), adminID, req)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
 	}
 
-	utils.RespondWithJSON(w, http.StatusCreated, prop)
+	utils.RespondWithJSON(w, http.StatusCreated, propDTO)
 }
 
 // PATCH /api/v1/account/admin/properties
@@ -287,13 +287,13 @@ func (c *AdminController) CreateBuildingHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	building, err := c.adminService.CreateBuilding(r.Context(), adminID, req)
+	buildingDTO, err := c.adminService.CreateBuilding(r.Context(), adminID, req)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
 	}
 
-	utils.RespondWithJSON(w, http.StatusCreated, building)
+	utils.RespondWithJSON(w, http.StatusCreated, buildingDTO)
 }
 
 // PATCH /api/v1/account/admin/property-buildings
