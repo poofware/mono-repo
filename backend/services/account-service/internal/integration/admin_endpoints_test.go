@@ -1,3 +1,4 @@
+// backend/services/account-service/internal/integration/admin_endpoints_test.go
 package integration
 
 import (
@@ -140,18 +141,19 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	json.NewDecoder(resp.Body).Decode(&snapshot)
+	var snapshotAfterDelete dtos.PropertyManagerSnapshotResponse // FIXED: Use a new variable
+	json.NewDecoder(resp.Body).Decode(&snapshotAfterDelete)
 	// --- Assert Deletion with better debugging ---
-	require.NotEmpty(t, snapshot.Properties, "Snapshot should contain at least one property")
-	require.NotEmpty(t, snapshot.Properties[0].Buildings, "Property should contain at least one building")
+	require.NotEmpty(t, snapshotAfterDelete.Properties, "Snapshot should contain at least one property")
+	require.NotEmpty(t, snapshotAfterDelete.Properties[0].Buildings, "Property should contain at least one building")
 
 	// Add detailed logging if the assertion is about to fail
-	if len(snapshot.Properties[0].Buildings[0].Units) != 0 {
-		snapshotJSON, _ := json.MarshalIndent(snapshot, "", "  ")
+	if len(snapshotAfterDelete.Properties[0].Buildings[0].Units) != 0 {
+		snapshotJSON, _ := json.MarshalIndent(snapshotAfterDelete, "", "  ")
 		t.Logf("Snapshot still contains units after one was deleted. Full snapshot:\n%s", string(snapshotJSON))
 	}
 
-	require.Len(t, snapshot.Properties[0].Buildings[0].Units, 0, "Unit should be soft-deleted and not appear in snapshot, but found %d", len(snapshot.Properties[0].Buildings[0].Units))
+	require.Len(t, snapshotAfterDelete.Properties[0].Buildings[0].Units, 0, "Unit should be soft-deleted and not appear in snapshot, but found %d", len(snapshotAfterDelete.Properties[0].Buildings[0].Units))
 	// 8. Soft Delete PM
 	deletePMReq := dtos.DeleteRequest{ID: pmID}
 	deletePMBody, _ := json.Marshal(deletePMReq)
