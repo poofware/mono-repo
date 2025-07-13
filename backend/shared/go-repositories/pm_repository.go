@@ -97,7 +97,11 @@ func (r *pmRepo) GetByPhoneNumber(ctx context.Context, phone string) (*models.Pr
 
 func (r *pmRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PropertyManager, error) {
 	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1 AND deleted_at IS NULL", id)
-	return r.scanPM(row)
+	pm, err := r.scanPM(row) // +++ Let's capture the result of scanPM
+	if err != nil { // +++ Add a log here to see the error immediately
+		utils.Logger.Infof("[Debug] pmRepo.GetByID -> scanPM returned error: %v", err)
+	}
+	return pm, err
 }
 
 /* ---------- Updates ---------- */
@@ -253,6 +257,7 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &deletedAt,
 	)
 	if err != nil {
+		utils.Logger.Infof("[Debug] scanPM: row.Scan() returned error: %v (type: %T)", err, err) // +++ NEW LOG +++
 		return nil, err
 	}
 

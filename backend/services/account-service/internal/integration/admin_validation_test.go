@@ -32,7 +32,7 @@ func adminValidationTestSetup(t *testing.T) string {
 // TestCreatePM_Validation covers all validation scenarios for the Create Property Manager endpoint.
 func TestCreatePM_Validation(t *testing.T) {
 	adminToken := adminValidationTestSetup(t)
-	baseURL := h.BaseURL + "/api/v1/account/admin" + routes.AdminPM
+	baseURL := h.BaseURL + routes.AdminPM
 
 	t.Run("Missing Required Fields", func(t *testing.T) {
 		h.T = t
@@ -133,7 +133,7 @@ func TestCreateChildEntity_WithInvalidParent(t *testing.T) {
 			ManagerID: nonExistentManagerID,
 			PropertyName: "Phantom Property", Address: "123 Main", City: "City", State: "ST", ZipCode: "12345", TimeZone: "UTC", Latitude: 0, Longitude: 0,
 		})
-		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminProperties, adminToken, reqBody, "web", "127.0.0.1")
+		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminProperties, adminToken, reqBody, "web", "127.0.0.1")
 		resp := h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 
@@ -148,7 +148,7 @@ func TestCreateChildEntity_WithInvalidParent(t *testing.T) {
 		h.T = t
 		nonExistentPropertyID := uuid.New()
 		reqBody, _ := json.Marshal(dtos.CreateBuildingRequest{PropertyID: nonExistentPropertyID, BuildingName: "Phantom Building"})
-		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminBuildings, adminToken, reqBody, "web", "127.0.0.1")
+		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminBuildings, adminToken, reqBody, "web", "127.0.0.1")
 		resp := h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusNotFound, resp.StatusCode)
@@ -169,7 +169,7 @@ func TestCreateChildEntity_WithInvalidParent(t *testing.T) {
 			BuildingID: bldgInProp1.ID,
 			UnitNumber: "101",
 		})
-		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminUnits, adminToken, reqBody, "web", "127.0.0.1")
+		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnits, adminToken, reqBody, "web", "127.0.0.1")
 		resp := h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 
@@ -196,13 +196,13 @@ func TestUniquenessConstraints(t *testing.T) {
 		// Create unit 101 in building 1
 		createUnitReq := dtos.CreateUnitRequest{PropertyID: prop.ID, BuildingID: bldg1.ID, UnitNumber: "101"}
 		createUnitBody, _ := json.Marshal(createUnitReq)
-		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
+		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
 		resp := h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		// Attempt to create unit 101 in building 1 again
-		req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
+		req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
 		resp = h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusConflict, resp.StatusCode)
@@ -217,7 +217,7 @@ func TestUniquenessConstraints(t *testing.T) {
 		// Create unit 101 in building 2 (should succeed)
 		createUnitReq := dtos.CreateUnitRequest{PropertyID: prop.ID, BuildingID: bldg2.ID, UnitNumber: "101"}
 		createUnitBody, _ := json.Marshal(createUnitReq)
-		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
+		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
 		resp := h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -228,13 +228,13 @@ func TestUniquenessConstraints(t *testing.T) {
 		// Create dumpster D1 on the property
 		createDumpsterReq := dtos.CreateDumpsterRequest{PropertyID: prop.ID, DumpsterNumber: "D1"}
 		createDumpsterBody, _ := json.Marshal(createDumpsterReq)
-		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminDumpsters, adminToken, createDumpsterBody, "web", "127.0.0.1")
+		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminDumpsters, adminToken, createDumpsterBody, "web", "127.0.0.1")
 		resp := h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		// Attempt to create dumpster D1 again
-		req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminDumpsters, adminToken, createDumpsterBody, "web", "127.0.0.1")
+		req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminDumpsters, adminToken, createDumpsterBody, "web", "127.0.0.1")
 		resp = h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusConflict, resp.StatusCode)

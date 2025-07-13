@@ -39,7 +39,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 		ZipCode:         "12345",
 	}
 	createPMBody, _ := json.Marshal(createPMReq)
-	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPM, adminToken, createPMBody, "web", "127.0.0.1")
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPM, adminToken, createPMBody, "web", "127.0.0.1")
 	resp := h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -66,7 +66,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 		Address:      "456 Test Ave", City: "Testville", State: "TS", ZipCode: "12345", TimeZone: "UTC", Latitude: 34.7, Longitude: -86.5,
 	}
 	createPropBody, _ := json.Marshal(createPropReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminProperties, adminToken, createPropBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminProperties, adminToken, createPropBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -82,7 +82,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 
 	createBldgReq := dtos.CreateBuildingRequest{PropertyID: createdProp.ID, BuildingName: "Main Building"}
 	createBldgBody, _ := json.Marshal(createBldgReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminBuildings, adminToken, createBldgBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminBuildings, adminToken, createBldgBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -91,7 +91,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 
 	createUnitReq := dtos.CreateUnitRequest{PropertyID: createdProp.ID, BuildingID: createdBldg.ID, UnitNumber: "101"}
 	createUnitBody, _ := json.Marshal(createUnitReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -100,7 +100,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 
 	createDumpsterReq := dtos.CreateDumpsterRequest{PropertyID: createdProp.ID, DumpsterNumber: "D1"}
 	createDumpsterBody, _ := json.Marshal(createDumpsterReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminDumpsters, adminToken, createDumpsterBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminDumpsters, adminToken, createDumpsterBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -110,7 +110,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	// 4. Get Snapshot and Assert
 	snapshotReq := dtos.SnapshotRequest{ManagerID: pmID}
 	snapshotBody, _ := json.Marshal(snapshotReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPMSnapshot, adminToken, snapshotBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSnapshot, adminToken, snapshotBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -130,7 +130,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	// 5. Update PM
 	updatePMReq := dtos.UpdatePropertyManagerRequest{ID: pmID, BusinessName: utils.Ptr("Updated Hierarchy PM")}
 	updatePMBody, _ := json.Marshal(updatePMReq)
-	req = h.BuildAuthRequest(http.MethodPatch, h.BaseURL+"/api/v1/account/admin"+routes.AdminPM, adminToken, updatePMBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPatch, h.BaseURL+routes.AdminPM, adminToken, updatePMBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -150,7 +150,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	// 6. Soft Delete Unit
 	deleteReq := dtos.DeleteRequest{ID: createdUnit.ID}
 	deleteBody, _ := json.Marshal(deleteReq)
-	req = h.BuildAuthRequest(http.MethodDelete, h.BaseURL+"/api/v1/account/admin"+routes.AdminUnits, adminToken, deleteBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodDelete, h.BaseURL+routes.AdminUnits, adminToken, deleteBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -174,7 +174,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	t.Logf("DB check PASSED: Unit %s was successfully soft-deleted at %s", createdUnit.ID, deletedAt.Format(time.RFC3339))
 
 	// 7. Get Snapshot again and assert deletion
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPMSnapshot, adminToken, snapshotBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSnapshot, adminToken, snapshotBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -194,7 +194,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	// 8. Soft Delete PM
 	deletePMReq := dtos.DeleteRequest{ID: pmID}
 	deletePMBody, _ := json.Marshal(deletePMReq)
-	req = h.BuildAuthRequest(http.MethodDelete, h.BaseURL+"/api/v1/account/admin"+routes.AdminPM, adminToken, deletePMBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodDelete, h.BaseURL+routes.AdminPM, adminToken, deletePMBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -202,7 +202,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	// 9. Verify PM is gone from search
 	searchAfterDeleteReq := dtos.SearchPropertyManagersRequest{Filters: map[string]any{"business_name": "Updated Hierarchy PM"}}
 	searchAfterDeleteBody, _ := json.Marshal(searchAfterDeleteReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPMSearch, adminToken, searchAfterDeleteBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSearch, adminToken, searchAfterDeleteBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -242,7 +242,7 @@ func TestAdminSearchAndPagination(t *testing.T) {
 		Filters: map[string]any{"business_name": "Search PM"},
 	}
 	searchBody, _ := json.Marshal(searchReq)
-	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPMSearch, adminToken, searchBody, "web", "127.0.0.1")
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSearch, adminToken, searchBody, "web", "127.0.0.1")
 	resp := h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -260,7 +260,7 @@ func TestAdminSearchAndPagination(t *testing.T) {
 		Page:     1,
 	}
 	paginatedBody, _ := json.Marshal(paginatedReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPMSearch, adminToken, paginatedBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSearch, adminToken, paginatedBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -276,7 +276,7 @@ func TestAdminSearchAndPagination(t *testing.T) {
 	// 5. Test page 2
 	paginatedReq.Page = 2
 	paginatedBody, _ = json.Marshal(paginatedReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPMSearch, adminToken, paginatedBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSearch, adminToken, paginatedBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -310,7 +310,7 @@ func TestAdminPartialUpdatePropertyManager(t *testing.T) {
 		BusinessName: &updatedBusinessName,
 	}
 	patchBody, _ := json.Marshal(patchReq)
-	req := h.BuildAuthRequest(http.MethodPatch, h.BaseURL+"/api/v1/account/admin"+routes.AdminPM, adminToken, patchBody, "web", "127.0.0.1")
+	req := h.BuildAuthRequest(http.MethodPatch, h.BaseURL+routes.AdminPM, adminToken, patchBody, "web", "127.0.0.1")
 	resp := h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 
@@ -346,7 +346,7 @@ func TestAdminSoftDeleteCascade(t *testing.T) {
 	// Create unit via API to get a full model back
 	unitReq := dtos.CreateUnitRequest{PropertyID: prop.ID, BuildingID: bldg.ID, UnitNumber: "C101"}
 	createUnitBody, _ := json.Marshal(unitReq)
-	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
 	resp := h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -356,7 +356,7 @@ func TestAdminSoftDeleteCascade(t *testing.T) {
 	// 2. Soft-delete the Property
 	deleteReq := dtos.DeleteRequest{ID: prop.ID}
 	deleteBody, _ := json.Marshal(deleteReq)
-	req = h.BuildAuthRequest(http.MethodDelete, h.BaseURL+"/api/v1/account/admin"+routes.AdminProperties, adminToken, deleteBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodDelete, h.BaseURL+routes.AdminProperties, adminToken, deleteBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -384,7 +384,7 @@ func TestAdminSoftDeleteCascade(t *testing.T) {
 	// 5. Verify snapshot endpoint reflects the deletion
 	snapshotReq := dtos.SnapshotRequest{ManagerID: pm.ID}
 	snapshotBody, _ := json.Marshal(snapshotReq)
-	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+"/api/v1/account/admin"+routes.AdminPMSnapshot, adminToken, snapshotBody, "web", "127.0.0.1")
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSnapshot, adminToken, snapshotBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -437,7 +437,7 @@ func TestAdminUpdate_ForcedConflict(t *testing.T) {
 			}
 
 			patchBody, _ := json.Marshal(patchReq)
-			req := h.BuildAuthRequest(http.MethodPatch, h.BaseURL+"/api/v1/account/admin"+routes.AdminPM, adminToken, patchBody, "web", "127.0.0.1")
+			req := h.BuildAuthRequest(http.MethodPatch, h.BaseURL+routes.AdminPM, adminToken, patchBody, "web", "127.0.0.1")
 			resp := h.DoRequest(req, http.DefaultClient)
 			defer resp.Body.Close()
 

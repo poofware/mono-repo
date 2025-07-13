@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -293,7 +294,8 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 	// Check if parent manager exists
 	_, err := s.pmRepo.GetByID(ctx, req.ManagerID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		utils.Logger.Infof("[Debug] Checking for parent PM. Got error: %v (type: %T)", err, err) // +++ NEW LOG +++
+		if errors.Is(err, pgx.ErrNoRows) { // MODIFIED: Use errors.Is for robustness
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
 		}
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for property manager", Err: err}

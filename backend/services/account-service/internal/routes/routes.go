@@ -55,7 +55,7 @@ const (
 	WorkerCheckrSessionToken = "/api/v1/account/worker/checkr/session-token"
 
 	// ───────────────────────────────
-	// Admin Panel (Relative Paths)
+	// Admin Panel (Full Paths)
 	// ───────────────────────────────
 	AdminPM         = "/api/v1/account/admin/property-managers"
 	AdminPMSearch   = "/api/v1/account/admin/property-managers/search"
