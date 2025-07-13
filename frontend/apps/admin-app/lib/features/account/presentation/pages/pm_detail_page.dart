@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:poof_admin/features/account/data/models/pms_snapshot.dart';
-import 'package:poof_admin/features/account/presentation/widgets/confirmation_dialog.dart';
+import 'package:poof_admin/features/account/data/models/pm_models.dart';
 import 'package:poof_admin/features/account/presentation/widgets/detail_item.dart';
 import 'package:poof_admin/features/account/presentation/widgets/property_card.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
@@ -12,15 +11,78 @@ class PmsDetailPage extends ConsumerWidget {
   final String pmId;
   const PmsDetailPage({super.key, required this.pmId});
 
-  Future<void> _deletePm(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showConfirmationDialog(
+  Future<void> _deletePm(
+      BuildContext context, WidgetRef ref, PropertyManagerAdmin pm) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      title: 'Delete Property Manager?',
-      content:
-          'This will soft-delete the manager and all associated properties, buildings, etc. Are you sure?',
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        final TextEditingController controller = TextEditingController();
+        bool isMatch = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Delete Property Manager?'),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    const Text(
+                        'This will soft-delete the manager and all associated properties, buildings, etc. This action cannot be undone.'),
+                    const SizedBox(height: 16),
+                    Text.rich(
+                      TextSpan(
+                        text: 'To confirm, please type ',
+                        children: <TextSpan>[
+                          TextSpan(
+                            text: pm.businessName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const TextSpan(text: ' into the box below.'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: controller,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: 'Business Name',
+                        hintText: pm.businessName,
+                      ),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          isMatch = value.trim().toLowerCase() ==
+                              pm.businessName.toLowerCase();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+                TextButton(
+                  onPressed: isMatch
+                      ? () => Navigator.of(context).pop(true)
+                      : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
-    if (confirmed && context.mounted) {
+    if (confirmed == true && context.mounted) {
       final success =
           await ref.read(pmsDetailProvider.notifier).deletePm(pmId);
       if (success && context.mounted) {
@@ -52,7 +114,11 @@ class PmsDetailPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.delete_outline),
             tooltip: 'Delete Property Manager',
-            onPressed: () => _deletePm(context, ref),
+            onPressed: () {
+              snapshotAsync.whenData((snapshot) {
+                _deletePm(context, ref, snapshot.propertyManager);
+              });
+            },
           ),
           IconButton(
             icon: const Icon(Icons.edit_outlined),

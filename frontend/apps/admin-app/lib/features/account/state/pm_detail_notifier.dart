@@ -52,6 +52,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
       // We still invalidate the snapshot provider in case the user tries to
       // access it again, ensuring they see the deleted state.
       _ref.invalidate(pmSnapshotProvider(pmId));
+      _ref.read(pmsListRefreshProvider.notifier).state++;
 
       state = const PmDetailState.success('Property Manager deleted.');
       return true;

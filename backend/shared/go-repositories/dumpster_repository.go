@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/poofware/go-models"
 )
@@ -151,14 +152,22 @@ func baseSelectDumpster() string {
 
 func (r *dumpsterRepo) scanDumpster(row pgx.Row) (*models.Dumpster, error) {
 	var d models.Dumpster
+	var deletedAt pgtype.Timestamptz
 	if err := row.Scan(
 		&d.ID, &d.PropertyID, &d.DumpsterNumber, &d.Latitude, &d.Longitude,
-		&d.CreatedAt, &d.UpdatedAt, &d.RowVersion, &d.DeletedAt,
+		&d.CreatedAt, &d.UpdatedAt, &d.RowVersion, &deletedAt,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
+
+	if deletedAt.Status == pgtype.Present {
+		d.DeletedAt = &deletedAt.Time
+	} else {
+		d.DeletedAt = nil
+	}
+
 	return &d, nil
 }

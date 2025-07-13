@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/poofware/go-models"
 )
@@ -169,6 +170,7 @@ func baseSelectProperty() string {
 
 func scanProperty(row pgx.Row) (*models.Property, error) {
 	var p models.Property
+	var deletedAt pgtype.Timestamptz
 	err := row.Scan(
 		&p.ID,
 		&p.ManagerID,
@@ -183,7 +185,7 @@ func scanProperty(row pgx.Row) (*models.Property, error) {
 		&p.CreatedAt,
 		&p.UpdatedAt,
 		&p.RowVersion,
-		&p.DeletedAt,
+		&deletedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -191,5 +193,12 @@ func scanProperty(row pgx.Row) (*models.Property, error) {
 		}
 		return nil, err
 	}
+
+	if deletedAt.Status == pgtype.Present {
+		p.DeletedAt = &deletedAt.Time
+	} else {
+		p.DeletedAt = nil
+	}
+
 	return &p, nil
 }

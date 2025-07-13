@@ -63,6 +63,7 @@ class _PmsDashboardPageState extends ConsumerState<PmsDashboardPage> {
     ref.listen<String>(pmsSearchQueryProvider, (_, __) {
       _pagingController.refresh();
     });
+    ref.listen<int>(pmsListRefreshProvider, (_, __) => _pagingController.refresh());
 
     final textTheme = Theme.of(context).textTheme;
 

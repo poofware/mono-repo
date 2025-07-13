@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/poofware/go-models"
 )
@@ -152,14 +153,22 @@ func baseSelectBuilding() string {
 
 func (r *buildingRepo) scanBuilding(row pgx.Row) (*models.PropertyBuilding, error) {
 	var b models.PropertyBuilding
+	var deletedAt pgtype.Timestamptz
 	if err := row.Scan(
 		&b.ID, &b.PropertyID, &b.BuildingName, &b.Address, &b.Latitude, &b.Longitude,
-		&b.CreatedAt, &b.UpdatedAt, &b.RowVersion, &b.DeletedAt,
+		&b.CreatedAt, &b.UpdatedAt, &b.RowVersion, &deletedAt,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
+
+	if deletedAt.Status == pgtype.Present {
+		b.DeletedAt = &deletedAt.Time
+	} else {
+		b.DeletedAt = nil
+	}
+
 	return &b, nil
 }

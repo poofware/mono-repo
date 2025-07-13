@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-utils"
@@ -243,12 +244,13 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 	var pm models.PropertyManager
 	var enc *string
 	var acc, prog string
+	var deletedAt pgtype.Timestamptz
 
 	err := row.Scan(
 		&pm.ID, &pm.Email, &pm.PhoneNumber, &enc,
 		&pm.BusinessName, &pm.BusinessAddress, &pm.City, &pm.State, &pm.ZipCode,
 		&acc, &prog,
-		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &pm.DeletedAt,
+		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &deletedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -266,6 +268,12 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 			return nil, decErr
 		}
 		pm.TOTPSecret = dec
+	}
+
+	if deletedAt.Status == pgtype.Present {
+		pm.DeletedAt = &deletedAt.Time
+	} else {
+		pm.DeletedAt = nil
 	}
 
 	return &pm, nil

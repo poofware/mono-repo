@@ -43,6 +43,8 @@ final pmsDetailProvider =
   return PmDetailNotifier(ref);
 });
 
+final pmsListRefreshProvider = StateProvider<int>((ref) => 0);
+
 /// Provider for the Property form.
 final propertyFormProvider =
     StateNotifierProvider.autoDispose<PropertyFormNotifier, PropertyFormState>((ref) {

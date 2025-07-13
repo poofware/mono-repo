@@ -14,6 +14,7 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
     try {
       final repo = _ref.read(pmsRepositoryProvider);
       await repo.createPropertyManager(data);
+      _ref.read(pmsListRefreshProvider.notifier).state++;
 
       // The list page will refresh automatically via its PagingController
       // when the user navigates back.
@@ -38,6 +39,7 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
       // Invalidate detail provider to refresh it.
       // The list page will handle its own refresh.
       _ref.invalidate(pmSnapshotProvider(pmId));
+      _ref.read(pmsListRefreshProvider.notifier).state++;
 
       state = const PmFormState.success('Property Manager updated successfully!');
       return true;

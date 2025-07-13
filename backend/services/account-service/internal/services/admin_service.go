@@ -256,7 +256,7 @@ func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, adminID, 
 
 		unitMap := make(map[uuid.UUID][]*models.Unit)
 		for _, u := range allUnits {
-						deletedAtStr := "nil"
+			deletedAtStr := "nil"
 			if u.DeletedAt != nil {
 				deletedAtStr = u.DeletedAt.Format(time.RFC3339)
 			}
