@@ -62,20 +62,25 @@ func (s *AdminJobService) authorizeAdmin(ctx context.Context, adminID uuid.UUID)
 	return nil
 }
 
+
 func (s *AdminJobService) logAudit(ctx context.Context, adminID, targetID uuid.UUID, action models.AuditAction, targetType models.AuditTargetType, details any) {
-	var detailsJSON json.RawMessage
-	if details != nil {
-		detailsJSON, _ = json.Marshal(details)
-	}
-	_ = s.auditRepo.Create(ctx, &models.AdminAuditLog{
+	logEntry := &models.AdminAuditLog{
 		ID:         uuid.New(),
 		AdminID:    adminID,
 		Action:     action,
 		TargetID:   targetID,
 		TargetType: targetType,
-		Details:    detailsJSON,
-	})
+	}
+
+	if details != nil {
+		marshalled, _ := json.Marshal(details)
+		raw := json.RawMessage(marshalled)
+		logEntry.Details = &raw
+	}
+
+	_ = s.auditRepo.Create(ctx, logEntry)
 }
+
 
 func (s *AdminJobService) AdminCreateJobDefinition(ctx context.Context, adminID uuid.UUID, req dtos.AdminCreateJobDefinitionRequest) (*models.JobDefinition, error) {
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {

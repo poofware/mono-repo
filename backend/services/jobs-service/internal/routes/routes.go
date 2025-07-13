@@ -25,5 +25,5 @@ const (
 
 	// Admin endpoints (NEW)
 	AdminJobsBase       = "/api/v1/jobs/admin"
-	AdminJobDefinitions = "/job-definitions"
+	AdminJobDefinitions = "/api/vi/jobs/admin/job-definitions"
 )

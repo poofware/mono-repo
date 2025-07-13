@@ -29,11 +29,11 @@ const (
 )
 
 type AdminAuditLog struct {
-	ID         uuid.UUID       `json:"id"`
-	AdminID    uuid.UUID       `json:"admin_id"`
-	Action     AuditAction     `json:"action"`
-	TargetID   uuid.UUID       `json:"target_id"`
-	TargetType AuditTargetType `json:"target_type"`
-	Details    json.RawMessage `json:"details,omitempty"` // JSONB field for before/after states
-	CreatedAt  time.Time       `json:"created_at"`
+	ID         uuid.UUID        `json:"id"`
+	AdminID    uuid.UUID        `json:"admin_id"`
+	Action     AuditAction      `json:"action"`
+	TargetID   uuid.UUID        `json:"target_id"`
+	TargetType AuditTargetType  `json:"target_type"`
+	Details    *json.RawMessage `json:"details,omitempty"` // JSONB field for before/after states
+	CreatedAt  time.Time        `json:"created_at"`
 }

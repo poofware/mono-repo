@@ -72,18 +72,21 @@ func (s *AdminService) authorizeAdmin(ctx context.Context, adminID uuid.UUID) er
 }
 
 func (s *AdminService) logAudit(ctx context.Context, adminID, targetID uuid.UUID, action models.AuditAction, targetType models.AuditTargetType, details any) {
-	var detailsJSON json.RawMessage
-	if details != nil {
-		detailsJSON, _ = json.Marshal(details)
-	}
-	_ = s.auditRepo.Create(ctx, &models.AdminAuditLog{
+	logEntry := &models.AdminAuditLog{
 		ID:         uuid.New(),
 		AdminID:    adminID,
 		Action:     action,
 		TargetID:   targetID,
 		TargetType: targetType,
-		Details:    detailsJSON,
-	})
+	}
+
+	if details != nil {
+		marshalled, _ := json.Marshal(details)
+		raw := json.RawMessage(marshalled)
+		logEntry.Details = &raw
+	}
+
+	_ = s.auditRepo.Create(ctx, logEntry)
 }
 
 // CreatePropertyManager creates a new property manager.
