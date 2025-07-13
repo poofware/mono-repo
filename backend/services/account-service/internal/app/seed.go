@@ -105,15 +105,10 @@ func SeedDefaultWorker(workerRepo repositories.WorkerRepository) error {
 }
 
 func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
-	// This could be a fixed ID for your default admin,
-	// or you can skip if you prefer to check by username/email only.
-	defaultAdminID, err := uuid.Parse("11111111-2222-3333-4444-555555555555")
-	if err != nil {
-		return fmt.Errorf("failed to parse default admin UUID: %w", err)
-	}
+	ctx := context.Background()
+	defaultAdminID := uuid.MustParse("11111111-2222-3333-4444-555555555555")
 
-	// Try to fetch by username (or by ID if you prefer).
-	existing, err := adminRepo.GetByUsername(context.Background(), "seedadmin")
+	existing, err := adminRepo.GetByUsername(ctx, "seedadmin")
 	if err != nil && err != pgx.ErrNoRows {
 		return fmt.Errorf("error checking for existing admin: %w", err)
 	}
@@ -122,16 +117,11 @@ func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
 		return nil
 	}
 
-	// If no record, create a new default admin.
-	// 1) Create a bcrypt-hash of some known password:
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte("P@ssword123"), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("failed to bcrypt-hash default admin password: %w", err)
 	}
 
-	// 2) TOTP secret: if you want a real TOTP, generate a Base32 secret or store a known string.
-	//   - Just be aware if your code expects to decrypt the TOTP secret in the DB, you might store
-	//     it unencrypted for local testing, or see the encryption logic in your admin repository.
 	totpSecret := "defaultadminstatusactivestotpsecret"
 
 	admin := &models.Admin{
@@ -139,17 +129,24 @@ func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
 		Username:     "seedadmin",
 		PasswordHash: string(hashedPass),
 		TOTPSecret:   totpSecret,
-		// CreatedAt + UpdatedAt can be set by the DB defaults if you want
 	}
 
-	// 3) Insert into DB
-	if err := adminRepo.Create(context.Background(), admin); err != nil {
+	if err := adminRepo.Create(ctx, admin); err != nil {
 		return fmt.Errorf("failed to insert default admin: %w", err)
 	}
 
-	utils.Logger.Infof("Successfully seeded default admin (ID=%s, username=%s).", defaultAdminID, admin.Username)
+	if err := adminRepo.UpdateWithRetry(ctx, admin.ID, func(stored *models.Admin) error {
+		stored.AccountStatus = models.AccountStatusActive
+		stored.SetupProgress = models.SetupProgressDone
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to update default admin status to active: %w", err)
+	}
+
+	utils.Logger.Infof("Successfully seeded and activated default admin (ID=%s, username=%s).", defaultAdminID, admin.Username)
 	return nil
 }
+
 /* ------------------------------------------------------------------
    Seed a minimal PropertyManager record (just the manager account).
    (We no longer seed property, buildings, or job definitions here.)

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
@@ -22,6 +23,40 @@ func NewAdminController(adminService *services.AdminService) *AdminController {
 		adminService: adminService,
 		validate:     validator.New(),
 	}
+}
+
+func (c *AdminController) formatValidationErrors(errs validator.ValidationErrors) []dtos.ValidationErrorDetail {
+	var details []dtos.ValidationErrorDetail
+	for _, err := range errs {
+		var message string
+		switch err.Tag() {
+		case "required":
+			message = fmt.Sprintf("Field '%s' is required", err.Field())
+		case "email":
+			message = fmt.Sprintf("Field '%s' must be a valid email address", err.Field())
+		case "e164":
+			message = fmt.Sprintf("Field '%s' must be a valid E.164 phone number", err.Field())
+		case "min":
+			message = fmt.Sprintf("Field '%s' must be at least %s in length", err.Field(), err.Param())
+		case "max":
+			message = fmt.Sprintf("Field '%s' must not exceed %s in length", err.Field(), err.Param())
+		case "len":
+			message = fmt.Sprintf("Field '%s' must be exactly %s in length", err.Field(), err.Param())
+		case "latitude":
+			message = fmt.Sprintf("Field '%s' must be a valid latitude", err.Field())
+		case "longitude":
+			message = fmt.Sprintf("Field '%s' must be a valid longitude", err.Field())
+		default:
+			message = fmt.Sprintf("Field validation for '%s' failed on the '%s' tag", err.Field(), err.Tag())
+		}
+
+		details = append(details, dtos.ValidationErrorDetail{
+			Field:   err.Field(),
+			Message: message,
+			Code:    "validation_" + err.Tag(),
+		})
+	}
+	return details
 }
 
 func (c *AdminController) getAdminID(r *http.Request) (uuid.UUID, error) {
@@ -60,7 +95,12 @@ func (c *AdminController) CreatePropertyManagerHandler(w http.ResponseWriter, r 
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -88,7 +128,12 @@ func (c *AdminController) UpdatePropertyManagerHandler(w http.ResponseWriter, r 
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -116,7 +161,12 @@ func (c *AdminController) DeletePropertyManagerHandler(w http.ResponseWriter, r 
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -133,7 +183,7 @@ func (c *AdminController) DeletePropertyManagerHandler(w http.ResponseWriter, r 
 
 // POST /api/v1/account/admin/property-managers/search
 func (c *AdminController) SearchPropertyManagersHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := c.getAdminID(r)
+	adminID, err := c.getAdminID(r)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
@@ -145,7 +195,7 @@ func (c *AdminController) SearchPropertyManagersHandler(w http.ResponseWriter, r
 		return
 	}
 
-	pms, err := c.adminService.SearchPropertyManagers(r.Context(), req)
+	pms, err := c.adminService.SearchPropertyManagers(r.Context(), adminID, req)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
@@ -156,7 +206,7 @@ func (c *AdminController) SearchPropertyManagersHandler(w http.ResponseWriter, r
 
 // POST /api/v1/account/admin/property-manager/snapshot
 func (c *AdminController) GetPropertyManagerSnapshotHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := c.getAdminID(r)
+	adminID, err := c.getAdminID(r)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
@@ -169,11 +219,16 @@ func (c *AdminController) GetPropertyManagerSnapshotHandler(w http.ResponseWrite
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
-	snapshot, err := c.adminService.GetPropertyManagerSnapshot(r.Context(), req.ManagerID)
+	snapshot, err := c.adminService.GetPropertyManagerSnapshot(r.Context(), adminID, req.ManagerID)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
@@ -197,7 +252,12 @@ func (c *AdminController) CreatePropertyHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -225,7 +285,12 @@ func (c *AdminController) UpdatePropertyHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -253,7 +318,12 @@ func (c *AdminController) DeletePropertyHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -283,7 +353,12 @@ func (c *AdminController) CreateBuildingHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -311,7 +386,12 @@ func (c *AdminController) UpdateBuildingHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -339,7 +419,12 @@ func (c *AdminController) DeleteBuildingHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -369,7 +454,12 @@ func (c *AdminController) CreateUnitHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -397,7 +487,12 @@ func (c *AdminController) UpdateUnitHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -425,7 +520,12 @@ func (c *AdminController) DeleteUnitHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -455,7 +555,12 @@ func (c *AdminController) CreateDumpsterHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -483,7 +588,12 @@ func (c *AdminController) UpdateDumpsterHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 
@@ -511,7 +621,12 @@ func (c *AdminController) DeleteDumpsterHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.validate.Struct(req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		}
 		return
 	}
 

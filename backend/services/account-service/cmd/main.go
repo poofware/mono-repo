@@ -38,7 +38,7 @@ func main() {
 	unitRepo := repositories.NewUnitRepository(application.DB)
 	jobDefRepo := repositories.NewJobDefinitionRepository(application.DB)
 	adminRepo := repositories.NewAdminRepository(application.DB, cfg.DBEncryptionKey)
-	auditRepo := repositories.NewAdminAuditLogRepository(application.DB) // NEW
+	auditRepo := repositories.NewAdminAuditLogRepository(application.DB)
 
 	if cfg.LDFlag_SeedDbWithTestAccounts {
 		if err := app.SeedAllTestAccounts(workerRepo, pmRepo, adminRepo); err != nil {
@@ -53,7 +53,7 @@ func main() {
 	workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo)
 	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo)
 	stripeWebhookCheckService := services.NewStripeWebhookCheckService()
-	adminService := services.NewAdminService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo, jobDefRepo, auditRepo) // NEW
+	adminService := services.NewAdminService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo, jobDefRepo, auditRepo, adminRepo)
 
 	checkrService, err := services.NewCheckrService(cfg, workerRepo)
 	if err != nil {
@@ -62,7 +62,7 @@ func main() {
 
 	// Controllers
 	pmController := controllers.NewPMController(pmService)
-	adminController := controllers.NewAdminController(adminService) // NEW
+	adminController := controllers.NewAdminController(adminService)
 
 	stripeWebhookController := controllers.NewStripeWebhookController(cfg, workerStripeService, stripeWebhookCheckService)
 	healthController := controllers.NewHealthController(application)

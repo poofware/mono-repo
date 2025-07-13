@@ -6,6 +6,13 @@ import (
 	"github.com/poofware/go-models"
 )
 
+// NEW: For structured validation error responses.
+type ValidationErrorDetail struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
+}
+
 // Generic request for soft-deleting an entity.
 type DeleteRequest struct {
 	ID uuid.UUID `json:"id" validate:"required"`

@@ -2,7 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_admin/features/account/data/api/api_exception.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
-import 'package:poof_admin/features/account/state/job_definition_form_state.dart';
+import 'package:poof_admin/features/jobs/state/job_definition_form_state.dart';
 
 class JobDefinitionFormNotifier extends StateNotifier<JobDefinitionFormState> {
   final Ref _ref;

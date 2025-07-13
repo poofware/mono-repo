@@ -1,5 +1,4 @@
 // go-utils/password.go
-// NEW FILE
 package utils
 
 import "golang.org/x/crypto/bcrypt"

@@ -6,7 +6,7 @@ import 'package:poof_admin/features/account/data/models/pm_models.dart';
 import 'package:poof_admin/features/account/presentation/pages/building_form_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/dashboard_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/dumpster_form_page.dart';
-import 'package:poof_admin/features/account/presentation/pages/job_definition_form_page.dart';
+import 'package:poof_admin/features/jobs/presentation/pages/job_definition_form_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/pm_dashboard_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/pm_detail_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/pm_form_page.dart';

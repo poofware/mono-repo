@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_admin/features/account/data/models/building_admin.dart';
 import 'package:poof_admin/features/account/data/models/dumpster_admin.dart';
-import 'package:poof_admin/features/account/data/models/job_definition_admin.dart';
+import 'package:poof_admin/features/jobs/data/models/job_definition_admin.dart';
 import 'package:poof_admin/features/account/data/models/property_admin.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
-import 'package:poof_admin/features/account/state/job_definition_form_notifier.dart';
-import 'package:poof_admin/features/account/state/job_definition_form_state.dart';
+import 'package:poof_admin/features/jobs/state/job_definition_form_notifier.dart';
+import 'package:poof_admin/features/jobs/state/job_definition_form_state.dart';
 
 class JobDefinitionFormPage extends ConsumerStatefulWidget {
   final String pmId;

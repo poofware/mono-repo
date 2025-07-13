@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_admin/features/account/data/models/property_admin.dart';
 import 'package:poof_admin/features/account/presentation/widgets/building_view.dart';
-import 'package:poof_admin/features/account/presentation/widgets/confirmation_dialog.dart';
 import 'package:poof_admin/features/account/presentation/widgets/detail_item.dart';
 import 'package:poof_admin/features/account/presentation/widgets/detail_section.dart';
 import 'package:poof_admin/features/account/presentation/widgets/dumpster_view.dart';
-import 'package:poof_admin/features/account/presentation/widgets/job_definition_view.dart';
+import 'package:poof_admin/features/jobs/presentation/widgets/job_definition_view.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 
 class PropertyCard extends ConsumerWidget {
@@ -15,17 +14,80 @@ class PropertyCard extends ConsumerWidget {
   const PropertyCard({super.key, required this.property});
 
   Future<void> _deleteProperty(
-      BuildContext context, WidgetRef ref, String propertyId, String pmId) async {
-    final confirmed = await showConfirmationDialog(
+      BuildContext context, WidgetRef ref, PropertyAdmin property) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      title: 'Delete Property?',
-      content:
-          'This will soft-delete this property and all its associated data. This action cannot be undone.',
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        final TextEditingController controller = TextEditingController();
+        bool isMatch = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Delete Property?'),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    const Text(
+                        'This will soft-delete this property and all its associated data. This action cannot be undone.'),
+                    const SizedBox(height: 16),
+                    Text.rich(
+                      TextSpan(
+                        text: 'To confirm, please type ',
+                        children: <TextSpan>[
+                          TextSpan(
+                            text: property.propertyName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const TextSpan(text: ' into the box below.'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: controller,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: 'Property Name',
+                        hintText: property.propertyName,
+                      ),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          isMatch = value.trim().toLowerCase() ==
+                              property.propertyName.toLowerCase();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+                TextButton(
+                  onPressed: isMatch
+                      ? () => Navigator.of(context).pop(true)
+                      : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-    if (confirmed) {
+
+    if (confirmed == true && context.mounted) {
       await ref
           .read(pmsDetailProvider.notifier)
-          .deleteProperty(propertyId, pmId);
+          .deleteProperty(property.id, property.managerId);
     }
   }
 
@@ -52,7 +114,7 @@ class PropertyCard extends ConsumerWidget {
             IconButton(
               icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
               tooltip: 'Delete Property',
-              onPressed: () => _deleteProperty(context, ref, property.id, property.managerId),
+              onPressed: () => _deleteProperty(context, ref, property),
             ),
             const Icon(Icons.expand_more), // Default ExpansionTile icon
           ],

@@ -198,7 +198,7 @@ class BuildingView extends ConsumerWidget {
                   icon: const Icon(Icons.edit_outlined),
                   tooltip: 'Edit Building',
                   onPressed: () => context.go(
-                    '/dashboard/pms/${property.managerId}/properties/${property.id}/buildings/edit',
+                    '/dashboard/pms/${property.managerId}/properties/${property.id}/buildings/${building.id}/edit',
                     extra: building,
                   ),
                 ),
@@ -209,6 +209,7 @@ class BuildingView extends ConsumerWidget {
                   onPressed: () => _deleteBuilding(
                       context, ref, building.id, property.managerId),
                 ),
+                const Icon(Icons.expand_more), // Add the expansion indicator icon
               ],
             ),
             children: [

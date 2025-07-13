@@ -1,6 +1,6 @@
 import 'package:poof_admin/features/account/data/models/building_admin.dart';
 import 'package:poof_admin/features/account/data/models/dumpster_admin.dart';
-import 'package:poof_admin/features/account/data/models/job_definition_admin.dart';
+import 'package:poof_admin/features/jobs/data/models/job_definition_admin.dart';
 
 class PropertyAdmin {
   final String id;

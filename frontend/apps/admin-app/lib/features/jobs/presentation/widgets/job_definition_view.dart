@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:poof_admin/features/account/data/models/job_definition_admin.dart';
+import 'package:poof_admin/features/jobs/data/models/job_definition_admin.dart';
 import 'package:poof_admin/features/account/presentation/widgets/confirmation_dialog.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 
