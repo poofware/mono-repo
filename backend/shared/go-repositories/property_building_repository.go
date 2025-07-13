@@ -158,9 +158,6 @@ func (r *buildingRepo) scanBuilding(row pgx.Row) (*models.PropertyBuilding, erro
 		&b.ID, &b.PropertyID, &b.BuildingName, &b.Address, &b.Latitude, &b.Longitude,
 		&b.CreatedAt, &b.UpdatedAt, &b.RowVersion, &deletedAt,
 	); err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 

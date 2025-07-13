@@ -14,7 +14,7 @@ type Dumpster struct {
     Longitude  float64   `json:"longitude"`
     CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty"` // NEW
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 }
 
 func (d *Dumpster) GetID() string { return d.ID.String() }

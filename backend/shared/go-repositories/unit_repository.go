@@ -72,11 +72,15 @@ func (r *unitRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Unit, err
 }
 
 func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*models.Unit, error) {
-		// The snapshot requires ALL units, including soft-deleted ones. The service layer is responsible for filtering.
+	// The snapshot requires ALL units, including soft-deleted ones. The service layer is responsible for filtering.
 	// Therefore, we remove the "AND deleted_at IS NULL" clause here.
-	// We also inline the SELECT statement to ensure the `deleted_at` column is always included, fixing the scan issue.
-	const query = `SELECT id,property_id,building_id,unit_number,tenant_token,
-		created_at, updated_at, row_version, deleted_at FROM units WHERE property_id=$1 ORDER BY unit_number`
+	const query = `
+		SELECT id, property_id, building_id, unit_number, tenant_token, 
+		created_at, updated_at, row_version, deleted_at 
+		FROM units 
+		WHERE property_id=$1 
+		ORDER BY unit_number
+	`
 	rows, err := r.db.Query(ctx, query, propID)
 	if err != nil {
 		return nil, err
@@ -162,26 +166,23 @@ func baseSelectUnit() string {
 
 func (r *unitRepo) scanUnit(row pgx.Row) (*models.Unit, error) {
 	var u models.Unit
-		// Use pgx's native type for nullable timestamps to ensure robust scanning.
-		var deletedAt pgtype.Timestamptz
-		 if err := row.Scan(
-			 &u.ID, &u.PropertyID, &u.BuildingID,
-			 &u.UnitNumber, &u.TenantToken,
-			&u.CreatedAt, &u.UpdatedAt, &u.RowVersion, &deletedAt,
-		 ); err != nil {
-			 if err == pgx.ErrNoRows {
-				 return nil, nil
-			 }
-			 return nil, err
-		 }
-		// Manually assign the value from the pgtype wrapper to the model's pointer.
-		if deletedAt.Status == pgtype.Present {
-			u.DeletedAt = &deletedAt.Time
-		} else {
-			u.DeletedAt = nil
-		}
-		 return &u, nil
-	 }
+	// Use pgx's native type for nullable timestamps to ensure robust scanning.
+	var deletedAt pgtype.Timestamptz
+	if err := row.Scan(
+		&u.ID, &u.PropertyID, &u.BuildingID,
+		&u.UnitNumber, &u.TenantToken,
+		&u.CreatedAt, &u.UpdatedAt, &u.RowVersion, &deletedAt,
+	); err != nil {
+		return nil, err
+	}
+	// Manually assign the value from the pgtype wrapper to the model's pointer.
+	if deletedAt.Status == pgtype.Present {
+		u.DeletedAt = &deletedAt.Time
+	} else {
+		u.DeletedAt = nil
+	}
+	return &u, nil
+}
 
 func (r *unitRepo) scanUnits(rows pgx.Rows) ([]*models.Unit, error) {
 	var out []*models.Unit

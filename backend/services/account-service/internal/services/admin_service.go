@@ -59,9 +59,6 @@ func (s *AdminService) authorizeAdmin(ctx context.Context, adminID uuid.UUID) er
 		// A different DB error occurred.
 		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to verify admin status", Err: err}
 	}
-	if admin == nil {
-		return &utils.AppError{StatusCode: http.StatusForbidden, Code: utils.ErrCodeUnauthorized, Message: "Access denied"}
-	}
 
 	// Ensure the admin account is active.
 	if admin.AccountStatus != models.AccountStatusActive {
@@ -237,8 +234,11 @@ func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, adminID, 
 		return nil, err
 	}
 	pm, err := s.pmRepo.GetByID(ctx, managerID)
-	if err != nil || pm == nil {
-		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Property manager not found"}
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Property manager not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to retrieve property manager", Err: err}
 	}
 
 	pmDTO := shared_dtos.NewPMFromModel(*pm)
@@ -291,9 +291,9 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 		return nil, err
 	}
 	// Check if parent manager exists
-	pm, err := s.pmRepo.GetByID(ctx, req.ManagerID)
-	if err != nil || pm == nil {
-		if err == pgx.ErrNoRows || pm == nil {
+	_, err := s.pmRepo.GetByID(ctx, req.ManagerID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
 		}
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for property manager", Err: err}
@@ -413,9 +413,9 @@ func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, re
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
 		return nil, err
 	}
-	prop, err := s.propRepo.GetByID(ctx, req.PropertyID)
-	if err != nil || prop == nil {
-		if err == pgx.ErrNoRows || prop == nil {
+	_, err := s.propRepo.GetByID(ctx, req.PropertyID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property not found"}
 		}
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for parent property", Err: err}
@@ -508,8 +508,8 @@ func (s *AdminService) CreateUnit(ctx context.Context, adminID uuid.UUID, req in
 		return nil, err
 	}
 	bldg, err := s.bldgRepo.GetByID(ctx, req.BuildingID)
-	if err != nil || bldg == nil {
-		if err == pgx.ErrNoRows || bldg == nil {
+	if err != nil {
+		if err == pgx.ErrNoRows {
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent building not found"}
 		}
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for parent building", Err: err}
@@ -599,9 +599,9 @@ func (s *AdminService) CreateDumpster(ctx context.Context, adminID uuid.UUID, re
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
 		return nil, err
 	}
-	prop, err := s.propRepo.GetByID(ctx, req.PropertyID)
-	if err != nil || prop == nil {
-		if err == pgx.ErrNoRows || prop == nil {
+	_, err := s.propRepo.GetByID(ctx, req.PropertyID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property not found"}
 		}
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for parent property", Err: err}

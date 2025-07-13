@@ -153,28 +153,28 @@ func main() {
 	secured.HandleFunc(routes.WorkerCheckrOutcome, workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrSessionToken, workerCheckrController.CreateSessionTokenHandler).Methods(http.MethodGet)
 
-	// Admin Routes (now using standard AuthMiddleware)
-	secured.HandleFunc(routes.AdminBase+routes.AdminPM, adminController.CreatePropertyManagerHandler).Methods(http.MethodPost)
-	secured.HandleFunc(routes.AdminBase+routes.AdminPM, adminController.UpdatePropertyManagerHandler).Methods(http.MethodPatch)
-	secured.HandleFunc(routes.AdminBase+routes.AdminPM, adminController.DeletePropertyManagerHandler).Methods(http.MethodDelete)
-	secured.HandleFunc(routes.AdminBase+routes.AdminPMSearch, adminController.SearchPropertyManagersHandler).Methods(http.MethodPost)
-	secured.HandleFunc(routes.AdminBase+routes.AdminPMSnapshot, adminController.GetPropertyManagerSnapshotHandler).Methods(http.MethodPost)
+	// Admin Routes 
+	secured.HandleFunc(routes.AdminPM, adminController.CreatePropertyManagerHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminPM, adminController.UpdatePropertyManagerHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminPM, adminController.DeletePropertyManagerHandler).Methods(http.MethodDelete)
+	secured.HandleFunc(routes.AdminPMSearch, adminController.SearchPropertyManagersHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminPMSnapshot, adminController.GetPropertyManagerSnapshotHandler).Methods(http.MethodPost)
 
-	secured.HandleFunc(routes.AdminBase+routes.AdminProperties, adminController.CreatePropertyHandler).Methods(http.MethodPost)
-	secured.HandleFunc(routes.AdminBase+routes.AdminProperties, adminController.UpdatePropertyHandler).Methods(http.MethodPatch)
-	secured.HandleFunc(routes.AdminBase+routes.AdminProperties, adminController.DeletePropertyHandler).Methods(http.MethodDelete)
+	secured.HandleFunc(routes.AdminProperties, adminController.CreatePropertyHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminProperties, adminController.UpdatePropertyHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminProperties, adminController.DeletePropertyHandler).Methods(http.MethodDelete)
 
-	secured.HandleFunc(routes.AdminBase+routes.AdminBuildings, adminController.CreateBuildingHandler).Methods(http.MethodPost)
-	secured.HandleFunc(routes.AdminBase+routes.AdminBuildings, adminController.UpdateBuildingHandler).Methods(http.MethodPatch)
-	secured.HandleFunc(routes.AdminBase+routes.AdminBuildings, adminController.DeleteBuildingHandler).Methods(http.MethodDelete)
+	secured.HandleFunc(routes.AdminBuildings, adminController.CreateBuildingHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminBuildings, adminController.UpdateBuildingHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminBuildings, adminController.DeleteBuildingHandler).Methods(http.MethodDelete)
 
-	secured.HandleFunc(routes.AdminBase+routes.AdminUnits, adminController.CreateUnitHandler).Methods(http.MethodPost)
-	secured.HandleFunc(routes.AdminBase+routes.AdminUnits, adminController.UpdateUnitHandler).Methods(http.MethodPatch)
-	secured.HandleFunc(routes.AdminBase+routes.AdminUnits, adminController.DeleteUnitHandler).Methods(http.MethodDelete)
+	secured.HandleFunc(routes.AdminUnits, adminController.CreateUnitHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminUnits, adminController.UpdateUnitHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminUnits, adminController.DeleteUnitHandler).Methods(http.MethodDelete)
 
-	secured.HandleFunc(routes.AdminBase+routes.AdminDumpsters, adminController.CreateDumpsterHandler).Methods(http.MethodPost)
-	secured.HandleFunc(routes.AdminBase+routes.AdminDumpsters, adminController.UpdateDumpsterHandler).Methods(http.MethodPatch)
-	secured.HandleFunc(routes.AdminBase+routes.AdminDumpsters, adminController.DeleteDumpsterHandler).Methods(http.MethodDelete)
+	secured.HandleFunc(routes.AdminDumpsters, adminController.CreateDumpsterHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminDumpsters, adminController.UpdateDumpsterHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminDumpsters, adminController.DeleteDumpsterHandler).Methods(http.MethodDelete)
 
 	allowedOrigins := []string{cfg.AppUrl}
 	if !cfg.LDFlag_CORSHighSecurity {

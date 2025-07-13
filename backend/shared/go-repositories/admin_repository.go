@@ -44,16 +44,16 @@ func (r *adminRepo) Create(ctx context.Context, admin *models.Admin) error {
 		encTOTP = tempEncTOTP
 	}
 
-		// The caller is responsible for hashing the password. This repository
+	// The caller is responsible for hashing the password. This repository
 	// should just store the hash it's given.
-		_, err := r.db.Exec(ctx, `
+	_, err := r.db.Exec(ctx, `
 			 INSERT INTO admins (
 				 id, username, password_hash, totp_secret,
 				 account_status, setup_progress,
 				 created_at, updated_at, row_version
 			 ) VALUES ($1, $2, $3, $4, 'INCOMPLETE', 'ID_VERIFY', NOW(), NOW(), 1)
 		`, admin.ID, admin.Username, admin.PasswordHash, encTOTP)
-		 return err
+	return err
 }
 
 func (r *adminRepo) GetByUsername(ctx context.Context, username string) (*models.Admin, error) {
@@ -113,9 +113,6 @@ func (r *adminRepo) scanAdmin(row pgx.Row) (*models.Admin, error) {
 		&admin.RowVersion, &admin.CreatedAt, &admin.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 

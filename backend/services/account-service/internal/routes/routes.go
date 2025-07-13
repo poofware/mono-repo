@@ -57,12 +57,11 @@ const (
 	// ───────────────────────────────
 	// Admin Panel (Relative Paths)
 	// ───────────────────────────────
-	AdminBase       = "/api/v1/account/admin" // Base prefix for the admin sub-router
-	AdminPM         = "/property-managers"
-	AdminPMSearch   = "/property-managers/search"
-	AdminPMSnapshot = "/property-manager/snapshot"
-	AdminProperties = "/properties"
-	AdminBuildings  = "/property-buildings"
-	AdminUnits      = "/units"
-	AdminDumpsters  = "/dumpsters"
+	AdminPM         = "/api/v1/account/admin/property-managers"
+	AdminPMSearch   = "/api/v1/account/admin/property-managers/search"
+	AdminPMSnapshot = "/api/v1/account/admin/property-manager/snapshot"
+	AdminProperties = "/api/v1/account/admin/properties"
+	AdminBuildings  = "/api/v1/account/admin/property-buildings"
+	AdminUnits      = "/api/v1/account/admin/units"
+	AdminDumpsters  = "/api/v1/account/admin/dumpsters"
 )

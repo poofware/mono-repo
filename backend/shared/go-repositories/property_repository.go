@@ -188,9 +188,6 @@ func scanProperty(row pgx.Row) (*models.Property, error) {
 		&deletedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 

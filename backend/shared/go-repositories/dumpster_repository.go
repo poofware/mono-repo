@@ -157,9 +157,6 @@ func (r *dumpsterRepo) scanDumpster(row pgx.Row) (*models.Dumpster, error) {
 		&d.ID, &d.PropertyID, &d.DumpsterNumber, &d.Latitude, &d.Longitude,
 		&d.CreatedAt, &d.UpdatedAt, &d.RowVersion, &deletedAt,
 	); err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 

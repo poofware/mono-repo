@@ -15,11 +15,10 @@ type Unit struct {
 	PropertyID  uuid.UUID  `json:"property_id"`
 	BuildingID  uuid.UUID  `json:"building_id"`
 	UnitNumber  string     `json:"unit_number"`
-	TenantToken string    `json:"tenant_token"`
+	TenantToken string     `json:"tenant_token"`
 	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-    DeletedAt   *time.Time `json:"deleted_at,omitempty"` // NEW
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
 func (u *Unit) GetID() string { return u.ID.String() }
-
