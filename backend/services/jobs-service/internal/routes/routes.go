@@ -21,9 +21,9 @@ const (
 	// Manager or system endpoint
 	JobsDefinitionStatus = "/api/v1/jobs/pm/definition/status"
 	JobsDefinitionCreate = "/api/v1/jobs/pm/definition"
+	JobsPMInstances      = "/api/v1/jobs/pm/instances"
 
-	JobsPMInstances = "/api/v1/jobs/pm/instances"
-
-	//Need endpoint 
+	// Admin endpoints (NEW)
+	AdminJobsBase       = "/api/v1/jobs/admin"
+	AdminJobDefinitions = "/job-definitions"
 )
-

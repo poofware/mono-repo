@@ -27,7 +27,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
 	require.NoError(t, err, "Failed to get seeded admin user")
 	require.NotNil(t, adminUser, "Seeded admin user 'seedadmin' not found. Ensure DB is seeded.")
-	adminToken := h.CreateAdminJWT(adminUser.ID, "127.0.0.1")
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
 
 	// 2. Create Property Manager
 	createPMReq := dtos.CreatePropertyManagerRequest{
@@ -219,7 +219,7 @@ func TestAdminSearchAndPagination(t *testing.T) {
 	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
 	require.NoError(t, err, "Failed to get seeded admin user")
 	require.NotNil(t, adminUser, "Seeded admin user 'seedadmin' not found. Ensure DB is seeded.")
-	adminToken := h.CreateAdminJWT(adminUser.ID, "127.0.0.1")
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
 
 	// 2. Create multiple PMs
 	pmNames := []string{"Search PM A", "Search PM B", "Another Corp", "Search PM C"}
@@ -297,7 +297,7 @@ func TestAdminPartialUpdatePropertyManager(t *testing.T) {
 	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
 	require.NoError(t, err)
 	require.NotNil(t, adminUser)
-	adminToken := h.CreateAdminJWT(adminUser.ID, "127.0.0.1")
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
 	pm := h.CreateTestPM(ctx, "partial-update-pm")
 
 	// 2. PATCH only the business name
@@ -338,7 +338,7 @@ func TestAdminSoftDeleteCascade(t *testing.T) {
 	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
 	require.NoError(t, err)
 	require.NotNil(t, adminUser)
-	adminToken := h.CreateAdminJWT(adminUser.ID, "127.0.0.1")
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
 	pm := h.CreateTestPM(ctx, "cascade-delete-pm")
 	prop := h.CreateTestProperty(ctx, "Cascade Property", pm.ID, 34.0, -86.0)
 	bldg := h.CreateTestBuilding(ctx, prop.ID, "Cascade Building")
@@ -404,7 +404,7 @@ func TestAdminUpdate_ForcedConflict(t *testing.T) {
 	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
 	require.NoError(t, err)
 	require.NotNil(t, adminUser)
-	adminToken := h.CreateAdminJWT(adminUser.ID, "127.0.0.1")
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
 	pm := h.CreateTestPM(ctx, "conflict-pm")
 
 	// 2. Spawn concurrent goroutines to PATCH the same PM

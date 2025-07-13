@@ -34,6 +34,7 @@ func main() {
 	}
 	defer application.Close()
 
+	// --- Repositories ---
 	defRepo := repositories.NewJobDefinitionRepository(application.DB)
 	instRepo := repositories.NewJobInstanceRepository(application.DB)
 	propRepo := repositories.NewPropertyRepository(application.DB)
@@ -41,41 +42,32 @@ func main() {
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	agentRepo := repositories.NewAgentRepository(application.DB)
-
-	// NEW: unitRepo for tenant tokens
 	unitRepo := repositories.NewUnitRepository(application.DB)
+	// New repositories for admin service
+	adminRepo := repositories.NewAdminRepository(application.DB, cfg.DBEncryptionKey)
+	auditRepo := repositories.NewAdminAuditLogRepository(application.DB)
+	pmRepo := repositories.NewPropertyManagerRepository(application.DB, cfg.DBEncryptionKey)
 
+	// --- Services ---
 	twClient := twilio.NewRestClientWithParams(twilio.ClientParams{
 		Username: cfg.TwilioAccountSID,
 		Password: cfg.TwilioAuthToken,
 	})
 	sgClient := sendgrid.NewSendClient(cfg.SendGridAPIKey)
 
-	// UPDATED: pass unitRepo to jobService
 	jobService := services.NewJobService(
-		cfg,
-		defRepo,
-		instRepo,
-		propRepo,
-		bldgRepo,
-		dumpRepo,
-		workerRepo,
-		agentRepo,
-		unitRepo, // new
-		twClient,
-		sgClient,
+		cfg, defRepo, instRepo, propRepo, bldgRepo, dumpRepo,
+		workerRepo, agentRepo, unitRepo, twClient, sgClient,
+	)
+	// New admin service
+	adminJobService := services.NewAdminJobService(
+		adminRepo, auditRepo, defRepo, instRepo, pmRepo, propRepo, jobService,
 	)
 
 	if cfg.LDFlag_SeedDbWithTestData {
 		if err := app.SeedAllTestData(
-			context.Background(),
-			application.DB,
-			cfg.DBEncryptionKey,
-			propRepo,
-			bldgRepo,
-			dumpRepo,
-			defRepo,
-			jobService,
+			context.Background(), application.DB, cfg.DBEncryptionKey,
+			propRepo, bldgRepo, dumpRepo, defRepo, jobService,
 		); err != nil {
 			utils.Logger.WithError(err).Fatal("Failed to seed test data")
 		} else {
@@ -83,93 +75,79 @@ func main() {
 		}
 	}
 
-	escalationService := services.NewJobEscalationService(
-		cfg,
-		defRepo,
-		instRepo,
-		workerRepo,
-		propRepo,
-		agentRepo,
-		jobService,
-	)
+	escalationService := services.NewJobEscalationService(cfg, defRepo, instRepo, workerRepo, propRepo, agentRepo, jobService)
 	jobScheduler := services.NewJobSchedulerService(cfg, defRepo, instRepo, propRepo)
 
+	// --- Controllers ---
 	jobsController := controllers.NewJobsController(jobService)
 	healthController := controllers.NewHealthController(application)
 	jobDefsController := controllers.NewJobDefinitionsController(jobService)
+	adminJobsController := controllers.NewAdminJobsController(adminJobService) // New
 
+	// --- Router ---
 	router := mux.NewRouter()
-
-	// Public
 	router.HandleFunc(routes.Health, healthController.HealthCheckHandler).Methods(http.MethodGet)
 
 	secured := router.NewRoute().Subrouter()
 	secured.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation))
 
+	// Worker and PM routes
 	secured.HandleFunc(routes.JobsOpen, jobsController.ListJobsHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.JobsMy, jobsController.ListMyJobsHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.JobsUnaccept, jobsController.UnacceptJobHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.JobsCancel, jobsController.CancelJobHandler).Methods(http.MethodPost)
-
 	secured.HandleFunc(routes.JobsDefinitionStatus, jobDefsController.SetDefinitionStatusHandler).Methods(http.MethodPatch, http.MethodPut)
 	secured.HandleFunc(routes.JobsDefinitionCreate, jobDefsController.CreateDefinitionHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.JobsPMInstances, jobDefsController.ListJobsForPropertyHandler).Methods(http.MethodPost)
 
-    attestationRepo := repositories.NewAttestationRepository(application.DB)
+	// Admin routes (NEW)
+	secured.HandleFunc(routes.AdminJobsBase+routes.AdminJobDefinitions, adminJobsController.AdminCreateJobDefinitionHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminJobsBase+routes.AdminJobDefinitions, adminJobsController.AdminUpdateJobDefinitionHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminJobsBase+routes.AdminJobDefinitions, adminJobsController.AdminSoftDeleteJobDefinitionHandler).Methods(http.MethodDelete)
+
+	attestationRepo := repositories.NewAttestationRepository(application.DB)
 	challengeRepo := repositories.NewAttestationChallengeRepository(application.DB)
-    attVerifier, attErr := utils.NewAttestationVerifier(
-        context.Background(),
-        cfg.PlayIntegritySAJSON,
-        cfg.AppleDeviceCheckKey,
-        attestationRepo.LookupKey,
-        attestationRepo.SaveKey,
-		challengeRepo.Consume,
-    )
-    if attErr != nil {
-        utils.Logger.Fatal("Failed to create attestation verifier:", attErr)
-    }
+	attVerifier, attErr := utils.NewAttestationVerifier(
+		context.Background(), cfg.PlayIntegritySAJSON, cfg.AppleDeviceCheckKey,
+		attestationRepo.LookupKey, attestationRepo.SaveKey, challengeRepo.Consume,
+	)
+	if attErr != nil {
+		utils.Logger.Fatal("Failed to create attestation verifier:", attErr)
+	}
 
 	locationSecured := router.NewRoute().Subrouter()
 	locationSecured.Use(
 		middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation),
 		middleware.MobileAttestationMiddleware(cfg.LDFlag_DoRealMobileDeviceAttestation, attVerifier),
 	)
-
 	locationSecured.HandleFunc(routes.JobsStart, jobsController.StartJobHandler).Methods(http.MethodPost)
 	locationSecured.HandleFunc(routes.JobsComplete, jobsController.CompleteJobHandler).Methods(http.MethodPost)
 	locationSecured.HandleFunc(routes.JobsAccept, jobsController.AcceptJobHandler).Methods(http.MethodPost)
 
+	// --- Cron Jobs & Server Start ---
 	c := cron.New()
-	_, dailyErr := c.AddFunc("5 0 * * *", func() {
+	_, _ = c.AddFunc("5 0 * * *", func() {
 		if e := jobScheduler.RunDailyWindowMaintenance(context.Background()); e != nil {
 			utils.Logger.WithError(e).Error("Scheduled daily maintenance failed")
 		}
 	})
-	if dailyErr != nil {
-		utils.Logger.WithError(dailyErr).Fatal("Failed to schedule daily maintenance cron")
-	}
-
-	_, jcasErr := c.AddFunc("@every 2m", func() {
+	_, _ = c.AddFunc("@every 2m", func() {
 		if e := escalationService.RunEscalationCheck(context.Background()); e != nil {
 			utils.Logger.WithError(e).Error("JCAS escalation check failed")
 		}
 	})
-	if jcasErr != nil {
-		utils.Logger.WithError(jcasErr).Fatal("Failed to schedule JCAS escalation cron")
-	}
 	c.Start()
 
 	allowedOrigins := []string{cfg.AppUrl}
 	if !cfg.LDFlag_CORSHighSecurity {
 		allowedOrigins = append(allowedOrigins, utils.CORSLowSecurityAllowedOriginLocalhost)
 	}
-
-    co := cors.New(cors.Options{
-        AllowedOrigins:   allowedOrigins,
-        AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-        AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Platform", "X-Device-ID", "X-Device-Integrity", "X-Key-Id", "ngrok-skip-browser-warning"},
-        AllowCredentials: true,
-    })
+	co := cors.New(cors.Options{
+		AllowedOrigins:   allowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Platform", "X-Device-ID", "X-Device-Integrity", "X-Key-Id", "ngrok-skip-browser-warning"},
+		AllowCredentials: true,
+	})
 
 	utils.Logger.Infof("Starting %s on port: %s", cfg.AppName, cfg.AppPort)
 	if err := http.ListenAndServe(":"+cfg.AppPort, co.Handler(router)); err != nil {

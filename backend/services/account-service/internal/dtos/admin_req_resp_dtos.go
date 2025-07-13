@@ -6,12 +6,7 @@ import (
 	"github.com/poofware/go-models"
 )
 
-// NEW: For structured validation error responses.
-type ValidationErrorDetail struct {
-	Field   string `json:"field"`
-	Message string `json:"message"`
-	Code    string `json:"code"`
-}
+// NOTE: The local ValidationErrorDetail has been removed. It is now defined in the shared go-dtos package.
 
 // Generic request for soft-deleting an entity.
 type DeleteRequest struct {

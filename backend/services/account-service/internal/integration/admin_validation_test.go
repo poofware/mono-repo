@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poofware/account-service/internal/dtos"
+	shared_dtos "github.com/poofware/go-dtos"
 	"github.com/poofware/account-service/internal/routes"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-testhelpers"
@@ -42,7 +43,7 @@ func TestCreatePM_Validation(t *testing.T) {
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		var errDetails []dtos.ValidationErrorDetail
+		var errDetails []shared_dtos.ValidationErrorDetail
 		json.NewDecoder(resp.Body).Decode(&errDetails)
 
 		// The validator returns errors for all missing required fields
@@ -68,7 +69,7 @@ func TestCreatePM_Validation(t *testing.T) {
 		resp := h.DoRequest(req, http.DefaultClient)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		var errDetails []dtos.ValidationErrorDetail
+		var errDetails []shared_dtos.ValidationErrorDetail
 		json.NewDecoder(resp.Body).Decode(&errDetails)
 		require.Len(t, errDetails, 1)
 		require.Equal(t, "Email", errDetails[0].Field)

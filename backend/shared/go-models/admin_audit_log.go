@@ -1,5 +1,4 @@
 // backend/shared/go-models/admin_audit_log.go
-// NEW FILE
 package models
 
 import (

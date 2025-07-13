@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poofware/account-service/internal/dtos"
 	"github.com/poofware/account-service/internal/services"
+	shared_dtos "github.com/poofware/go-dtos"
 	"github.com/poofware/go-middleware"
 	"github.com/poofware/go-utils"
 )
@@ -25,8 +26,8 @@ func NewAdminController(adminService *services.AdminService) *AdminController {
 	}
 }
 
-func (c *AdminController) formatValidationErrors(errs validator.ValidationErrors) []dtos.ValidationErrorDetail {
-	var details []dtos.ValidationErrorDetail
+func (c *AdminController) formatValidationErrors(errs validator.ValidationErrors) []shared_dtos.ValidationErrorDetail {
+	var details []shared_dtos.ValidationErrorDetail
 	for _, err := range errs {
 		var message string
 		switch err.Tag() {
@@ -50,7 +51,7 @@ func (c *AdminController) formatValidationErrors(errs validator.ValidationErrors
 			message = fmt.Sprintf("Field validation for '%s' failed on the '%s' tag", err.Field(), err.Tag())
 		}
 
-		details = append(details, dtos.ValidationErrorDetail{
+		details = append(details, shared_dtos.ValidationErrorDetail{
 			Field:   err.Field(),
 			Message: message,
 			Code:    "validation_" + err.Tag(),
@@ -90,7 +91,7 @@ func (c *AdminController) CreatePropertyManagerHandler(w http.ResponseWriter, r 
 
 	var req dtos.CreatePropertyManagerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -99,7 +100,7 @@ func (c *AdminController) CreatePropertyManagerHandler(w http.ResponseWriter, r 
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -123,7 +124,7 @@ func (c *AdminController) UpdatePropertyManagerHandler(w http.ResponseWriter, r 
 
 	var req dtos.UpdatePropertyManagerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -132,7 +133,7 @@ func (c *AdminController) UpdatePropertyManagerHandler(w http.ResponseWriter, r 
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -156,7 +157,7 @@ func (c *AdminController) DeletePropertyManagerHandler(w http.ResponseWriter, r 
 
 	var req dtos.DeleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -165,7 +166,7 @@ func (c *AdminController) DeletePropertyManagerHandler(w http.ResponseWriter, r 
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -191,7 +192,7 @@ func (c *AdminController) SearchPropertyManagersHandler(w http.ResponseWriter, r
 
 	var req dtos.SearchPropertyManagersRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -214,7 +215,7 @@ func (c *AdminController) GetPropertyManagerSnapshotHandler(w http.ResponseWrite
 
 	var req dtos.SnapshotRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -223,7 +224,7 @@ func (c *AdminController) GetPropertyManagerSnapshotHandler(w http.ResponseWrite
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -247,7 +248,7 @@ func (c *AdminController) CreatePropertyHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.CreatePropertyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -256,7 +257,7 @@ func (c *AdminController) CreatePropertyHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -280,7 +281,7 @@ func (c *AdminController) UpdatePropertyHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.UpdatePropertyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -289,7 +290,7 @@ func (c *AdminController) UpdatePropertyHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -313,7 +314,7 @@ func (c *AdminController) DeletePropertyHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.DeleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -322,7 +323,7 @@ func (c *AdminController) DeletePropertyHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -348,7 +349,7 @@ func (c *AdminController) CreateBuildingHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.CreateBuildingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -357,7 +358,7 @@ func (c *AdminController) CreateBuildingHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -381,7 +382,7 @@ func (c *AdminController) UpdateBuildingHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.UpdateBuildingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -390,7 +391,7 @@ func (c *AdminController) UpdateBuildingHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -414,7 +415,7 @@ func (c *AdminController) DeleteBuildingHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.DeleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -423,7 +424,7 @@ func (c *AdminController) DeleteBuildingHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -449,7 +450,7 @@ func (c *AdminController) CreateUnitHandler(w http.ResponseWriter, r *http.Reque
 
 	var req dtos.CreateUnitRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -458,7 +459,7 @@ func (c *AdminController) CreateUnitHandler(w http.ResponseWriter, r *http.Reque
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -482,7 +483,7 @@ func (c *AdminController) UpdateUnitHandler(w http.ResponseWriter, r *http.Reque
 
 	var req dtos.UpdateUnitRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -491,7 +492,7 @@ func (c *AdminController) UpdateUnitHandler(w http.ResponseWriter, r *http.Reque
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -515,7 +516,7 @@ func (c *AdminController) DeleteUnitHandler(w http.ResponseWriter, r *http.Reque
 
 	var req dtos.DeleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -524,7 +525,7 @@ func (c *AdminController) DeleteUnitHandler(w http.ResponseWriter, r *http.Reque
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -550,7 +551,7 @@ func (c *AdminController) CreateDumpsterHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.CreateDumpsterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -559,7 +560,7 @@ func (c *AdminController) CreateDumpsterHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -583,7 +584,7 @@ func (c *AdminController) UpdateDumpsterHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.UpdateDumpsterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -592,7 +593,7 @@ func (c *AdminController) UpdateDumpsterHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
@@ -616,7 +617,7 @@ func (c *AdminController) DeleteDumpsterHandler(w http.ResponseWriter, r *http.R
 
 	var req dtos.DeleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", err)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
 
@@ -625,7 +626,7 @@ func (c *AdminController) DeleteDumpsterHandler(w http.ResponseWriter, r *http.R
 			errorDetails := c.formatValidationErrors(validationErrs)
 			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
 		} else {
-			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
 		}
 		return
 	}
