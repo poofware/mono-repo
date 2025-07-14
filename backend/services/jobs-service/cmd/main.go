@@ -101,9 +101,9 @@ func main() {
 	secured.HandleFunc(routes.JobsPMInstances, jobDefsController.ListJobsForPropertyHandler).Methods(http.MethodPost)
 
 	// Admin routes (NEW)
-	secured.HandleFunc(routes.AdminJobsBase+routes.AdminJobDefinitions, adminJobsController.AdminCreateJobDefinitionHandler).Methods(http.MethodPost)
-	secured.HandleFunc(routes.AdminJobsBase+routes.AdminJobDefinitions, adminJobsController.AdminUpdateJobDefinitionHandler).Methods(http.MethodPatch)
-	secured.HandleFunc(routes.AdminJobsBase+routes.AdminJobDefinitions, adminJobsController.AdminSoftDeleteJobDefinitionHandler).Methods(http.MethodDelete)
+	secured.HandleFunc(routes.AdminJobDefinitions, adminJobsController.AdminCreateJobDefinitionHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminJobDefinitions, adminJobsController.AdminUpdateJobDefinitionHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminJobDefinitions, adminJobsController.AdminSoftDeleteJobDefinitionHandler).Methods(http.MethodDelete)
 
 	attestationRepo := repositories.NewAttestationRepository(application.DB)
 	challengeRepo := repositories.NewAttestationChallengeRepository(application.DB)

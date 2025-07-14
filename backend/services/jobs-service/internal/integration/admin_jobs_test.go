@@ -37,7 +37,7 @@ func TestAdminJobEndpoints(t *testing.T) {
 	dumpster := h.CreateTestDumpster(ctx, prop.ID, "Admin-D1")
 
 	var createdDef *models.JobDefinition
-	var url = h.BaseURL + routes.AdminJobsBase + routes.AdminJobDefinitions
+	var url = h.BaseURL + routes.AdminJobDefinitions
 
 	// --- Test Case 1: CREATE JobDefinition ---
 	t.Run("AdminCreatesJobDefinition", func(t *testing.T) {

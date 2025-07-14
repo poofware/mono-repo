@@ -98,7 +98,7 @@ func (r *pmRepo) GetByPhoneNumber(ctx context.Context, phone string) (*models.Pr
 func (r *pmRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PropertyManager, error) {
 	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1 AND deleted_at IS NULL", id)
 	pm, err := r.scanPM(row) // +++ Let's capture the result of scanPM
-	if err != nil { // +++ Add a log here to see the error immediately
+	if err != nil {           // +++ Add a log here to see the error immediately
 		utils.Logger.Infof("[Debug] pmRepo.GetByID -> scanPM returned error: %v", err)
 	}
 	return pm, err
