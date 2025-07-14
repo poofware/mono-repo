@@ -17,6 +17,9 @@ import (
 	"github.com/poofware/go-utils"
 	"github.com/poofware/jobs-service/internal/dtos"
 	"github.com/poofware/jobs-service/internal/services"
+
+	"github.com/jackc/pgx/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Helper to check for unique violation error (PostgreSQL specific code)
@@ -997,5 +1000,50 @@ func seedCliftFarmPropertyIfNeeded(
 		utils.Logger.Infof("jobs-service: JobDefinition '%s' already exists for Clift Farm; skipping.", defTitlePM)
 	}
 
+	return nil
+}
+
+
+
+func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
+	ctx := context.Background()
+	defaultAdminID := uuid.MustParse("11111111-2222-3333-4444-555555555555")
+
+	existing, err := adminRepo.GetByUsername(ctx, "seedadmin")
+	if err != nil && err != pgx.ErrNoRows {
+		return fmt.Errorf("error checking for existing admin: %w", err)
+	}
+	if existing != nil {
+		utils.Logger.Infof("Default admin already exists (username=%s); skipping seed.", existing.Username)
+		return nil
+	}
+
+	hashedPass, err := bcrypt.GenerateFromPassword([]byte("P@ssword123"), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to bcrypt-hash default admin password: %w", err)
+	}
+
+	totpSecret := "defaultadminstatusactivestotpsecret"
+
+	admin := &models.Admin{
+		ID:           defaultAdminID,
+		Username:     "seedadmin",
+		PasswordHash: string(hashedPass),
+		TOTPSecret:   totpSecret,
+	}
+
+	if err := adminRepo.Create(ctx, admin); err != nil {
+		return fmt.Errorf("failed to insert default admin: %w", err)
+	}
+
+	if err := adminRepo.UpdateWithRetry(ctx, admin.ID, func(stored *models.Admin) error {
+		stored.AccountStatus = models.AccountStatusActive
+		stored.SetupProgress = models.SetupProgressDone
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to update default admin status to active: %w", err)
+	}
+
+	utils.Logger.Infof("Successfully seeded and activated default admin (ID=%s, username=%s).", defaultAdminID, admin.Username)
 	return nil
 }

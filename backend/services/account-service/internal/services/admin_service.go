@@ -294,10 +294,10 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 	// Check if parent manager exists
 	_, err := s.pmRepo.GetByID(ctx, req.ManagerID)
 	if err != nil {
-		utils.Logger.Infof("[Debug] Checking for parent PM. Got error: %v (type: %T)", err, err) // +++ NEW LOG +++
-		if errors.Is(err, pgx.ErrNoRows) {                                                       // MODIFIED: Use errors.Is for robustness
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
 		}
+		// Any other error from GetByID is unexpected and indicates an internal issue.
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for property manager", Err: err}
 	}
 
