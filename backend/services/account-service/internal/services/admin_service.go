@@ -292,6 +292,10 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 	}
 	// Check if parent manager exists
 	_, err := s.pmRepo.GetByID(ctx, req.ManagerID)
+	if err == nil {
+		utils.Logger.Infof("err is nill")
+
+	}
 	if err != nil {
 		// Diagnostic log
 		utils.Logger.WithError(err).Warnf("Failed to find parent property manager %s during property creation", req.ManagerID)
@@ -327,6 +331,7 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 	propDTO := internal_dtos.NewPropertyFromModel(prop, []internal_dtos.Building{}, []*models.Dumpster{})
 	return &propDTO, nil
 }
+
 // UpdateProperty updates an existing property.
 func (s *AdminService) UpdateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdatePropertyRequest) (*models.Property, error) {
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
