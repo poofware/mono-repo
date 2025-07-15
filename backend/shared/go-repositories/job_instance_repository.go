@@ -86,9 +86,6 @@ func scanInstance(row pgx.Row) (*models.JobInstance, error) {
 		&inst.CreatedAt,
 		&inst.UpdatedAt,
 	)
-	if err == pgx.ErrNoRows {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}
