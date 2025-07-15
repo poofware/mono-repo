@@ -28,6 +28,7 @@ func TestAdminJobEndpoints(t *testing.T) {
 
 	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
 	require.NoError(t, err, "Failed to get seeded admin user")
+	require.NotNil(t, adminUser, "Seeded admin user 'seedadmin' not found. Ensure DB is seeded.")
 	adminJWT := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
 	client := h.NewHTTPClient()
 

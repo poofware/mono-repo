@@ -68,17 +68,24 @@ func (c *AdminJobsController) getAdminID(r *http.Request) (uuid.UUID, error) {
 
 // POST /api/v1/jobs/admin/job-definitions
 func (c *AdminJobsController) AdminCreateJobDefinitionHandler(w http.ResponseWriter, r *http.Request) {
+	logger := utils.Logger.WithField("handler", "AdminCreateJobDefinitionHandler")
+	logger.Info("Request received")
+
 	adminID, err := c.getAdminID(r)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
 	}
 
+	logger = logger.WithField("adminID", adminID)
+	logger.Info("Admin ID extracted from context")
+
 	var req dtos.AdminCreateJobDefinitionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
+	logger.WithField("requestBody", req).Info("Request body decoded")
 
 	if err := c.validate.Struct(req); err != nil {
 		if validationErrs, ok := err.(validator.ValidationErrors); ok {
@@ -91,25 +98,34 @@ func (c *AdminJobsController) AdminCreateJobDefinitionHandler(w http.ResponseWri
 
 	jobDef, err := c.adminJobService.AdminCreateJobDefinition(r.Context(), adminID, req)
 	if err != nil {
+		logger.WithError(err).Error("Service call failed")
 		utils.HandleAppError(w, err)
 		return
 	}
+	logger.WithField("definitionID", jobDef.ID).Info("Service call successful")
 	utils.RespondWithJSON(w, http.StatusCreated, jobDef)
 }
 
 // PATCH /api/v1/jobs/admin/job-definitions
 func (c *AdminJobsController) AdminUpdateJobDefinitionHandler(w http.ResponseWriter, r *http.Request) {
+	logger := utils.Logger.WithField("handler", "AdminUpdateJobDefinitionHandler")
+	logger.Info("Request received")
+
 	adminID, err := c.getAdminID(r)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
 	}
 
+	logger = logger.WithField("adminID", adminID)
+	logger.Info("Admin ID extracted from context")
+
 	var req dtos.AdminUpdateJobDefinitionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
+	logger.WithField("requestBody", req).Info("Request body decoded")
 
 	if err := c.validate.Struct(req); err != nil {
 		if validationErrs, ok := err.(validator.ValidationErrors); ok {
@@ -122,25 +138,34 @@ func (c *AdminJobsController) AdminUpdateJobDefinitionHandler(w http.ResponseWri
 
 	jobDef, err := c.adminJobService.AdminUpdateJobDefinition(r.Context(), adminID, req)
 	if err != nil {
+		logger.WithError(err).Error("Service call failed")
 		utils.HandleAppError(w, err)
 		return
 	}
+	logger.WithField("definitionID", jobDef.ID).Info("Service call successful")
 	utils.RespondWithJSON(w, http.StatusOK, jobDef)
 }
 
 // DELETE /api/v1/jobs/admin/job-definitions
 func (c *AdminJobsController) AdminSoftDeleteJobDefinitionHandler(w http.ResponseWriter, r *http.Request) {
+	logger := utils.Logger.WithField("handler", "AdminSoftDeleteJobDefinitionHandler")
+	logger.Info("Request received")
+
 	adminID, err := c.getAdminID(r)
 	if err != nil {
 		utils.HandleAppError(w, err)
 		return
 	}
 
+	logger = logger.WithField("adminID", adminID)
+	logger.Info("Admin ID extracted from context")
+
 	var req dtos.AdminDeleteJobDefinitionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
 		return
 	}
+	logger.WithField("requestBody", req).Info("Request body decoded")
 
 	if err := c.validate.Struct(req); err != nil {
 		if validationErrs, ok := err.(validator.ValidationErrors); ok {
@@ -152,10 +177,12 @@ func (c *AdminJobsController) AdminSoftDeleteJobDefinitionHandler(w http.Respons
 	}
 
 	if err := c.adminJobService.AdminSoftDeleteJobDefinition(r.Context(), adminID, req.DefinitionID); err != nil {
+		logger.WithError(err).Error("Service call failed")
 		utils.HandleAppError(w, err)
 		return
 	}
 
+	logger.WithField("definitionID", req.DefinitionID).Info("Service call successful")
 	utils.RespondWithJSON(w, http.StatusOK, dtos.AdminConfirmationResponse{
 		Message: "Job Definition soft-deleted successfully",
 		ID:      req.DefinitionID.String(),

@@ -295,6 +295,8 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 	if err != nil {
 		// Diagnostic log
 		utils.Logger.WithError(err).Warnf("Failed to find parent property manager %s during property creation", req.ManagerID)
+		utils.Logger.Infof("Detailed error check: Type is '%T', Value is '%v', Is pgx.ErrNoRows? %t", err, err, err == pgx.ErrNoRows)
+
 		if err == pgx.ErrNoRows {
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
 		}
