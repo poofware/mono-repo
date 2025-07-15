@@ -16,7 +16,6 @@ import (
 	"github.com/poofware/go-utils"
 	"github.com/poofware/jobs-service/internal/dtos"
 	internal_utils "github.com/poofware/jobs-service/internal/utils"
-	"github.com/sirupsen/logrus"
 )
 
 type AdminJobService struct {
@@ -65,14 +64,6 @@ func (s *AdminJobService) authorizeAdmin(ctx context.Context, adminID uuid.UUID)
 
 
 func (s *AdminJobService) logAudit(ctx context.Context, adminID, targetID uuid.UUID, action models.AuditAction, targetType models.AuditTargetType, details any) {
-	logger := utils.Logger.WithFields(logrus.Fields{
-		"service":    "AdminJobService",
-		"method":     "logAudit",
-		"adminID":    adminID,
-		"targetID":   targetID,
-		"targetType": targetType,
-		"action":     action,
-	})
 	logEntry := &models.AdminAuditLog{
 		ID:         uuid.New(),
 		AdminID:    adminID,
@@ -87,31 +78,20 @@ func (s *AdminJobService) logAudit(ctx context.Context, adminID, targetID uuid.U
 		logEntry.Details = &raw
 	}
 
-	if err := s.auditRepo.Create(ctx, logEntry); err != nil {
-		logger.WithError(err).Error("Failed to create audit log entry")
-	} else {
-		logger.Info("Successfully created audit log entry")
-	}
+	_ = s.auditRepo.Create(ctx, logEntry)
 }
 
 
 func (s *AdminJobService) AdminCreateJobDefinition(ctx context.Context, adminID uuid.UUID, req dtos.AdminCreateJobDefinitionRequest) (*models.JobDefinition, error) {
-	logger := utils.Logger.WithFields(logrus.Fields{
-		"service":    "AdminJobService",
-		"method":     "AdminCreateJobDefinition",
-		"adminID":    adminID,
-		"propertyID": req.PropertyID,
-	})
-	logger.Info("Service method invoked")
-
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
-		logger.WithError(err).Warn("Admin authorization failed")
 		return nil, err
 	}
-	logger.Info("Admin authorized successfully")
 
+	// The jobService.CreateJobDefinition handles all the complex validation.
+	// We just need to adapt the request.
 	pmUserStr := req.ManagerID.String()
 
+	// Convert admin DTO to the standard DTO
 	createReq := dtos.CreateJobDefinitionRequest{
 		PropertyID:                 req.PropertyID,
 		Title:                      req.Title,
@@ -137,21 +117,16 @@ func (s *AdminJobService) AdminCreateJobDefinition(ctx context.Context, adminID 
 		GlobalEstimatedTimeMinutes: req.GlobalEstimatedTimeMinutes,
 	}
 
-	logger.Info("Calling jobService.CreateJobDefinition")
 	defID, err := s.jobService.CreateJobDefinition(ctx, pmUserStr, createReq, "ACTIVE")
 	if err != nil {
-		logger.WithError(err).Error("jobService.CreateJobDefinition failed")
 		if errors.Is(err, internal_utils.ErrMismatchedPayEstimatesFrequency) || errors.Is(err, internal_utils.ErrMissingPayEstimateInput) || errors.Is(err, internal_utils.ErrInvalidPayload) {
 			return nil, &utils.AppError{StatusCode: http.StatusBadRequest, Code: utils.ErrCodeInvalidPayload, Message: err.Error()}
 		}
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to create job definition", Err: err}
 	}
 
-	logger = logger.WithField("definitionID", defID)
-	logger.Info("jobService.CreateJobDefinition successful, retrieving created definition")
 	createdDef, err := s.jobDefRepo.GetByID(ctx, defID)
 	if err != nil {
-		logger.WithError(err).Error("Failed to retrieve created job definition after creation")
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to retrieve created job definition", Err: err}
 	}
 
@@ -160,23 +135,11 @@ func (s *AdminJobService) AdminCreateJobDefinition(ctx context.Context, adminID 
 }
 
 func (s *AdminJobService) AdminUpdateJobDefinition(ctx context.Context, adminID uuid.UUID, req dtos.AdminUpdateJobDefinitionRequest) (*models.JobDefinition, error) {
-	logger := utils.Logger.WithFields(logrus.Fields{
-		"service":      "AdminJobService",
-		"method":       "AdminUpdateJobDefinition",
-		"adminID":      adminID,
-		"definitionID": req.DefinitionID,
-	})
-	logger.Info("Service method invoked")
-
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
-		logger.WithError(err).Warn("Admin authorization failed")
 		return nil, err
 	}
-	logger.Info("Admin authorized successfully")
 
-	var updatedDef *models.JobDefinition
 	err := s.jobDefRepo.UpdateWithRetry(ctx, req.DefinitionID, func(j *models.JobDefinition) error {
-		logger.WithField("initialVersion", j.RowVersion).Info("Starting UpdateWithRetry mutation")
 		// Apply updates from the request DTO if the fields are not nil
 		if req.Title != nil {
 			j.Title = *req.Title
@@ -246,51 +209,41 @@ func (s *AdminJobService) AdminUpdateJobDefinition(ctx context.Context, adminID 
 			}
 			j.DailyPayEstimates = estimates
 		}
-
-		updatedDef = j
-		logger.Info("Mutation applied successfully within retry loop")
 		return nil
 	})
 
 	if err != nil {
-		logger.WithError(err).Error("UpdateWithRetry failed")
 		if err == pgx.ErrNoRows {
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Job definition not found"}
 		}
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to update job definition", Err: err}
 	}
 
-	logger.WithField("newVersion", updatedDef.RowVersion).Info("UpdateWithRetry successful")
+	// After a successful update, re-fetch the entity to get the latest state, including the new row_version.
+	updatedDef, err := s.jobDefRepo.GetByID(ctx, req.DefinitionID)
+	if err != nil {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to retrieve updated job definition", Err: err}
+	}
+
 	s.logAudit(ctx, adminID, updatedDef.ID, models.AuditUpdate, models.TargetJobDefinition, updatedDef)
 	return updatedDef, nil
 }
 
 func (s *AdminJobService) AdminSoftDeleteJobDefinition(ctx context.Context, adminID, defID uuid.UUID) error {
-	logger := utils.Logger.WithFields(logrus.Fields{
-		"service":      "AdminJobService",
-		"method":       "AdminSoftDeleteJobDefinition",
-		"adminID":      adminID,
-		"definitionID": defID,
-	})
-	logger.Info("Service method invoked")
-
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
-		logger.WithError(err).Warn("Admin authorization failed")
 		return err
 	}
-	logger.Info("Admin authorized successfully")
 
-	logger.Info("Calling jobService.SetDefinitionStatus to set status to DELETED")
+	// This reuses the logic from the existing JobService, which is good.
+	// It changes status to DELETED and cleans up future instances.
 	err := s.jobService.SetDefinitionStatus(ctx, defID, string(models.JobStatusDeleted))
 	if err != nil {
-		logger.WithError(err).Error("jobService.SetDefinitionStatus failed")
 		if errors.Is(err, utils.ErrRowVersionConflict) {
 			return &utils.AppError{StatusCode: http.StatusConflict, Code: utils.ErrCodeRowVersionConflict, Message: "Job definition was modified by another process", Err: err}
 		}
 		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to soft-delete job definition", Err: err}
 	}
 
-	logger.Info("jobService.SetDefinitionStatus successful")
 	s.logAudit(ctx, adminID, defID, models.AuditDelete, models.TargetJobDefinition, nil)
 	return nil
 }

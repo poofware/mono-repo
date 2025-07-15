@@ -53,6 +53,10 @@ func getPayPeriodStartForDate(t time.Time) time.Time {
 
 /*
 SeedAllTestData ...
+*/// backend/services/jobs-service/internal/app/seed.go
+
+/*
+SeedAllTestData ...
 */
 func SeedAllTestData(
 	ctx context.Context,
@@ -63,11 +67,17 @@ func SeedAllTestData(
 	dumpRepo repositories.DumpsterRepository,
 	defRepo repositories.JobDefinitionRepository,
 	jobService *services.JobService,
+	adminRepo repositories.AdminRepository, // <-- ADD THIS
 ) error {
 	pmRepo := repositories.NewPropertyManagerRepository(db, encryptionKey)
 	workerRepo := repositories.NewWorkerRepository(db, encryptionKey) // NEW: Worker Repo
 	unitRepo := repositories.NewUnitRepository(db)
 	// instRepo := repositories.NewJobInstanceRepository(db) // For manual seeding -- no longer needed here
+
+	// Seed the default admin user first.
+	if err := SeedDefaultAdmin(adminRepo); err != nil { // <-- ADD THIS BLOCK
+		return fmt.Errorf("seed default admin: %w", err)
+	}
 
 	if err := seedDefaultPMIfNeeded(ctx, pmRepo); err != nil {
 		return fmt.Errorf("seed default PM if needed: %w", err)
@@ -115,6 +125,7 @@ func SeedAllTestData(
 	utils.Logger.Info("jobs-service: seeding completed successfully (some or all items).")
 	return nil
 }
+
 
 /*
 ------------------------------------------------------------------

@@ -68,6 +68,7 @@ func main() {
 		if err := app.SeedAllTestData(
 			context.Background(), application.DB, cfg.DBEncryptionKey,
 			propRepo, bldgRepo, dumpRepo, defRepo, jobService,
+			adminRepo, // <-- ADD THIS
 		); err != nil {
 			utils.Logger.WithError(err).Fatal("Failed to seed test data")
 		} else {
