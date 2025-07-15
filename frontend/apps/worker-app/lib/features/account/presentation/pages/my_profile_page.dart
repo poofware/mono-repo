@@ -46,6 +46,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   bool _hasInitializedFields = false;
   bool _isSaving = false;
   bool _isEditing = false;
+  bool _isFormValid = true;
 
   @override
   void initState() {
@@ -54,15 +55,38 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _lastNameController = TextEditingController();
     _emailController = TextEditingController();
     _phoneController = TextEditingController();
+    _firstNameController.addListener(_validateForm);
+    _lastNameController.addListener(_validateForm);
+    _emailController.addListener(_validateForm);
   }
 
   @override
   void dispose() {
+    _firstNameController.removeListener(_validateForm);
+    _lastNameController.removeListener(_validateForm);
+    _emailController.removeListener(_validateForm);
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  void _validateForm() {
+    final isValid = _firstNameController.text.trim().isNotEmpty &&
+        _lastNameController.text.trim().isNotEmpty &&
+        _emailController.text.trim().isNotEmpty &&
+        _phoneController.text.trim().isNotEmpty &&
+        _addressState != null &&
+        _vehicleYear > 0 &&
+        _vehicleMake.isNotEmpty &&
+        _vehicleModel.isNotEmpty;
+
+    if (isValid != _isFormValid) {
+      setState(() {
+        _isFormValid = isValid;
+      });
+    }
   }
 
   Future<void> _showCheckrOutcomePage() async {
@@ -230,6 +254,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                             setState(() {
                               _addressState = resolved;
                               _aptSuite = apt;
+                              _validateForm();
                             });
                           },
                         )
@@ -248,6 +273,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                               _vehicleYear = year;
                               _vehicleMake = make;
                               _vehicleModel = model;
+                              _validateForm();
                             });
                           },
                         )
@@ -271,7 +297,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                       : appLocalizations.myProfilePageSaveChangesButton,
                   isLoading: _isSaving,
                   showSpinner: false,
-                  onPressed: () => _saveProfile(worker),
+                  onPressed: _isFormValid ? () => _saveProfile(worker) : null,
                 ),
               ),
           ],
@@ -419,7 +445,10 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
   void _cancelEdit(Worker worker) {
     _populateControllers(worker);
-    setState(() => _isEditing = false);
+    setState(() {
+      _isEditing = false;
+      _isFormValid = true; 
+    });
   }
 
   Future<void> _launchUrl(String url) async {
@@ -564,7 +593,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     if (e is ApiException) {
       message = userFacingMessage(context, e);
     } else {
-      message = AppLocalizations.of(context).loginUnexpectedError(e.toString());
+       message = AppLocalizations.of(context).loginUnexpectedError(e.toString());
     }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
@@ -663,4 +692,3 @@ class _StatefulLinkTileState extends State<_StatefulLinkTile> {
     );
   }
 }
-

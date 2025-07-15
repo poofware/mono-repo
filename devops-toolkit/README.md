@@ -239,14 +239,14 @@ Your project might introduce an additional Compose file (`override.compose.yaml`
 # override.compose.yaml
 
 services:
-  go-integration-test:
+  go-app-integration-test:
     profiles:
       - base_app_integration_test
 
-  go-integration-test-override:
+  go-app-integration-test-override:
     extends:
       file: devops-toolkit/backend/docker/go-app.compose.yaml
-      service: go-integration-test
+      service: go-app-integration-test
     container_name: ${APP_NAME}-integration-test-override_instance
     profiles:
       - app_integration_test

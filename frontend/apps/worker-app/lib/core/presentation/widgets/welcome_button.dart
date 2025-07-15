@@ -99,6 +99,7 @@ class _WelcomeButtonState extends State<WelcomeButton> {
           width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
+              splashFactory: InkSparkle.splashFactory,
               backgroundColor: activeBg,
               foregroundColor: activeFg,
               disabledBackgroundColor: _loading ? loadingBg : disabledBg,

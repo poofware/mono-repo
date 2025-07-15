@@ -184,23 +184,28 @@ func TestListOpenJobs(t *testing.T) {
 		}
 	})
 
-	// --- Subtest 3.2: Expired Job is Not Listed ---
-	t.Run("ListExpiredJob_IsNotVisible", func(t *testing.T) {
+	// --- Subtest 3.2: Job past its acceptance cutoff is not listed ---
+	t.Run("ListJobPastAcceptanceCutoff_IsNotVisible", func(t *testing.T) {
 		h.T = t
 
-		// Create a definition with a normal-looking time window
-		expiredEarliestStart := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC) // 12:00 AM
-		expiredLatestStart := time.Date(0, 1, 1, 2, 0, 0, 0, time.UTC)   // 2:00 AM
+		// --- FIX: Create time window relative to the property's timezone ---
+		propLoc, err := time.LoadLocation(p1.TimeZone)
+		require.NoError(t, err)
+		nowInPropLoc := time.Now().In(propLoc)
 
-		expiredDef := h.CreateTestJobDefinition(t, ctx, testPM.ID, p1.ID, "ExpiredJobDef",
-			[]uuid.UUID{b1_p1.ID}, []uuid.UUID{d1_p1.ID}, expiredEarliestStart, expiredLatestStart, models.JobStatusPaused, nil, models.JobFreqDaily, nil)
+		// Create a definition where the acceptance cutoff for today's job has already passed.
+		// The original logic could fail the `latest > earliest` DB check when run near midnight.
+		// This revised logic sets `latest_start` to be `now - 20m`. This means the acceptance
+		// cutoff is `now - 60m` (in the past), while keeping the time values on the same calendar day.
+		latestStart := nowInPropLoc.Add(-20 * time.Minute)
+		earliestStart := latestStart.Add(-100 * time.Minute) // A 100min duration satisfies all constraints.
 
-		// --- FIX ---
-		// Create an instance for *yesterday's* date. This guarantees its service window
-		// (e.g., yesterday from 00:00 to 01:30) is entirely in the past.
-		yesterday := time.Now().UTC().AddDate(0, 0, -1)
-		_ = h.CreateTestJobInstance(t, ctx, expiredDef.ID, yesterday, models.InstanceStatusOpen, nil)
-		// --- End of Fix ---
+		unacceptableDef := h.CreateTestJobDefinition(t, ctx, testPM.ID, p1.ID, "UnacceptableJobDef",
+			[]uuid.UUID{b1_p1.ID}, []uuid.UUID{d1_p1.ID}, earliestStart, latestStart, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+
+		// Create the instance for today in the property's timezone to be certain about the service date.
+		todayInPropTZ := time.Date(nowInPropLoc.Year(), nowInPropLoc.Month(), nowInPropLoc.Day(), 0, 0, 0, 0, propLoc)
+		_ = h.CreateTestJobInstance(t, ctx, unacceptableDef.ID, todayInPropTZ, models.InstanceStatusOpen, nil)
 
 		// List jobs again
 		listURL := fmt.Sprintf("%s/api/v1/jobs/open?lat=%f&lng=%f&page=1&size=50",
@@ -214,12 +219,13 @@ func TestListOpenJobs(t *testing.T) {
 		raw, _ := io.ReadAll(resp.Body)
 		require.NoError(t, json.Unmarshal(raw, &out))
 
-		// The total should still be 3 from the previous test, as the expired job from yesterday is not counted.
-		require.Equal(t, 3, out.Total, "Expired job should not be counted in the total")
+		// The total should still be 3 from the first subtest, as the job past its
+		// acceptance cutoff should not be included.
+		require.Equal(t, 3, out.Total, "Job past its acceptance cutoff should not be counted in the total")
 		for _, job := range out.Results {
-			require.NotEqual(t, expiredDef.ID, job.DefinitionID, "Expired job should not be present in the results list")
+			require.NotEqual(t, unacceptableDef.ID, job.DefinitionID, "Job past its acceptance cutoff should not be present in the results list")
 		}
-		t.Logf("Successfully verified that job past its no-show cutoff is not listed.")
+		t.Logf("Successfully verified that job past its acceptance cutoff time is not listed.")
 	})
 }
 
@@ -729,19 +735,18 @@ func TestAcceptJobGating(t *testing.T) {
 		require.Equal(t, internal_utils.ErrWorkerNotActive.Error(), errResp.Code, "Response should have correct error code")
 	})
 
-	// --- Test Case 2: Active worker fails to accept job past no-show time ---
-	t.Run("AcceptExpiredJob_Fails", func(t *testing.T) {
+	// --- Test Case 2: Active worker fails to accept job past acceptance cutoff time ---
+	t.Run("AcceptJobPastAcceptanceCutoff_Fails", func(t *testing.T) {
 		h.T = t
 		now := time.Now().UTC()
-		latestStart := now.Add(25 * time.Minute) // No-show cutoff was 5 mins ago
-		// FIX: Widen window to 100 minutes to avoid DB constraint violation.
-		earliestStart := latestStart.Add(-100 * time.Minute)
+		// Set latest_start so the acceptance cutoff (latest_start - 40m) has passed.
+		latestStart := now.Add(30 * time.Minute)
+		earliestStart := latestStart.Add(-100 * time.Minute) // Ensure valid window to avoid DB constraint error
 
 		defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "AcceptGatingDef_Expired",
 			nil, nil, earliestStart, latestStart, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 		inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
 
-		// FIX: Add timestamp to payload to pass controller validation
 		acceptPayload := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Timestamp: time.Now().UnixMilli()}
 		body, _ := json.Marshal(acceptPayload)
 
@@ -749,7 +754,7 @@ func TestAcceptJobGating(t *testing.T) {
 		activeResp := h.DoRequest(activeReq, h.NewHTTPClient())
 		defer activeResp.Body.Close()
 
-		require.Equal(t, http.StatusBadRequest, activeResp.StatusCode, "Accepting an expired job should be a bad request")
+		require.Equal(t, http.StatusBadRequest, activeResp.StatusCode, "Accepting a job past acceptance cutoff should be a bad request")
 		var errResp utils.ErrorResponse
 		data, _ := io.ReadAll(activeResp.Body)
 		require.NoError(t, json.Unmarshal(data, &errResp), "Failed to unmarshal error response")
@@ -808,10 +813,11 @@ func TestTieredUnacceptPenalties(t *testing.T) {
 
 		inst := h.CreateTestJobInstance(t, ctx, defn.ID, earliestStartTime, models.InstanceStatusOpen, nil)
 
-		// FIX: Check if the job is expired before attempting to accept. If so, skip the test.
+		// Check if the job is expired before attempting to accept.
 		noShowCutoffTime := latestStartTime.Add(-constants.NoShowCutoffBeforeLatestStart)
-		if time.Now().UTC().After(noShowCutoffTime) {
-			t.Skipf("Skipping penalty test '%s' because its no-show cutoff time has already passed", testName)
+		acceptanceCutoffTime := noShowCutoffTime.Add(-constants.AcceptanceCutoffBeforeNoShow)
+		if time.Now().UTC().After(acceptanceCutoffTime) {
+			t.Skipf("Skipping penalty test '%s' because its acceptance cutoff time has already passed", testName)
 			return
 		}
 
@@ -839,6 +845,10 @@ func TestTieredUnacceptPenalties(t *testing.T) {
 
 		updatedInst, err := h.JobInstRepo.GetByID(ctx, inst.ID)
 		require.NoError(t, err)
+
+		// NOTE: The logic for Unaccept resulting in a CANCELED job is currently unreachable
+		// via the API, as the acceptance window closes before the cancellation window begins.
+		// Therefore, we always expect the job to revert to OPEN.
 		require.Equal(t, models.InstanceStatusOpen, updatedInst.Status, "%s: Instance should be OPEN again", testName)
 
 		if shouldBeExcluded {
@@ -887,28 +897,6 @@ func TestTieredUnacceptPenalties(t *testing.T) {
 		lStart := now.Add(90 * time.Minute)
 		eStart := lStart.Add(-jobWindowDuration)
 		runUnacceptTest(t, "PenaltyLate", eStart, lStart, constants.WorkerPenaltyLate, true)
-	})
-
-	t.Run("PenaltyPostNoShow_Minus10", func(t *testing.T) {
-		lStart := now.Add(20 * time.Minute)
-		eStart := lStart.Add(-jobWindowDuration)
-		// This test is now expected to fail at the "Accept" step because the job is expired.
-		// The original test was flawed. We only run the accept part to confirm it fails correctly.
-		worker := h.CreateTestWorker(ctx, "penalty-worker-post-noshow", 100)
-		workerJWT := h.CreateMobileJWT(worker.ID, "penalty-dev-post-noshow", "FAKE-PLAY")
-		p := h.CreateTestProperty(ctx, "PenaltyProp-PostNoShow", testPM.ID, 0, 0)
-		defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "PenaltyDef-PostNoShow",
-			nil, nil, eStart, lStart, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-		inst := h.CreateTestJobInstance(t, ctx, defn.ID, eStart, models.InstanceStatusOpen, nil)
-
-		acceptPayload := dtos.JobLocationActionRequest{
-			InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Accuracy: 5.0, Timestamp: time.Now().UnixMilli(), IsMock: false,
-		}
-		acceptBody, _ := json.Marshal(acceptPayload)
-		acceptReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsAccept, workerJWT, acceptBody, "android", "penalty-dev-post-noshow")
-		acceptResp := h.DoRequest(acceptReq, h.NewHTTPClient())
-		defer acceptResp.Body.Close()
-		require.Equal(t, http.StatusBadRequest, acceptResp.StatusCode, "PenaltyPostNoShow: Accept should fail because job is expired")
 	})
 }
 
@@ -1218,55 +1206,135 @@ func TestListOpenJobsLargePaging_SameDay(t *testing.T) {
 	})
 }
 
-/*
-───────────────────────────────────────────────────────────────────
- 11. Worker Flow: Accept -> Start -> Cancel
-
-───────────────────────────────────────────────────────────────────
-*/
-func TestCancelInProgressFlow(t *testing.T) {
+func TestCancelInProgress_RevertsToOpen_WithPenalty(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
+
+	// FIX: Use a time window that is currently active so the job can be started.
 	earliest, latest := h.TestSameDayTimeWindow()
+	initialScore := 100
 
-	w := h.CreateTestWorker(ctx, "cancel-flow")
-	workerJWT := h.CreateMobileJWT(w.ID, "cancelFlowDevice", "FAKE-PLAY")
-	p := h.CreateTestProperty(ctx, "CancelFlowProp", testPM.ID, 0, 0)
-	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "CancelInProgressJob",
+	w := h.CreateTestWorker(ctx, "cancel-reopen", initialScore)
+	workerJWT := h.CreateMobileJWT(w.ID, "cancelReopenDevice", "FAKE-PLAY")
+	p := h.CreateTestProperty(ctx, "CancelReopenProp", testPM.ID, 0, 0)
+	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "CancelReopenJob",
 		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+	// Use today's date for the instance
+	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now().UTC(), models.InstanceStatusOpen, nil)
 
-	acceptLoc := dtos.JobLocationActionRequest{
-		InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Accuracy: 5.0, Timestamp: time.Now().UnixMilli(), IsMock: false,
-	}
-	acceptBody, _ := json.Marshal(acceptLoc)
-	acceptReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsAccept, workerJWT, acceptBody, "android", "cancelFlowDevice")
+	// 1. Accept and Start
+	acceptPayload := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 5, Timestamp: time.Now().UnixMilli()}
+	acceptBody, _ := json.Marshal(acceptPayload)
+	acceptReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsAccept, workerJWT, acceptBody, "android", "cancelReopenDevice")
 	acceptResp := h.DoRequest(acceptReq, h.NewHTTPClient())
-	defer acceptResp.Body.Close()
-	require.Equal(t, 200, acceptResp.StatusCode, "Accept job should succeed")
+	require.Equal(t, http.StatusOK, acceptResp.StatusCode, "Accept should succeed for job within a valid window")
+	acceptResp.Body.Close()
 
-	startLoc := dtos.JobLocationActionRequest{
-		InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Accuracy: 5.0, Timestamp: time.Now().UnixMilli(), IsMock: false,
-	}
-	startBody, _ := json.Marshal(startLoc)
-	startReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsStart, workerJWT, startBody, "android", "cancelFlowDevice")
+	startPayload := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 5, Timestamp: time.Now().UnixMilli()}
+	startBody, _ := json.Marshal(startPayload)
+	startReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsStart, workerJWT, startBody, "android", "cancelReopenDevice")
 	startResp := h.DoRequest(startReq, h.NewHTTPClient())
-	defer startResp.Body.Close()
-	require.Equal(t, 200, startResp.StatusCode, "Start job should succeed")
+	require.Equal(t, http.StatusOK, startResp.StatusCode, "Start should succeed for job within a valid window")
+	startResp.Body.Close()
 
-	cancelBody, _ := json.Marshal(dtos.JobInstanceActionRequest{InstanceID: inst.ID})
-	cancelReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsCancel, workerJWT, cancelBody, "android", "cancelFlowDevice")
+	// 2. Cancel the job (this happens well before any cutoffs)
+	cancelPayload := dtos.JobInstanceActionRequest{InstanceID: inst.ID}
+	cancelBody, _ := json.Marshal(cancelPayload)
+	cancelReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsCancel, workerJWT, cancelBody, "android", "cancelReopenDevice")
 	cancelResp := h.DoRequest(cancelReq, h.NewHTTPClient())
 	defer cancelResp.Body.Close()
-	require.Equal(t, 200, cancelResp.StatusCode, "Cancel job should succeed for IN_PROGRESS job")
+	require.Equal(t, http.StatusOK, cancelResp.StatusCode)
 
+	// 3. Assertions
 	var out dtos.JobInstanceActionResponse
 	cData, _ := io.ReadAll(cancelResp.Body)
 	require.NoError(t, json.Unmarshal(cData, &out))
-	final := out.Updated.Status
-	require.Contains(t, []string{"OPEN", "CANCELED"}, final,
-		"Job can revert to OPEN if canceled early, or fully CANCELED if past cutoff")
-	t.Logf("CancelInProgressFlow => final status=%s", final)
+
+	// Because it was canceled with ample notice (> 7 hours before no-show), it reverts to OPEN
+	require.Equal(t, string(models.InstanceStatusOpen), out.Updated.Status, "Job should revert to OPEN when canceled early")
+	require.Nil(t, out.Updated.CheckInAt, "CheckInAt should be cleared")
+
+	// Verify penalty and exclusion. For a same-day cancellation, there should be a penalty and exclusion.
+	updatedWorker, err := h.WorkerRepo.GetByID(ctx, w.ID)
+	require.NoError(t, err)
+
+	// Determine expected penalty based on the time window
+	noShowTime := latest.Add(-constants.NoShowCutoffBeforeLatestStart)
+	expectedPenalty, shouldBeExcluded := services.CalculatePenaltyForUnassign(time.Now().UTC(), earliest, noShowTime)
+
+	require.Equal(t, initialScore+expectedPenalty, updatedWorker.ReliabilityScore, "Worker should receive the correct penalty")
+
+	updatedInst, err := h.JobInstRepo.GetByID(ctx, inst.ID)
+	require.NoError(t, err)
+
+	if shouldBeExcluded {
+		require.Contains(t, updatedInst.ExcludedWorkerIDs, w.ID, "Worker should be excluded for this cancellation")
+	} else {
+		require.NotContains(t, updatedInst.ExcludedWorkerIDs, w.ID, "Worker should not be excluded for this cancellation")
+	}
+}
+
+func TestCancelInProgress_BecomesCanceled_AfterCutoff(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+	initialScore := 100
+
+	// FIX: Create a job where the time window has already passed its no-show cutoff.
+	// This isolates the test to the logic within the CancelJobInstance service method
+	// for jobs that are canceled late.
+	now := time.Now().UTC()
+	// Set latest start time to 10 minutes in the past.
+	latest := now.Add(-10 * time.Minute)
+	// Set earliest to 100 mins before that, matching the original duration.
+	earliest := latest.Add(-100 * time.Minute)
+
+	w := h.CreateTestWorker(ctx, "cancel-late", initialScore)
+	workerJWT := h.CreateMobileJWT(w.ID, "cancelLateDevice", "FAKE-PLAY")
+	p := h.CreateTestProperty(ctx, "CancelLateProp", testPM.ID, 0, 0)
+	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "CancelLateJob",
+		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+	inst := h.CreateTestJobInstance(t, ctx, defn.ID, now.AddDate(0, 0, -1), models.InstanceStatusOpen, nil)
+
+	// FIX: Manually set the job to IN_PROGRESS in the database to bypass the now-invalid
+	// time window checks in the Accept and Start handlers. This ensures we are testing
+	// the desired state for the Cancel handler.
+	updateQuery := `
+        UPDATE job_instances
+        SET status = $1, assigned_worker_id = $2, check_in_at = $3, row_version = row_version + 1
+        WHERE id = $4`
+	// Set check_in_at to a realistic time before the no-show cutoff would have passed.
+	checkinTime := now.Add(-45 * time.Minute)
+	_, err := h.DB.Exec(ctx, updateQuery, models.InstanceStatusInProgress, w.ID, checkinTime, inst.ID)
+	require.NoError(t, err, "Failed to manually set instance to IN_PROGRESS")
+
+	// 2. The no-show cutoff is now guaranteed to be in the past.
+	//    no-show cutoff = latest_start_time - 20m = (now - 10m) - 20m = now - 30m.
+
+	// 3. Cancel the job. This request should now succeed with a 200.
+	cancelPayload := dtos.JobInstanceActionRequest{InstanceID: inst.ID}
+	cancelBody, _ := json.Marshal(cancelPayload)
+	cancelReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsCancel, workerJWT, cancelBody, "android", "cancelLateDevice")
+	cancelResp := h.DoRequest(cancelReq, h.NewHTTPClient())
+	defer cancelResp.Body.Close()
+	// The original failure was here. With the state correctly set, it should now pass.
+	require.Equal(t, http.StatusOK, cancelResp.StatusCode)
+
+	// 4. Assertions
+	var out dtos.JobInstanceActionResponse
+	cData, _ := io.ReadAll(cancelResp.Body)
+	require.NoError(t, json.Unmarshal(cData, &out))
+
+	// Because it was canceled after the no-show cutoff, it is fully CANCELED.
+	require.Equal(t, string(models.InstanceStatusCanceled), out.Updated.Status, "Job should be CANCELED when worker cancels after no-show time")
+
+	// Verify the severe no-show penalty and exclusion.
+	updatedWorker, err := h.WorkerRepo.GetByID(ctx, w.ID)
+	require.NoError(t, err)
+	require.Equal(t, initialScore+constants.WorkerPenaltyNoShow, updatedWorker.ReliabilityScore, "Worker should receive the full no-show penalty")
+
+	updatedInst, err := h.JobInstRepo.GetByID(ctx, inst.ID)
+	require.NoError(t, err)
+	require.Contains(t, updatedInst.ExcludedWorkerIDs, w.ID, "Worker should be excluded for a late cancellation")
 }
 
 /*

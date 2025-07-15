@@ -26,6 +26,7 @@ x-build-args: &build-args
   UNIQUE_RUNNER_ID: ${UNIQUE_RUNNER_ID?Docker Compose Config Error! UNIQUE_RUNNER_ID is not set!}
   GO_VERSION: ${GO_VERSION?Docker Compose Config Error! GO_VERSION is not set!}
   LOG_LEVEL: ${LOG_LEVEL:-info}
+  TARGET_PLATFORM: ${TARGET_PLATFORM:?Docker Compose Config Error! TARGET_PLATFORM is not set!}
 
 services:
   # ----------------------
@@ -45,6 +46,10 @@ services:
       labels:
         <<: *build-labels
         com.docker.compose.service: go-app
+
+      # Have to do this until there is a better option to control this from the compose cli
+      platforms:
+        - ${TARGET_PLATFORM:?Docker Compose Config Error! TARGET_PLATFORM is not set!}
     image: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}
     container_name: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}_instance
     ports:

@@ -33,12 +33,13 @@ endif
 # Targets
 # --------------------------------
 
-ifeq ($(APP_IS_GATEWAY),1)
-# If the app is a gateway to its dependencies, we need to passthrough some key network configurations to the deps targets.
-# This ensures that the deps of the gateway app use the gateways addresses. This is important for obvious reasons.
-DEPS_PASSTHROUGH_VARS += APP_URL_FROM_COMPOSE_NETWORK
-DEPS_PASSTHROUGH_VARS += APP_URL_FROM_ANYWHERE
-endif
+_export-target-platform:
+	$(eval export TARGET_PLATFORM := $(shell docker info --format '{{.OSType}}/{{.Architecture}}'))
+
+build:: _export-target-platform
+up:: _export-target-platform
+integration-test:: _export-target-platform
+up-app-post-check:: _export-target-platform
 
 ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
 
@@ -65,10 +66,6 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
 		@$(MAKE) _up-network --no-print-directory
 		@echo "[INFO] [Up Ngrok] Starting 'ngrok' service..."
 		@$(COMPOSE_CMD) up -d ngrok || exit 1
-    endif
-
-    ifeq ($(APP_IS_GATEWAY),1)
-      DEPS_PASSTHROUGH_VARS += NGROK_UP
     endif
 
     build:: _up-ngrok _export_ngrok_url_as_app_url
@@ -114,8 +111,6 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
 	  @echo "[INFO] [Export Fly Api Token] Fly API token set."
   endif
 
-  DEPS_PASSTHROUGH_VARS += FLY_API_TOKEN
-
   _fly_wireguard_up:
   ifndef FLY_WIREGUARD_UP
 	  $(eval export FLY_WIREGUARD_UP := 1)
@@ -154,8 +149,6 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
 	  @sudo wg-quick up $(FLY_WIREGUARD_CONF_FILE)
 	  @echo "[INFO] [Fly Wireguard Up] Done – tunnel is live."
   endif
-
-  DEPS_PASSTHROUGH_VARS += FLY_WIREGUARD_UP
 
   _fly_wireguard_down:
 	  @if [ "$(MAKELEVEL)" -eq 0 ]; then \

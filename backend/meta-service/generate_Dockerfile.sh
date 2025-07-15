@@ -143,7 +143,8 @@ EXPOSE 8080
 EOF
 
 # ──────────────────────────────  Stage 5: final CMD  ──────────────────────────────
-services_cmd="ulimit -n 65535 && ulimit -u 65535 && "
+# run both ulimit commands but ignore failure so the rest of the line still executes
+services_cmd="ulimit -n 65535 || true; ulimit -u 65535 || true; "
 
 for svc in $SERVICES; do
   services_cmd="${services_cmd}(set -a && . /root/${svc}.env && exec /root/${svc}) & "

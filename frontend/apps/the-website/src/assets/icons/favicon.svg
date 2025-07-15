@@ -12,6 +12,9 @@
     </style>
   </defs>
 
+  <!-- <!-1- White backdrop -1-> -->
+  <!-- <rect x="0" y="0" width="100%" height="100%" fill="#FFFFFF"/> -->
+
   <g transform="translate(-36 -36)">
     <!-- Outer marker -->
     <path class="st0"

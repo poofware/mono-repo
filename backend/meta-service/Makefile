@@ -87,5 +87,5 @@ ifndef INCLUDED_COMPOSE_APP_TARGETS
   include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_targets.mk
 endif
 
-up:: _deps-_up-app-post-check
+up:: _deps-up-app-post-check
 

@@ -18,6 +18,10 @@ services:
       <<: *build-network
       args:
         APP_PORT: ${APP_PORT?Docker Compose Config Error! APP_PORT is not set!}
+
+      # Have to do this until there is a better option to control this from the compose cli
+      platforms:
+        - ${TARGET_PLATFORM:?Docker Compose Config Error! TARGET_PLATFORM is not set!}
     container_name: meta-service_instance
     image: meta-service
     ports: 

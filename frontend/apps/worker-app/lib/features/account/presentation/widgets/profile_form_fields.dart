@@ -33,8 +33,11 @@ class AddressResolved {
     this.latLng,
   });
 
-  static const AddressComponent _emptyComp =
-      AddressComponent(name: '', shortName: '', types: []);
+  static const AddressComponent _emptyComp = AddressComponent(
+    name: '',
+    shortName: '',
+    types: [],
+  );
 
   factory AddressResolved.fromPlace(Place p) {
     String comp(String type, {bool short = false}) {
@@ -66,7 +69,7 @@ class AddressFormField extends ConsumerStatefulWidget {
   final String initialZip;
   final bool isEditing;
   final void Function(AddressResolved? resolvedAddress, String aptSuite)
-      onChanged;
+  onChanged;
 
   const AddressFormField({
     super.key,
@@ -180,17 +183,13 @@ class _AddressFormFieldState extends ConsumerState<AddressFormField> {
     final app = AppLocalizations.of(context);
 
     if (!widget.isEditing) {
-      final fullAddress = [
-        widget.initialStreet,
-        widget.initialAptSuite,
-        widget.initialCity,
-        widget.initialState,
-        widget.initialZip
-      ].where((s) => s.isNotEmpty).join(', ');
+      final readOnlyDisplay = widget.initialAptSuite.isNotEmpty
+          ? '${widget.initialStreet}, ${widget.initialAptSuite}'
+          : widget.initialStreet;
       return ProfileReadOnlyField(
         icon: Icons.location_on_outlined,
-        label: app.addressInfoPageStreetLabel,
-        value: fullAddress,
+        label: app.myProfilePageAddressLabel,
+        value: readOnlyDisplay,
       );
     }
 
@@ -215,8 +214,10 @@ class _AddressFormFieldState extends ConsumerState<AddressFormField> {
                 setState(() => _resolvedAddress = null);
                 widget.onChanged(null, _aptSuiteController.text);
               },
-              decoration: _inputDecoration(app.addressInfoPageStreetLabel,
-                  isHighlighted: true),
+              decoration: _inputDecoration(
+                app.addressInfoPageStreetLabel,
+                isHighlighted: true,
+              ),
             ),
             itemBuilder: (context, p) => ListTile(
               title: Text(p.primaryText),
@@ -228,7 +229,7 @@ class _AddressFormFieldState extends ConsumerState<AddressFormField> {
                 fields: [
                   PlaceField.Address,
                   PlaceField.AddressComponents,
-                  PlaceField.Location
+                  PlaceField.Location,
                 ],
               );
               final place = resp.place;
@@ -243,15 +244,16 @@ class _AddressFormFieldState extends ConsumerState<AddressFormField> {
                 _zipController.text = resolved.postalCode;
               });
               widget.onChanged(resolved, _aptSuiteController.text);
-              FocusScope.of(context).unfocus();
+              if (context.mounted) FocusScope.of(context).unfocus();
             },
           )
         else
           TextField(
             enabled: false,
-            decoration: _inputDecoration(app.addressInfoPageStreetLabel,
-                    isHighlighted: true)
-                .copyWith(suffixIcon: const Icon(Icons.place_outlined)),
+            decoration: _inputDecoration(
+              app.addressInfoPageStreetLabel,
+              isHighlighted: true,
+            ).copyWith(suffixIcon: const Icon(Icons.place_outlined)),
           ),
         const SizedBox(height: 16),
         TextField(
@@ -295,11 +297,40 @@ class _AddressFormFieldState extends ConsumerState<AddressFormField> {
 
 class _VehicleApi {
   static const _popularMakes = <String>{
-    'ACURA','ALFA ROMEO','AUDI','BMW','BUICK','CADILLAC','CHEVROLET','CHRYSLER',
-    'DODGE','FIAT','FORD','GENESIS','GMC','HONDA','HYUNDAI','INFINITI','JAGUAR',
-    'JEEP','KIA','LAND ROVER','LEXUS','LINCOLN','MAZDA','MERCEDES-BENZ','MINI',
-    'MITSUBISHI','NISSAN','PORSCHE','RAM','SUBARU','TESLA','TOYOTA',
-    'VOLKSWAGEN','VOLVO'
+    'ACURA',
+    'ALFA ROMEO',
+    'AUDI',
+    'BMW',
+    'BUICK',
+    'CADILLAC',
+    'CHEVROLET',
+    'CHRYSLER',
+    'DODGE',
+    'FIAT',
+    'FORD',
+    'GENESIS',
+    'GMC',
+    'HONDA',
+    'HYUNDAI',
+    'INFINITI',
+    'JAGUAR',
+    'JEEP',
+    'KIA',
+    'LAND ROVER',
+    'LEXUS',
+    'LINCOLN',
+    'MAZDA',
+    'MERCEDES-BENZ',
+    'MINI',
+    'MITSUBISHI',
+    'NISSAN',
+    'PORSCHE',
+    'RAM',
+    'SUBARU',
+    'TESLA',
+    'TOYOTA',
+    'VOLKSWAGEN',
+    'VOLVO',
   };
 
   Future<List<String>> fetchMakes(int year, String query) async {
@@ -319,34 +350,37 @@ class _VehicleApi {
     }
 
     if (res == null || res.statusCode == 404) {
-      final uri = Uri.https(base, '/api/vehicles/GetAllMakes', {'format': 'json'});
+      final uri = Uri.https(base, '/api/vehicles/GetAllMakes', {
+        'format': 'json',
+      });
       res = await http.get(uri);
       if (res.statusCode != 200) {
         throw Exception('VPIC GetAllMakes error ${res.statusCode}');
       }
     }
 
-    final map  = jsonDecode(res.body) as Map<String, dynamic>;
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
     final list = (map['Results'] as List).cast<Map<String, dynamic>>();
-    final q    = query.toUpperCase();
+    final q = query.toUpperCase();
 
-    final originals = <String,String>{
-      for (final row in list) (row['Make_Name'] as String).toUpperCase():
-                             row['Make_Name'] as String
+    final originals = <String, String>{
+      for (final row in list)
+        (row['Make_Name'] as String).toUpperCase(): row['Make_Name'] as String,
     };
 
     List<String> ranked = originals.keys.where((m) => m.contains(q)).toList()
-      ..sort((a,b) {
-        int score(String m) => m==q?0:(m.startsWith(q)?1:2);
-        final s1=score(a), s2=score(b);
-        return s1!=s2? s1.compareTo(s2): a.compareTo(b);
+      ..sort((a, b) {
+        int score(String m) => m == q ? 0 : (m.startsWith(q) ? 1 : 2);
+        final s1 = score(a), s2 = score(b);
+        return s1 != s2 ? s1.compareTo(s2) : a.compareTo(b);
       });
 
     final common = ranked.where(_popularMakes.contains).toList();
     if (common.isNotEmpty) ranked = common;
 
-    String titleCase(String s) => s.split(RegExp(r'\s+'))
-        .map((w) => w.isEmpty? w : w[0] + w.substring(1).toLowerCase())
+    String titleCase(String s) => s
+        .split(RegExp(r'\s+'))
+        .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
         .join(' ');
 
     return ranked.take(10).map((u) => titleCase(originals[u]!)).toList();
@@ -356,22 +390,23 @@ class _VehicleApi {
     final uri = Uri.https(
       'vpic.nhtsa.dot.gov',
       '/api/vehicles/GetModelsForMakeYear/make/$make/modelyear/$year',
-      {'format':'json'},
+      {'format': 'json'},
     );
     final res = await http.get(uri);
 
     if (res.statusCode == 404 || res.statusCode != 200) return [];
 
-    final map  = jsonDecode(res.body) as Map<String,dynamic>;
-    final list = (map['Results'] as List).cast<Map<String,dynamic>>();
-    final q    = query.toUpperCase();
-    final set  = <String>{
-      for (final row in list) (row['Model_Name'] as String).toUpperCase()
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = (map['Results'] as List).cast<Map<String, dynamic>>();
+    final q = query.toUpperCase();
+    final set = <String>{
+      for (final row in list) (row['Model_Name'] as String).toUpperCase(),
     };
 
-    return set.where((m)=>m.contains(q)).take(15).map((m){
-      return m.split(RegExp(r'\s+'))
-          .map((w)=> w.isEmpty? w : w[0] + w.substring(1).toLowerCase())
+    return set.where((m) => m.contains(q)).take(15).map((m) {
+      return m
+          .split(RegExp(r'\s+'))
+          .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
           .join(' ');
     }).toList();
   }
@@ -402,6 +437,8 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
   late final TextEditingController _makeController;
   late final TextEditingController _modelController;
 
+  final FocusNode _modelFocusNode = FocusNode();
+
   final SuggestionsController<String> _makeSuggestionsController =
       SuggestionsController<String>();
   final SuggestionsController<String> _modelSuggestionsController =
@@ -409,32 +446,37 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
 
   bool _yearValid = false;
   bool _makeResolved = false;
-  bool _modelResolved = false;
 
   final _api = _VehicleApi();
 
   @override
   void initState() {
     super.initState();
-    _yearController = TextEditingController(text: widget.initialYear > 0 ? widget.initialYear.toString() : '');
+    _yearController = TextEditingController(
+      text: widget.initialYear > 0 ? widget.initialYear.toString() : '',
+    );
     _makeController = TextEditingController(text: widget.initialMake);
     _modelController = TextEditingController(text: widget.initialModel);
 
-    _yearValid = widget.initialYear >= 1900 && widget.initialYear <= DateTime.now().year + 1;
+    _yearValid =
+        widget.initialYear >= 1900 &&
+        widget.initialYear <= DateTime.now().year + 1;
     _makeResolved = widget.initialMake.isNotEmpty;
-    _modelResolved = widget.initialModel.isNotEmpty;
   }
 
   @override
   void didUpdateWidget(covariant VehicleFormField oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isEditing != oldWidget.isEditing && !widget.isEditing) {
-      _yearController.text = widget.initialYear > 0 ? widget.initialYear.toString() : '';
+      _yearController.text = widget.initialYear > 0
+          ? widget.initialYear.toString()
+          : '';
       _makeController.text = widget.initialMake;
       _modelController.text = widget.initialModel;
-      _yearValid = widget.initialYear >= 1900 && widget.initialYear <= DateTime.now().year + 1;
+      _yearValid =
+          widget.initialYear >= 1900 &&
+          widget.initialYear <= DateTime.now().year + 1;
       _makeResolved = widget.initialMake.isNotEmpty;
-      _modelResolved = widget.initialModel.isNotEmpty;
     }
   }
 
@@ -445,6 +487,7 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
     _modelController.dispose();
     _makeSuggestionsController.dispose();
     _modelSuggestionsController.dispose();
+    _modelFocusNode.dispose();
     super.dispose();
   }
 
@@ -454,7 +497,6 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
     setState(() {
       _yearValid = ok;
       _makeResolved = false;
-      _modelResolved = false;
       _makeController.clear();
       _modelController.clear();
     });
@@ -464,15 +506,20 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
   void _onMakeChanged(String text) {
     setState(() {
       _makeResolved = false;
-      _modelResolved = false;
       _modelController.clear();
     });
-    widget.onChanged(int.tryParse(_yearController.text) ?? 0, text, '');
+    // not a valid make until a suggestion is chosen
+    widget.onChanged(int.tryParse(_yearController.text) ?? 0, '', '');
   }
 
   void _onModelChanged(String text) {
-    setState(() => _modelResolved = false);
-    widget.onChanged(int.tryParse(_yearController.text) ?? 0, _makeController.text, text);
+    setState(() {});
+    // not a valid model until a suggestion is chosen
+    widget.onChanged(
+      int.tryParse(_yearController.text) ?? 0,
+      _makeController.text,
+      '',
+    );
   }
 
   InputDecoration _decor(BuildContext ctx, String label) {
@@ -519,7 +566,7 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
         ],
       );
     }
-    
+
     return Column(
       children: [
         TextField(
@@ -542,7 +589,10 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
           suggestionsCallback: (pattern) async {
             if (!_yearValid || pattern.length < 2) return const <String>[];
             try {
-              return await _api.fetchMakes(int.parse(_yearController.text), pattern);
+              return await _api.fetchMakes(
+                int.parse(_yearController.text),
+                pattern,
+              );
             } catch (e) {
               return const <String>[];
             }
@@ -559,14 +609,20 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
             setState(() {
               _makeController.text = suggestion;
               _makeResolved = true;
-              _modelResolved = false;
               _modelController.clear();
             });
-            widget.onChanged(int.tryParse(_yearController.text) ?? 0, suggestion, '');
+            widget.onChanged(
+              int.tryParse(_yearController.text) ?? 0,
+              suggestion,
+              '',
+            );
             _makeSuggestionsController.close();
-            FocusScope.of(context).nextFocus();
+            // wait until the model field is rebuilt & enabled, then give focus
+            // directly to the *model* text field instead of wrapping to the top
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _modelFocusNode.requestFocus();
+            });
           },
-          emptyBuilder: (context) => const SizedBox.shrink(),
         ),
         const SizedBox(height: 16),
         TypeAheadField<String>(
@@ -576,7 +632,9 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
           hideOnSelect: true,
           hideOnEmpty: true,
           suggestionsCallback: (pattern) async {
-            if (!_yearValid || !_makeResolved || pattern.isEmpty) return const <String>[];
+            if (!_yearValid || !_makeResolved || pattern.isEmpty) {
+              return const <String>[];
+            }
             return await _api.fetchModels(
               int.parse(_yearController.text),
               _makeController.text,
@@ -594,11 +652,16 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
           onSelected: (suggestion) {
             setState(() {
               _modelController.text = suggestion;
-              _modelResolved = true;
             });
-            widget.onChanged(int.tryParse(_yearController.text) ?? 0, _makeController.text, suggestion);
+            widget.onChanged(
+              int.tryParse(_yearController.text) ?? 0,
+              _makeController.text,
+              suggestion,
+            );
             _modelSuggestionsController.close();
-            FocusScope.of(context).unfocus();
+            FocusScope.of(
+              context,
+            ).unfocus(disposition: UnfocusDisposition.scope); // new
           },
           emptyBuilder: (context) => const SizedBox.shrink(),
         ),
@@ -637,11 +700,7 @@ class ProfileReadOnlyField extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.bodyLarge,
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(value, style: theme.textTheme.bodyLarge),
             ],
           ),
         ),
@@ -649,4 +708,3 @@ class ProfileReadOnlyField extends StatelessWidget {
     );
   }
 }
-

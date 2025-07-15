@@ -74,6 +74,13 @@ export DEPS_PASSTHROUGH_VARS += LOG_LEVEL
 
 ENABLE_NGROK_FOR_DEV ?= 0
 
+ifeq ($(APP_IS_GATEWAY),1)
+# If the app is a gateway to its dependencies, we need to passthrough some key network configurations to the deps targets.
+# This ensures that the deps of the gateway app use the gateways addresses. This is important for obvious reasons.
+DEPS_PASSTHROUGH_VARS += APP_URL_FROM_COMPOSE_NETWORK
+DEPS_PASSTHROUGH_VARS += APP_URL_FROM_ANYWHERE
+endif
+
 ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
 
   # If the app is a gateway, than always override a previously set APP_URL_FROM_COMPOSE_NETWORK
@@ -92,6 +99,10 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
     endif
 
     DEPS_PASSTHROUGH_VARS += NGROK_AUTHTOKEN
+
+    ifeq ($(APP_IS_GATEWAY),1)
+      DEPS_PASSTHROUGH_VARS += NGROK_UP
+    endif
 
     export NGROK_PORT := 4040
   endif
@@ -118,6 +129,9 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
   ifndef APP_URL_FROM_ANYWHERE
     export APP_URL_FROM_ANYWHERE := $(FLY_URL)
   endif
+
+  DEPS_PASSTHROUGH_VARS += FLY_API_TOKEN
+  DEPS_PASSTHROUGH_VARS += FLY_WIREGUARD_UP
 
 else ifneq (,$(filter $(ENV),$(PROD_ENV)))
 

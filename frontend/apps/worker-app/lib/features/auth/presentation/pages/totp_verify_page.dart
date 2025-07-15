@@ -110,6 +110,7 @@ class _TotpVerifyPageState extends ConsumerState<TotpVerifyPage> {
                           children: [
                             SixDigitField(
                               autofocus: true,
+                              showPasteButton: true,
                               onChanged: (val) =>
                                   setState(() => _sixDigitCode = val),
                               onSubmitted: (code) => _handleVerification(),

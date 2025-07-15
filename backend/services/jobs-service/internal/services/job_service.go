@@ -91,7 +91,6 @@ func (s *JobService) ListOpenJobs(
 ) (*dtos.ListJobsResponse, error) {
 	nowLocal := time.Now().In(workerLoc)
 	// Query a 9-day window from yesterday to today+7 days to cover all scenarios.
-	// `dateOnlyInLocation` finds the start of the day in the worker's timezone and returns it as a UTC timestamp.
 	startUTC := dateOnlyInLocation(nowLocal.AddDate(0, 0, -1), workerLoc)
 	endUTC := startUTC.AddDate(0, 0, constants.DaysToListOpenJobsRange)
 
@@ -159,7 +158,8 @@ func (s *JobService) ListOpenJobs(
 
 		latestStartLocal := time.Date(inst.ServiceDate.Year(), inst.ServiceDate.Month(), inst.ServiceDate.Day(), defn.LatestStartTime.Hour(), defn.LatestStartTime.Minute(), 0, 0, propLoc)
 		noShowCutoffTime := latestStartLocal.Add(-constants.NoShowCutoffBeforeLatestStart)
-		if time.Now().After(noShowCutoffTime) {
+		acceptanceCutoffTime := noShowCutoffTime.Add(-constants.AcceptanceCutoffBeforeNoShow)
+		if time.Now().After(acceptanceCutoffTime) {
 			continue
 		}
 
@@ -442,7 +442,8 @@ func (s *JobService) AcceptJobInstanceWithLocation(
 	// Gate job acceptance based on the no-show cutoff time.
 	latestStartLocal := time.Date(inst.ServiceDate.Year(), inst.ServiceDate.Month(), inst.ServiceDate.Day(), defn.LatestStartTime.Hour(), defn.LatestStartTime.Minute(), 0, 0, propLoc)
 	noShowCutoffTime := latestStartLocal.Add(-constants.NoShowCutoffBeforeLatestStart)
-	if time.Now().After(noShowCutoffTime) {
+	acceptanceCutoffTime := noShowCutoffTime.Add(-constants.AcceptanceCutoffBeforeNoShow)
+	if time.Now().After(acceptanceCutoffTime) {
 		return nil, internal_utils.ErrNotWithinTimeWindow
 	}
 
@@ -658,16 +659,51 @@ func (s *JobService) UnacceptJobInstance(
 
 	defn, _ := s.defRepo.GetByID(ctx, inst.DefinitionID)
 	if defn != nil {
-		now := time.Now().UTC()
 		prop, pErr := s.propRepo.GetByID(ctx, defn.PropertyID)
 		if pErr == nil && prop != nil {
+			now := time.Now().UTC()
 			propLoc := loadPropertyLocation(prop.TimeZone)
 			serviceDate := inst.ServiceDate
 			eStart := time.Date(serviceDate.Year(), serviceDate.Month(), serviceDate.Day(), defn.EarliestStartTime.Hour(), defn.EarliestStartTime.Minute(), 0, 0, propLoc)
 			lStart := time.Date(serviceDate.Year(), serviceDate.Month(), serviceDate.Day(), defn.LatestStartTime.Hour(), defn.LatestStartTime.Minute(), 0, 0, propLoc)
 			noShowTime := lStart.Add(-constants.NoShowCutoffBeforeLatestStart)
+			acceptanceCutoffTime := noShowTime.Add(-constants.AcceptanceCutoffBeforeNoShow)
 
-			penaltyDelta, excludeWorker = s.calculatePenaltyForUnassign(now, eStart, noShowTime)
+			if now.After(acceptanceCutoffTime) {
+				// Job is too close to start time to be reopened. It must be CANCELED.
+				cancelled, err2 := s.instRepo.UpdateStatusToCancelled(ctx, instanceID, inst.RowVersion)
+				if err2 != nil {
+					if strings.Contains(err2.Error(), utils.ErrRowVersionConflict.Error()) {
+						latest, _ := s.instRepo.GetByID(ctx, instanceID)
+						if latest != nil {
+							return nil, internal_utils.NewRowVersionConflictError(latest)
+						}
+					}
+					return nil, err2
+				}
+				if cancelled == nil {
+					return nil, utils.ErrNoRowsUpdated
+				}
+
+				// Apply no-show penalty and always exclude.
+				if s.workerRepo != nil {
+					_ = s.instRepo.AddExcludedWorker(ctx, cancelled.ID, wUUID)
+					_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, constants.WorkerPenaltyNoShow, "UNACCEPT_LATE_CANCEL")
+				}
+
+				messageBody := "Worker un-assigned from job after acceptance cutoff. It has been canceled and may need coverage."
+				NotifyOnCallAgents(
+					ctx, prop, defn.ID.String(), "[Escalation] Worker Unassigned Late", messageBody,
+					s.agentRepo, s.twilioClient, s.sendgridClient,
+					s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
+					s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
+				)
+
+				dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil)
+				return dto, nil
+			}
+
+			penaltyDelta, excludeWorker = CalculatePenaltyForUnassign(now, eStart, noShowTime)
 		}
 	}
 
@@ -979,7 +1015,7 @@ func (s *JobService) CreateJobDefinition(
 			day := baseDate.AddDate(0, 0, i)
 			if shouldCreateOnDate(newDef, day) {
 				// NEW: Prevent creation if the no-show cutoff for today's job is already in the past.
-				if day == baseDate { // Check only for today's job instance
+				if time.Time.Equal(day, baseDate) {
 					latestStartForToday := time.Date(day.Year(), day.Month(), day.Day(), newDef.LatestStartTime.Hour(), newDef.LatestStartTime.Minute(), 0, 0, loc)
 					noShowCutoffForToday := latestStartForToday.Add(-constants.NoShowCutoffBeforeLatestStart)
 					if nowLocal.After(noShowCutoffForToday) {
@@ -1048,9 +1084,48 @@ func (s *JobService) CancelJobInstance(
 	now := time.Now().UTC()
 	wUUID := uuid.MustParse(workerID)
 
-	// Case 1: Canceled before the no-show cutoff. Revert job to OPEN.
+	// Case 1: Canceled before the no-show cutoff.
 	if now.Before(noShowTime) {
-		penaltyDelta, excludeWorker := s.calculatePenaltyForUnassign(now, eStart, noShowTime)
+		acceptanceCutoffTime := noShowTime.Add(-constants.AcceptanceCutoffBeforeNoShow)
+		// Nested check: if cancellation is after the acceptance cutoff, it's treated as a late cancellation.
+		if now.After(acceptanceCutoffTime) {
+			// This is effectively a late cancellation, treated with the same severity as a no-show.
+			expectedVersion := inst.RowVersion
+			cancelled, err2 := s.instRepo.UpdateStatusToCancelled(ctx, instanceID, expectedVersion)
+			if err2 != nil {
+				if strings.Contains(err2.Error(), utils.ErrRowVersionConflict.Error()) {
+					latest, _ := s.instRepo.GetByID(ctx, instanceID)
+					if latest != nil {
+						return nil, internal_utils.NewRowVersionConflictError(latest)
+					}
+				}
+				return nil, err2
+			}
+			if cancelled == nil {
+				return nil, utils.ErrNoRowsUpdated
+			}
+
+			// Apply no-show penalty and always exclude.
+			if s.workerRepo != nil {
+				_ = s.instRepo.AddExcludedWorker(ctx, cancelled.ID, wUUID)
+				_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, constants.WorkerPenaltyNoShow, "CANCEL_IN_PROGRESS_LATE")
+			}
+			messageBody := fmt.Sprintf(
+				"Worker canceled in-progress job after acceptance cutoff time. The job's latest start time was %s. Coverage is likely required.",
+				lStart.Format("15:04"),
+			)
+			NotifyOnCallAgents(
+				ctx, prop, defn.ID.String(), "[Escalation] Worker Canceled In-Progress Job (Late)", messageBody,
+				s.agentRepo, s.twilioClient, s.sendgridClient,
+				s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
+				s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
+			)
+			dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil)
+			return dto, nil
+		}
+
+		// Revert job to OPEN.
+		penaltyDelta, excludeWorker := CalculatePenaltyForUnassign(now, eStart, noShowTime)
 
 		expectedVersion := inst.RowVersion
 		assignCount := inst.AssignUnassignCount + 1
@@ -1080,6 +1155,7 @@ func (s *JobService) CancelJobInstance(
 		dto, _ := s.buildInstanceDTO(ctx, rev, nil, nil)
 		return dto, nil
 	}
+
 
 	// Case 2: Canceled after the no-show cutoff. Job is fully CANCELED.
 	// This is treated with the same severity as a no-show.
@@ -1129,11 +1205,11 @@ func (s *JobService) CancelJobInstance(
 
 /*────────────────────────────────────────────────────────────────────────────
   Internal Helpers
-────────────────────────────────────────────────────────────────────────────*/
+───────────────────────────────────────────────────────────────────────────*/
 
-// calculatePenaltyForUnassign implements the tiered penalty logic for un-assigning or canceling a job.
+// CalculatePenaltyForUnassign implements the tiered penalty logic for un-assigning or canceling a job.
 // All windows are calculated relative to the no-show time.
-func (s *JobService) calculatePenaltyForUnassign(now, eStart, noShowTime time.Time) (int, bool) {
+func CalculatePenaltyForUnassign(now, eStart, noShowTime time.Time) (int, bool) {
 	// Highest urgency: past the no-show time.
 	if noShowTime.IsZero() || now.After(noShowTime) {
 		return constants.WorkerPenaltyLate, true
@@ -1509,12 +1585,6 @@ func validateDailyPayEstimates(
 // Ungated jobs (service date before the standard "next batch" day) are always visible.
 // Gated jobs (on or after "next batch" day) are visible only if the current time
 // is after their calculated release time, which depends on worker score and tenancy.
-// From: meta-service/services/jobs-service/internal/services/job_service.go
-
-// isJobReleasedToWorker checks if a potentially gated job is visible to a worker.
-// Ungated jobs (service date before the standard "next batch" day) are always visible.
-// Gated jobs (on or after "next batch" day) are visible only if the current time
-// is after their calculated release time, which depends on worker score and tenancy.
 func (s *JobService) isJobReleasedToWorker(
 	inst *models.JobInstance,
 	prop *models.Property,
@@ -1543,7 +1613,6 @@ func (s *JobService) isJobReleasedToWorker(
 	}
 
 	// This is a "gated" job. Check if it's released for this worker.
-
 	// The release of a batch is tied to the midnight that is 6 days *before* its service date.
 	// e.g., the batch for today+6 is released relative to today's midnight.
 	// The batch for today+7 is released relative to today+1's midnight.

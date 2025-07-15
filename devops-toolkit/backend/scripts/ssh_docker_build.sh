@@ -34,12 +34,7 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 export COMPOSE_BAKE=false
 
-# Decide progress mode based on $VERBOSE
-progress="auto"
-if [[ "${VERBOSE:-}" == "1" ]]; then
-  progress="plain"
-fi
-
+progress=${VERBOSE:+plain}; progress=${progress:-auto}
 echo "[INFO] [Build] SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
 echo "[INFO] [Build] progress=$progress"
 

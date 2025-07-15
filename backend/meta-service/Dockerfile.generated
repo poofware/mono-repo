@@ -138,4 +138,4 @@ COPY --from=pm-app /usr/share/nginx/html/pm/ /usr/share/nginx/html/pm/
 RUN rm -f /etc/nginx/conf.d/default.conf;
 
 EXPOSE 8080
-CMD ["/bin/sh", "-c", "ulimit -n 65535 && ulimit -u 65535 && (set -a && . /root/auth-service.env && exec /root/auth-service) & (set -a && . /root/account-service.env && exec /root/account-service) & (set -a && . /root/interest-service.env && exec /root/interest-service) & (set -a && . /root/jobs-service.env && exec /root/jobs-service) & (set -a && . /root/earnings-service.env && exec /root/earnings-service) & /root/health_check & nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "ulimit -n 65535 || true; ulimit -u 65535 || true; (set -a && . /root/auth-service.env && exec /root/auth-service) & (set -a && . /root/account-service.env && exec /root/account-service) & (set -a && . /root/interest-service.env && exec /root/interest-service) & (set -a && . /root/jobs-service.env && exec /root/jobs-service) & (set -a && . /root/earnings-service.env && exec /root/earnings-service) & /root/health_check & nginx -g 'daemon off;'"]

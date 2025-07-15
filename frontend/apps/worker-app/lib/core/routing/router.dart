@@ -112,7 +112,7 @@ final List<AppRoute> _appRoutes = [
       access: RouteAccess.public,
       path: '/',
       name: AppRouteNames.home,
-      builder: (_, __) => const WelcomePage()),
+      pageBuilder: (_, _) => const CupertinoPage(child: WelcomePage())),
   AppRoute(
     access: RouteAccess.public,
     path: '/login',
@@ -148,7 +148,7 @@ final List<AppRoute> _appRoutes = [
       access: RouteAccess.protected,
       path: '/address_info',
       name: AppRouteNames.addressInfoPage,
-      builder: (_, __) => const AddressInfoPage()),
+      builder: (_, _) => const AddressInfoPage()),
   AppRoute(
     access: RouteAccess.protected,
     path: '/vehicle_setup',
@@ -186,7 +186,7 @@ final List<AppRoute> _appRoutes = [
       access: RouteAccess.protected,
       path: '/checkr',
       name: AppRouteNames.checkrPage,
-      builder: (_, __) => const BackgroundCheckPage()),
+      builder: (_, _) => const BackgroundCheckPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/checkr_in_progress',
@@ -212,12 +212,12 @@ final List<AppRoute> _appRoutes = [
       access: RouteAccess.protected,
       path: '/checkr_outcome',
       name: AppRouteNames.checkrOutcomePage,
-      builder: (_, __) => const CheckrOutcomePage()),
+      builder: (_, _) => const CheckrOutcomePage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_idv',
       name: AppRouteNames.stripeIdvPage,
-      builder: (_, __) => const VerifyIdentityPage()),
+      builder: (_, _) => const VerifyIdentityPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_idv_in_progress',
@@ -234,7 +234,7 @@ final List<AppRoute> _appRoutes = [
       access: RouteAccess.protected,
       path: '/stripe_connect',
       name: AppRouteNames.stripeConnectPage,
-      builder: (_, __) => const StripePage()),
+      builder: (_, _) => const StripePage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/stripe_connect_in_progress',
@@ -251,17 +251,17 @@ final List<AppRoute> _appRoutes = [
       access: RouteAccess.protected,
       path: '/main',
       name: AppRouteNames.mainTab,
-      builder: (_, __) => const MainTabsScreen()),
+      builder: (_, _) => const MainTabsScreen()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/home',
       name: AppRouteNames.homePage,
-      builder: (_, __) => const HomePage()),
+      builder: (_, _) => const HomePage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/accepted_jobs',
       name: AppRouteNames.acceptedJobsPage,
-      builder: (_, __) => const AcceptedJobsPage()),
+      builder: (_, _) => const AcceptedJobsPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/job_map',
@@ -303,7 +303,7 @@ final List<AppRoute> _appRoutes = [
       access: RouteAccess.protected,
       path: '/earnings',
       name: AppRouteNames.earningsPage,
-      builder: (_, __) => const EarningsPage()),
+      builder: (_, _) => const EarningsPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/week_earnings_detail',
@@ -316,22 +316,22 @@ final List<AppRoute> _appRoutes = [
       access: RouteAccess.protected,
       path: '/settings',
       name: AppRouteNames.settingsPage,
-      builder: (_, __) => const SettingsPage()),
+      builder: (_, _) => const SettingsPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/my_profile',
       name: AppRouteNames.myProfilePage,
-      builder: (_, __) => const MyProfilePage()),
+      builder: (_, _) => const MyProfilePage()),
   AppRoute(
       access: RouteAccess.unrestricted,
       path: '/signing_out',
       name: AppRouteNames.signingOutPage,
-      builder: (_, __) => const SigningOutPage()),
+      builder: (_, _) => const SigningOutPage()),
   AppRoute(
       access: RouteAccess.unrestricted,
       path: '/session_expired',
       name: AppRouteNames.sessionExpiredPage,
-      builder: (_, __) => const SessionExpiredPage()),
+      builder: (_, _) => const SessionExpiredPage()),
 ];
 
 // ... rest of the file is unchanged ...

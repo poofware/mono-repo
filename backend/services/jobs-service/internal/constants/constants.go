@@ -18,8 +18,10 @@ const (
 
 // Time windows relative to a job's LATEST_START_TIME
 const (
-	NoShowCutoffBeforeLatestStart = 30 * time.Minute
-	OnCallEscalationBeforeLatest  = 20 * time.Minute
+	NoShowCutoffBeforeLatestStart = 20 * time.Minute
+	// A worker cannot accept a job if it's within 20 minutes of the no-show cutoff time.
+	AcceptanceCutoffBeforeNoShow = 20 * time.Minute
+	OnCallEscalationBeforeLatest = 20 * time.Minute
 )
 
 // Worker Penalty Tiers (negative values)
@@ -32,7 +34,7 @@ const (
 	WorkerPenalty24h             = -1  // Un-assigns more than 7h before no-show, but < 24h before earliest_start
 )
 
-// Time windows for penalties, all relative to the NO_SHOW_TIME (LatestStartTime - 30m)
+// Time windows for penalties, all relative to the NO_SHOW_TIME (LatestStartTime - 20m)
 const (
 	LateUnassignCutoff         = 90 * time.Minute // T-90m before no-show
 	MidUnassignCutoff          = 3 * time.Hour    // T-3h before no-show
@@ -62,4 +64,3 @@ const (
 	ErrMsgRowVersionConflictRefresh        = "The job has changed, please refresh"
 	ErrMsgRowVersionConflictAnotherUpdated = "Another update occurred, please refresh"
 )
-
