@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -98,22 +97,9 @@ func (r *pmRepo) GetByPhoneNumber(ctx context.Context, phone string) (*models.Pr
 
 func (r *pmRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PropertyManager, error) {
 	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1 AND deleted_at IS NULL", id)
-	pm, err := r.scanPM(row)
-	if err != nil {
-		// pgx returns pgx.ErrNoRows when QueryRow's Scan finds no rows.
-		// We handle this specific error to distinguish "not found" from other DB errors.
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, pgx.ErrNoRows
-		}
-		// As a fallback for non-standard driver behavior, check the error string.
-		if err.Error() == "no rows in result set" {
-			return nil, pgx.ErrNoRows
-		}
-		// For any other error, it's unexpected and should be logged.
-		utils.Logger.WithError(err).Errorf("Unexpected error fetching property manager by ID %s", id)
-		return nil, err
-	}
-	return pm, nil
+	// The caller (service layer) is responsible for interpreting the error,
+	// including pgx.ErrNoRows which is returned directly from scanPM.
+	return r.scanPM(row)
 }
 
 /* ---------- Updates ---------- */
