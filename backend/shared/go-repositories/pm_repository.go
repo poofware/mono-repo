@@ -254,6 +254,9 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 		&acc, &prog,
 		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &deletedAt,
 	)
+
+	utils.Logger.Infof("[scanPM] row.Scan returned error: %v", err)
+	
 	if err != nil {
 		// The caller is responsible for interpreting the error (e.g., pgx.ErrNoRows).
 		return nil, err
