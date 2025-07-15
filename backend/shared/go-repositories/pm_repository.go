@@ -96,10 +96,7 @@ func (r *pmRepo) GetByPhoneNumber(ctx context.Context, phone string) (*models.Pr
 }
 
 func (r *pmRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE id=$1 AND deleted_at IS NULL", id)
-	// The caller (service layer) is responsible for interpreting the error,
-	// including pgx.ErrNoRows which is returned directly from scanPM.
-	return r.scanPM(row)
+	return r.BaseVersionedRepo.GetByID(ctx, id.String())
 }
 
 /* ---------- Updates ---------- */
@@ -256,7 +253,7 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 	)
 
 	utils.Logger.Infof("[scanPM] row.Scan returned error: %v", err)
-	
+
 	if err != nil {
 		// The caller is responsible for interpreting the error (e.g., pgx.ErrNoRows).
 		return nil, err
