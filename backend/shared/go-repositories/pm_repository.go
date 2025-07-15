@@ -1,5 +1,3 @@
-// backend/shared/go-repositories/pm_repository.go
-
 package repositories
 
 import (
@@ -257,14 +255,10 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &deletedAt,
 	)
 
-	// FIX: Check for pgx.ErrNoRows immediately and return it.
-	// This prevents the function from returning a zero-value struct with a nil error.
+	utils.Logger.Infof("[scanPM] row.Scan returned error: %v", err)
+
 	if err != nil {
 		// The caller is responsible for interpreting the error (e.g., pgx.ErrNoRows).
-		// No need to log ErrNoRows as an error, it's an expected outcome.
-		if err != pgx.ErrNoRows {
-			utils.Logger.WithError(err).Error("[scanPM] A database error occurred during scan")
-		}
 		return nil, err
 	}
 
