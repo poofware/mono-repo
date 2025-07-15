@@ -131,7 +131,7 @@ func TestCreateChildEntity_WithInvalidParent(t *testing.T) {
 		nonExistentManagerID := uuid.New()
 		reqBody, _ := json.Marshal(dtos.CreatePropertyRequest{
 			ManagerID: nonExistentManagerID,
-			PropertyName: "Phantom Property", Address: "123 Main", City: "City", State: "ST", ZipCode: "12345", TimeZone: "UTC",  Latitude: 34.7, Longitude: -86.5,
+			PropertyName: "Phantom Property", Address: "123 Main", City: "City", State: "ST", ZipCode: "12345", TimeZone: "UTC", Latitude: 0, Longitude: 0,
 		})
 		req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminProperties, adminToken, reqBody, "web", "127.0.0.1")
 		resp := h.DoRequest(req, http.DefaultClient)

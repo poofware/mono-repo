@@ -215,8 +215,8 @@ func (h *TestHelper) CreateTestJobDefinition(t *testing.T, ctx context.Context, 
 	return createdDef
 }
 
+// CreateTestJobInstance creates and persists a job instance with the correct effective pay.
 func (h *TestHelper) CreateTestJobInstance(t *testing.T, ctx context.Context, defID uuid.UUID, serviceDate time.Time, status models.InstanceStatusType, assignedWorkerID *uuid.UUID, pay ...float64) *models.JobInstance {
-	// 1. Calculate the effective pay for the instance.
 	var effectivePay float64
 	if len(pay) > 0 {
 		effectivePay = pay[0]
@@ -233,29 +233,19 @@ func (h *TestHelper) CreateTestJobInstance(t *testing.T, ctx context.Context, de
 		}
 	}
 
-	// 2. Attempt to create the instance using CreateIfNotExists, which handles the unique key constraint gracefully.
 	inst := &models.JobInstance{
-		ID:               uuid.New(), // A new UUID is generated for the potential new row.
+		ID:               uuid.New(),
 		DefinitionID:     defID,
 		ServiceDate:      serviceDate.Truncate(24 * time.Hour),
 		Status:           status,
 		AssignedWorkerID: assignedWorkerID,
 		EffectivePay:     effectivePay,
 	}
-	err := h.JobInstRepo.CreateIfNotExists(ctx, inst)
-	require.NoError(t, err, "CreateIfNotExists failed in test helper")
-
-	// 3. Fetch the definitive instance from the database. This works whether the instance was just
-	// created or it already existed. We query by definition and date because we can't rely on `inst.ID`
-	// in the case of a conflict.
-	truncatedServiceDate := serviceDate.Truncate(24 * time.Hour)
-	instances, err := h.JobInstRepo.ListInstancesByDefinitionIDs(ctx, []uuid.UUID{defID}, truncatedServiceDate, truncatedServiceDate)
-	require.NoError(t, err, "Failed to list job instances by def ID and date in test helper")
-	require.NotEmpty(t, instances, "Job instance not found after CreateIfNotExists call")
-	require.Len(t, instances, 1, "Found more than one job instance for the same definition and date")
-
-	// 4. Return the instance from the DB.
-	return instances[0]
+	require.NoError(t, h.JobInstRepo.Create(ctx, inst))
+	createdInst, err := h.JobInstRepo.GetByID(ctx, inst.ID)
+	require.NoError(t, err)
+	require.NotNil(t, createdInst)
+	return createdInst
 }
 
 // MakeWorkerTenant associates a worker with a property by creating a unit and assigning the token.
