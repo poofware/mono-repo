@@ -61,7 +61,7 @@ class _AnimatedRippleState extends State<_AnimatedRipple>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (_, __) {
+      builder: (_, _) {
         final v = _controller.value; 
         
         // Smaller diameter: initial 32, expands by 24

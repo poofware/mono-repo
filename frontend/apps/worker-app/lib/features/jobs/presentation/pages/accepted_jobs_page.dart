@@ -61,7 +61,7 @@ class AcceptedJobsPage extends ConsumerStatefulWidget {
 
 class _AcceptedJobsPageState extends ConsumerState<AcceptedJobsPage>
     with AutomaticKeepAliveClientMixin {
-  String _sortBy = 'distance';
+  String _sortBy = 'time'; // MODIFIED: Default sort is now 'time'
   DateTime? _selectedDate;
 
   @override
@@ -133,12 +133,20 @@ class _AcceptedJobsPageState extends ConsumerState<AcceptedJobsPage>
       return const NoJobsForSelectedDate();
     }
 
+    // MODIFIED: Sorting logic updated
     switch (_sortBy) {
       case 'distance':
         sameDayJobs.sort((a, b) => a.distanceMiles.compareTo(b.distanceMiles));
         break;
-      case 'money':
-        sameDayJobs.sort((a, b) => b.pay.compareTo(a.pay));
+      case 'time':
+        sameDayJobs.sort((a, b) {
+          int timeComparison =
+              a.workerStartTimeHint.compareTo(b.workerStartTimeHint);
+          if (timeComparison != 0) {
+            return timeComparison;
+          }
+          return a.distanceMiles.compareTo(b.distanceMiles);
+        });
         break;
     }
 
@@ -188,9 +196,10 @@ class _AcceptedJobsPageState extends ConsumerState<AcceptedJobsPage>
     setState(() => _selectedDate = DateTime(day.year, day.month, day.day));
   }
 
+  // MODIFIED: Sort toggle logic
   void _handleSortToggle(int index) {
     setState(() {
-      _sortBy = (index == 0) ? 'distance' : 'money';
+      _sortBy = (index == 0) ? 'time' : 'distance';
     });
   }
 
@@ -288,10 +297,11 @@ class _AcceptedJobsPageState extends ConsumerState<AcceptedJobsPage>
                         fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 8),
+                  // MODIFIED: Toggle buttons updated
                   ToggleButtons(
                     isSelected: [
+                      _sortBy == 'time',
                       _sortBy == 'distance',
-                      _sortBy == 'money',
                     ],
                     onPressed: _handleSortToggle,
                     constraints: const BoxConstraints(minHeight: 36, minWidth: 88),
@@ -302,14 +312,17 @@ class _AcceptedJobsPageState extends ConsumerState<AcceptedJobsPage>
                     selectedColor: Colors.black,
                     selectedBorderColor: Colors.grey.shade400,
                     fillColor: Colors.grey.shade300,
+                    splashColor: Colors.grey.shade200,
+                    highlightColor: Colors.grey.shade100,
+                    hoverColor: Colors.grey.shade50,
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(appLocalizations.homePageSortByDistance),
+                        child: Text(appLocalizations.acceptedJobsSortByTime),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(appLocalizations.acceptedJobsSortByMoney),
+                        child: Text(appLocalizations.homePageSortByDistance),
                       ),
                     ],
                   ),

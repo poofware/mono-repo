@@ -14,6 +14,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:collection/collection.dart'; // For firstWhereOrNull
 import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
+import 'package:smooth_sheets/smooth_sheets.dart'; // NEW
 
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
@@ -69,7 +70,8 @@ const kGenericFallbackLatLng = LatLng(0.0, 0.0);
 const kGenericFallbackZoom = 2.0;
 
 Duration _cameraPanDuration = const Duration(
-    milliseconds: 350); // Used for UI animations like sheet & carousel
+  milliseconds: 350,
+); // Used for UI animations like sheet & carousel
 
 // Throttle duration for marker UI updates
 const Duration _markerUiThrottleDuration = Duration(milliseconds: 150);
@@ -86,9 +88,10 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _sheetController = DraggableScrollableController();
-  late final PageController _carouselPageController =
-      PageController(viewportFraction: 0.9); // UPDATED viewportFraction
+  final _sheetController = SheetController();
+  late final PageController _carouselPageController = PageController(
+    viewportFraction: 0.9,
+  ); // UPDATED viewportFraction
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
@@ -100,17 +103,12 @@ class _HomePageState extends ConsumerState<HomePage>
   double _carouselOpacity = 1.0;
   bool _ignoreNextPageChange = false;
   bool _isSnappingToLocation = false;
+  bool _isSearchVisible = false;
+  bool _isAnimatingSheet =
+      false; // <-- ADDED: New flag to prevent race conditions.
 
   List<JobInstance>? _previousOpenJobsIdentity;
   bool _isInitialLoad = true;
-
-  static const double _minSheetSize = 0.15;
-  static const double _maxSheetSize = 0.85;
-  static const List<double> _sheetSnapSizes = [
-    _minSheetSize,
-    0.4,
-    _maxSheetSize
-  ];
 
   // For marker tap communication from isolate
   final ReceivePort _markerTapReceivePort = ReceivePort();
@@ -142,8 +140,10 @@ class _HomePageState extends ConsumerState<HomePage>
       final initialBootCam = ref.read(initialBootCameraPositionProvider);
       ref.read(currentMapCameraPositionProvider.notifier).state =
           initialBootCam ??
-              const CameraPosition(
-                  target: kLosAngelesLatLng, zoom: kDefaultMapZoom);
+          const CameraPosition(
+            target: kLosAngelesLatLng,
+            zoom: kDefaultMapZoom,
+          );
       _lastCameraMove = ref.read(currentMapCameraPositionProvider);
       _initializePage();
     });
@@ -152,10 +152,12 @@ class _HomePageState extends ConsumerState<HomePage>
 
     if (IsolateNameServer.lookupPortByName(kMarkerTapPortName) == null) {
       IsolateNameServer.registerPortWithName(
-          _markerTapReceivePort.sendPort, kMarkerTapPortName);
+        _markerTapReceivePort.sendPort,
+        kMarkerTapPortName,
+      );
     }
     _markerTapReceivePort.listen(_handleMarkerTapFromIsolate);
-    
+
     rootBundle.loadString('assets/jsons/map_style.json').then((style) {
       if (mounted) {
         setState(() => _mapStyle = style);
@@ -171,14 +173,19 @@ class _HomePageState extends ConsumerState<HomePage>
     if (message is String) {
       final definitionId = message;
       final currentFilteredDefs = ref.read(filteredDefinitionsProvider);
-      final targetDef = currentFilteredDefs
-          .firstWhereOrNull((d) => d.definitionId == definitionId);
+      final targetDef = currentFilteredDefs.firstWhereOrNull(
+        (d) => d.definitionId == definitionId,
+      );
 
       if (targetDef != null) {
         final idx = currentFilteredDefs.indexOf(targetDef);
         if (idx != -1) {
-          _selectDefinition(targetDef, idx,
-              fromUserInteraction: true, animateMap: false);
+          _selectDefinition(
+            targetDef,
+            idx,
+            fromUserInteraction: true,
+            animateMap: false,
+          );
         }
       }
     }
@@ -211,8 +218,10 @@ class _HomePageState extends ConsumerState<HomePage>
     );
 
     try {
-      final Map<String, Marker> newMarkerMap =
-          await compute(rebuildAndCreateMarkersIsolate, args);
+      final Map<String, Marker> newMarkerMap = await compute(
+        rebuildAndCreateMarkersIsolate,
+        args,
+      );
       if (mounted) {
         ref
             .read(jobMarkerCacheProvider.notifier)
@@ -251,6 +260,31 @@ class _HomePageState extends ConsumerState<HomePage>
             _currentLiveCameraPos();
       }
     }
+  }
+
+double _computeMinSheetSize(BuildContext ctx) {
+  const tabBarHeight = kTextTabBarHeight;        // 48 px
+  const containerPaddingVertical = 16.0 * 2;     // 32 px
+  const sortRefreshRowHeight = 48.0;             // adjusted height
+  final bottomInset = MediaQuery.of(ctx).padding.bottom;
+  final totalScreenHeight = MediaQuery.of(ctx).size.height;
+
+  final pixels = tabBarHeight +
+                 containerPaddingVertical +
+                 sortRefreshRowHeight +
+                 bottomInset;
+
+  return pixels / totalScreenHeight;
+}
+
+  /// 0 → sheet collapsed (minOffset) … 1 → fully open (maxOffset)
+  double _sheetFraction() {
+    final m = _sheetController.metrics;
+    if (m == null) return 0.0; // before first layout
+    return ((m.offset - m.minOffset) / (m.maxOffset - m.minOffset)).clamp(
+      0.0,
+      1.0,
+    );
   }
 
   Future<void> _initializePage() async {
@@ -299,14 +333,19 @@ class _HomePageState extends ConsumerState<HomePage>
         );
       } catch (_) {
         if (!mounted) return;
-        camToSet = storedPersistedCam ??
+        camToSet =
+            storedPersistedCam ??
             const CameraPosition(
-                target: kGenericFallbackLatLng, zoom: kGenericFallbackZoom);
+              target: kGenericFallbackLatLng,
+              zoom: kGenericFallbackZoom,
+            );
       }
     } else {
       if (!mounted) return;
       camToSet = const CameraPosition(
-          target: kLosAngelesLatLng, zoom: kDefaultMapZoom);
+        target: kLosAngelesLatLng,
+        zoom: kDefaultMapZoom,
+      );
     }
 
     if (isResuming && storedPersistedCam != null) {
@@ -320,8 +359,10 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
-  void _moveOrAnimateMapToPosition(CameraPosition newPosition,
-      {required bool animate}) {
+  void _moveOrAnimateMapToPosition(
+    CameraPosition newPosition, {
+    required bool animate,
+  }) {
     if (!mounted) return;
 
     final currentLivePos = _currentLiveCameraPos();
@@ -334,8 +375,10 @@ class _HomePageState extends ConsumerState<HomePage>
     if (_mapController == null) return;
 
     if (animate) {
-      _mapController!.animateCamera(CameraUpdate.newCameraPosition(newPosition),
-          duration: const Duration(milliseconds: 150));
+      _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(newPosition),
+        duration: const Duration(milliseconds: 150),
+      );
     } else {
       _mapController!.moveCamera(CameraUpdate.newCameraPosition(newPosition));
     }
@@ -380,8 +423,12 @@ class _HomePageState extends ConsumerState<HomePage>
       if (!capturedContext.mounted) return;
       scaffoldMessenger.showSnackBar(
         SnackBar(
-            content: Text(AppLocalizations.of(capturedContext)
-                .homePageCouldNotGetLocation(e.toString()))),
+          content: Text(
+            AppLocalizations.of(
+              capturedContext,
+            ).homePageCouldNotGetLocation(e.toString()),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSnappingToLocation = false);
@@ -406,16 +453,22 @@ class _HomePageState extends ConsumerState<HomePage>
     final persistedId = ref.read(lastSelectedDefinitionIdProvider);
 
     if (persistedId != null) {
-      target = defs.firstWhere((d) => d.definitionId == persistedId,
-          orElse: () => defs.first);
+      target = defs.firstWhere(
+        (d) => d.definitionId == persistedId,
+        orElse: () => defs.first,
+      );
     } else {
       target = defs.first;
     }
 
     final idx = defs.indexOf(target);
     if (idx != -1) {
-      _selectDefinition(target, idx,
-          fromUserInteraction: false, animateMap: true);
+      _selectDefinition(
+        target,
+        idx,
+        fromUserInteraction: false,
+        animateMap: true,
+      );
     }
   }
 
@@ -498,19 +551,39 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
+  // MODIFIED: This listener now also handles hiding the search bar.
   void _onSheetSizeChanged() {
-    if (!mounted) return;
-    final opacity = _sheetController.size <= 0.3 ? 1.0 : 0.0;
-    if (_carouselOpacity != opacity) setState(() => _carouselOpacity = opacity);
+    if (!mounted || _isAnimatingSheet)
+      return; // <-- MODIFIED: Guard against updates during animation.
+
+    // Carousel opacity logic
+    final opacity = _sheetFraction() <= 0.3 ? 1.0 : 0.0;
+
+    // Search bar visibility logic
+    // If the sheet is dragged down far enough and the search is currently visible, hide it.
+    final bool shouldHideSearch = _isSearchVisible && _sheetFraction() < 0.4;
+
+    // Update state only if there's a change to avoid unnecessary rebuilds.
+    if (_carouselOpacity != opacity || shouldHideSearch) {
+      setState(() {
+        if (_carouselOpacity != opacity) {
+          _carouselOpacity = opacity;
+        }
+        if (shouldHideSearch) {
+          _isSearchVisible = false;
+          _searchController.clear();
+          ref.read(jobsSearchQueryProvider.notifier).state = '';
+          _searchFocusNode.unfocus(); // This dismisses the keyboard
+        }
+      });
+    }
   }
 
   void _onMapPaneCreated(GoogleMapController controller) {
     _mapController = controller;
     if (mounted) {
       final liveCamPos = _currentLiveCameraPos();
-      _mapController!.moveCamera(
-        CameraUpdate.newCameraPosition(liveCamPos),
-      );
+      _mapController!.moveCamera(CameraUpdate.newCameraPosition(liveCamPos));
       _restoreSelection();
     }
   }
@@ -530,19 +603,23 @@ class _HomePageState extends ConsumerState<HomePage>
   void _handleViewOnMapFromSheet(DefinitionGroup definition) {
     if (!mounted) return;
     _sheetController.animateTo(
-      _minSheetSize,
+      SheetOffset(_computeMinSheetSize(context)),
       duration: _cameraPanDuration,
       curve: Curves.easeOutCubic,
     );
     final idx = _defs().indexOf(definition);
-    _selectDefinition(definition, idx,
-        fromUserInteraction: true, animateMap: true);
+    _selectDefinition(
+      definition,
+      idx,
+      fromUserInteraction: true,
+      animateMap: true,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     // --- Post-Boot Error Listener ---
     ref.listen<List<Object>>(postBootErrorProvider, (previous, next) {
       if (next.isNotEmpty) {
@@ -564,13 +641,17 @@ class _HomePageState extends ConsumerState<HomePage>
       }
     });
 
-    ref.listen<List<DefinitionGroup>>(filteredDefinitionsProvider,
-        (previous, next) {
+    ref.listen<List<DefinitionGroup>>(filteredDefinitionsProvider, (
+      previous,
+      next,
+    ) {
       _updateMarkerCacheForAllDefsThrottled();
     });
 
-    ref.listen<String?>(selectedDefinitionIdProvider,
-        (previousSelectedId, newSelectedId) {
+    ref.listen<String?>(selectedDefinitionIdProvider, (
+      previousSelectedId,
+      newSelectedId,
+    ) {
       ref
           .read(jobMarkerCacheProvider.notifier)
           .updateSelection(newSelectedId, previousSelectedId);
@@ -584,14 +665,15 @@ class _HomePageState extends ConsumerState<HomePage>
 
     final bool openJobsListActuallyChanged =
         _previousOpenJobsIdentity != null &&
-            !identical(_previousOpenJobsIdentity, newOpenJobs);
+        !identical(_previousOpenJobsIdentity, newOpenJobs);
     final bool isFirstTimeLoadingJobs =
         _isInitialLoad && newOpenJobs.isNotEmpty;
 
     if ((openJobsListActuallyChanged || isFirstTimeLoadingJobs) &&
         newOpenJobs.isNotEmpty) {
-      final currentFilteredDefsForRecenter =
-          ref.read(filteredDefinitionsProvider);
+      final currentFilteredDefsForRecenter = ref.read(
+        filteredDefinitionsProvider,
+      );
       if (currentFilteredDefsForRecenter.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -610,8 +692,10 @@ class _HomePageState extends ConsumerState<HomePage>
     }
     _previousOpenJobsIdentity = newOpenJobs;
 
-    ref.listen<List<DefinitionGroup>>(filteredDefinitionsProvider,
-        (previousFiltered, nextFiltered) {
+    ref.listen<List<DefinitionGroup>>(filteredDefinitionsProvider, (
+      previousFiltered,
+      nextFiltered,
+    ) {
       final currentSelectedId = ref.read(selectedDefinitionIdProvider);
       if (nextFiltered.isEmpty && currentSelectedId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -634,23 +718,28 @@ class _HomePageState extends ConsumerState<HomePage>
       _updateMarkerCacheForAllDefsThrottled();
     });
 
-    ref.listen<bool>(jobsNotifierProvider.select((s) => s.isOnline),
-        (prev, next) {
+    ref.listen<bool>(jobsNotifierProvider.select((s) => s.isOnline), (
+      prev,
+      next,
+    ) {
       _updateMarkerCacheForAllDefsThrottled();
     });
 
     final screenHeight = MediaQuery.of(context).size.height;
+    final minSheetSize = _computeMinSheetSize(context);
+    const maxSheetSize = 0.85;
+    final sheetSnapSizes = [minSheetSize, 0.4, maxSheetSize];
     final isOnline = jobsState.isOnline;
     final isTest = PoofWorkerFlavorConfig.instance.testMode;
     final isLoadingOpenJobs = jobsState.isLoadingOpenJobs;
 
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) {
-          if (mounted) _syncCarouselPage(filteredDefs);
-        });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncCarouselPage(filteredDefs);
+    });
 
     return Scaffold(
       key: _scaffoldKey,
+      resizeToAvoidBottomInset: false,
       drawer: const WorkerSideDrawer(),
       body: Stack(
         children: [
@@ -665,18 +754,19 @@ class _HomePageState extends ConsumerState<HomePage>
             onPointerMove: (PointerMoveEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartPosition == null) return;
+                  _tapStartPosition == null)
+                return;
 
               final travelled = (e.position - _tapStartPosition!).distance;
-              if (travelled >
-                  kTouchSlop) {
+              if (travelled > kTouchSlop) {
                 _tapCancelled = true;
               }
             },
             onPointerUp: (PointerUpEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartTime == null) return;
+                  _tapStartTime == null)
+                return;
 
               final held = DateTime.now().difference(_tapStartTime!);
               if (held <= _quickTapMax) {
@@ -699,7 +789,8 @@ class _HomePageState extends ConsumerState<HomePage>
                       if (mounted) {
                         _mapController!.animateCamera(
                           CameraUpdate.newCameraPosition(
-                              ref.read(currentMapCameraPositionProvider)),
+                            ref.read(currentMapCameraPositionProvider),
+                          ),
                           duration: const Duration(milliseconds: 150),
                         );
                       }
@@ -709,8 +800,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     key: const Key('map_pane'),
                     initialCameraPosition: liveCameraPosition,
                     mapStyle: _mapStyle,
-                    locationPermissionOK:
-                        _locationPermissionOK, 
+                    locationPermissionOK: _locationPermissionOK,
                     onMapCreated: _onMapPaneCreated,
                     onCameraMove: _onCameraMove,
                     onCameraIdle: _onCameraIdle,
@@ -741,20 +831,21 @@ class _HomePageState extends ConsumerState<HomePage>
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .cardColor
-                              .withValues(alpha: 0.85),
+                          color: Theme.of(context).cardColor.withOpacity(0.85),
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.10),
+                              color: Colors.black.withOpacity(0.10),
                               blurRadius: 5,
                               offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.menu,
-                            size: 28, color: Colors.black87),
+                        child: const Icon(
+                          Icons.menu,
+                          size: 28,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                   ),
@@ -766,19 +857,20 @@ class _HomePageState extends ConsumerState<HomePage>
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap:
-                            _isSnappingToLocation ? null : _snapToUserLocation,
+                        onTap: _isSnappingToLocation
+                            ? null
+                            : _snapToUserLocation,
                         borderRadius: BorderRadius.circular(24),
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .cardColor
-                                .withValues(alpha: 0.85),
+                            color: Theme.of(
+                              context,
+                            ).cardColor.withOpacity(0.85),
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.10),
+                                color: Colors.black.withOpacity(0.10),
                                 blurRadius: 5,
                                 offset: const Offset(0, 2),
                               ),
@@ -789,10 +881,14 @@ class _HomePageState extends ConsumerState<HomePage>
                                   width: 28,
                                   height: 28,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2.5),
+                                    strokeWidth: 2.5,
+                                  ),
                                 )
-                              : const Icon(Icons.my_location,
-                                  size: 28, color: Colors.black87),
+                              : const Icon(
+                                  Icons.my_location,
+                                  size: 28,
+                                  color: Colors.black87,
+                                ),
                         ),
                       ),
                     ),
@@ -801,7 +897,7 @@ class _HomePageState extends ConsumerState<HomePage>
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: screenHeight * _minSheetSize - 10,
+                    bottom: screenHeight * minSheetSize - 10,
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 250),
                       opacity: _carouselOpacity,
@@ -814,8 +910,12 @@ class _HomePageState extends ConsumerState<HomePage>
                             return;
                           }
                           if (idx < filteredDefs.length) {
-                            _selectDefinition(filteredDefs[idx], idx,
-                                fromUserInteraction: true, animateMap: true);
+                            _selectDefinition(
+                              filteredDefs[idx],
+                              idx,
+                              fromUserInteraction: true,
+                              animateMap: true,
+                            );
                           }
                         },
                       ),
@@ -824,9 +924,9 @@ class _HomePageState extends ConsumerState<HomePage>
                 JobsSheet(
                   appLocalizations: appLocalizations,
                   sheetController: _sheetController,
-                  minChildSize: _minSheetSize,
-                  maxChildSize: _maxSheetSize,
-                  snapSizes: _sheetSnapSizes,
+                  minChildSize: minSheetSize,
+                  maxChildSize: maxSheetSize,
+                  snapSizes: sheetSnapSizes,
                   screenHeight: screenHeight,
                   allDefinitions: filteredDefs,
                   isOnline: isOnline,
@@ -839,19 +939,37 @@ class _HomePageState extends ConsumerState<HomePage>
                       _restoreSelection();
                     }
                   },
-                  showSearchBar: ref.watch(jobsSearchQueryProvider).isNotEmpty,
+                  showSearchBar: _isSearchVisible,
                   toggleSearchBar: () {
-                    if (mounted) {
-                      final nowSearchQuery =
-                          ref.read(jobsSearchQueryProvider);
-                      if (nowSearchQuery.isNotEmpty) {
-                        _searchController.clear();
-                        ref.read(jobsSearchQueryProvider.notifier).state = '';
-                        _searchFocusNode.unfocus();
-                      } else {
-                        _searchFocusNode.requestFocus();
+                    // Refactored logic to handle state and animation cleanly.
+                    final willBeVisible = !_isSearchVisible;
+
+                    setState(() {
+                      _isSearchVisible = willBeVisible;
+                    });
+
+                    if (willBeVisible) {
+                      // Actions for OPENING the search bar
+                      _searchFocusNode.requestFocus();
+                      if (_sheetFraction() < maxSheetSize) {
+                        setState(() => _isAnimatingSheet = true);
+                        _sheetController
+                            .animateTo(
+                              SheetOffset(maxSheetSize),
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
+                            )
+                            .whenComplete(() {
+                              if (mounted) {
+                                setState(() => _isAnimatingSheet = false);
+                              }
+                            });
                       }
-                      _restoreSelection();
+                    } else {
+                      // Actions for CLOSING the search bar
+                      _searchController.clear();
+                      ref.read(jobsSearchQueryProvider.notifier).state = '';
+                      _searchFocusNode.unfocus();
                     }
                   },
                   searchQuery: ref.watch(jobsSearchQueryProvider),
@@ -879,7 +997,7 @@ class _HomePageState extends ConsumerState<HomePage>
 class MapPane extends ConsumerWidget {
   final CameraPosition initialCameraPosition;
   final String mapStyle;
-  final bool locationPermissionOK; 
+  final bool locationPermissionOK;
   final Function(GoogleMapController) onMapCreated;
   final Function(CameraPosition) onCameraMove;
   final Function() onCameraIdle;
@@ -907,8 +1025,7 @@ class MapPane extends ConsumerWidget {
       onCameraIdle: onCameraIdle,
       onCameraMoveStarted: onCameraMoveStarted,
       markers: markers,
-      myLocationEnabled:
-          locationPermissionOK, 
+      myLocationEnabled: locationPermissionOK,
       myLocationButtonEnabled: false,
       mapToolbarEnabled: false,
       zoomControlsEnabled: false,

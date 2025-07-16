@@ -112,10 +112,80 @@ class _AcceptedJobDetailsSheetState
     setState(() => _isShowingMap = false);
   }
 
+  DateTime? _parseJobServiceWindowEnd(JobInstance job) {
+    try {
+      final dateParts = job.serviceDate.split('-');
+      // Use the service window end time
+      final timeParts = job.workerServiceWindowEnd.split(':');
+      if (dateParts.length != 3 || timeParts.length != 2) return null;
+
+      final year = int.parse(dateParts[0]);
+      final month = int.parse(dateParts[1]);
+      final day = int.parse(dateParts[2]);
+
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+
+      return DateTime(year, month, day, hour, minute);
+    } catch (e) {
+      // Log error or handle gracefully
+      return null;
+    }
+  }
+
   Future<void> _handleUnaccept() async {
     if (_isUnaccepting) return;
 
     final navigator = Navigator.of(context);
+    final appLocalizations = AppLocalizations.of(context);
+
+    // --- PENALTY LOGIC ---
+    bool proceed = true; // Default to proceed without dialog
+    String? dialogTitle;
+    String? dialogContent;
+
+    // Use the end of the service window as the measuring stick
+    final jobEndTime = _parseJobServiceWindowEnd(widget.job);
+    if (jobEndTime != null) {
+      final timeUntilEnd = jobEndTime.difference(DateTime.now());
+
+      // High impact: < 3 hours before the window closes
+      if (timeUntilEnd.inHours < 3) {
+        proceed = false;
+        dialogTitle = appLocalizations.unacceptJobHighImpactTitle;
+        dialogContent = appLocalizations.unacceptJobHighImpactBody;
+      }
+      // Low impact: > 3 hours but < 24 hours before the window closes
+      else if (timeUntilEnd.inHours < 24) {
+        proceed = false;
+        dialogTitle = appLocalizations.unacceptJobConfirmTitle;
+        dialogContent = appLocalizations.unacceptJobLowImpactBody;
+      }
+    }
+    
+    if (!proceed) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(dialogTitle!),
+          content: Text(dialogContent!),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(appLocalizations.unacceptJobBackButton),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(appLocalizations.unacceptJobConfirmButton),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    // --- END PENALTY LOGIC ---
+
     setState(() => _isUnaccepting = true);
 
     final wasSuccess = await ref
@@ -464,7 +534,7 @@ class CachedMapPopupRoute extends PopupRoute<void> {
         children: [
           ValueListenableBuilder<bool>(
             valueListenable: _inRoute,
-            builder: (_, show, __) => show ? mapPage : const SizedBox.shrink(),
+            builder: (_, show,_) => show ? mapPage : const SizedBox.shrink(),
           ),
           SafeArea(
             child: Align(

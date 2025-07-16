@@ -25,7 +25,6 @@ import 'package:poof_worker/features/jobs/utils/job_photo_persistence.dart';
 class JobInProgressPage extends ConsumerStatefulWidget {
   final JobInstance job;
   final JobMapPage preWarmedMap;
-
   const JobInProgressPage({
     super.key,
     required this.job,
@@ -208,7 +207,6 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           );
         },
       );
-
       if (confirmed == true) {
         final persistentPhoto =
             await JobPhotoPersistence.savePhoto(widget.job.instanceId, photo);
@@ -253,24 +251,62 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     }
   }
 
+  DateTime? _parseJobEndTime(JobInstance job) {
+    try {
+      final dateParts = job.serviceDate.split('-');
+      final timeParts = job.workerServiceWindowEnd.split(':');
+      if (dateParts.length != 3 || timeParts.length != 2) return null;
+
+      final year = int.parse(dateParts[0]);
+      final month = int.parse(dateParts[1]);
+      final day = int.parse(dateParts[2]);
+
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+
+      return DateTime(year, month, day, hour, minute);
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> _handleCancel() async {
     if (_isCancelling) return;
     final appLocalizations = AppLocalizations.of(context);
 
+    // --- PENALTY LOGIC ---
+    String dialogTitle;
+    String dialogContent;
+
+    final jobEndTime = _parseJobEndTime(widget.job);
+    final now = DateTime.now();
+
+    // After no-show cutoff (service window has closed)
+    if (jobEndTime != null && now.isAfter(jobEndTime)) {
+      dialogTitle = appLocalizations.cancelJobAsNoShowTitle;
+      dialogContent = appLocalizations.cancelJobAsNoShowBody;
+    } 
+    // Before no-show cutoff
+    else {
+      dialogTitle = appLocalizations.cancelJobInProgressTitle;
+      dialogContent = appLocalizations.cancelJobInProgressBody;
+    }
+    // --- END PENALTY LOGIC ---
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(appLocalizations.jobInProgressCancelDialogTitle),
-        content: Text(appLocalizations.jobInProgressCancelDialogContent),
+        title: Text(dialogTitle),
+        content: Text(dialogContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(appLocalizations.jobInProgressCancelDialogBack),
+            child: Text(appLocalizations.cancelJobBackButton),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(appLocalizations.jobInProgressCancelDialogConfirm),
+            child: Text(appLocalizations.cancelJobConfirmButton),
           ),
         ],
       ),

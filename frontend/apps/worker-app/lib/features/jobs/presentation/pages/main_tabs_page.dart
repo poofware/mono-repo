@@ -15,6 +15,7 @@ class MainTabsScreen extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        resizeToAvoidBottomInset: false, // <-- FIX: Prevents the body from resizing for the keyboard
         // The body is a TabBarView with each of the 3 pages
         body: const TabBarView(
           // Disable the left/right swipe:
@@ -40,8 +41,8 @@ class MainTabsScreen extends StatelessWidget {
               indicatorColor: Colors.transparent,   // no underline
               indicatorWeight: 0,                   // be doubly sure
               indicator: const UnderlineTabIndicator(borderSide: BorderSide.none),
-              dividerColor: Colors.transparent,    // ← this is the line you still see
-              dividerHeight: 0,                    // (optional) don’t reserve any height
+              dividerColor: Colors.transparent,     // ← this is the line you still see
+              dividerHeight: 0,                     // (optional) don’t reserve any height
               splashFactory: NoSplash.splashFactory, // Disable the splash effect
               overlayColor: WidgetStateProperty.resolveWith<Color?>(
                 (Set<WidgetState> states) {
