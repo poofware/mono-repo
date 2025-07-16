@@ -13,8 +13,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:collection/collection.dart'; // For firstWhereOrNull
-import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
-import 'package:smooth_sheets/smooth_sheets.dart'; // NEW
+import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
@@ -88,10 +87,14 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _sheetController = SheetController();
+
+  // Reverted back to Flutter's native DraggableScrollableController
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+
   late final PageController _carouselPageController = PageController(
     viewportFraction: 0.9,
-  ); // UPDATED viewportFraction
+  );
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
@@ -105,7 +108,7 @@ class _HomePageState extends ConsumerState<HomePage>
   bool _isSnappingToLocation = false;
   bool _isSearchVisible = false;
   bool _isAnimatingSheet =
-      false; // <-- ADDED: New flag to prevent race conditions.
+      false; // Flag to prevent race conditions during sheet animation.
 
   List<JobInstance>? _previousOpenJobsIdentity;
   bool _isInitialLoad = true;
@@ -122,6 +125,10 @@ class _HomePageState extends ConsumerState<HomePage>
   DateTime? _tapStartTime;
   bool _tapCancelled = false;
   // ----------------------------------------------------
+
+  // Cached sheet size bounds for fraction calculations
+  double _cachedMinSheetSize = 0.0;
+  double _cachedMaxSheetSize = 1.0;
 
   List<DefinitionGroup> _defs() => ref.read(filteredDefinitionsProvider);
   String? _selectedDefId() => ref.read(selectedDefinitionIdProvider);
@@ -262,29 +269,27 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
-double _computeMinSheetSize(BuildContext ctx) {
-  const tabBarHeight = kTextTabBarHeight;        // 48 px
-  const containerPaddingVertical = 16.0 * 2;     // 32 px
-  const sortRefreshRowHeight = 48.0;             // adjusted height
-  final bottomInset = MediaQuery.of(ctx).padding.bottom;
-  final totalScreenHeight = MediaQuery.of(ctx).size.height;
+  double _computeMinSheetSize(BuildContext ctx) {
+    const tabBarHeight = kTextTabBarHeight; // 48 px
+    const containerPaddingVertical = 16.0 * 2; // 32 px
+    const sortRefreshRowHeight = 59.2; // adjusted height
+    final bottomInset = MediaQuery.of(ctx).padding.bottom;
+    final totalScreenHeight = MediaQuery.of(ctx).size.height;
 
-  final pixels = tabBarHeight +
-                 containerPaddingVertical +
-                 sortRefreshRowHeight +
-                 bottomInset;
+    final pixels = tabBarHeight +
+        containerPaddingVertical +
+        sortRefreshRowHeight +
+        bottomInset;
 
-  return pixels / totalScreenHeight;
-}
+    return pixels / totalScreenHeight;
+  }
 
-  /// 0 → sheet collapsed (minOffset) … 1 → fully open (maxOffset)
+  /// 0 → sheet collapsed (min) … 1 → fully open (max)
   double _sheetFraction() {
-    final m = _sheetController.metrics;
-    if (m == null) return 0.0; // before first layout
-    return ((m.offset - m.minOffset) / (m.maxOffset - m.minOffset)).clamp(
-      0.0,
-      1.0,
-    );
+    if (!_sheetController.isAttached) return 0.0;
+    return ((_sheetController.size - _cachedMinSheetSize) /
+            (_cachedMaxSheetSize - _cachedMinSheetSize))
+        .clamp(0.0, 1.0);
   }
 
   Future<void> _initializePage() async {
@@ -333,8 +338,7 @@ double _computeMinSheetSize(BuildContext ctx) {
         );
       } catch (_) {
         if (!mounted) return;
-        camToSet =
-            storedPersistedCam ??
+        camToSet = storedPersistedCam ??
             const CameraPosition(
               target: kGenericFallbackLatLng,
               zoom: kGenericFallbackZoom,
@@ -551,19 +555,16 @@ double _computeMinSheetSize(BuildContext ctx) {
     }
   }
 
-  // MODIFIED: This listener now also handles hiding the search bar.
+  // Listener for sheet size changes; also handles hiding the search bar.
   void _onSheetSizeChanged() {
-    if (!mounted || _isAnimatingSheet)
-      return; // <-- MODIFIED: Guard against updates during animation.
+    if (!mounted || _isAnimatingSheet) return;
 
     // Carousel opacity logic
     final opacity = _sheetFraction() <= 0.3 ? 1.0 : 0.0;
 
     // Search bar visibility logic
-    // If the sheet is dragged down far enough and the search is currently visible, hide it.
     final bool shouldHideSearch = _isSearchVisible && _sheetFraction() < 0.4;
 
-    // Update state only if there's a change to avoid unnecessary rebuilds.
     if (_carouselOpacity != opacity || shouldHideSearch) {
       setState(() {
         if (_carouselOpacity != opacity) {
@@ -573,7 +574,7 @@ double _computeMinSheetSize(BuildContext ctx) {
           _isSearchVisible = false;
           _searchController.clear();
           ref.read(jobsSearchQueryProvider.notifier).state = '';
-          _searchFocusNode.unfocus(); // This dismisses the keyboard
+          _searchFocusNode.unfocus(); // Dismiss keyboard
         }
       });
     }
@@ -603,7 +604,7 @@ double _computeMinSheetSize(BuildContext ctx) {
   void _handleViewOnMapFromSheet(DefinitionGroup definition) {
     if (!mounted) return;
     _sheetController.animateTo(
-      SheetOffset(_computeMinSheetSize(context)),
+      _computeMinSheetSize(context),
       duration: _cameraPanDuration,
       curve: Curves.easeOutCubic,
     );
@@ -733,6 +734,10 @@ double _computeMinSheetSize(BuildContext ctx) {
     final isTest = PoofWorkerFlavorConfig.instance.testMode;
     final isLoadingOpenJobs = jobsState.isLoadingOpenJobs;
 
+    // Cache sheet size bounds for fraction calculations
+    _cachedMinSheetSize = minSheetSize;
+    _cachedMaxSheetSize = maxSheetSize;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncCarouselPage(filteredDefs);
     });
@@ -754,8 +759,7 @@ double _computeMinSheetSize(BuildContext ctx) {
             onPointerMove: (PointerMoveEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartPosition == null)
-                return;
+                  _tapStartPosition == null) return;
 
               final travelled = (e.position - _tapStartPosition!).distance;
               if (travelled > kTouchSlop) {
@@ -765,8 +769,7 @@ double _computeMinSheetSize(BuildContext ctx) {
             onPointerUp: (PointerUpEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartTime == null)
-                return;
+                  _tapStartTime == null) return;
 
               final held = DateTime.now().difference(_tapStartTime!);
               if (held <= _quickTapMax) {
@@ -857,16 +860,14 @@ double _computeMinSheetSize(BuildContext ctx) {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: _isSnappingToLocation
-                            ? null
-                            : _snapToUserLocation,
+                        onTap:
+                            _isSnappingToLocation ? null : _snapToUserLocation,
                         borderRadius: BorderRadius.circular(24),
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).cardColor.withOpacity(0.85),
+                            color:
+                                Theme.of(context).cardColor.withOpacity(0.85),
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
@@ -941,7 +942,6 @@ double _computeMinSheetSize(BuildContext ctx) {
                   },
                   showSearchBar: _isSearchVisible,
                   toggleSearchBar: () {
-                    // Refactored logic to handle state and animation cleanly.
                     final willBeVisible = !_isSearchVisible;
 
                     setState(() {
@@ -949,13 +949,13 @@ double _computeMinSheetSize(BuildContext ctx) {
                     });
 
                     if (willBeVisible) {
-                      // Actions for OPENING the search bar
+                      // Opening search bar
                       _searchFocusNode.requestFocus();
                       if (_sheetFraction() < maxSheetSize) {
                         setState(() => _isAnimatingSheet = true);
                         _sheetController
                             .animateTo(
-                              SheetOffset(maxSheetSize),
+                              maxSheetSize,
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeOutCubic,
                             )
@@ -966,7 +966,7 @@ double _computeMinSheetSize(BuildContext ctx) {
                             });
                       }
                     } else {
-                      // Actions for CLOSING the search bar
+                      // Closing search bar
                       _searchController.clear();
                       ref.read(jobsSearchQueryProvider.notifier).state = '';
                       _searchFocusNode.unfocus();
@@ -1033,3 +1033,4 @@ class MapPane extends ConsumerWidget {
     );
   }
 }
+
