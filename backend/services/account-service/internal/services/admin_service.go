@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -297,7 +298,7 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 		utils.Logger.WithError(err).Warnf("Failed to find parent property manager %s during property creation", req.ManagerID)
 		utils.Logger.Infof("Detailed error check: Type is '%T', Value is '%v', Is pgx.ErrNoRows? %t", err, err, err == pgx.ErrNoRows)
 
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
 		}
 		// Any other error from GetByID is unexpected and indicates an internal issue.
