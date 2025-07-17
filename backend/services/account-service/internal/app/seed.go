@@ -166,6 +166,8 @@ func SeedDefaultPropertyManagerAccountOnly(pmRepo repositories.PropertyManagerRe
 		City:            "Huntsville",
 		State:           "AL",
 		ZipCode:         "35806",
+		AccountStatus:   "ACTIVE",
+		SetupProgress:   "DONE",
 	}
 	if err := pmRepo.Create(ctx, pm); err != nil {
 		if isUniqueViolation(err) {
