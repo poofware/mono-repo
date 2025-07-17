@@ -61,16 +61,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Set up Ruby and Install Gems
+      - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
-          bundler-cache: true
-          working-directory: 'frontend/apps/worker-app/android'
 
-      - name: Install Flutter Dependencies
-        run: flutter pub get
+      - name: Install All Dependencies via Makefile
         working-directory: frontend/apps/worker-app
+        run: make dependencies-android
 
       - name: Deploy to Play Store via Makefile
         working-directory: frontend/apps/worker-app
@@ -84,5 +82,5 @@ jobs:
         run: |
           make deploy-android \
             ENV=${{ github.ref_name == 'main' && 'prod' || 'staging' }} \
-            ANDROID_RELEASE_TRACK=${{ github.ref_name == 'main' && 'production' || 'internal' }} \
-            VERBOSE=1
+            ANDROID_RELEASE_TRACK=${{ github.ref_name == 'main' && 'production' || 'internal' }}
+

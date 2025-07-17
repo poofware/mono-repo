@@ -43,10 +43,49 @@ jobs:
           
       - name: Setup GNU user‑land
         run: |
-          brew install make
+          ########################################
+          # 1 • Install packages                 #
+          ########################################
+          brew install make bash \
+                       coreutils findutils gnu-sed gnu-tar gnu-which \
+                       grep gawk diffutils gnu-indent gnu-getopt
+
+          # Replace BSD make
           sudo ln -sf "$(brew --prefix make)/bin/gmake" /usr/local/bin/make
+
+          ########################################
+          # 2 • Expose them to all later steps   #
+          ########################################
+          # Homebrew’s main bin (bash, gmake, etc.)
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
-          make --version
+
+          # GNU user‑land “gnubin” directories
+          for dir in \
+            "$(brew --prefix coreutils)/libexec/gnubin" \
+            "$(brew --prefix findutils)/libexec/gnubin" \
+            "$(brew --prefix gnu-sed)/libexec/gnubin" \
+            "$(brew --prefix gnu-tar)/libexec/gnubin" \
+            "$(brew --prefix gnu-which)/libexec/gnubin" \
+            "$(brew --prefix grep)/libexec/gnubin" \
+            "$(brew --prefix gawk)/libexec/gnubin" \
+            "$(brew --prefix diffutils)/libexec/gnubin" \
+            "$(brew --prefix gnu-indent)/libexec/gnubin" \
+            "$(brew --prefix gnu-getopt)/bin"
+          do
+            echo "$dir" >> "$GITHUB_PATH"
+          done
+
+          ########################################
+          # 3 • Make them visible in THIS step   #
+          ########################################
+          export PATH="$(cat "$GITHUB_PATH" | tr '\n' ':')$PATH"
+
+          ########################################
+          # 4 • Quick sanity check               #
+          ########################################
+          echo "make -> $(which make)"
+          echo "bash -> $(which bash)"
+          echo "ls   -> $(which ls) ($(ls --version | head -n1))"
 
       - name: Install All Dependencies via Makefile
         working-directory: frontend/apps/worker-app
@@ -62,5 +101,5 @@ jobs:
           UNIQUE_RUNNER_ID: ${{ github.ref_name == 'main' && secrets.UNIQUE_RUNNER_ID || 'jacob-moore' }}
           UNIQUE_RUN_NUMBER: ${{ github.run_number }}
         run: |
-          make deploy-ios ENV=${{ github.ref_name == 'main' && 'prod' || 'staging' }} VERBOSE=1
+          make deploy-ios ENV=${{ github.ref_name == 'main' && 'prod' || 'staging' }}
 

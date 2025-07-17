@@ -70,16 +70,20 @@ run-ios: _ios_app_configuration
 run-android: _android_app_configuration
 	@$(MAKE) _run --no-print-directory PLATFORM=android GCP_SDK_KEY=$(GCP_ANDROID_SDK_KEY)
 
-## Install iOS dependencies (Gems and Pods)
+## Install iOS dependencies (Flutter, Gems, and Pods)
 dependencies-ios:
+	@echo "[INFO] [Dependencies iOS] Installing Flutter packages..."
+	@flutter pub get
 	@echo "[INFO] [Dependencies iOS] Installing Bundler, Gems, and CocoaPods..."
 	@cd ios && \
 	gem install bundler --no-document && \
 	bundle install --jobs 4 --retry 3 && \
 	bundle exec pod install
 
-## Install Android dependencies (Gems)
+## Install Android dependencies (Flutter and Gems)
 dependencies-android:
+	@echo "[INFO] [Dependencies Android] Installing Flutter packages..."
+	@flutter pub get
 	@echo "[INFO] [Dependencies Android] Installing Bundler and Gems..."
 	@cd android && \
 	gem install bundler --no-document && \
@@ -154,7 +158,7 @@ deploy-ios: logs _ios_app_configuration _ios_fastlane_configuration
 		echo "[ERROR] [Deploy iOS] Invalid ENV: $(ENV). Choose from [$(STAGING_ENV)|$(PROD_ENV)]."; exit 1; \
 	fi
 	@echo "[INFO] [Deploy iOS] Running Fastlane to build and upload to TestFlight..."
-	@cd ios && \
+	@cd ios && set -eo pipefail && \
 	MAKE_ENV=$(ENV) \
 	bundle exec fastlane ios build_and_upload_to_testflight \
 	$(VERBOSE_FLAG) 2>&1 | tee ../logs/deploy_ios_$(ENV).log
@@ -166,7 +170,7 @@ deploy-android: logs _android_app_configuration _android_fastlane_configuration
 		echo "[ERROR] [Deploy Android] Invalid ENV: $(ENV). Choose from [$(STAGING_ENV)|$(PROD_ENV)]."; exit 1; \
 	fi
 	@echo "[INFO] [Deploy Android] Running Fastlane to build and upload to Google Play..."
-	@cd android && \
+	@cd android && set -eo pipefail && \
 	MAKE_ENV=$(ENV) \
 	ANDROID_RELEASE_TRACK=$(ANDROID_RELEASE_TRACK) \
 	bundle exec fastlane android build_and_upload_to_playstore \
