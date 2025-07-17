@@ -21,7 +21,7 @@ jobs:
           submodules: recursive
 
       - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.5.3
+        uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
@@ -34,105 +34,33 @@ jobs:
         uses: flutter-actions/setup-flutter@v3
         with:
           channel: 'beta'
-          # channel: 'stable'
-          # version: '3.32.4'
-          # cache-sdk: true
-          # cache: true
+          cache-sdk: true
 
-      - name: Install dependencies
-        run: flutter pub get
-        working-directory: frontend/apps/worker-app
-
-      - name: Install CocoaPods & dependencies
-        working-directory: frontend/apps/worker-app/ios
-        run: |
-          gem install bundler --no-document
-          sudo bundle install --jobs 4 --retry 3
-          bundle exec pod install
-
+      - name: Set up Ruby and Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          
       - name: Setup GNU user‑land
         run: |
-          ########################################
-          # 1 • Install packages                 #
-          ########################################
-          brew install make bash \
-                       coreutils findutils gnu-sed gnu-tar gnu-which \
-                       grep gawk diffutils gnu-indent gnu-getopt
-
-          # Replace BSD make
+          brew install make
           sudo ln -sf "$(brew --prefix make)/bin/gmake" /usr/local/bin/make
-
-          ########################################
-          # 2 • Expose them to all later steps   #
-          ########################################
-          # Homebrew’s main bin (bash, gmake, etc.)
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          make --version
 
-          # GNU user‑land “gnubin” directories
-          for dir in \
-            "$(brew --prefix coreutils)/libexec/gnubin" \
-            "$(brew --prefix findutils)/libexec/gnubin" \
-            "$(brew --prefix gnu-sed)/libexec/gnubin" \
-            "$(brew --prefix gnu-tar)/libexec/gnubin" \
-            "$(brew --prefix gnu-which)/libexec/gnubin" \
-            "$(brew --prefix grep)/libexec/gnubin" \
-            "$(brew --prefix gawk)/libexec/gnubin" \
-            "$(brew --prefix diffutils)/libexec/gnubin" \
-            "$(brew --prefix gnu-indent)/libexec/gnubin" \
-            "$(brew --prefix gnu-getopt)/bin"
-          do
-            echo "$dir" >> "$GITHUB_PATH"
-          done
+      - name: Install All Dependencies via Makefile
+        working-directory: frontend/apps/worker-app
+        run: make dependencies-ios
 
-          ########################################
-          # 3 • Make them visible in THIS step   #
-          ########################################
-          export PATH="$(cat "$GITHUB_PATH" | tr '\n' ':')$PATH"
-
-          ########################################
-          # 4 • Quick sanity check               #
-          ########################################
-          echo "make -> $(which make)"
-          echo "bash -> $(which bash)"
-          echo "ls   -> $(which ls) ($(ls --version | head -n1))"
-
-      # TODO: determine if this is even needed, it may not be, because a mac locally will just overwrite it anyways
-      # - name: Commit and Push Podfile.lock
-      #   working-directory: ios
-      #   run: |
-      #     git config --global user.name "github-actions[bot]"
-      #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      #     git add Podfile.lock
-      #     if ! git diff --cached --quiet; then
-      #       git commit -m "[skip ci] Update Podfile.lock on successful build"
-      #       git push "https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ${{ github.ref_name }}
-      #     else
-      #       echo "No changes in Podfile.lock. Skipping commit."
-      #     fi
-
-      - name: Encode GitHub Username and PAT for Basic Authorization
-        run: echo "MATCH_GIT_BASIC_AUTH=$(echo -n '${{ secrets.USERNAME }}:${{ secrets.PAT }}' | base64)" >> $GITHUB_ENV
-
-      - name: Build and Upload to TestFlight
-        working-directory: frontend/apps/worker-app/ios
+      - name: Deploy to TestFlight via Makefile
+        working-directory: frontend/apps/worker-app
         env:
-          # Fastlane
-          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTH: ${{ env.MATCH_GIT_BASIC_AUTH }}
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
-          DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
-
-          # Make build
-          HCP_CLIENT_ID: ${{ secrets.HCP_CLIENT_ID }}
-          HCP_CLIENT_SECRET: ${{ secrets.HCP_CLIENT_SECRET }}
+          # Secrets for devops-toolkit (used to fetch APP_SECRETS_JSON)
+          HCP_CLIENT_ID: ${{ secrets.HCP_CLIENT_ID_GOD }}
+          HCP_CLIENT_SECRET: ${{ secrets.HCP_CLIENT_SECRET_GOD }}
           HCP_TOKEN_ENC_KEY: ${{ secrets.HCP_TOKEN_ENC_KEY }}
           UNIQUE_RUNNER_ID: ${{ github.ref_name == 'main' && secrets.UNIQUE_RUNNER_ID || 'jacob-moore' }}
           UNIQUE_RUN_NUMBER: ${{ github.run_number }}
-          MAKE_ENV: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
         run: |
-          bundle exec fastlane ios build_and_upload_to_testflight --verbose
+          make deploy-ios ENV=${{ github.ref_name == 'main' && 'prod' || 'staging' }} VERBOSE=1
 

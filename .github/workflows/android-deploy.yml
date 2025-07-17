@@ -17,30 +17,19 @@ jobs:
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           submodules: recursive
 
-      # ─────────────── clone the second repo ───────────────
-      - name: Check out meta-service repo
-        uses: actions/checkout@v4
-        with:
-          repository: poofware/meta-service
-          path: meta-service
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          fetch-depth: 1
-          submodules: recursive
-
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      # ---------- install make 4 .4 .1 (≈ 90 s once, then cached) ----------
-      - name: Cache GNU make 4.4.1 build
+      - name: Cache GNU make
         id: cache-make
         uses: actions/cache@v4
         with:
-          path: ~/opt/make-4.4.1           # change if you bump the version
+          path: ~/opt/make-4.4.1
           key: make-4.4.1-${{ runner.os }}
 
-      - name: Build + install GNU make 4.4.1
+      - name: Build and install GNU make
         if: steps.cache-make.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -qq
@@ -52,11 +41,10 @@ jobs:
           make -j"$(nproc)"
           make install
 
-      - name: Add make 4.4.1 to PATH
-        run: echo "$HOME/opt/make-4.4.1/bin" >> "$GITHUB_PATH"
-
-      - name: Show version to prove it worked
-        run: make --version   
+      - name: Add GNU make to PATH
+        run: |
+          echo "$HOME/opt/make-4.4.1/bin" >> "$GITHUB_PATH"
+          make --version
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -64,47 +52,37 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Set up Android SDK + NDK 27 + CMake 3.22
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: |
-            ndk;27.0.12077973
-            cmake;3.22.1
-
-      - name: Enable Gradle remote & local cache
-        uses: gradle/gradle-build-action@v3
 
       - name: Set up Flutter
         uses: flutter-actions/setup-flutter@v3
         with:
           channel: 'stable'
-          version: '3.32.4'
-          cache-sdk: true
           cache: true
 
-      - name: Set up Ruby and Bundler
+      - name: Set up Ruby and Install Gems
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3' # Or a version compatible with your Fastlane setup
+          ruby-version: '3.3'
           bundler-cache: true
-          working-directory: 'android/fastlane'
+          working-directory: 'frontend/apps/worker-app/android'
 
-      - name: Install Flutter dependencies
+      - name: Install Flutter Dependencies
         run: flutter pub get
+        working-directory: frontend/apps/worker-app
 
-      - name: Build and Upload to Google Play
-        working-directory: android/fastlane
+      - name: Deploy to Play Store via Makefile
+        working-directory: frontend/apps/worker-app
         env:
-          # Fastlane secrets
-          APP_IDENTIFIER_ANDROID: ${{ secrets.APP_IDENTIFIER_ANDROID }}
-          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
-          ANDROID_RELEASE_TRACK: ${{ github.ref_name == 'main' && 'production' || 'internal' }}
-
-          # Makefile build secrets
+          # Secrets for devops-toolkit (used to fetch APP_SECRETS_JSON)
           HCP_CLIENT_ID: ${{ secrets.HCP_CLIENT_ID }}
           HCP_CLIENT_SECRET: ${{ secrets.HCP_CLIENT_SECRET }}
           HCP_TOKEN_ENC_KEY: ${{ secrets.HCP_TOKEN_ENC_KEY }}
           UNIQUE_RUNNER_ID: ${{ secrets.UNIQUE_RUNNER_ID }}
           UNIQUE_RUN_NUMBER: ${{ github.run_number }}
-          MAKE_ENV: ${{ github.ref_name == 'main' && 'prod' || '' }}
-        run: bundle exec fastlane build_and_upload_to_playstore
+        run: |
+          make deploy-android \
+            ENV=${{ github.ref_name == 'main' && 'prod' || 'staging' }} \
+            ANDROID_RELEASE_TRACK=${{ github.ref_name == 'main' && 'production' || 'internal' }} \
+            VERBOSE=1
