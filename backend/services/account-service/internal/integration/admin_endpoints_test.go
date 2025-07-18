@@ -229,6 +229,8 @@ func TestAdminSearchAndPagination(t *testing.T) {
 			Email:           fmt.Sprintf("%s@test.com", strings.ReplaceAll(strings.ToLower(name), " ", "-")),
 			BusinessName:    name,
 			BusinessAddress: "1 Main St", City: "Test", State: "TS", ZipCode: "12345",
+			SetupProgress: "DONE",
+			AccountStatus: "ACTIVE",
 		}
 		require.NoError(t, h.PMRepo.Create(ctx, pm), "Failed to create test PM for search test")
 		// Defer cleanup
