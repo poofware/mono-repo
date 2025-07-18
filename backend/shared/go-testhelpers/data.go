@@ -4,12 +4,14 @@ package testhelpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgconn"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-utils"
 	"github.com/stretchr/testify/require"
@@ -219,7 +221,8 @@ func (h *TestHelper) CreateTestJobDefinition(t *testing.T, ctx context.Context, 
 	return createdDef
 }
 
-// CreateTestJobInstance creates and persists a job instance with the correct effective pay.
+// CreateTestJobInstance creates and persists a job instance. If an instance for the same definition
+// and date already exists (a unique constraint violation), it fetches and returns the existing instance.
 func (h *TestHelper) CreateTestJobInstance(t *testing.T, ctx context.Context, defID uuid.UUID, serviceDate time.Time, status models.InstanceStatusType, assignedWorkerID *uuid.UUID, pay ...float64) *models.JobInstance {
 	var effectivePay float64
 	if len(pay) > 0 {
@@ -245,7 +248,24 @@ func (h *TestHelper) CreateTestJobInstance(t *testing.T, ctx context.Context, de
 		AssignedWorkerID: assignedWorkerID,
 		EffectivePay:     effectivePay,
 	}
-	require.NoError(t, h.JobInstRepo.Create(ctx, inst))
+
+	err := h.JobInstRepo.Create(ctx, inst)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		// If it's a unique violation, it means an instance for this day already exists.
+		// This is acceptable for many test setups, so we'll fetch and return the existing one.
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			t.Logf("Job instance for def %s on %s already exists, fetching it instead.", defID, serviceDate.Format("2006-01-02"))
+			dateOnly := serviceDate.Truncate(24 * time.Hour)
+			existingInstances, fetchErr := h.JobInstRepo.ListInstancesByDefinitionIDs(ctx, []uuid.UUID{defID}, dateOnly, dateOnly)
+			require.NoError(t, fetchErr, "Failed to fetch existing job instance after unique violation")
+			require.Len(t, existingInstances, 1, "Expected to find exactly one existing instance after unique violation")
+			return existingInstances[0]
+		}
+		// For any other error, fail the test.
+		require.NoError(t, err, "Failed to create test job instance with a non-unique-violation error")
+	}
+
 	createdInst, err := h.JobInstRepo.GetByID(ctx, inst.ID)
 	require.NoError(t, err)
 	require.NotNil(t, createdInst)

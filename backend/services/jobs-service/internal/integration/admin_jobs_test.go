@@ -25,7 +25,6 @@ func TestAdminJobEndpoints(t *testing.T) {
 	ctx := context.Background()
 
 	// --- Setup ---
-
 	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
 	require.NoError(t, err, "Failed to get seeded admin user")
 	require.NotNil(t, adminUser, "Seeded admin user 'seedadmin' not found. Ensure DB is seeded.")

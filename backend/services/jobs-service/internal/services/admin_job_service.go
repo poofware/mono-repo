@@ -174,7 +174,6 @@ func (s *AdminJobService) AdminUpdateJobDefinition(ctx context.Context, adminID 
 	}
 	logger.Info("Admin authorized successfully")
 
-	var updatedDef *models.JobDefinition
 	err := s.jobDefRepo.UpdateWithRetry(ctx, req.DefinitionID, func(j *models.JobDefinition) error {
 		logger.WithField("initialVersion", j.RowVersion).Info("Starting UpdateWithRetry mutation")
 		// Apply updates from the request DTO if the fields are not nil
@@ -247,7 +246,6 @@ func (s *AdminJobService) AdminUpdateJobDefinition(ctx context.Context, adminID 
 			j.DailyPayEstimates = estimates
 		}
 
-		updatedDef = j
 		logger.Info("Mutation applied successfully within retry loop")
 		return nil
 	})
@@ -258,6 +256,14 @@ func (s *AdminJobService) AdminUpdateJobDefinition(ctx context.Context, adminID 
 			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Job definition not found"}
 		}
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to update job definition", Err: err}
+	}
+
+	// After a successful update, re-fetch the definition to get the latest state,
+	// including the incremented row_version and updated_at timestamp.
+	updatedDef, err := s.jobDefRepo.GetByID(ctx, req.DefinitionID)
+	if err != nil {
+		logger.WithError(err).Error("Failed to retrieve updated job definition after update")
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to retrieve job definition after update", Err: err}
 	}
 
 	logger.WithField("newVersion", updatedDef.RowVersion).Info("UpdateWithRetry successful")
