@@ -17,6 +17,8 @@ import (
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-utils"
 	"github.com/stretchr/testify/require"
+	"github.com/poofware/go-testhelpers"
+
 )
 
 func TestAdminFullHierarchyFlow(t *testing.T) {
@@ -31,7 +33,7 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 
 	// 2. Create Property Manager
 	createPMReq := dtos.CreatePropertyManagerRequest{
-		Email:           "pm-hierarchy-test@thepoofapp.com",
+		Email:           testhelpers.UniqueEmail("pm-hierarchy-test"),
 		BusinessName:    "Hierarchy Test PM",
 		BusinessAddress: "123 Hierarchy St",
 		City:            "Testville",

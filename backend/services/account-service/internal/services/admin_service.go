@@ -88,11 +88,21 @@ func (s *AdminService) logAudit(ctx context.Context, adminID, targetID uuid.UUID
 }
 
 // CreatePropertyManager creates a new property manager.
+// CreatePropertyManager creates a new property manager.
 func (s *AdminService) CreatePropertyManager(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreatePropertyManagerRequest) (*shared_dtos.PropertyManager, error) {
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
 		return nil, err
 	}
-	existing, _ := s.pmRepo.GetByEmail(ctx, req.Email)
+	// --- MODIFICATION START ---
+	// Add diagnostic logging and proper error handling for the existence check.
+	existing, err := s.pmRepo.GetByEmail(ctx, req.Email)
+	if err != nil && err != pgx.ErrNoRows {
+		// This diagnostic log will reveal the underlying scan error.
+		utils.Logger.WithError(err).Error("Diagnostic: Failed to check for existing property manager by email")
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for existing property manager", Err: err}
+	}
+	// --- MODIFICATION END ---
+
 	if existing != nil {
 		return nil, &utils.AppError{StatusCode: http.StatusConflict, Code: utils.ErrCodeConflict, Message: "Email already in use"}
 	}
