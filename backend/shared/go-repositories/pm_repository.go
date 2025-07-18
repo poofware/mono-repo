@@ -81,7 +81,6 @@ func (r *pmRepo) Create(ctx context.Context, pm *models.PropertyManager) error {
 		)`,
 		pm.ID, pm.Email, pm.PhoneNumber, encTOTP,
 		pm.BusinessName, pm.BusinessAddress, pm.City, pm.State, pm.ZipCode,
-		pm.AccountStatus, pm.SetupProgress,
 		string(pm.AccountStatus), string(pm.SetupProgress),
 	)
 	return err
