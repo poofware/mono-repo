@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:poof_admin/core/models/paginated_response.dart';
 import 'package:poof_admin/features/account/data/api/api_exception.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
@@ -41,7 +42,6 @@ class MockAdminPmsApi {
         updatedAt: DateTime.now().subtract(const Duration(days: 5)),
         accountStatus: 'ACTIVE',
         flags: [],
-
       ),
       properties: [
         PropertyAdmin(
@@ -63,40 +63,82 @@ class MockAdminPmsApi {
               propertyId: prop1Id,
               buildingName: 'Building 1',
               units: [
-                UnitAdmin(id: _uuid.v4(), propertyId: prop1Id, buildingId: bldg1Id, unitNumber: '101', tenantToken: _uuid.v4(), createdAt: DateTime.now(), updatedAt: DateTime.now()),
-                UnitAdmin(id: _uuid.v4(), propertyId: prop1Id, buildingId: bldg1Id, unitNumber: '102', tenantToken: _uuid.v4(), createdAt: DateTime.now(), updatedAt: DateTime.now()),
+                UnitAdmin(
+                    id: _uuid.v4(),
+                    propertyId: prop1Id,
+                    buildingId: bldg1Id,
+                    unitNumber: '101',
+                    tenantToken: _uuid.v4(),
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now()),
+                UnitAdmin(
+                    id: _uuid.v4(),
+                    propertyId: prop1Id,
+                    buildingId: bldg1Id,
+                    unitNumber: '102',
+                    tenantToken: _uuid.v4(),
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now()),
               ],
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
             ),
-             BuildingAdmin(
+            BuildingAdmin(
               id: bldg2Id,
               propertyId: prop1Id,
               buildingName: 'Building 2',
               units: [
-                UnitAdmin(id: _uuid.v4(), propertyId: prop1Id, buildingId: bldg2Id, unitNumber: '201', tenantToken: _uuid.v4(), createdAt: DateTime.now(), updatedAt: DateTime.now()),
+                UnitAdmin(
+                    id: _uuid.v4(),
+                    propertyId: prop1Id,
+                    buildingId: bldg2Id,
+                    unitNumber: '201',
+                    tenantToken: _uuid.v4(),
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now()),
               ],
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
             ),
           ],
           dumpsters: [
-            DumpsterAdmin(id: _uuid.v4(), propertyId: prop1Id, dumpsterNumber: 'D-01', latitude: 34.0520, longitude: -118.2430, createdAt: DateTime.now(), updatedAt: DateTime.now()),
+            DumpsterAdmin(
+                id: _uuid.v4(),
+                propertyId: prop1Id,
+                dumpsterNumber: 'D-01',
+                latitude: 34.0520,
+                longitude: -118.2430,
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now()),
           ],
           jobDefinitions: [
-                        JobDefinitionAdmin(
+            JobDefinitionAdmin(
               id: _uuid.v4(),
               managerId: pm1Id,
               propertyId: prop1Id,
               title: 'Daily Trash Pickup',
-              scheduleType: 'DAILY',
-              jobWindowMinutes: 120,
-              payRate: 25.50,
+              frequency: 'DAILY',
+              weekdays: const [],
+              assignedBuildingIds: [bldg1Id, bldg2Id],
+              dumpsterIds: [],
+              startDate: DateTime.now().subtract(const Duration(days: 30)),
+              earliestStartTime: const TimeOfDay(hour: 18, minute: 0),
+              latestStartTime: const TimeOfDay(hour: 22, minute: 0),
+              skipHolidays: false,
+              completionRules: JobCompletionRulesAdmin(proofPhotosRequired: true),
+              dailyPayEstimates: List.generate(
+                  7,
+                  (index) => DailyPayEstimateAdmin(
+                        dayOfWeek: index,
+                        basePay: 25.50,
+                        estimatedTimeMinutes: 75,
+                      )),
               createdAt: DateTime.now(),
-              updatedAt: DateTime.now()),
-            ],
+              updatedAt: DateTime.now(),
+            ),
+          ],
         ),
-         PropertyAdmin(
+        PropertyAdmin(
           id: prop2Id,
           managerId: pm1Id,
           propertyName: 'Willow Creek Condos',
@@ -130,7 +172,6 @@ class MockAdminPmsApi {
           updatedAt: DateTime.now().subtract(Duration(days: i)),
           accountStatus: 'ACTIVE',
           flags: [],
-
         ),
         properties: [],
       ));
@@ -190,12 +231,14 @@ class MockAdminPmsApi {
 
     // Filter soft-deleted children within each property
     final propertiesWithFilteredChildren = activeProperties.map((prop) {
-      final activeBuildings = prop.buildings.where((b) => b.deletedAt == null).map((building) {
+      final activeBuildings =
+          prop.buildings.where((b) => b.deletedAt == null).map((building) {
         final activeUnits =
             building.units.where((u) => u.deletedAt == null).toList();
         // create a new BuildingAdmin with only active units
         return BuildingAdmin.fromJson(
-            building.toJson()..['units'] = activeUnits.map((e) => e.toJson()).toList());
+            building.toJson()..['units'] =
+                activeUnits.map((e) => e.toJson()).toList());
       }).toList();
 
       final activeDumpsters =
@@ -215,12 +258,14 @@ class MockAdminPmsApi {
 
   // --- Create Methods ---
 
-  Future<PropertyManagerAdmin> createPropertyManager(Map<String, dynamic> data) async {
+  Future<PropertyManagerAdmin> createPropertyManager(
+      Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(400)));
-    
+
     // Simulate validation error
     if ((data['email'] as String).contains('invalid')) {
-      throw ApiException(422, 'Validation Failed', {'email': 'This email is not valid.'});
+      throw ApiException(
+          422, 'Validation Failed', {'email': 'This email is not valid.'});
     }
 
     final newPm = PropertyManagerAdmin(
@@ -236,7 +281,6 @@ class MockAdminPmsApi {
       updatedAt: DateTime.now(),
       accountStatus: 'ACTIVE',
       flags: [],
-
     );
     _data.add(PmsSnapshot(propertyManager: newPm, properties: []));
     return newPm;
@@ -274,7 +318,8 @@ class MockAdminPmsApi {
     });
 
     for (final snapshot in _data) {
-      final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
+      final propIndex =
+          snapshot.properties.indexWhere((p) => p.id == propertyId);
       if (propIndex != -1) {
         snapshot.properties[propIndex].buildings.add(newBuilding);
         return newBuilding;
@@ -297,8 +342,10 @@ class MockAdminPmsApi {
 
     for (final snapshot in _data) {
       try {
-        final prop = snapshot.properties.firstWhere((p) => p.buildings.any((b) => b.id == buildingId));
-        final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
+        final prop = snapshot.properties
+            .firstWhere((p) => p.buildings.any((b) => b.id == buildingId));
+        final buildingIndex =
+            prop.buildings.indexWhere((b) => b.id == buildingId);
         if (buildingIndex != -1) {
           prop.buildings[buildingIndex].units.add(newUnit);
           return newUnit;
@@ -328,8 +375,10 @@ class MockAdminPmsApi {
 
     for (final snapshot in _data) {
       try {
-        final prop = snapshot.properties.firstWhere((p) => p.buildings.any((b) => b.id == buildingId));
-        final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
+        final prop = snapshot.properties
+            .firstWhere((p) => p.buildings.any((b) => b.id == buildingId));
+        final buildingIndex =
+            prop.buildings.indexWhere((b) => b.id == buildingId);
         if (buildingIndex != -1) {
           prop.buildings[buildingIndex].units.addAll(newUnits);
           return; // Exit after finding and updating
@@ -352,7 +401,8 @@ class MockAdminPmsApi {
     });
 
     for (final snapshot in _data) {
-      final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
+      final propIndex =
+          snapshot.properties.indexWhere((p) => p.id == propertyId);
       if (propIndex != -1) {
         snapshot.properties[propIndex].dumpsters.add(newDumpster);
         return newDumpster;
@@ -361,7 +411,8 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Property not found to add dumpster to.');
   }
 
-  Future<JobDefinitionAdmin> createJobDefinition(Map<String, dynamic> data) async {
+  Future<JobDefinitionAdmin> createJobDefinition(
+      Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
     final propertyId = data['property_id'] as String;
     final newJobDef = JobDefinitionAdmin.fromJson({
@@ -369,12 +420,11 @@ class MockAdminPmsApi {
       'id': _uuid.v4(),
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
-      'building_ids': data['building_ids'] ?? [],
-      'dumpster_ids': data['dumpster_ids'] ?? [],
     });
 
     for (final snapshot in _data) {
-      final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
+      final propIndex =
+          snapshot.properties.indexWhere((p) => p.id == propertyId);
       if (propIndex != -1) {
         snapshot.properties[propIndex].jobDefinitions.add(newJobDef);
         return newJobDef;
@@ -382,7 +432,6 @@ class MockAdminPmsApi {
     }
     throw ApiException(404, 'Property not found to add job definition to.');
   }
-
 
   // --- Update Methods (PATCH) ---
 
@@ -397,28 +446,29 @@ class MockAdminPmsApi {
       throw ApiException(404, 'Property Manager not found');
     }
     final oldPm = _data[pmIndex].propertyManager;
-    
+
     if (_updateConflictCounter % 3 == 0) {
-      throw ApiException(409, 'Conflict detected. This record was updated by someone else.', null, oldPm);
+      throw ApiException(409,
+          'Conflict detected. This record was updated by someone else.', null, oldPm);
     }
-    
+
     final updatedPm = PropertyManagerAdmin.fromJson({
       ...oldPm.toJson(), // Start with old data
       ...data, // Overwrite with new data
       'id': pmId, // Ensure ID is preserved
       'updated_at': DateTime.now().toIso8601String(),
     });
-    
+
     _data[pmIndex] = _data[pmIndex].copyWith(propertyManager: updatedPm);
     return updatedPm;
   }
 
-  Future<PropertyAdmin> updateProperty(
-      Map<String, dynamic> data) async {
+  Future<PropertyAdmin> updateProperty(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     final propertyId = data['id'] as String;
     for (final snapshot in _data) {
-      final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
+      final propIndex =
+          snapshot.properties.indexWhere((p) => p.id == propertyId);
       if (propIndex != -1) {
         final oldProp = snapshot.properties[propIndex];
         final updatedProp = PropertyAdmin.fromJson({
@@ -434,13 +484,13 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Property not found');
   }
 
-  Future<BuildingAdmin> updateBuilding(
-      Map<String, dynamic> data) async {
+  Future<BuildingAdmin> updateBuilding(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     final buildingId = data['id'] as String;
     for (final snapshot in _data) {
       for (final prop in snapshot.properties) {
-        final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
+        final buildingIndex =
+            prop.buildings.indexWhere((b) => b.id == buildingId);
         if (buildingIndex != -1) {
           final oldBuilding = prop.buildings[buildingIndex];
           final updatedBuilding = BuildingAdmin.fromJson({
@@ -481,16 +531,16 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Unit not found');
   }
 
-  Future<DumpsterAdmin> updateDumpster(
-      Map<String, dynamic> data) async {
+  Future<DumpsterAdmin> updateDumpster(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     final dumpsterId = data['id'] as String;
     for (final snapshot in _data) {
-      final propIndex =
-          snapshot.properties.indexWhere((p) => p.dumpsters.any((d) => d.id == dumpsterId));
+      final propIndex = snapshot.properties
+          .indexWhere((p) => p.dumpsters.any((d) => d.id == dumpsterId));
       if (propIndex != -1) {
         final prop = snapshot.properties[propIndex];
-        final dumpsterIndex = prop.dumpsters.indexWhere((d) => d.id == dumpsterId);
+        final dumpsterIndex =
+            prop.dumpsters.indexWhere((d) => d.id == dumpsterId);
         final oldDumpster = prop.dumpsters[dumpsterIndex];
         final updatedDumpster = DumpsterAdmin.fromJson({
           ...oldDumpster.toJson(),
@@ -510,8 +560,8 @@ class MockAdminPmsApi {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     final jobDefinitionId = data['id'] as String;
     for (final snapshot in _data) {
-      final propIndex = snapshot.properties
-          .indexWhere((p) => p.jobDefinitions.any((j) => j.id == jobDefinitionId));
+      final propIndex = snapshot.properties.indexWhere(
+          (p) => p.jobDefinitions.any((j) => j.id == jobDefinitionId));
       if (propIndex != -1) {
         final prop = snapshot.properties[propIndex];
         final jobDefIndex =
@@ -523,7 +573,8 @@ class MockAdminPmsApi {
           'id': jobDefinitionId,
           'updated_at': DateTime.now().toIso8601String(),
         });
-        snapshot.properties[propIndex].jobDefinitions[jobDefIndex] = updatedJobDef;
+        snapshot.properties[propIndex].jobDefinitions[jobDefIndex] =
+            updatedJobDef;
         return updatedJobDef;
       }
     }
@@ -541,7 +592,7 @@ class MockAdminPmsApi {
       final deletedPm = oldPm.copyWith(deletedAt: DateTime.now());
       _data[pmIndex] = _data[pmIndex].copyWith(propertyManager: deletedPm);
     } else {
-       throw ApiException(404, 'Property Manager not found');
+      throw ApiException(404, 'Property Manager not found');
     }
   }
 
@@ -549,7 +600,8 @@ class MockAdminPmsApi {
     await Future.delayed(const Duration(milliseconds: 300));
     final propertyId = data['id'] as String;
     // Find the index of the snapshot containing the property
-    final snapshotIndex = _data.indexWhere((s) => s.properties.any((p) => p.id == propertyId));
+    final snapshotIndex =
+        _data.indexWhere((s) => s.properties.any((p) => p.id == propertyId));
 
     if (snapshotIndex != -1) {
       final snapshot = _data[snapshotIndex];
@@ -573,7 +625,8 @@ class MockAdminPmsApi {
     for (final snapshot in _data) {
       for (int i = 0; i < snapshot.properties.length; i++) {
         final prop = snapshot.properties[i];
-        final buildingIndex = prop.buildings.indexWhere((b) => b.id == buildingId);
+        final buildingIndex =
+            prop.buildings.indexWhere((b) => b.id == buildingId);
         if (buildingIndex != -1) {
           final oldBuilding = prop.buildings[buildingIndex];
           final newBuilding = oldBuilding.copyWith(deletedAt: DateTime.now());
@@ -611,7 +664,8 @@ class MockAdminPmsApi {
     for (final snapshot in _data) {
       for (int i = 0; i < snapshot.properties.length; i++) {
         final prop = snapshot.properties[i];
-        final dumpsterIndex = prop.dumpsters.indexWhere((d) => d.id == dumpsterId);
+        final dumpsterIndex =
+            prop.dumpsters.indexWhere((d) => d.id == dumpsterId);
         if (dumpsterIndex != -1) {
           final oldDumpster = prop.dumpsters[dumpsterIndex];
           final newDumpster = oldDumpster.copyWith(deletedAt: DateTime.now());
@@ -641,5 +695,4 @@ class MockAdminPmsApi {
     }
     throw ApiException(404, 'Job Definition not found');
   }
-
 }

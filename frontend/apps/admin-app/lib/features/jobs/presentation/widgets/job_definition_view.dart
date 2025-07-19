@@ -1,4 +1,4 @@
-// frontend/apps/admin-app/lib/features/account/presentation/widgets/job_definition_view.dart
+// frontend/apps/admin-app/lib/features/jobs/presentation/widgets/job_definition_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +19,7 @@ class JobDefinitionView extends ConsumerWidget {
       content:
           'This will soft-delete this job definition. This action cannot be undone.',
     );
-    if (confirmed) {
+    if (confirmed == true) {
       await ref
           .read(pmsDetailProvider.notifier)
           .deleteJobDefinition(jobDefinitionId, pmId);
@@ -33,53 +33,52 @@ class JobDefinitionView extends ConsumerWidget {
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: jobDefinitions
-          .map((job) {
-            final associations = <String>[];
-            if (job.buildingIds.isNotEmpty) {
-              associations.add('${job.buildingIds.length} bldgs');
-            }
-            if (job.dumpsterIds.isNotEmpty) {
-              associations.add('${job.dumpsterIds.length} dmpstrs');
-            }
+      children: jobDefinitions.map((job) {
+        final timeWindow =
+            '${job.earliestStartTime.format(context)} - ${job.latestStartTime.format(context)}';
+        final associations = <String>[];
+        if (job.assignedBuildingIds.isNotEmpty) {
+          associations.add('${job.assignedBuildingIds.length} bldgs');
+        }
+        if (job.dumpsterIds.isNotEmpty) {
+          associations.add('${job.dumpsterIds.length} dmpstrs');
+        }
 
-            return ListTile(
-                dense: true,
-                isThreeLine: associations.isNotEmpty,
-                title: Text(job.title),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                        'Schedule: ${job.scheduleType} | Pay: \$${job.payRate.toStringAsFixed(2)}'),
-                    if (associations.isNotEmpty)
-                      Text('Linked To: ${associations.join(', ')}', style: Theme.of(context).textTheme.bodySmall),
-                  ],
+        return ListTile(
+          dense: true,
+          isThreeLine: associations.isNotEmpty,
+          title: Text(job.title),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Schedule: ${job.frequency} | Window: $timeWindow'),
+              if (associations.isNotEmpty)
+                Text('Linked To: ${associations.join(', ')}',
+                    style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Edit Job Definition',
+                onPressed: () => context.go(
+                  '/dashboard/pms/${job.managerId}/properties/${job.propertyId}/job-definitions/edit',
+                  extra: job,
                 ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Edit Job Definition',
-                      onPressed: () => context.go(
-                        '/dashboard/pms/${job.managerId}/properties/${job.propertyId}/job-definitions/edit',
-                        extra: job,
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          color: Theme.of(context).colorScheme.error),
-                      tooltip: 'Delete Job Definition',
-                      onPressed: () =>
-                          _deleteJobDefinition(context, ref, job.id, job.managerId),
-                    ),
-                  ],
-                ),
-              );
-            }
-          )
-          .toList(),
+              ),
+              IconButton(
+                icon: Icon(Icons.delete_outline,
+                    color: Theme.of(context).colorScheme.error),
+                tooltip: 'Delete Job Definition',
+                onPressed: () =>
+                    _deleteJobDefinition(context, ref, job.id, job.managerId),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

@@ -112,8 +112,8 @@ class __$$InitialImplCopyWithImpl<$Res>
 
 /// @nodoc
 
-class _$InitialImpl with DiagnosticableTreeMixin implements _Initial {
-  const _$InitialImpl();
+class _$InitialImpl extends _Initial with DiagnosticableTreeMixin {
+  const _$InitialImpl() : super._();
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
@@ -212,8 +212,9 @@ class _$InitialImpl with DiagnosticableTreeMixin implements _Initial {
   }
 }
 
-abstract class _Initial implements JobDefinitionFormState {
+abstract class _Initial extends JobDefinitionFormState {
   const factory _Initial() = _$InitialImpl;
+  const _Initial._() : super._();
 }
 
 /// @nodoc
@@ -239,8 +240,8 @@ class __$$LoadingImplCopyWithImpl<$Res>
 
 /// @nodoc
 
-class _$LoadingImpl with DiagnosticableTreeMixin implements _Loading {
-  const _$LoadingImpl();
+class _$LoadingImpl extends _Loading with DiagnosticableTreeMixin {
+  const _$LoadingImpl() : super._();
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
@@ -339,8 +340,9 @@ class _$LoadingImpl with DiagnosticableTreeMixin implements _Loading {
   }
 }
 
-abstract class _Loading implements JobDefinitionFormState {
+abstract class _Loading extends JobDefinitionFormState {
   const factory _Loading() = _$LoadingImpl;
+  const _Loading._() : super._();
 }
 
 /// @nodoc
@@ -380,8 +382,8 @@ class __$$SuccessImplCopyWithImpl<$Res>
 
 /// @nodoc
 
-class _$SuccessImpl with DiagnosticableTreeMixin implements _Success {
-  const _$SuccessImpl(this.message);
+class _$SuccessImpl extends _Success with DiagnosticableTreeMixin {
+  const _$SuccessImpl(this.message) : super._();
 
   @override
   final String message;
@@ -494,8 +496,9 @@ class _$SuccessImpl with DiagnosticableTreeMixin implements _Success {
   }
 }
 
-abstract class _Success implements JobDefinitionFormState {
+abstract class _Success extends JobDefinitionFormState {
   const factory _Success(final String message) = _$SuccessImpl;
+  const _Success._() : super._();
 
   String get message;
 
@@ -547,9 +550,10 @@ class __$$ErrorImplCopyWithImpl<$Res>
 
 /// @nodoc
 
-class _$ErrorImpl with DiagnosticableTreeMixin implements _Error {
+class _$ErrorImpl extends _Error with DiagnosticableTreeMixin {
   const _$ErrorImpl(this.message, [final Map<String, String>? fieldErrors])
-    : _fieldErrors = fieldErrors;
+    : _fieldErrors = fieldErrors,
+      super._();
 
   @override
   final String message;
@@ -680,11 +684,12 @@ class _$ErrorImpl with DiagnosticableTreeMixin implements _Error {
   }
 }
 
-abstract class _Error implements JobDefinitionFormState {
+abstract class _Error extends JobDefinitionFormState {
   const factory _Error(
     final String message, [
     final Map<String, String>? fieldErrors,
   ]) = _$ErrorImpl;
+  const _Error._() : super._();
 
   String get message;
   Map<String, String>? get fieldErrors;
