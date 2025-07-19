@@ -2,12 +2,12 @@ import 'package:poof_admin/core/models/paginated_response.dart';
 import 'package:poof_admin/features/account/data/api/mock_admin_pms_api.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
 
-/// Repository for the admin property management feature.
+/// Repository for the admin account management feature.
 /// Acts as a layer between the UI/state management and the data source (API).
-class AdminPmsRepository {
+class AdminAccountRepository {
   final MockAdminPmsApi _api;
 
-  AdminPmsRepository(this._api);
+  AdminAccountRepository(this._api);
 
   // --- Getters ---
 
@@ -46,10 +46,6 @@ class AdminPmsRepository {
     return _api.createDumpster(data);
   }
 
-  Future<JobDefinitionAdmin> createJobDefinition(Map<String, dynamic> data) {
-    return _api.createJobDefinition(data);
-  }
-
   // --- Update Methods ---
 
   Future<PropertyManagerAdmin> updatePropertyManager(Map<String, dynamic> data) {
@@ -72,10 +68,6 @@ class AdminPmsRepository {
     return _api.updateDumpster(data);
   }
 
-  Future<JobDefinitionAdmin> updateJobDefinition(Map<String, dynamic> data) {
-    return _api.updateJobDefinition(data);
-  }
-
   // --- Delete Methods ---
 
   Future<void> deletePropertyManager(Map<String, dynamic> data) {
@@ -96,9 +88,5 @@ class AdminPmsRepository {
 
   Future<void> deleteDumpster(Map<String, dynamic> data) {
     return _api.deleteDumpster(data);
-  }
-
-  Future<void> deleteJobDefinition(Map<String, dynamic> data) {
-    return _api.deleteJobDefinition(data);
   }
 }

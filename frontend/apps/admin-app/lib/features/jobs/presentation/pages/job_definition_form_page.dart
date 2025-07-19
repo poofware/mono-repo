@@ -1,4 +1,3 @@
-// frontend/apps/admin-app/lib/features/jobs/presentation/pages/job_definition_form_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import 'package:poof_admin/features/account/data/models/building_admin.dart';
 import 'package:poof_admin/features/account/data/models/dumpster_admin.dart';
 import 'package:poof_admin/features/jobs/data/models/job_definition_admin.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
+import 'package:poof_admin/features/jobs/providers/job_providers.dart';
 import 'package:poof_admin/features/jobs/state/job_definition_form_notifier.dart';
 import 'package:poof_admin/features/jobs/state/job_definition_form_state.dart';
 
@@ -112,7 +112,8 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please correct the errors in the form.')),
+        const SnackBar(
+            content: Text('Please correct the errors in the form.')),
       );
       return;
     }
@@ -187,8 +188,9 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            widget.isEditMode ? 'Edit Job Definition' : 'Create Job Definition'),
+        title: Text(widget.isEditMode
+            ? 'Edit Job Definition'
+            : 'Create Job Definition'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
@@ -204,8 +206,8 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error loading data: $err')),
         data: (snapshot) {
-          final property =
-              snapshot.properties.firstWhere((p) => p.id == widget.propertyId);
+          final property = snapshot.properties
+              .firstWhere((p) => p.id == widget.propertyId);
           return Form(
             key: _formKey,
             child: ListView(
@@ -246,7 +248,9 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
                 _buildDatePicker(context, 'End Date (Optional)', _endDate,
                     (date) => setState(() => _endDate = date)),
                 _buildTimePicker(
-                    context, 'Earliest Start Time', _earliestStartTime,
+                    context,
+                    'Earliest Start Time',
+                    _earliestStartTime,
                     (time) => setState(() => _earliestStartTime = time)),
                 _buildTimePicker(context, 'Latest Start Time', _latestStartTime,
                     (time) => setState(() => _latestStartTime = time)),
@@ -272,13 +276,14 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
                   child: ElevatedButton(
                     onPressed: formState.isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16)),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 16)),
                     child: formState.isLoading
                         ? const SizedBox(
                             height: 24,
                             width: 24,
-                            child:
-                                CircularProgressIndicator(color: Colors.white))
+                            child: CircularProgressIndicator(
+                                color: Colors.white))
                         : const Text('Save'),
                   ),
                 ),
@@ -309,7 +314,8 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextFormField(
         controller: controller,
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+        decoration: InputDecoration(
+            labelText: label, border: const OutlineInputBorder()),
         keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
         inputFormatters:
             isNumeric ? [FilteringTextInputFormatter.digitsOnly] : [],
@@ -329,10 +335,14 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: DropdownButtonFormField<String>(
         value: currentValue,
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
-        items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+        decoration: InputDecoration(
+            labelText: label, border: const OutlineInputBorder()),
+        items: items
+            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+            .toList(),
         onChanged: onChanged,
-        validator: (value) => value == null ? 'Please select a value.' : null,
+        validator: (value) =>
+            value == null ? 'Please select a value.' : null,
       ),
     );
   }
@@ -345,7 +355,8 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
         decoration: const InputDecoration(
           labelText: 'Weekdays',
           border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         child: Wrap(
           spacing: 8.0,
@@ -516,12 +527,12 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
           border: OutlineInputBorder(),
         ),
         child: Column(
-          children:
-              List.generate(_dailyPayEstimates.length, (index) {
+          children: List.generate(_dailyPayEstimates.length, (index) {
             final estimate = _dailyPayEstimates[index];
             return Row(
               children: [
-                SizedBox(width: 40, child: Text(days[estimate.dayOfWeek])),
+                SizedBox(
+                    width: 40, child: Text(days[estimate.dayOfWeek])),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _PayEstimateField(
@@ -532,7 +543,8 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
                         _dailyPayEstimates[index] = DailyPayEstimateAdmin(
                           dayOfWeek: estimate.dayOfWeek,
                           basePay: double.tryParse(val) ?? 0,
-                          estimatedTimeMinutes: estimate.estimatedTimeMinutes,
+                          estimatedTimeMinutes:
+                              estimate.estimatedTimeMinutes,
                         );
                       });
                     },
@@ -543,7 +555,8 @@ class _JobDefinitionFormPageState extends ConsumerState<JobDefinitionFormPage> {
                   child: _PayEstimateField(
                     label: 'Mins',
                     isMinutes: true,
-                    initialValue: estimate.estimatedTimeMinutes.toString(),
+                    initialValue:
+                        estimate.estimatedTimeMinutes.toString(),
                     onChanged: (val) {
                       setState(() {
                         _dailyPayEstimates[index] = DailyPayEstimateAdmin(
@@ -570,7 +583,7 @@ class _PayEstimateField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final bool isMinutes;
 
-  _PayEstimateField({
+  const _PayEstimateField({
     required this.label,
     required this.initialValue,
     required this.onChanged,
@@ -588,7 +601,7 @@ class _PayEstimateField extends StatelessWidget {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
-      keyboardType:  TextInputType.numberWithOptions(decimal: !isMinutes),
+      keyboardType: TextInputType.numberWithOptions(decimal: !isMinutes),
       inputFormatters: [
         isMinutes
             ? FilteringTextInputFormatter.digitsOnly

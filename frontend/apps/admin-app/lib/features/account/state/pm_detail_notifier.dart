@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 import 'package:poof_admin/features/account/state/pm_detail_state.dart';
+import 'package:poof_admin/features/jobs/providers/job_providers.dart';
 import 'package:uuid/uuid.dart';
 
 class PmDetailNotifier extends StateNotifier<PmDetailState> {
@@ -18,7 +19,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
   }) async {
     state = const PmDetailState.loading('Creating units in bulk...');
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       final uuid = const Uuid();
       final List<Map<String, dynamic>> unitsData = [];
 
@@ -45,7 +46,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
   Future<bool> deletePm(String pmId) async {
     state = const PmDetailState.loading('Deleting Property Manager...');
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.deletePropertyManager({'id': pmId});
 
       // The list page (PmsDashboardPage) will refresh via its own mechanisms.
@@ -65,7 +66,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
   Future<bool> deleteProperty(String propertyId, String pmId) async {
     state = const PmDetailState.loading('Deleting Property...');
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.deleteProperty({'id': propertyId});
 
       _ref.invalidate(pmSnapshotProvider(pmId)); // Refresh the detail view
@@ -81,7 +82,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
   Future<bool> deleteBuilding(String buildingId, String pmId) async {
     state = const PmDetailState.loading('Deleting Building...');
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.deleteBuilding({'id': buildingId});
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const PmDetailState.success('Building deleted.');
@@ -95,7 +96,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
   Future<bool> deleteUnit(String unitId, String pmId) async {
     state = const PmDetailState.loading('Deleting Unit...');
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.deleteUnit({'id': unitId});
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const PmDetailState.success('Unit deleted.');
@@ -109,7 +110,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
   Future<bool> deleteDumpster(String dumpsterId, String pmId) async {
     state = const PmDetailState.loading('Deleting Dumpster...');
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.deleteDumpster({'id': dumpsterId});
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const PmDetailState.success('Dumpster deleted.');
@@ -123,7 +124,7 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
   Future<bool> deleteJobDefinition(String jobDefinitionId, String pmId) async {
     state = const PmDetailState.loading('Deleting Job Definition...');
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminJobsRepositoryProvider);
       await repo.deleteJobDefinition({'id': jobDefinitionId});
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const PmDetailState.success('Job Definition deleted.');
@@ -134,8 +135,3 @@ class PmDetailNotifier extends StateNotifier<PmDetailState> {
     }
   }
 }
-
-final pmsDetailProvider =
-    StateNotifierProvider.autoDispose<PmDetailNotifier, PmDetailState>((ref) {
-  return PmDetailNotifier(ref);
-});

@@ -1,4 +1,3 @@
-// NEW FILE
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_admin/features/account/data/api/api_exception.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
@@ -12,7 +11,7 @@ class DumpsterFormNotifier extends StateNotifier<DumpsterFormState> {
   Future<bool> createDumpster(String pmId, Map<String, dynamic> data) async {
     state = const DumpsterFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.createDumpster(data);
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const DumpsterFormState.success('Dumpster created successfully!');
@@ -30,7 +29,7 @@ class DumpsterFormNotifier extends StateNotifier<DumpsterFormState> {
       String dumpsterId, String pmId, Map<String, dynamic> data) async {
     state = const DumpsterFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       final payload = {'id': dumpsterId, ...data};
       await repo.updateDumpster(payload);
       _ref.invalidate(pmSnapshotProvider(pmId));

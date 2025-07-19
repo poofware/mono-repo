@@ -11,7 +11,7 @@ class PropertyFormNotifier extends StateNotifier<PropertyFormState> {
   Future<bool> createProperty(Map<String, dynamic> data) async {
     state = const PropertyFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       final pmId = data['manager_id'] as String;
 
       await repo.createProperty(data);
@@ -28,10 +28,11 @@ class PropertyFormNotifier extends StateNotifier<PropertyFormState> {
     }
   }
 
-  Future<bool> updateProperty(String propertyId, Map<String, dynamic> data) async {
+  Future<bool> updateProperty(
+      String propertyId, Map<String, dynamic> data) async {
     state = const PropertyFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       final pmId = data['manager_id'] as String;
       final payload = {'id': propertyId, ...data};
 
@@ -50,8 +51,3 @@ class PropertyFormNotifier extends StateNotifier<PropertyFormState> {
     }
   }
 }
-
-final propertyFormProvider =
-    StateNotifierProvider.autoDispose<PropertyFormNotifier, PropertyFormState>((ref) {
-  return PropertyFormNotifier(ref);
-});

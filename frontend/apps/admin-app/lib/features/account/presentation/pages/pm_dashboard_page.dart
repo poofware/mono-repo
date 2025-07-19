@@ -38,7 +38,7 @@ class _PmsDashboardPageState extends ConsumerState<PmsDashboardPage> {
   }
 
   Future<List<PropertyManagerAdmin>> _fetchPage(int pageKey) async {
-    final repo = ref.read(pmsRepositoryProvider);
+    final repo = ref.read(adminAccountRepositoryProvider);
     final query = ref.read(pmsSearchQueryProvider);
     final requestBody = {
       'query': query,

@@ -1,4 +1,3 @@
-// NEW FILE
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_admin/features/account/data/api/api_exception.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
@@ -12,7 +11,7 @@ class BuildingFormNotifier extends StateNotifier<BuildingFormState> {
   Future<bool> createBuilding(String pmId, Map<String, dynamic> data) async {
     state = const BuildingFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.createBuilding(data);
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const BuildingFormState.success('Building created successfully!');
@@ -30,7 +29,7 @@ class BuildingFormNotifier extends StateNotifier<BuildingFormState> {
       String buildingId, String pmId, Map<String, dynamic> data) async {
     state = const BuildingFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       final payload = {'id': buildingId, ...data};
       await repo.updateBuilding(payload);
       _ref.invalidate(pmSnapshotProvider(pmId));

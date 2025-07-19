@@ -1,4 +1,3 @@
-// NEW FILE
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_admin/features/account/data/api/api_exception.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
@@ -12,7 +11,7 @@ class UnitFormNotifier extends StateNotifier<UnitFormState> {
   Future<bool> createUnit(String pmId, Map<String, dynamic> data) async {
     state = const UnitFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.createUnit(data);
       _ref.invalidate(pmSnapshotProvider(pmId));
       state = const UnitFormState.success('Unit created successfully!');
@@ -30,7 +29,7 @@ class UnitFormNotifier extends StateNotifier<UnitFormState> {
       String unitId, String pmId, Map<String, dynamic> data) async {
     state = const UnitFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       final payload = {'id': unitId, ...data};
       await repo.updateUnit(payload);
       _ref.invalidate(pmSnapshotProvider(pmId));

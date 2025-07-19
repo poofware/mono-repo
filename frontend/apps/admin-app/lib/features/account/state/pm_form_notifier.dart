@@ -12,13 +12,14 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
   Future<bool> createPm(Map<String, dynamic> data) async {
     state = const PmFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       await repo.createPropertyManager(data);
       _ref.read(pmsListRefreshProvider.notifier).state++;
 
       // The list page will refresh automatically via its PagingController
       // when the user navigates back.
-      state = const PmFormState.success('Property Manager created successfully!');
+      state =
+          const PmFormState.success('Property Manager created successfully!');
       return true;
     } on ApiException catch (e) {
       state = PmFormState.error(e.message, e.fieldErrors);
@@ -32,7 +33,7 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
   Future<bool> updatePm(Map<String, dynamic> data) async {
     state = const PmFormState.loading();
     try {
-      final repo = _ref.read(pmsRepositoryProvider);
+      final repo = _ref.read(adminAccountRepositoryProvider);
       final pmId = data['id'] as String;
       await repo.updatePropertyManager(data);
 
@@ -41,7 +42,8 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
       _ref.invalidate(pmSnapshotProvider(pmId));
       _ref.read(pmsListRefreshProvider.notifier).state++;
 
-      state = const PmFormState.success('Property Manager updated successfully!');
+      state =
+          const PmFormState.success('Property Manager updated successfully!');
       return true;
     } on ApiException catch (e) {
       if (e.statusCode == 409 && e.entity is PropertyManagerAdmin) {
@@ -62,8 +64,3 @@ class PmFormNotifier extends StateNotifier<PmFormState> {
     }
   }
 }
-
-final pmFormProvider =
-    StateNotifierProvider.autoDispose<PmFormNotifier, PmFormState>((ref) {
-  return PmFormNotifier(ref);
-});
