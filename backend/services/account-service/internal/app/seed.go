@@ -1,4 +1,4 @@
-// meta-service/services/account-service/internal/app/seed.go
+// backend/services/account-service/internal/app/seed.go
 
 package app
 
@@ -108,12 +108,13 @@ func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
 	ctx := context.Background()
 	defaultAdminID := uuid.MustParse("11111111-2222-3333-4444-555555555555")
 
-	existing, err := adminRepo.GetByUsername(ctx, "seedadmin")
-	if err != nil && err != pgx.ErrNoRows {
-		return fmt.Errorf("error checking for existing admin: %w", err)
+	// MODIFICATION: Check by ID first, as this is the source of the unique constraint violation.
+	existing, err := adminRepo.GetByID(ctx, defaultAdminID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("error checking for existing admin by ID: %w", err)
 	}
 	if existing != nil {
-		utils.Logger.Infof("Default admin already exists (username=%s); skipping seed.", existing.Username)
+		utils.Logger.Infof("Default admin already exists (ID=%s); skipping seed.", existing.ID)
 		return nil
 	}
 

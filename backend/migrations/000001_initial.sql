@@ -609,6 +609,7 @@ CREATE TABLE worker_payouts (
     status PAYOUT_STATUS_TYPE NOT NULL DEFAULT 'PENDING',
     stripe_transfer_id VARCHAR(255),
     stripe_payout_id VARCHAR(255),
+    job_instance_ids uuid[],
     last_failure_reason TEXT,
     retry_count INT NOT NULL DEFAULT 0,
     last_attempt_at TIMESTAMPTZ,

@@ -1,11 +1,11 @@
 import 'package:poof_admin/core/models/paginated_response.dart';
-import 'package:poof_admin/features/account/data/api/mock_admin_pms_api.dart';
+import 'package:poof_admin/features/account/data/api/admin_api_interface.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
 
 /// Repository for the admin account management feature.
 /// Acts as a layer between the UI/state management and the data source (API).
 class AdminAccountRepository {
-  final MockAdminPmsApi _api;
+  final AdminApiInterface _api;
 
   AdminAccountRepository(this._api);
 

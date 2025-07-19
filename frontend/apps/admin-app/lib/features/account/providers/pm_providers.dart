@@ -1,4 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:poof_admin/core/api/admin_api_client.dart';
+import 'package:poof_admin/core/config/flavors.dart';
+import 'package:poof_admin/features/account/data/api/admin_api_interface.dart';
 import 'package:poof_admin/features/account/data/api/mock_admin_pms_api.dart';
 import 'package:poof_admin/features/account/data/models/pms_snapshot.dart';
 import 'package:poof_admin/features/account/data/repositories/admin_account_repository.dart';
@@ -14,11 +17,20 @@ import 'package:poof_admin/features/account/state/unit_form_notifier.dart';
 import 'package:poof_admin/features/account/state/unit_form_state.dart';
 import 'package:poof_admin/features/account/state/pm_form_notifier.dart';
 import 'package:poof_admin/features/account/state/pm_form_state.dart';
+import 'package:poof_admin/features/auth/providers/admin_auth_providers.dart';
 
-/// Provider for the (mock) API service. Singleton.
-/// This will be replaced with a real AdminApiClient that talks to both services.
-final pmsApiProvider = Provider<MockAdminPmsApi>((ref) {
-  return MockAdminPmsApi();
+/// Provider for the API service. Singleton.
+/// Switches between the real and mock implementation based on the flavor.
+final pmsApiProvider = Provider<AdminApiInterface>((ref) {
+  final config = PoofAdminFlavorConfig.instance;
+  if (config.testMode) {
+    // Use the mock API for testing
+    return MockAdminPmsApi();
+  } else {
+    // Use the real API client for dev, staging, prod
+    final authApi = ref.read(adminAuthApiProvider);
+    return AdminApiClient(authApi);
+  }
 });
 
 /// Provider for the repository. Singleton.

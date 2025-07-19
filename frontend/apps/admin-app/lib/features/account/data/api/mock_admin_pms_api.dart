@@ -3,11 +3,12 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:poof_admin/core/models/paginated_response.dart';
+import 'package:poof_admin/features/account/data/api/admin_api_interface.dart';
 import 'package:poof_admin/features/account/data/api/api_exception.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
 import 'package:uuid/uuid.dart';
 
-class MockAdminPmsApi {
+class MockAdminPmsApi implements AdminApiInterface {
   final _uuid = const Uuid();
   final _random = Random();
   final List<PmsSnapshot> _data = [];
@@ -182,6 +183,7 @@ class MockAdminPmsApi {
 
   // --- Search / Get ---
 
+  @override
   Future<PaginatedResponse<PropertyManagerAdmin>> searchPropertyManagers(
       Map<String, dynamic> body) async {
     await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
@@ -220,6 +222,7 @@ class MockAdminPmsApi {
     );
   }
 
+  @override
   Future<PmsSnapshot> getSnapshot(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 400 + _random.nextInt(500)));
     final pmId = data['manager_id'] as String;
@@ -258,6 +261,7 @@ class MockAdminPmsApi {
 
   // --- Create Methods ---
 
+  @override
   Future<PropertyManagerAdmin> createPropertyManager(
       Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(400)));
@@ -286,6 +290,7 @@ class MockAdminPmsApi {
     return newPm;
   }
 
+  @override
   Future<PropertyAdmin> createProperty(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(400)));
     final pmId = data['manager_id'] as String;
@@ -306,6 +311,7 @@ class MockAdminPmsApi {
     return newProp;
   }
 
+  @override
   Future<BuildingAdmin> createBuilding(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
     final propertyId = data['property_id'] as String;
@@ -328,6 +334,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Property not found to add building to.');
   }
 
+  @override
   Future<UnitAdmin> createUnit(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
     final buildingId = data['building_id'] as String;
@@ -357,6 +364,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Building or Property not found to add unit to.');
   }
 
+  @override
   Future<void> createUnits(List<Map<String, dynamic>> unitsData) async {
     await Future.delayed(Duration(milliseconds: 400 + _random.nextInt(500)));
     if (unitsData.isEmpty) return;
@@ -390,6 +398,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Building or Property not found to add units to.');
   }
 
+  @override
   Future<DumpsterAdmin> createDumpster(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
     final propertyId = data['property_id'] as String;
@@ -411,6 +420,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Property not found to add dumpster to.');
   }
 
+  @override
   Future<JobDefinitionAdmin> createJobDefinition(
       Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 200 + _random.nextInt(300)));
@@ -435,6 +445,7 @@ class MockAdminPmsApi {
 
   // --- Update Methods (PATCH) ---
 
+  @override
   Future<PropertyManagerAdmin> updatePropertyManager(
       Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
@@ -463,6 +474,7 @@ class MockAdminPmsApi {
     return updatedPm;
   }
 
+  @override
   Future<PropertyAdmin> updateProperty(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     final propertyId = data['id'] as String;
@@ -484,6 +496,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Property not found');
   }
 
+  @override
   Future<BuildingAdmin> updateBuilding(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     final buildingId = data['id'] as String;
@@ -507,6 +520,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Building not found');
   }
 
+  @override
   Future<UnitAdmin> updateUnit(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     final unitId = data['id'] as String;
@@ -531,6 +545,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Unit not found');
   }
 
+  @override
   Future<DumpsterAdmin> updateDumpster(Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
     final dumpsterId = data['id'] as String;
@@ -555,6 +570,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Dumpster not found');
   }
 
+  @override
   Future<JobDefinitionAdmin> updateJobDefinition(
       Map<String, dynamic> data) async {
     await Future.delayed(Duration(milliseconds: 250 + _random.nextInt(300)));
@@ -583,6 +599,7 @@ class MockAdminPmsApi {
 
   // --- Delete Methods (Soft Delete) ---
 
+  @override
   Future<void> deletePropertyManager(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 400));
     final pmId = data['id'] as String;
@@ -596,6 +613,7 @@ class MockAdminPmsApi {
     }
   }
 
+  @override
   Future<void> deleteProperty(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final propertyId = data['id'] as String;
@@ -619,6 +637,7 @@ class MockAdminPmsApi {
     }
   }
 
+  @override
   Future<void> deleteBuilding(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final buildingId = data['id'] as String;
@@ -638,6 +657,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Building not found');
   }
 
+  @override
   Future<void> deleteUnit(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final unitId = data['id'] as String;
@@ -658,6 +678,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Unit not found');
   }
 
+  @override
   Future<void> deleteDumpster(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final dumpsterId = data['id'] as String;
@@ -677,6 +698,7 @@ class MockAdminPmsApi {
     throw ApiException(404, 'Dumpster not found');
   }
 
+  @override
   Future<void> deleteJobDefinition(Map<String, dynamic> data) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final jobDefinitionId = data['id'] as String;
