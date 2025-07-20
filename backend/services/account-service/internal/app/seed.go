@@ -123,7 +123,7 @@ func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
 		return fmt.Errorf("failed to bcrypt-hash default admin password: %w", err)
 	}
 
-	totpSecret := "defaultadminstatusactivestotpsecret"
+	totpSecret := "adminstatusactivestotpsecret"
 
 	admin := &models.Admin{
 		ID:           defaultAdminID,
