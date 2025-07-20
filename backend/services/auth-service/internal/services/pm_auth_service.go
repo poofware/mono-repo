@@ -146,6 +146,8 @@ func (s *pmAuthService) Register(ctx context.Context, req dtos.RegisterPMRequest
 		City:            req.City,
 		State:           req.State,
 		ZipCode:         req.ZipCode,
+		AccountStatus:   "ACTIVE",
+		SetupProgress:   "DONE",
 	}
 	return s.pmRepo.Create(ctx, pm)
 }

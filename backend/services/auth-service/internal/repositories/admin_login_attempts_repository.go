@@ -97,6 +97,7 @@ func (r *adminLoginAttemptsRepository) Increment(
         updated_at = NOW()
         FROM current
         WHERE admin_login_attempts.admin_id = current.admin_id
+        RETURNING admin_login_attempts.admin_id
     `
     _, err := r.db.Exec(ctx, query, adminID, lockDuration, window, maxAttempts)
     return err

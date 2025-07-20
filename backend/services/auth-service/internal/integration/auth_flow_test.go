@@ -391,28 +391,25 @@ func TestWorkerTokenExpirationBehavior_Mobile(t *testing.T) {
 // ------------------------------------------------------------
 // meta-service/services/auth-service/internal/integration/auth_flow_test.go
 
-// (Keep all other code in the file the same)
 
-// TestAdminLoginFlow now uses the pre-seeded default admin user.
-// This is controlled by the `seed_default_admin` LaunchDarkly flag.
 func TestAdminLoginFlow(t *testing.T) {
 	h.T = t
+	ctx := context.Background()
 
-	// --- Use the static credentials of the pre-seeded default admin ---
-	const (
-		defaultAdminUsername   = "admin@poof.io"
-		defaultAdminPassword   = "Default_Admin_123!"
-		defaultAdminTOTPSecret = "JBSWY3DPEHPK3PXP"
-	)
+	// --- Create a dedicated admin user for this test flow ---
+	const testAdminPassword = "aSecurePassword123!"
+	testAdmin := createTestAdminWithPassword(t, ctx, "flow-admin-"+utils.RandomString(6)+"@poof.io", testAdminPassword)
+	defer h.DB.Exec(ctx, `DELETE FROM admins WHERE id=$1`, testAdmin.ID)
 
-	// Note: We no longer create a dynamic admin here. We rely on the
-	// app startup seeding to have created the default admin.
+	// --- Use the credentials from the admin we just created ---
+	testAdminUsername := testAdmin.Username
+	testAdminTOTPSecret := testAdmin.TOTPSecret
 
 	t.Run("AdminLoginAndLogoutSuccess", func(t *testing.T) {
 		h.T = t
-		// Generate a valid TOTP code from the static secret
-		totpCode := h.GenerateTOTPCode(defaultAdminTOTPSecret)
-		_, client := loginAdminDesktop(t, defaultAdminUsername, defaultAdminPassword, totpCode)
+		// Generate a valid TOTP code from the secret
+		totpCode := h.GenerateTOTPCode(testAdminTOTPSecret)
+		_, client := loginAdminDesktop(t, testAdminUsername, testAdminPassword, totpCode)
 
 		// Successfully log out.
 		logoutAdminDesktopExpectSuccess(t, client)
@@ -425,12 +422,12 @@ func TestAdminLoginFlow(t *testing.T) {
 	t.Run("AdminSecondLoginRevokesOldRefresh", func(t *testing.T) {
 		h.T = t
 		// Login first time
-		code1 := h.GenerateTOTPCode(defaultAdminTOTPSecret)
-		_, c1 := loginAdminDesktop(t, defaultAdminUsername, defaultAdminPassword, code1)
+		code1 := h.GenerateTOTPCode(testAdminTOTPSecret)
+		_, c1 := loginAdminDesktop(t, testAdminUsername, testAdminPassword, code1)
 
 		// Login second time
-		code2 := h.GenerateTOTPCode(defaultAdminTOTPSecret)
-		_, c2 := loginAdminDesktop(t, defaultAdminUsername, defaultAdminPassword, code2)
+		code2 := h.GenerateTOTPCode(testAdminTOTPSecret)
+		_, c2 := loginAdminDesktop(t, testAdminUsername, testAdminPassword, code2)
 
 		// The first client's refresh token should now be invalid.
 		err := refreshAdminDesktop(t, c1, false)
@@ -441,6 +438,8 @@ func TestAdminLoginFlow(t *testing.T) {
 		require.NoError(t, err, "Second refresh token should still be valid")
 	})
 }
+
+// (The rest of the file remains unchanged)
 	func loginAdminDesktop(t *testing.T, username, password, totpCode string) (any, *http.Client) {
 		client := newBrowserClient(t)
 		reqDTO := dtos.LoginAdminRequest{Username: username, Password: password, TOTPCode: totpCode}
