@@ -297,7 +297,7 @@ func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, adminID, 
 }
 
 // CreateProperty creates a new property for a manager and returns it as a DTO.
-func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreatePropertyRequest) (*internal_dtos.Property, error) {
+func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreatePropertyRequest) (*models.Property, error) {
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
 		return nil, err
 	}
@@ -334,9 +334,7 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 
 	s.logAudit(ctx, adminID, prop.ID, models.AuditCreate, models.TargetProperty, prop)
 
-	// Construct the DTO with empty slices for buildings and dumpsters
-	propDTO := internal_dtos.NewPropertyFromModel(prop, []internal_dtos.Building{}, []*models.Dumpster{})
-	return &propDTO, nil
+	return prop, nil
 }
 // UpdateProperty updates an existing property.
 func (s *AdminService) UpdateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdatePropertyRequest) (*models.Property, error) {
@@ -423,8 +421,9 @@ func (s *AdminService) SoftDeleteProperty(ctx context.Context, adminID, propID u
 	return nil
 }
 
+
 // CreateBuilding creates a new building for a property and returns it as a DTO.
-func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateBuildingRequest) (*internal_dtos.Building, error) {
+func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateBuildingRequest) (*models.PropertyBuilding, error) {
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
 		return nil, err
 	}
@@ -450,11 +449,8 @@ func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, re
 	}
 	s.logAudit(ctx, adminID, building.ID, models.AuditCreate, models.TargetBuilding, building)
 
-	// Construct the DTO with an empty slice for units
-	buildingDTO := internal_dtos.NewBuildingFromModel(building, []*models.Unit{})
-	return &buildingDTO, nil
+	return building, nil
 }
-
 // UpdateBuilding updates an existing building.
 func (s *AdminService) UpdateBuilding(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdateBuildingRequest) (*models.PropertyBuilding, error) {
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
