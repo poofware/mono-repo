@@ -3,9 +3,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:otp/otp.dart';
-// --- MODIFICATION START ---
-import 'package:poof_admin/core/config/dev_flavor.dart'; // CHANGE THIS IMPORT
-// --- MODIFICATION END ---
+import 'package:poof_admin/core/config/dev_flavor.dart';
+import 'package:poof_admin/core/config/integration_test_flavor.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 import 'package:poof_admin/features/auth/data/models/admin_login_request.dart';
@@ -48,10 +47,8 @@ void main() {
 
   // This setup runs ONCE for all tests in this file.
   setUpAll(() {
-    // --- MODIFICATION START ---
     // Use the dev flavor to enable real network calls.
-    configureDevFlavor(); 
-    // --- MODIFICATION END ---
+    configureDevFlavor();
     TestContext.authRepo = TestContext.container.read(adminAuthRepositoryProvider);
     TestContext.accountRepo = TestContext.container.read(adminAccountRepositoryProvider);
     TestContext.jobsRepo = TestContext.container.read(adminJobsRepositoryProvider);
@@ -100,7 +97,7 @@ void main() {
       expect(createdPm, isNotNull);
 
       // Create Property
-      final propData = { 'manager_id': createdPm!.id, 'property_name': 'Integration Test Property', 'address': '456 Test Ave', 'city': 'Testville', 'state': 'CA', 'zip_code': '90210', 'time_zone': 'America/Los_Angeles', 'latitude': 34.0522, 'longitude': -118.2437 };
+      final propData = { 'manager_id': createdPm!.id, 'property_name': 'Integration Test Property', 'address': '456 Test Ave', 'city': 'Testville', 'state': 'CA', 'zip_code': '90210', 'timezone': 'America/Los_Angeles', 'latitude': 34.0522, 'longitude': -118.2437 };
       createdProperty = await accountRepo.createProperty(propData);
       expect(createdProperty, isNotNull);
 

@@ -1,3 +1,5 @@
+// frontend/apps/admin-app/lib/features/account/data/models/property_admin.dart
+
 import 'package:poof_admin/features/account/data/models/building_admin.dart';
 import 'package:poof_admin/features/account/data/models/dumpster_admin.dart';
 import 'package:poof_admin/features/jobs/data/models/job_definition_admin.dart';
@@ -47,7 +49,7 @@ class PropertyAdmin {
         city = json['city'] as String,
         state = json['state'] as String,
         zipCode = json['zip_code'] as String,
-        timeZone = json['time_zone'] as String,
+        timeZone = json['timezone'] as String,
         latitude = json['latitude'] as double,
         longitude = json['longitude'] as double,
         buildings = (json['buildings'] as List<dynamic>?)
@@ -101,7 +103,7 @@ class PropertyAdmin {
         'city': city,
         'state': state,
         'zip_code': zipCode,
-        'time_zone': timeZone,
+        'timezone': timeZone,
         'latitude': latitude,
         'longitude': longitude,
         'buildings': buildings.map((b) => b.toJson()).toList(),

@@ -1,3 +1,5 @@
+// frontend/apps/admin-app/lib/features/account/presentation/pages/property_form_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -72,7 +74,7 @@ class _PropertyFormPageState extends ConsumerState<PropertyFormPage> {
       'city': _cityController.text.trim(),
       'state': _selectedState!,
       'zip_code': _zipController.text.trim(),
-      'time_zone': _timezoneController.text.trim(),
+      'timezone': _timezoneController.text.trim(),
       'latitude': double.tryParse(_latController.text.trim()) ?? 0.0,
       'longitude': double.tryParse(_lonController.text.trim()) ?? 0.0,
     };

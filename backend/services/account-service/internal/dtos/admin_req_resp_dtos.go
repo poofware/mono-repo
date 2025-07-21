@@ -65,7 +65,7 @@ type CreatePropertyRequest struct {
 	City         string    `json:"city" validate:"required,min=2"`
 	State        string    `json:"state" validate:"required,len=2"`
 	ZipCode      string    `json:"zip_code" validate:"required,min=5,max=10"`
-	TimeZone     string    `json:"time_zone" validate:"required"`
+	TimeZone     string    `json:"timezone" validate:"required"`
 	Latitude     float64   `json:"latitude" validate:"required,latitude"`
 	Longitude    float64   `json:"longitude" validate:"required,longitude"`
 }
@@ -77,7 +77,7 @@ type UpdatePropertyRequest struct {
 	City         *string   `json:"city,omitempty" validate:"omitempty,min=2"`
 	State        *string   `json:"state,omitempty" validate:"omitempty,len=2"`
 	ZipCode      *string   `json:"zip_code,omitempty" validate:"omitempty,min=5,max=10"`
-	TimeZone     *string   `json:"time_zone,omitempty" validate:"omitempty"`
+	TimeZone     *string   `json:"timezone,omitempty" validate:"omitempty"`
 	Latitude     *float64  `json:"latitude,omitempty" validate:"omitempty,latitude"`
 	Longitude    *float64  `json:"longitude,omitempty" validate:"omitempty,longitude"`
 }
