@@ -24,10 +24,9 @@ import 'package:poof_admin/features/auth/providers/admin_auth_providers.dart';
 final pmsApiProvider = Provider<AdminApiInterface>((ref) {
   final config = PoofAdminFlavorConfig.instance;
   if (config.testMode) {
-    // Use the mock API for testing
     return MockAdminPmsApi();
   } else {
-    // Use the real API client for dev, staging, prod
+    // This is the correct implementation
     final authApi = ref.read(adminAuthApiProvider);
     return AdminApiClient(authApi);
   }

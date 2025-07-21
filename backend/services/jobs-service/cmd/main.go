@@ -65,9 +65,6 @@ func main() {
 	)
 
 	if cfg.LDFlag_SeedDbWithTestData {
-		if err := app.SeedDefaultAdmin(adminRepo); err != nil {
-			utils.Logger.WithError(err).Fatal("Failed to seed default admin")
-		}
 		if err := app.SeedAllTestData(
 			context.Background(), application.DB, cfg.DBEncryptionKey,
 			propRepo, bldgRepo, dumpRepo, defRepo, jobService,

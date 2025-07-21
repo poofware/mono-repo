@@ -1,8 +1,6 @@
 // frontend/apps/admin-app/lib/core/api/admin_api_client.dart
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:poof_admin/core/config/flavors.dart';
 import 'package:poof_admin/core/models/paginated_response.dart';
 import 'package:poof_admin/features/account/data/api/admin_api_interface.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
@@ -11,18 +9,12 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 
 class AdminApiClient implements AdminApiInterface {
   final AdminAuthApi _authApi;
-  final String _accountBaseUrl;
-  final String _jobsBaseUrl;
+  // These are now path prefixes, not full base URLs.
+  final String _accountPathPrefix = '/api/v1/account/admin';
+  final String _jobsPathPrefix = '/api/v1/jobs/admin';
 
-  AdminApiClient(this._authApi)
-      : _accountBaseUrl =
-            '${PoofAdminFlavorConfig.instance.apiServiceURL}/account/admin',
-        _jobsBaseUrl =
-            '${PoofAdminFlavorConfig.instance.apiServiceURL}/jobs/admin';
+  AdminApiClient(this._authApi);
 
-  /// Helper to handle the response, decode JSON, and wrap potential errors.
-  /// The underlying `sendAuthenticatedRequest` from poof_flutter_auth already handles
-  /// token refresh and throws a structured `ApiException`, so we just need to decode the success case.
   T _decodeResponse<T>(
     http.Response response,
     T Function(Map<String, dynamic> json) fromJson,
@@ -34,15 +26,19 @@ class AdminApiClient implements AdminApiInterface {
   /// Generic request handler for entities.
   Future<T> _request<T>(
     String method,
-    String path,
+    String relativePath, // e.g., '/property-managers'
     T Function(Map<String, dynamic> json) fromJson, {
     Map<String, dynamic>? body,
     bool isJobsService = false,
   }) async {
-    final baseUrl = isJobsService ? _jobsBaseUrl : _accountBaseUrl;
+    final pathPrefix = isJobsService ? _jobsPathPrefix : _accountPathPrefix;
+    // Construct the full path from the gateway root.
+    final String fullPath = '$pathPrefix$relativePath';
+
+    // The underlying authApi will prepend the gateway base URL (e.g., https://domain.com)
     final response = await _authApi.sendAuthenticatedRequest(
       method: method,
-      path: '$baseUrl$path',
+      path: fullPath, // Pass the path relative to the gateway root.
       body: body != null ? JsonSerializableMap(body) : null,
     );
     return _decodeResponse(response, fromJson);
@@ -51,14 +47,16 @@ class AdminApiClient implements AdminApiInterface {
   /// Generic request handler for actions that return no body (e.g., DELETE).
   Future<void> _requestVoid(
     String method,
-    String path, {
+    String relativePath, {
     Map<String, dynamic>? body,
     bool isJobsService = false,
   }) async {
-    final baseUrl = isJobsService ? _jobsBaseUrl : _accountBaseUrl;
+    final pathPrefix = isJobsService ? _jobsPathPrefix : _accountPathPrefix;
+    final String fullPath = '$pathPrefix$relativePath';
+
     await _authApi.sendAuthenticatedRequest(
       method: method,
-      path: '$baseUrl$path',
+      path: fullPath,
       body: body != null ? JsonSerializableMap(body) : null,
     );
   }
@@ -78,9 +76,11 @@ class AdminApiClient implements AdminApiInterface {
   @override
   Future<PaginatedResponse<PropertyManagerAdmin>> searchPropertyManagers(
       Map<String, dynamic> data) async {
+    final String fullPath = '$_accountPathPrefix/property-managers/search';
+
     final response = await _authApi.sendAuthenticatedRequest(
       method: 'POST',
-      path: '$_accountBaseUrl/property-managers/search',
+      path: fullPath,
       body: JsonSerializableMap(data),
     );
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -97,7 +97,6 @@ class AdminApiClient implements AdminApiInterface {
   }
 
   // --- Create Methods ---
-
   @override
   Future<PropertyManagerAdmin> createPropertyManager(
           Map<String, dynamic> data) =>
@@ -119,9 +118,7 @@ class AdminApiClient implements AdminApiInterface {
 
   @override
   Future<void> createUnits(List<Map<String, dynamic>> data) {
-    // A real-world application should have a dedicated bulk endpoint.
-    // Since one is not available based on the provided backend code,
-    // we fall back to creating units individually.
+    // This helper still works as it calls the corrected createUnit.
     return Future.wait(data.map((unitData) => createUnit(unitData)));
   }
 
@@ -135,7 +132,6 @@ class AdminApiClient implements AdminApiInterface {
           body: data, isJobsService: true);
 
   // --- Update Methods ---
-
   @override
   Future<PropertyManagerAdmin> updatePropertyManager(
           Map<String, dynamic> data) =>
@@ -165,7 +161,6 @@ class AdminApiClient implements AdminApiInterface {
           body: data, isJobsService: true);
 
   // --- Delete Methods ---
-
   @override
   Future<void> deletePropertyManager(Map<String, dynamic> data) =>
       _requestVoid('DELETE', '/property-managers', body: data);
@@ -192,8 +187,6 @@ class AdminApiClient implements AdminApiInterface {
           body: data, isJobsService: true);
 }
 
-/// A helper class to wrap a map in the JsonSerializable interface required
-/// by the poof_flutter_auth package's request handler.
 class JsonSerializableMap implements JsonSerializable {
   final Map<String, dynamic> _map;
   JsonSerializableMap(this._map);
