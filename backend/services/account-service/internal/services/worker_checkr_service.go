@@ -97,6 +97,7 @@ func (s *CheckrService) sendWebhookMissAlert(objectType string, objectID string,
 		utils.Logger.Infof("Sent webhook miss alert for %s ID %s.", objectType, objectID)
 	}
 }
+
 // **FIX END**
 
 // Start registers a dynamic Checkr webhook if the feature flag is enabled.
@@ -836,7 +837,44 @@ func (s *CheckrService) GetWorkerCheckrOutcome(
 		return models.ReportOutcomeUnknownStatus, nil
 	}
 
-	// Always return the current value. The zero value is already "UNKNOWN".
+	// --- Robust Fallback Polling ---
+	if w.CheckrReportOutcome == models.ReportOutcomeUnknownStatus &&
+		w.AccountStatus == models.AccountStatusBackgroundCheckPending &&
+		w.CheckrReportID != nil && *w.CheckrReportID != "" {
+
+		utils.Logger.Infof("Outcome unknown for worker %s. Polling report %s from Checkr API.", w.ID, *w.CheckrReportID)
+		report, reportErr := s.client.GetReport(ctx, *w.CheckrReportID)
+		if reportErr != nil {
+			utils.Logger.WithError(reportErr).Warnf("Failed to poll Checkr report for ID %s", *w.CheckrReportID)
+		} else if report.Status == checkr.ReportStatusComplete {
+			utils.Logger.Infof("Polling found Checkr report %s is 'complete'. Triggering self-healing.", report.ID)
+			s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
+
+			reportWebhookObj := checkr.ReportWebhookObj{
+				ID:                      report.ID,
+				Object:                  report.Object,
+				URI:                     report.URI,
+				Status:                  report.Status,
+				Result:                  report.Result,
+				Adjudication:            report.Adjudication,
+				Assessment:              report.Assessment,
+				Package:                 report.Package,
+				CandidateID:             report.CandidateID,
+				IncludesCanceled:        report.IncludesCanceled,
+				EstimatedCompletionTime: report.EstimatedTime,
+				CreatedAt:               *report.CreatedAt,
+			}
+
+			if err := s.handleReportEvent(ctx, "report.completed", reportWebhookObj); err != nil {
+				utils.Logger.WithError(err).Error("Self-healing failed for completed report.")
+			}
+
+			// Reload worker for updated outcome
+			w, _ = s.repo.GetByID(ctx, workerID)
+		}
+	}
+
+	// Return the current value (zero value is already "UNKNOWN")
 	return w.CheckrReportOutcome, nil
 }
 

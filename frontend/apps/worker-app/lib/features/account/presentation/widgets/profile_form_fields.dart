@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:http/http.dart' as http;
 import 'package:poof_worker/core/config/flavors.dart';
+import 'package:poof_worker/core/data/vehicle_data.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
@@ -334,81 +335,94 @@ class _VehicleApi {
   };
 
   Future<List<String>> fetchMakes(int year, String query) async {
-    const base = 'vpic.nhtsa.dot.gov';
-    final paths = [
-      '/api/vehicles/GetMakesForVehicleModelYear/$year',
-      '/api/vehicles/GetMakesForVehicleModelYear/modelyear/$year',
-    ];
+    final local = await VehicleData.searchMakes(query);
+    if (local.isNotEmpty) return local;
+    try {
+      const base = 'vpic.nhtsa.dot.gov';
+      final paths = [
+        '/api/vehicles/GetMakesForVehicleModelYear/$year',
+        '/api/vehicles/GetMakesForVehicleModelYear/modelyear/$year',
+      ];
 
-    http.Response? res;
-    for (final p in paths) {
-      final uri = Uri.https(base, p, {'format': 'json'});
-      res = await http.get(uri);
-      if (res.statusCode == 200) break;
-      if (res.statusCode == 404) continue;
-      throw Exception('VPIC error ${res.statusCode} for $p');
-    }
-
-    if (res == null || res.statusCode == 404) {
-      final uri = Uri.https(base, '/api/vehicles/GetAllMakes', {
-        'format': 'json',
-      });
-      res = await http.get(uri);
-      if (res.statusCode != 200) {
-        throw Exception('VPIC GetAllMakes error ${res.statusCode}');
+      http.Response? res;
+      for (final p in paths) {
+        final uri = Uri.https(base, p, {'format': 'json'});
+        res = await http.get(uri);
+        if (res.statusCode == 200) break;
+        if (res.statusCode == 404) continue;
+        throw Exception('VPIC error ${res.statusCode} for $p');
       }
-    }
 
-    final map = jsonDecode(res.body) as Map<String, dynamic>;
-    final list = (map['Results'] as List).cast<Map<String, dynamic>>();
-    final q = query.toUpperCase();
+      if (res == null || res.statusCode == 404) {
+        final uri = Uri.https(base, '/api/vehicles/GetAllMakes', {
+          'format': 'json',
+        });
+        res = await http.get(uri);
+        if (res.statusCode != 200) {
+          throw Exception('VPIC GetAllMakes error ${res.statusCode}');
+        }
+      }
 
-    final originals = <String, String>{
-      for (final row in list)
-        (row['Make_Name'] as String).toUpperCase(): row['Make_Name'] as String,
-    };
+      final map = jsonDecode(res.body) as Map<String, dynamic>;
+      final list = (map['Results'] as List).cast<Map<String, dynamic>>();
+      final q = query.toUpperCase();
 
-    List<String> ranked = originals.keys.where((m) => m.contains(q)).toList()
-      ..sort((a, b) {
-        int score(String m) => m == q ? 0 : (m.startsWith(q) ? 1 : 2);
-        final s1 = score(a), s2 = score(b);
-        return s1 != s2 ? s1.compareTo(s2) : a.compareTo(b);
-      });
+      final originals = <String, String>{
+        for (final row in list)
+          (row['Make_Name'] as String).toUpperCase():
+              row['Make_Name'] as String,
+      };
 
-    final common = ranked.where(_popularMakes.contains).toList();
-    if (common.isNotEmpty) ranked = common;
+      List<String> ranked = originals.keys.where((m) => m.contains(q)).toList()
+        ..sort((a, b) {
+          int score(String m) => m == q ? 0 : (m.startsWith(q) ? 1 : 2);
+          final s1 = score(a), s2 = score(b);
+          return s1 != s2 ? s1.compareTo(s2) : a.compareTo(b);
+        });
 
-    String titleCase(String s) => s
-        .split(RegExp(r'\s+'))
-        .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
-        .join(' ');
+      final common = ranked.where(_popularMakes.contains).toList();
+      if (common.isNotEmpty) ranked = common;
 
-    return ranked.take(10).map((u) => titleCase(originals[u]!)).toList();
-  }
-
-  Future<List<String>> fetchModels(int year, String make, String query) async {
-    final uri = Uri.https(
-      'vpic.nhtsa.dot.gov',
-      '/api/vehicles/GetModelsForMakeYear/make/$make/modelyear/$year',
-      {'format': 'json'},
-    );
-    final res = await http.get(uri);
-
-    if (res.statusCode == 404 || res.statusCode != 200) return [];
-
-    final map = jsonDecode(res.body) as Map<String, dynamic>;
-    final list = (map['Results'] as List).cast<Map<String, dynamic>>();
-    final q = query.toUpperCase();
-    final set = <String>{
-      for (final row in list) (row['Model_Name'] as String).toUpperCase(),
-    };
-
-    return set.where((m) => m.contains(q)).take(15).map((m) {
-      return m
+      String titleCase(String s) => s
           .split(RegExp(r'\s+'))
           .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
           .join(' ');
-    }).toList();
+
+      return ranked.take(10).map((u) => titleCase(originals[u]!)).toList();
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  Future<List<String>> fetchModels(int year, String make, String query) async {
+    final local = await VehicleData.searchModels(make, query);
+    if (local.isNotEmpty) return local;
+    try {
+      final uri = Uri.https(
+        'vpic.nhtsa.dot.gov',
+        '/api/vehicles/GetModelsForMakeYear/make/$make/modelyear/$year',
+        {'format': 'json'},
+      );
+      final res = await http.get(uri);
+
+      if (res.statusCode == 404 || res.statusCode != 200) return [];
+
+      final map = jsonDecode(res.body) as Map<String, dynamic>;
+      final list = (map['Results'] as List).cast<Map<String, dynamic>>();
+      final q = query.toUpperCase();
+      final set = <String>{
+        for (final row in list) (row['Model_Name'] as String).toUpperCase(),
+      };
+
+      return set.where((m) => m.contains(q)).take(15).map((m) {
+        return m
+            .split(RegExp(r'\s+'))
+            .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
+            .join(' ');
+      }).toList();
+    } catch (_) {
+      return const <String>[];
+    }
   }
 }
 
@@ -446,6 +460,8 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
 
   bool _yearValid = false;
   bool _makeResolved = false;
+  bool _makeManualAllowed = false;
+  bool _modelManualAllowed = false;
 
   final _api = _VehicleApi();
 
@@ -497,6 +513,8 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
     setState(() {
       _yearValid = ok;
       _makeResolved = false;
+      _makeManualAllowed = false;
+      _modelManualAllowed = false;
       _makeController.clear();
       _modelController.clear();
     });
@@ -505,20 +523,23 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
 
   void _onMakeChanged(String text) {
     setState(() {
-      _makeResolved = false;
+      _makeResolved = _makeManualAllowed && text.isNotEmpty;
       _modelController.clear();
+      if (!_makeResolved) _modelManualAllowed = false;
     });
-    // not a valid make until a suggestion is chosen
-    widget.onChanged(int.tryParse(_yearController.text) ?? 0, '', '');
+    widget.onChanged(
+      int.tryParse(_yearController.text) ?? 0,
+      _makeResolved ? text : '',
+      '',
+    );
   }
 
   void _onModelChanged(String text) {
     setState(() {});
-    // not a valid model until a suggestion is chosen
     widget.onChanged(
       int.tryParse(_yearController.text) ?? 0,
       _makeController.text,
-      '',
+      _modelManualAllowed && text.isNotEmpty ? text : '',
     );
   }
 
@@ -587,13 +608,19 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
           hideOnSelect: true,
           hideOnEmpty: true,
           suggestionsCallback: (pattern) async {
-            if (!_yearValid || pattern.length < 2) return const <String>[];
+            if (!_yearValid || pattern.length < 2) {
+              setState(() => _makeManualAllowed = false);
+              return const <String>[];
+            }
             try {
-              return await _api.fetchMakes(
+              final res = await _api.fetchMakes(
                 int.parse(_yearController.text),
                 pattern,
               );
+              setState(() => _makeManualAllowed = res.isEmpty);
+              return res;
             } catch (e) {
+              setState(() => _makeManualAllowed = true);
               return const <String>[];
             }
           },
@@ -609,7 +636,9 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
             setState(() {
               _makeController.text = suggestion;
               _makeResolved = true;
+              _makeManualAllowed = false;
               _modelController.clear();
+              _modelManualAllowed = false;
             });
             widget.onChanged(
               int.tryParse(_yearController.text) ?? 0,
@@ -633,13 +662,16 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
           hideOnEmpty: true,
           suggestionsCallback: (pattern) async {
             if (!_yearValid || !_makeResolved || pattern.isEmpty) {
+              setState(() => _modelManualAllowed = false);
               return const <String>[];
             }
-            return await _api.fetchModels(
+            final res = await _api.fetchModels(
               int.parse(_yearController.text),
               _makeController.text,
               pattern,
             );
+            setState(() => _modelManualAllowed = res.isEmpty);
+            return res;
           },
           builder: (context, controller, focusNode) => TextField(
             controller: controller,
@@ -652,6 +684,7 @@ class _VehicleFormFieldState extends State<VehicleFormField> {
           onSelected: (suggestion) {
             setState(() {
               _modelController.text = suggestion;
+              _modelManualAllowed = false;
             });
             widget.onChanged(
               int.tryParse(_yearController.text) ?? 0,
