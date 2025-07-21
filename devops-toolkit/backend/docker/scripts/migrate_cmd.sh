@@ -5,8 +5,7 @@
 #
 # Flow:
 #   0. Validate essential env vars
-#   1. Decrypt HCP_ENCRYPTED_API_TOKEN          (via encryption.sh)
-#   2. Fetch DB_URL and LD_SDK_KEY              (via HCP)
+#   2. Fetch DB_URL and LD_SDK_KEY              (via BWS)
 #   3. Ask LaunchDarkly for using_isolated_schema
 #   4. Build / ensure isolated schema & schema-named role
 #   5. Wait for DB readiness
@@ -36,34 +35,27 @@ IFS=$'\n\t'
 # 0. Required environment
 ###############################################################################
 : "${ENV:?ENV env var is required (e.g. dev, staging, prod)}"
-: "${HCP_ENCRYPTED_API_TOKEN:?HCP_ENCRYPTED_API_TOKEN env var is required}"
 # MIGRATE_MODE is optional; defaults to "forward"
 MIGRATE_MODE="$(echo "${MIGRATE_MODE:-forward}" | tr '[:upper:]' '[:lower:]')"
 
 ###############################################################################
-# 1. Decrypt API token (for HCP)
+# 2. Fetch DB_URL and LD_SDK_KEY secrets from BWS
 ###############################################################################
-source ./encryption.sh                       # provides decrypt_token()
-export HCP_API_TOKEN="$(decrypt_token "${HCP_ENCRYPTED_API_TOKEN}")"
-echo "[INFO] HCP_API_TOKEN decrypted."
+echo "[INFO] Fetching secrets from BWS…"
 
-###############################################################################
-# 2. Fetch DB_URL and LD_SDK_KEY secrets from HCP
-###############################################################################
-echo "[INFO] Fetching secrets from HCP…"
-
-DB_URL="$(./fetch_hcp_secret_from_secrets_json.sh DB_URL)"
-LD_SDK_KEY="$(./fetch_hcp_secret_from_secrets_json.sh LD_SDK_KEY)"
+DB_URL="$(./fetch_bws_secret.sh DB_URL | jq -r '.DB_URL // empty')"
+LD_SDK_KEY="$(./fetch_bws_secret.sh LD_SDK_KEY | jq -r '.LD_SDK_KEY // empty')"
 
 if [[ -z "${DB_URL}"    || "${DB_URL}"    == "null" ]]; then
-  echo "[ERROR] Could not retrieve 'DB_URL' from HCP." >&2
+  echo "[ERROR] Could not retrieve 'DB_URL' from BWS." >&2
   exit 1
 fi
 if [[ -z "${LD_SDK_KEY}" || "${LD_SDK_KEY}" == "null" ]]; then
-  echo "[ERROR] Could not retrieve 'LD_SDK_KEY' from HCP." >&2
+  echo "[ERROR] Could not retrieve 'LD_SDK_KEY' from BWS." >&2
   exit 1
 fi
 export LD_SDK_KEY
+echo "[INFO] LD_SDK_KEY full length: ${LD_SDK_KEY}"
 echo "[INFO] Secrets fetched."
 
 ###############################################################################

@@ -94,10 +94,7 @@ jobs:
       - name: Deploy to TestFlight via Makefile
         working-directory: frontend/apps/worker-app
         env:
-          # Secrets for devops-toolkit (used to fetch APP_SECRETS_JSON)
-          HCP_CLIENT_ID: ${{ secrets.HCP_CLIENT_ID_GOD }}
-          HCP_CLIENT_SECRET: ${{ secrets.HCP_CLIENT_SECRET_GOD }}
-          HCP_TOKEN_ENC_KEY: ${{ secrets.HCP_TOKEN_ENC_KEY }}
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
           UNIQUE_RUNNER_ID: ${{ github.ref_name == 'main' && secrets.UNIQUE_RUNNER_ID || 'jacob-moore' }}
           UNIQUE_RUN_NUMBER: ${{ github.run_number }}
         run: |

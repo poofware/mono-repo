@@ -6,20 +6,19 @@
 #   • If LaunchDarkly flag `dynamic_stripe_webhook_endpoint` is **true**,
 #     the listener is disabled and the script exits successfully with a warning.
 #   • If the flag is **false**, the script:
-#       1. Decrypts the HCP API token
-#       2. Fetches `LD_SDK_KEY` (from HCP_APP_NAME_FOR_ENABLE_LISTENER) and
+#       1. Decrypts the BWS API token
+#       2. Fetches `LD_SDK_KEY` (from BWS_PROJECT_NAME_FOR_ENABLE_LISTENER) and
 #          evaluates the LaunchDarkly flag
-#       3. Fetches `STRIPE_SECRET_KEY` (from HCP_APP_NAME_FOR_STRIPE_SECRET)
+#       3. Fetches `STRIPE_SECRET_KEY` (from BWS_PROJECT_NAME_FOR_STRIPE_SECRET)
 #       4. Starts `stripe listen`, forwarding events to your app
 #
 # Required environment --------------------------------------------------------
-#   HCP_ENCRYPTED_API_TOKEN   – encrypted HashiCorp token (for HCP secrets)
 #   APP_URL_FROM_COMPOSE_NETWORK
 #   STRIPE_WEBHOOK_CONNECTED_EVENTS
 #   STRIPE_WEBHOOK_PLATFORM_EVENTS
 #   STRIPE_WEBHOOK_ROUTE
-#   HCP_APP_NAME_FOR_STRIPE_SECRET
-#   HCP_APP_NAME_FOR_ENABLE_LISTENER
+#   BWS_PROJECT_NAME_FOR_STRIPE_SECRET
+#   BWS_PROJECT_NAME_FOR_ENABLE_LISTENER
 # -----------------------------------------------------------------------------
 
 set -euo pipefail
@@ -28,31 +27,23 @@ IFS=$'\n\t'
 ###############################################################################
 # 0. Required environment
 ###############################################################################
-: "${HCP_ENCRYPTED_API_TOKEN:?HCP_ENCRYPTED_API_TOKEN env var is required}"
 : "${APP_URL_FROM_COMPOSE_NETWORK:?APP_URL_FROM_COMPOSE_NETWORK env var is required}"
 : "${STRIPE_WEBHOOK_ROUTE:?STRIPE_WEBHOOK_ROUTE env var is required}"
-: "${HCP_APP_NAME_FOR_STRIPE_SECRET:?HCP_APP_NAME_FOR_STRIPE_SECRET env var is required}"
-: "${HCP_APP_NAME_FOR_ENABLE_LISTENER:?HCP_APP_NAME_FOR_ENABLE_LISTENER env var is required}"
+: "${BWS_PROJECT_NAME_FOR_STRIPE_SECRET:?BWS_PROJECT_NAME_FOR_STRIPE_SECRET env var is required}"
+: "${BWS_PROJECT_NAME_FOR_ENABLE_LISTENER:?BWS_PROJECT_NAME_FOR_ENABLE_LISTENER env var is required}"
 
 FORWARD_TO_URL="${APP_URL_FROM_COMPOSE_NETWORK}${STRIPE_WEBHOOK_ROUTE}"
 
 ###############################################################################
-# 1. Decrypt HCP API token (shared by both secret fetches)
-###############################################################################
-source ./encryption.sh                       # provides decrypt_token()
-export HCP_API_TOKEN="$(decrypt_token "${HCP_ENCRYPTED_API_TOKEN}")"
-echo "[INFO] HCP_API_TOKEN decrypted."
-
-###############################################################################
 # 2. Fetch LD_SDK_KEY (for flag evaluation)
 ###############################################################################
-export HCP_APP_NAME="${HCP_APP_NAME_FOR_ENABLE_LISTENER}"
-echo "[INFO] Fetching 'LD_SDK_KEY' from HCP (app=${HCP_APP_NAME})…"
+export BWS_PROJECT_NAME="${BWS_PROJECT_NAME_FOR_ENABLE_LISTENER}"
+echo "[INFO] Fetching 'LD_SDK_KEY' from BWS (app=${BWS_PROJECT_NAME})…"
 
-LD_SDK_KEY="$(./fetch_hcp_secret_from_secrets_json.sh LD_SDK_KEY)"
+LD_SDK_KEY="$(./fetch_bws_secret.sh LD_SDK_KEY | jq -r '.LD_SDK_KEY // empty')"
 
 if [[ -z "${LD_SDK_KEY}" || "${LD_SDK_KEY}" == "null" ]]; then
-  echo "[ERROR] Could not retrieve 'LD_SDK_KEY' from HCP." >&2
+  echo "[ERROR] Could not retrieve 'LD_SDK_KEY' from BWS." >&2
   exit 1
 fi
 export LD_SDK_KEY
@@ -75,13 +66,13 @@ echo "[INFO] Flag is FALSE — proceeding to start Stripe listener."
 ###############################################################################
 # 4. Fetch STRIPE_SECRET_KEY (for Stripe CLI)
 ###############################################################################
-export HCP_APP_NAME="${HCP_APP_NAME_FOR_STRIPE_SECRET}"
-echo "[INFO] Fetching 'STRIPE_SECRET_KEY' from HCP (app=${HCP_APP_NAME})…"
+export BWS_PROJECT_NAME="${BWS_PROJECT_NAME_FOR_STRIPE_SECRET}"
+echo "[INFO] Fetching 'STRIPE_SECRET_KEY' from BWS (app=${BWS_PROJECT_NAME})…"
 
-STRIPE_SECRET_KEY="$(./fetch_hcp_secret_from_secrets_json.sh STRIPE_SECRET_KEY)"
+STRIPE_SECRET_KEY="$(./fetch_bws_secret.sh STRIPE_SECRET_KEY | jq -r '.STRIPE_SECRET_KEY // empty')"
 
 if [[ -z "${STRIPE_SECRET_KEY}" || "${STRIPE_SECRET_KEY}" == "null" ]]; then
-  echo "[ERROR] Could not retrieve 'STRIPE_SECRET_KEY' from HCP."
+  echo "[ERROR] Could not retrieve 'STRIPE_SECRET_KEY' from BWS."
   exit 1
 fi
 echo "[INFO] Successfully fetched 'STRIPE_SECRET_KEY'."

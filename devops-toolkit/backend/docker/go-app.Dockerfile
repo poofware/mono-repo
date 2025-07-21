@@ -8,10 +8,12 @@ ARG GO_VERSION=1.24
 FROM golang:${GO_VERSION}-alpine AS base
 
 # Install any necessary packages (git, openssh, etc.)
-RUN apk update && apk add --no-cache git openssh curl openssl;
+RUN apk update && apk add --no-cache git openssh curl openssl build-base musl-dev;
 
 # Private repos? Configure SSH known_hosts if needed
 ENV GOPRIVATE=github.com/poofware/*
+ENV CGO_ENABLED=1
+ENV CGO_LDFLAGS="-static -lm"
 RUN git config --global url."git@github.com:".insteadOf "https://github.com/";
 
 WORKDIR /go/app
@@ -31,22 +33,12 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
 FROM base AS builder-config-validator
 
 ARG APP_NAME
-ARG HCP_ORG_ID
-ARG HCP_PROJECT_ID
 ARG LD_SERVER_CONTEXT_KEY
 ARG LD_SERVER_CONTEXT_KIND
 
 # Validate the configuration
 RUN test -n "${APP_NAME}" || ( \
   echo "Error: APP_NAME is not set! Use --build-arg APP_NAME=xxx" && \
-  exit 1 \
-);
-RUN test -n "${HCP_ORG_ID}" || ( \
-  echo "Error: HCP_ORG_ID is not set! Use --build-arg HCP_ORG_ID=xxx" && \
-  exit 1 \
-);
-RUN test -n "${HCP_PROJECT_ID}" || ( \
-  echo "Error: HCP_PROJECT_ID is not set! Use --build-arg HCP_PROJECT_ID=xxx" && \
   exit 1 \
 );
 RUN test -n "${LD_SERVER_CONTEXT_KEY}" || ( \
@@ -64,8 +56,6 @@ RUN test -n "${LD_SERVER_CONTEXT_KIND}" || ( \
 FROM builder-config-validator AS app-builder
 
 ARG APP_NAME
-ARG HCP_ORG_ID
-ARG HCP_PROJECT_ID
 ARG LD_SERVER_CONTEXT_KEY
 ARG LD_SERVER_CONTEXT_KIND
 ARG UNIQUE_RUN_NUMBER
@@ -95,9 +85,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
         -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
         -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \
         -X 'github.com/poofware/${APP_NAME}/internal/config.LDServerContextKey=${LD_SERVER_CONTEXT_KEY}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.LDServerContextKind=${LD_SERVER_CONTEXT_KIND}' \
-        -X 'github.com/poofware/go-utils.HCPOrgID=${HCP_ORG_ID}' \
-        -X 'github.com/poofware/go-utils.HCPProjectID=${HCP_PROJECT_ID}'" \
+        -X 'github.com/poofware/${APP_NAME}/internal/config.LDServerContextKind=${LD_SERVER_CONTEXT_KIND}'" \
       -v -o "/${APP_NAME}" ./cmd/main.go;
 
 ######################################
@@ -134,7 +122,6 @@ ARG APP_PORT
 ARG APP_URL_FROM_ANYWHERE
 ARG LOG_LEVEL
 ARG ENV
-ARG HCP_ENCRYPTED_API_TOKEN
 
 # TODO: Clean this up later, figure out best way to validate all args
 RUN test -n "${APP_PORT}" || ( \
@@ -153,10 +140,6 @@ RUN test -n "${LOG_LEVEL}" || ( \
   echo "Error: LOG_LEVEL is not set! Use --build-arg LOG_LEVEL=xxx" && \
   exit 1 \
 );
-RUN test -n "${HCP_ENCRYPTED_API_TOKEN}" || ( \
-  echo "Error: HCP_ENCRYPTED_API_TOKEN is not set! Use --build-arg HCP_ENCRYPTED_API_TOKEN=xxx" && \
-  exit 1 \
-);
 
 WORKDIR /root/
 COPY --from=app-builder /${APP_NAME} ./${APP_NAME}
@@ -169,15 +152,13 @@ ENV APP_PORT=${APP_PORT}
 ENV APP_URL_FROM_ANYWHERE=${APP_URL_FROM_ANYWHERE}
 ENV LOG_LEVEL=${LOG_LEVEL}
 ENV ENV=${ENV}
-ENV HCP_ENCRYPTED_API_TOKEN=${HCP_ENCRYPTED_API_TOKEN}
 
 # Copy all envs into a .env file for potential children images to access
 RUN echo "APP_NAME=${APP_NAME}" > .env && \
     echo "APP_PORT=${APP_PORT}" >> .env && \
     echo "APP_URL_FROM_ANYWHERE=${APP_URL_FROM_ANYWHERE}" >> .env && \
     echo "LOG_LEVEL=${LOG_LEVEL}" >> .env && \
-    echo "ENV=${ENV}" >> .env && \
-    echo "HCP_ENCRYPTED_API_TOKEN=${HCP_ENCRYPTED_API_TOKEN}" >> .env;
+    echo "ENV=${ENV}" >> .env >> .env;
 
 CMD ./$APP_NAME
 

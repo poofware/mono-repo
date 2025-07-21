@@ -52,7 +52,7 @@ endif
 # db.compose.yaml configurations
 export COMPOSE_DB_NAME := shared_pg_db
 export MIGRATIONS_PATH := $(REPO_ROOT)/backend/migrations
-export HCP_APP_NAME_FOR_DB_SECRETS := $(APP_NAME)-$(ENV)
+export BWS_PROJECT_NAME_FOR_DB_SECRETS := $(APP_NAME)-$(ENV)
 
 # -------------------------
 # Final Compose Project Configuration and Targets

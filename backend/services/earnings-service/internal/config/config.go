@@ -34,7 +34,7 @@ type Config struct {
 	LDFlag_SendgridFromEmail             string
 	LDFlag_SendgridSandboxMode           bool
 	LDFlag_CORSHighSecurity              bool
-	LDFlag_SeedDbWithTestData             bool
+	LDFlag_SeedDbWithTestData            bool
 }
 
 const (
@@ -79,46 +79,36 @@ func LoadConfig() *Config {
 		utils.Logger.Fatal("APP_PORT env var is missing")
 	}
 
-	client, err := utils.NewHCPSecretsClient()
+	client, err := utils.NewBWSSecretsClient()
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to initialize HCPSecretsClient")
+		utils.Logger.WithError(err).Fatal("Failed to initialize BWSSecretsClient")
 	}
 
 	appSecretsName := fmt.Sprintf("%s-%s", AppName, env)
-	appSecrets, err := client.GetHCPSecretsFromSecretsJSON(appSecretsName)
+	appSecrets, err := client.GetBWSSecrets(appSecretsName)
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to fetch app secrets from HCP")
+		utils.Logger.WithError(err).Fatal("Failed to fetch app secrets from BWS")
 	}
 
 	sharedSecretsName := fmt.Sprintf("shared-%s", env)
-	sharedSecrets, err := client.GetHCPSecretsFromSecretsJSON(sharedSecretsName)
+	sharedSecrets, err := client.GetBWSSecrets(sharedSecretsName)
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to fetch shared secrets from HCP")
+		utils.Logger.WithError(err).Fatal("Failed to fetch shared secrets from BWS")
 	}
 
 	dbURL, ok := appSecrets["DB_URL"]
 	if !ok || dbURL == "" {
-		utils.Logger.Fatalf("DB_URL not found in HCP secrets (%s)", appSecretsName)
+		utils.Logger.Fatalf("DB_URL not found in BWS secrets (%s)", appSecretsName)
 	}
 
 	ldSDKKey, ok := appSecrets["LD_SDK_KEY"]
 	if !ok || ldSDKKey == "" {
-		utils.Logger.Fatalf("LD_SDK_KEY not found in HCP secrets (%s)", appSecretsName)
-	}
-
-	stripeWebhookSecret, ok := appSecrets["STRIPE_WEBHOOK_SECRET"]
-	if !ok || stripeWebhookSecret == "" {
-		utils.Logger.Fatalf("STRIPE_WEBHOOK_SECRET not found in HCP secrets (%s)", appSecretsName)
-	}
-
-	sendgridAPIKey, ok := appSecrets["SENDGRID_API_KEY"]
-	if !ok || sendgridAPIKey == "" {
-		utils.Logger.Fatalf("SENDGRID_API_KEY not found in HCP secrets (%s)", appSecretsName)
+		utils.Logger.Fatalf("LD_SDK_KEY not found in BWS secrets (%s)", appSecretsName)
 	}
 
 	dbEncB64, ok := sharedSecrets["DB_ENCRYPTION_KEY_BASE64"]
 	if !ok || dbEncB64 == "" {
-		utils.Logger.Fatalf("DB_ENCRYPTION_KEY_BASE64 not found in HCP (%s)", sharedSecretsName)
+		utils.Logger.Fatalf("DB_ENCRYPTION_KEY_BASE64 not found in BWS (%s)", sharedSecretsName)
 	}
 	dbEncKey, err := base64.StdEncoding.DecodeString(dbEncB64)
 	if err != nil || len(dbEncKey) != 32 {
@@ -127,7 +117,7 @@ func LoadConfig() *Config {
 
 	privB64, ok := sharedSecrets["RSA_PRIVATE_KEY_BASE64"]
 	if !ok {
-		utils.Logger.Fatalf("RSA_PRIVATE_KEY_BASE64 not found in HCP (%s)", sharedSecretsName)
+		utils.Logger.Fatalf("RSA_PRIVATE_KEY_BASE64 not found in BWS (%s)", sharedSecretsName)
 	}
 	privPEM, _ := base64.StdEncoding.DecodeString(privB64)
 	privKey, err := jwt.ParseRSAPrivateKeyFromPEM(privPEM)
@@ -137,7 +127,7 @@ func LoadConfig() *Config {
 
 	pubB64, ok := sharedSecrets["RSA_PUBLIC_KEY_BASE64"]
 	if !ok {
-		utils.Logger.Fatalf("RSA_PUBLIC_KEY_BASE64 not found in HCP (%s)", sharedSecretsName)
+		utils.Logger.Fatalf("RSA_PUBLIC_KEY_BASE64 not found in BWS (%s)", sharedSecretsName)
 	}
 	pubPEM, _ := base64.StdEncoding.DecodeString(pubB64)
 	pubKey, err := jwt.ParseRSAPublicKeyFromPEM(pubPEM)
@@ -147,7 +137,17 @@ func LoadConfig() *Config {
 
 	stripeSecretKey, ok := sharedSecrets["STRIPE_SECRET_KEY"]
 	if !ok || stripeSecretKey == "" {
-		utils.Logger.Fatal("STRIPE_SECRET_KEY not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("STRIPE_SECRET_KEY not found in BWS secrets (shared-env)")
+	}
+
+	stripeWebhookSecret, ok := sharedSecrets["STRIPE_WEBHOOK_SECRET"]
+	if !ok || stripeWebhookSecret == "" {
+		utils.Logger.Fatalf("STRIPE_WEBHOOK_SECRET not found in BWS secrets (%s)", appSecretsName)
+	}
+
+	sendgridAPIKey, ok := sharedSecrets["SENDGRID_API_KEY"]
+	if !ok || sendgridAPIKey == "" {
+		utils.Logger.Fatalf("SENDGRID_API_KEY not found in BWS secrets (%s)", appSecretsName)
 	}
 
 	ldClient, err := ld.MakeClient(ldSDKKey, LDConnectionTimeout)
@@ -201,7 +201,7 @@ func LoadConfig() *Config {
 
 	ldSDKKeyShared, ok := sharedSecrets["LD_SDK_KEY_SHARED"]
 	if !ok {
-		utils.Logger.Fatal("LD_SDK_KEY_SHARED not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("LD_SDK_KEY_SHARED not found in BWS secrets (shared-env)")
 	}
 
 	ldClientShared, err := ld.MakeClient(ldSDKKeyShared, LDConnectionTimeout)
@@ -244,7 +244,7 @@ func LoadConfig() *Config {
 		LDFlag_SendgridFromEmail:             sgFromFlag,
 		LDFlag_SendgridSandboxMode:           sgSandboxFlag,
 		LDFlag_CORSHighSecurity:              corsHighSecurityFlag,
-		LDFlag_SeedDbWithTestData:             seedDbWithTestDataFlag,
+		LDFlag_SeedDbWithTestData:            seedDbWithTestDataFlag,
 	}
 }
 

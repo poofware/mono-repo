@@ -105,9 +105,9 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
   
   _export_fly_api_token:
   ifndef FLY_API_TOKEN
-	  $(eval export HCP_APP_NAME := shared-$(ENV))
-	  $(eval export FLY_API_TOKEN := $(shell $(DEVOPS_TOOLKIT_PATH)/shared/scripts/fetch_hcp_secret_from_secrets_json.sh FLY_API_TOKEN))
-	  $(if $(FLY_API_TOKEN),,$(error Failed to fetch HCP secret 'FLY_API_TOKEN'))
+	  $(eval export BWS_PROJECT_NAME := shared-$(ENV))
+	  $(eval export FLY_API_TOKEN := $(shell $(DEVOPS_TOOLKIT_PATH)/shared/scripts/fetch_bws_secret.sh FLY_API_TOKEN | jq -r '.FLY_API_TOKEN // empty'))
+	  $(if $(FLY_API_TOKEN),,$(error Failed to fetch BWS secret 'FLY_API_TOKEN'))
 	  @echo "[INFO] [Export Fly Api Token] Fly API token set."
   endif
 
@@ -202,7 +202,7 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
 		  fly apps create $(FLY_APP_NAME) --org $(FLY_STAGING_ORG_NAME); \
 		  echo "[INFO] [Up App] Done. App $(FLY_APP_NAME) created."; \
 		  echo "[INFO] [Up App] Setting secrets for app $(FLY_APP_NAME)..."; \
-		  fly secrets set HCP_TOKEN_ENC_KEY=$(HCP_TOKEN_ENC_KEY) --app $(FLY_APP_NAME); \
+		  fly secrets set BWS_ACCESS_TOKEN=$(BWS_ACCESS_TOKEN) --app $(FLY_APP_NAME); \
 		  echo "[INFO] [Up App] Done. Secrets set for app $(FLY_APP_NAME)."; \
 	  fi; \
 	  echo "[INFO] [Up App] Starting app $(FLY_APP_NAME) on fly.io..."; \

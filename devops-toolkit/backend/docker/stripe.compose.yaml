@@ -3,14 +3,11 @@ x-build-network: &build-network
 
 x-environment: &environment
   environment:
-    HCP_TOKEN_ENC_KEY: ${HCP_TOKEN_ENC_KEY?Docker Compose Config Error! HCP_TOKEN_ENC_KEY is not set!}
+    BWS_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN?Docker Compose Config Error! BWS_ACCESS_TOKEN is not set!}
 
 x-build-args: &build-args
   APP_NAME: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}
   ENV: ${ENV?Docker Compose Config Error! ENV is not set!}
-  HCP_ORG_ID: ${HCP_ORG_ID?Docker Compose Config Error! HCP_ORG_ID is not set!}
-  HCP_PROJECT_ID: ${HCP_PROJECT_ID?Docker Compose Config Error! HCP_PROJECT_ID is not set!}
-  HCP_ENCRYPTED_API_TOKEN: ${HCP_ENCRYPTED_API_TOKEN?Docker Compose Config Error! HCP_ENCRYPTED_API_TOKEN is not set!}
   STRIPE_CLI_VERSION: 1.25.1
 
 x-build-labels: &build-labels

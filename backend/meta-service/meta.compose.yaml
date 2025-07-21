@@ -7,7 +7,7 @@ x-networks: &networks
 
 x-environment: &environment
   environment:
-    HCP_TOKEN_ENC_KEY: ${HCP_TOKEN_ENC_KEY?Docker Compose Config Error! HCP_TOKEN_ENC_KEY is not set!}
+    BWS_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN?Docker Compose Config Error! BWS_ACCESS_TOKEN is not set!}
 
 services:
   meta-service:

@@ -3,7 +3,7 @@
 # -------------------------
 SHELL := /bin/bash
 
-.PHONY: _app_secrets_json
+.PHONY: _hcp_app_secrets_json
 
 ifndef INCLUDED_TOOLKIT_BOOTSTRAP
   $(error [toolkit] bootstrap.mk not included before $(lastword $(MAKEFILE_LIST)))
@@ -30,15 +30,16 @@ endif
 # Targets
 # --------------------------------
 
-_app_secrets_json:
+_hcp_app_secrets_json:
 ifndef INCLUDED_HCP_CONFIGURATION
 	$(eval include $(DEVOPS_TOOLKIT_PATH)/shared/make/utils/hcp_configuration.mk)
 endif
 ifndef APP_SECRETS_JSON
+	$(info [INFO] [App Secrets Json] Fetching App Secrets Json for HCP app $(HCP_APP_NAME)...)
 	$(eval APP_SECRETS_JSON := $(shell $(DEVOPS_TOOLKIT_PATH)/shared/scripts/fetch_hcp_secret_from_secrets_json.sh))
 	$(if $(APP_SECRETS_JSON),,$(error Failed to fetch HCP secrets))
 	@echo "[INFO] [App Secrets Json] App Secrets Json set."
 endif
 
 
-INCLUDED_APP_SECRETS_JSON := 1
+INCLUDED_HCP_APP_SECRETS_JSON := 1

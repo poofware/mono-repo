@@ -41,10 +41,7 @@ services:
       <<: *build-network
       args:
         ENV: ${ENV?Docker Compose Config Error! ENV is not set!}
-        HCP_ORG_ID: ${HCP_ORG_ID?Docker Compose Config Error! HCP_ORG_ID is not set!}
-        HCP_PROJECT_ID: ${HCP_PROJECT_ID?Docker Compose Config Error! HCP_PROJECT_ID is not set!}
-        HCP_ENCRYPTED_API_TOKEN: ${HCP_ENCRYPTED_API_TOKEN?Docker Compose Config Error! HCP_ENCRYPTED_API_TOKEN is not set!}
-        HCP_APP_NAME_FOR_DB_SECRETS: ${HCP_APP_NAME_FOR_DB_SECRETS?Docker Compose Config Error! HCP_APP_NAME_FOR_DB_SECRETS is not set!}
+        BWS_PROJECT_NAME_FOR_DB_SECRETS: ${BWS_PROJECT_NAME_FOR_DB_SECRETS?Docker Compose Config Error! BWS_PROJECT_NAME_FOR_DB_SECRETS is not set!}
         UNIQUE_RUN_NUMBER: ${UNIQUE_RUN_NUMBER?Docker Compose Config Error! UNIQUE_RUN_NUMBER is not set!}
         UNIQUE_RUNNER_ID: ${UNIQUE_RUNNER_ID?Docker Compose Config Error! UNIQUE_RUNNER_ID is not set!}
       labels:
@@ -58,7 +55,7 @@ services:
     networks:
       - db_network
     environment:
-      HCP_TOKEN_ENC_KEY: ${HCP_TOKEN_ENC_KEY?Docker Compose Config Error! HCP_TOKEN_ENC_KEY is not set!}
+      BWS_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN?Docker Compose Config Error! BWS_ACCESS_TOKEN is not set!}
       MIGRATE_MODE: ${MIGRATE_MODE:-forward}
 
 volumes:

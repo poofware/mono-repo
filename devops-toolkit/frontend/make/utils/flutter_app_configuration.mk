@@ -40,7 +40,7 @@ endif
 
 LOG_LEVEL ?= info
 
-export HCP_APP_NAME := $(APP_NAME)
+export BWS_PROJECT_NAME := $(APP_NAME)
 
 VERBOSE ?= 0
 VERBOSE_FLAG := $(if $(filter 1,$(VERBOSE)),--verbose,)

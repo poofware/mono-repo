@@ -764,7 +764,15 @@ func (s *PayoutService) HandlePayoutEvent(ctx context.Context, payout *stripe.Pa
 		}
 
 		if payout.Status == stripe.PayoutStatusFailed {
-			s.handleFailure(ctx, p, string(payout.FailureCode), p.StripeTransferID)
+			// Only mark the payout as FAILED if it's still in the
+			// PROCESSING state. This prevents stale or duplicate
+			// webhook events from overwriting a payout that has
+			// already been re-queued for retry.
+			if p.Status == internal_models.PayoutStatusProcessing {
+				s.handleFailure(ctx, p, string(payout.FailureCode), p.StripeTransferID)
+			} else {
+				utils.Logger.Infof("Ignoring payout.failed for Payout %s because status is %s", p.ID, p.Status)
+			}
 		} else if payout.Status == stripe.PayoutStatusPaid {
 			// This is the final confirmation.
 			utils.Logger.Infof("Webhook confirmation: Payout %s for worker %s is now PAID. (Stripe Payout ID: %s)", p.ID, p.WorkerID, payout.ID)
@@ -838,7 +846,11 @@ func (s *PayoutService) handleLegacyPayoutEvent(ctx context.Context, payout *str
 	}
 
 	if payout.Status == stripe.PayoutStatusFailed {
-		s.handleFailure(ctx, p, string(payout.FailureCode), &transfer.ID)
+		if p.Status == internal_models.PayoutStatusProcessing {
+			s.handleFailure(ctx, p, string(payout.FailureCode), &transfer.ID)
+		} else {
+			utils.Logger.Infof("Ignoring payout.failed for Payout %s because status is %s", p.ID, p.Status)
+		}
 	} else if payout.Status == stripe.PayoutStatusPaid {
 		// This is the final confirmation.
 		utils.Logger.Infof("Webhook confirmation: Payout %s for worker %s is now PAID. (Stripe Payout ID: %s)", p.ID, p.WorkerID, payout.ID)

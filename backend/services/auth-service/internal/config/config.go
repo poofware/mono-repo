@@ -11,44 +11,44 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	ld "github.com/launchdarkly/go-server-sdk/v7"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	ld "github.com/launchdarkly/go-server-sdk/v7"
 	"github.com/poofware/go-utils"
 )
 
 // Config holds all application configuration, including secrets, flags, etc.
 type Config struct {
-	OrganizationName             string
-	AppName                      string
-	AppPort                      string
-	AppUrl                       string
-	DBUrl                        string
-	DBEncryptionKey              []byte
-	UniqueRunNumber              string
-	UniqueRunnerID               string
-	MobileTokenExpiry            time.Duration
-	MobileRefreshTokenExpiry     time.Duration
-	WebTokenExpiry               time.Duration
-	WebRefreshTokenExpiry        time.Duration
-	MaxLoginAttempts             int
-	AttemptWindow                time.Duration
-	LockDuration                 time.Duration
-	TwilioAccountSID             string
-	TwilioAuthToken              string
-	SendGridAPIKey               string
-	VerificationCodeLength       int
-	VerificationCodeExpiry       time.Duration
-	RSAPrivateKey                *rsa.PrivateKey
-	RSAPublicKey                 *rsa.PublicKey
-	AppleDeviceCheckKey          *ecdsa.PrivateKey
-	PlayIntegritySAJSON          []byte
-	SMSLimitPerIPPerHour         int
-	SMSLimitPerNumberPerHour     int
-	GlobalSMSLimitPerHour        int
-	EmailLimitPerIPPerHour       int
-	EmailLimitPerEmailPerHour    int
-	GlobalEmailLimitPerHour      int
-	RateLimitWindow              time.Duration
+	OrganizationName          string
+	AppName                   string
+	AppPort                   string
+	AppUrl                    string
+	DBUrl                     string
+	DBEncryptionKey           []byte
+	UniqueRunNumber           string
+	UniqueRunnerID            string
+	MobileTokenExpiry         time.Duration
+	MobileRefreshTokenExpiry  time.Duration
+	WebTokenExpiry            time.Duration
+	WebRefreshTokenExpiry     time.Duration
+	MaxLoginAttempts          int
+	AttemptWindow             time.Duration
+	LockDuration              time.Duration
+	TwilioAccountSID          string
+	TwilioAuthToken           string
+	SendGridAPIKey            string
+	VerificationCodeLength    int
+	VerificationCodeExpiry    time.Duration
+	RSAPrivateKey             *rsa.PrivateKey
+	RSAPublicKey              *rsa.PublicKey
+	AppleDeviceCheckKey       *ecdsa.PrivateKey
+	PlayIntegritySAJSON       []byte
+	SMSLimitPerIPPerHour      int
+	SMSLimitPerNumberPerHour  int
+	GlobalSMSLimitPerHour     int
+	EmailLimitPerIPPerHour    int
+	EmailLimitPerEmailPerHour int
+	GlobalEmailLimitPerHour   int
+	RateLimitWindow           time.Duration
 
 	// Static flags fetched once from LaunchDarkly
 	LDFlag_SendgridFromEmail             string
@@ -98,7 +98,7 @@ var (
 	LDServerContextKind string
 )
 
-// LoadConfig fetches secrets from HCP, sets up LaunchDarkly, and returns a *Config.
+// LoadConfig fetches secrets from BWS, sets up LaunchDarkly, and returns a *Config.
 func LoadConfig() *Config {
 	//----------------------------------------------------------------------
 	// Check for required ldflags.
@@ -140,31 +140,31 @@ func LoadConfig() *Config {
 	utils.Logger.Debugf("App can be accessed at: %s", appUrl)
 
 	//----------------------------------------------------------------------
-	// Create HCPSecretsClient
+	// Create BWSSecretsClient
 	//----------------------------------------------------------------------
-	client, err := utils.NewHCPSecretsClient()
+	client, err := utils.NewBWSSecretsClient()
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to initialize HCPSecretsClient")
+		utils.Logger.WithError(err).Fatal("Failed to initialize BWSSecretsClient")
 	}
 
 	//----------------------------------------------------------------------
-	// Fetch app-specific secrets from HCP (appName-env).
+	// Fetch app-specific secrets from BWS (appName-env).
 	//----------------------------------------------------------------------
-	utils.Logger.Debugf("Fetching app-specific secrets from HCP for %s-%s", AppName, env)
-	hcpAppName := fmt.Sprintf("%s-%s", AppName, env)
-	appSecrets, err := client.GetHCPSecretsFromSecretsJSON(hcpAppName)
+	utils.Logger.Debugf("Fetching app-specific secrets from BWS for %s-%s", AppName, env)
+	bwsProjectName := fmt.Sprintf("%s-%s", AppName, env)
+	appSecrets, err := client.GetBWSSecrets(bwsProjectName)
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to fetch app-specific secrets from HCP")
+		utils.Logger.WithError(err).Fatal("Failed to fetch app-specific secrets from BWS")
 	}
 
 	//----------------------------------------------------------------------
-	// Fetch shared secrets from HCP (shared-env).
+	// Fetch shared secrets from BWS (shared-env).
 	//----------------------------------------------------------------------
-	utils.Logger.Debugf("Fetching shared secrets from HCP for %s-%s", "shared", env)
-	hcpSharedAppName := fmt.Sprintf("shared-%s", env)
-	sharedSecrets, err := client.GetHCPSecretsFromSecretsJSON(hcpSharedAppName)
+	utils.Logger.Debugf("Fetching shared secrets from BWS for %s-%s", "shared", env)
+	bwsSharedProjectName := fmt.Sprintf("shared-%s", env)
+	sharedSecrets, err := client.GetBWSSecrets(bwsSharedProjectName)
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to fetch shared secrets from HCP")
+		utils.Logger.WithError(err).Fatal("Failed to fetch shared secrets from BWS")
 	}
 
 	//----------------------------------------------------------------------
@@ -172,26 +172,12 @@ func LoadConfig() *Config {
 	//----------------------------------------------------------------------
 	dbUrl, ok := appSecrets["DB_URL"]
 	if !ok || dbUrl == "" {
-		utils.Logger.Fatal("DB_URL not found in HCP secrets (appName-env)")
-	}
-
-	twilioAccountSID, ok := appSecrets["TWILIO_ACCOUNT_SID"]
-	if !ok || twilioAccountSID == "" {
-		utils.Logger.Fatal("TWILIO_ACCOUNT_SID not found in HCP secrets (appName-env)")
-	}
-	twilioAuthToken, ok := appSecrets["TWILIO_AUTH_TOKEN"]
-	if !ok || twilioAuthToken == "" {
-		utils.Logger.Fatal("TWILIO_AUTH_TOKEN not found in HCP secrets (appName-env)")
-	}
-
-	sendGridAPIKey, ok := appSecrets["SENDGRID_API_KEY"]
-	if !ok || sendGridAPIKey == "" {
-		utils.Logger.Fatal("SENDGRID_API_KEY not found in HCP secrets (appName-env)")
+		utils.Logger.Fatal("DB_URL not found in BWS secrets (appName-env)")
 	}
 
 	ldSDKKey, ok := appSecrets["LD_SDK_KEY"]
 	if !ok || ldSDKKey == "" {
-		utils.Logger.Fatal("LD_SDK_KEY not found in HCP secrets (appName-env)")
+		utils.Logger.Fatal("LD_SDK_KEY not found in BWS secrets (appName-env)")
 	}
 
 	//----------------------------------------------------------------------
@@ -199,7 +185,7 @@ func LoadConfig() *Config {
 	//----------------------------------------------------------------------
 	privateKeyBase64, ok := sharedSecrets["RSA_PRIVATE_KEY_BASE64"]
 	if !ok || privateKeyBase64 == "" {
-		utils.Logger.Fatal("RSA_PRIVATE_KEY_BASE64 not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("RSA_PRIVATE_KEY_BASE64 not found in BWS secrets (shared-env)")
 	}
 	privateKeyPEM, err := base64.StdEncoding.DecodeString(privateKeyBase64)
 	if err != nil {
@@ -216,7 +202,7 @@ func LoadConfig() *Config {
 
 	publicKeyBase64, ok := sharedSecrets["RSA_PUBLIC_KEY_BASE64"]
 	if !ok || publicKeyBase64 == "" {
-		utils.Logger.Fatal("RSA_PUBLIC_KEY_BASE64 not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("RSA_PUBLIC_KEY_BASE64 not found in BWS secrets (shared-env)")
 	}
 	publicKeyPEM, err := base64.StdEncoding.DecodeString(publicKeyBase64)
 	if err != nil {
@@ -233,7 +219,7 @@ func LoadConfig() *Config {
 
 	dbEncryptionKeyBase64, ok := sharedSecrets["DB_ENCRYPTION_KEY_BASE64"]
 	if !ok || dbEncryptionKeyBase64 == "" {
-		utils.Logger.Fatal("DB_ENCRYPTION_KEY_BASE64 not found in HCP secrets (appName-env)")
+		utils.Logger.Fatal("DB_ENCRYPTION_KEY_BASE64 not found in BWS secrets (appName-env)")
 	}
 	decodedKey, err := base64.StdEncoding.DecodeString(dbEncryptionKeyBase64)
 	if err != nil {
@@ -241,6 +227,20 @@ func LoadConfig() *Config {
 	}
 	if len(decodedKey) != 32 {
 		utils.Logger.Fatal("DBEncryptionKey must be 32 bytes for AES-256 encryption")
+	}
+
+	twilioAccountSID, ok := sharedSecrets["TWILIO_ACCOUNT_SID"]
+	if !ok || twilioAccountSID == "" {
+		utils.Logger.Fatal("TWILIO_ACCOUNT_SID not found in BWS secrets (appName-env)")
+	}
+	twilioAuthToken, ok := sharedSecrets["TWILIO_AUTH_TOKEN"]
+	if !ok || twilioAuthToken == "" {
+		utils.Logger.Fatal("TWILIO_AUTH_TOKEN not found in BWS secrets (appName-env)")
+	}
+
+	sendGridAPIKey, ok := sharedSecrets["SENDGRID_API_KEY"]
+	if !ok || sendGridAPIKey == "" {
+		utils.Logger.Fatal("SENDGRID_API_KEY not found in BWS secrets (appName-env)")
 	}
 
 	//----------------------------------------------------------------------
@@ -349,7 +349,7 @@ func LoadConfig() *Config {
 	// Fetch LD_SDK_KEY_SHARED for shared LaunchDarkly flags
 	ldSDKKeyShared, ok := sharedSecrets["LD_SDK_KEY_SHARED"]
 	if !ok || ldSDKKeyShared == "" {
-		utils.Logger.Fatal("LD_SDK_KEY_SHARED not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("LD_SDK_KEY_SHARED not found in BWS secrets (shared-env)")
 	}
 
 	// Fetch do_real_mobile_device_attestation flag from LaunchDarkly using LD_SDK_KEY_SHARED
@@ -390,47 +390,47 @@ func LoadConfig() *Config {
 	// Build and return the configuration object.
 	//----------------------------------------------------------------------
 	return &Config{
-		OrganizationName:             OrganizationName,
-		AppName:                      AppName,
-		AppPort:                      appPort,
-		AppUrl:                       appUrl,
-		DBUrl:                        dbUrl,
-		DBEncryptionKey:              decodedKey,
-		UniqueRunNumber:              UniqueRunNumber,
-		UniqueRunnerID:               UniqueRunnerID,
-		MobileTokenExpiry:            mobileTokenExpiry,
-		MobileRefreshTokenExpiry:     mobileRefreshTokenExpiry,
-		WebTokenExpiry:               webTokenExpiry,
-		WebRefreshTokenExpiry:        webRefreshTokenExpiry,
-		MaxLoginAttempts:             MaxLoginAttempts,
-		AttemptWindow:                AttemptWindow,
-		LockDuration:                 LockDuration,
-		TwilioAccountSID:             twilioAccountSID,
-		TwilioAuthToken:              twilioAuthToken,
-		SendGridAPIKey:               sendGridAPIKey,
-		VerificationCodeLength:       VerificationCodeLength,
-		VerificationCodeExpiry:       verificationCodeExpiry,
-		RSAPrivateKey:                privateKey,
-		RSAPublicKey:                 publicKey,
-		AppleDeviceCheckKey:          priv,
-		PlayIntegritySAJSON:          saJSON,
-		SMSLimitPerIPPerHour:         DefaultSMSLimitPerIPPerHour,
-		SMSLimitPerNumberPerHour:     DefaultSMSLimitPerNumberPerHour,
-		GlobalSMSLimitPerHour:        globalSMSLimit,
-		EmailLimitPerIPPerHour:       DefaultEmailLimitPerIPPerHour,
-		EmailLimitPerEmailPerHour:    DefaultEmailLimitPerEmailPerHour,
-		GlobalEmailLimitPerHour:      globalEmailLimit,
-		RateLimitWindow:              DefaultRateLimitWindow,
-		LDFlag_SendgridFromEmail:     sendgridFromEmailFlag,
-		LDFlag_TwilioFromPhone:       twilioFromPhoneFlag,
-		LDFlag_ShortTokenTTL:         shortTokenTTLFlag,
-		LDFlag_AcceptFakePhonesEmails: acceptFakePhonesEmailsFlag,
-		LDFlag_SendgridSandboxMode:   sendgridSandboxModeFlag,
-		LDFlag_ValidatePhoneWithTwilio: validatePhoneWithTwilioFlag,
-		LDFlag_ValidateEmailWithSendGrid: validateEmailWithSendGridFlag,
-		LDFlag_UsingIsolatedSchema:        usingIsolatedSchemaFlag,
+		OrganizationName:                     OrganizationName,
+		AppName:                              AppName,
+		AppPort:                              appPort,
+		AppUrl:                               appUrl,
+		DBUrl:                                dbUrl,
+		DBEncryptionKey:                      decodedKey,
+		UniqueRunNumber:                      UniqueRunNumber,
+		UniqueRunnerID:                       UniqueRunnerID,
+		MobileTokenExpiry:                    mobileTokenExpiry,
+		MobileRefreshTokenExpiry:             mobileRefreshTokenExpiry,
+		WebTokenExpiry:                       webTokenExpiry,
+		WebRefreshTokenExpiry:                webRefreshTokenExpiry,
+		MaxLoginAttempts:                     MaxLoginAttempts,
+		AttemptWindow:                        AttemptWindow,
+		LockDuration:                         LockDuration,
+		TwilioAccountSID:                     twilioAccountSID,
+		TwilioAuthToken:                      twilioAuthToken,
+		SendGridAPIKey:                       sendGridAPIKey,
+		VerificationCodeLength:               VerificationCodeLength,
+		VerificationCodeExpiry:               verificationCodeExpiry,
+		RSAPrivateKey:                        privateKey,
+		RSAPublicKey:                         publicKey,
+		AppleDeviceCheckKey:                  priv,
+		PlayIntegritySAJSON:                  saJSON,
+		SMSLimitPerIPPerHour:                 DefaultSMSLimitPerIPPerHour,
+		SMSLimitPerNumberPerHour:             DefaultSMSLimitPerNumberPerHour,
+		GlobalSMSLimitPerHour:                globalSMSLimit,
+		EmailLimitPerIPPerHour:               DefaultEmailLimitPerIPPerHour,
+		EmailLimitPerEmailPerHour:            DefaultEmailLimitPerEmailPerHour,
+		GlobalEmailLimitPerHour:              globalEmailLimit,
+		RateLimitWindow:                      DefaultRateLimitWindow,
+		LDFlag_SendgridFromEmail:             sendgridFromEmailFlag,
+		LDFlag_TwilioFromPhone:               twilioFromPhoneFlag,
+		LDFlag_ShortTokenTTL:                 shortTokenTTLFlag,
+		LDFlag_AcceptFakePhonesEmails:        acceptFakePhonesEmailsFlag,
+		LDFlag_SendgridSandboxMode:           sendgridSandboxModeFlag,
+		LDFlag_ValidatePhoneWithTwilio:       validatePhoneWithTwilioFlag,
+		LDFlag_ValidateEmailWithSendGrid:     validateEmailWithSendGridFlag,
+		LDFlag_UsingIsolatedSchema:           usingIsolatedSchemaFlag,
 		LDFlag_DoRealMobileDeviceAttestation: doRealMobileDeviceAttestation,
-		LDFlag_CORSHighSecurity: corsHighSecurity,
+		LDFlag_CORSHighSecurity:              corsHighSecurity,
 	}
 }
 

@@ -7,7 +7,7 @@ x-networks: &networks
 
 x-environment: &environment
   environment:
-    HCP_TOKEN_ENC_KEY: ${HCP_TOKEN_ENC_KEY?Docker Compose Config Error! HCP_TOKEN_ENC_KEY is not set!}
+    BWS_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN?Docker Compose Config Error! BWS_ACCESS_TOKEN is not set!}
 
 x-build-labels: &build-labels
   com.docker.compose.project: ${COMPOSE_PROJECT_NAME:?Docker Compose Config Error! COMPOSE_PROJECT_NAME is not set!}
@@ -17,9 +17,6 @@ x-build-args: &build-args
   APP_PORT: ${APP_PORT:-8080}
   ENV: ${ENV?Docker Compose Config Error! ENV is not set!}
   APP_URL_FROM_ANYWHERE: ${APP_URL_FROM_ANYWHERE:-}
-  HCP_ORG_ID: ${HCP_ORG_ID?Docker Compose Config Error! HCP_ORG_ID is not set!}
-  HCP_PROJECT_ID: ${HCP_PROJECT_ID?Docker Compose Config Error! HCP_PROJECT_ID is not set!}
-  HCP_ENCRYPTED_API_TOKEN: ${HCP_ENCRYPTED_API_TOKEN?Docker Compose Config Error! HCP_ENCRYPTED_API_TOKEN is not set!}
   LD_SERVER_CONTEXT_KEY: ${LD_SERVER_CONTEXT_KEY?Docker Compose Config Error! LD_SERVER_CONTEXT_KEY is not set!}
   LD_SERVER_CONTEXT_KIND: ${LD_SERVER_CONTEXT_KIND?Docker Compose Config Error! LD_SERVER_CONTEXT_KIND is not set!}
   UNIQUE_RUN_NUMBER: ${UNIQUE_RUN_NUMBER?Docker Compose Config Error! UNIQUE_RUN_NUMBER is not set!}

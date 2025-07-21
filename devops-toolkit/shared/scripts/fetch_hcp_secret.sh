@@ -97,10 +97,13 @@ done
 # Successful path: output secrets (same style as original)
 # ──────────────────────────────────────────────────────────
 if [ -n "$SECRET_NAME" ]; then
+  # Always output as JSON with the key as the field name
   if echo "$SECRET_VALUE" | jq -e . >/dev/null 2>&1; then
-    echo "{\"${SECRET_NAME}\": $SECRET_VALUE}"
+    # Value is valid JSON (object, array, number, bool, null, or string)
+    printf '{"%s": %s}\n' "$SECRET_NAME" "$SECRET_VALUE"
   else
-    echo "{\"${SECRET_NAME}\": \"${SECRET_VALUE}\"}"
+    # Value is a plain string, must JSON-escape
+    printf '{"%s": "%s"}\n' "$SECRET_NAME" "$SECRET_VALUE"
   fi
 else
   echo "$ALL_SECRETS"
