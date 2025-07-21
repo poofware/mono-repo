@@ -1,4 +1,5 @@
-// meta-service/services/account-service/internal/dtos/property_dtos.go
+// backend/services/account-service/internal/dtos/property_dtos.go
+
 package dtos
 
 import (
@@ -45,6 +46,7 @@ type Property struct {
 	City         string    `json:"city"`
 	State        string    `json:"state"`
 	ZipCode      string    `json:"zip_code"`
+	TimeZone     string    `json:"timezone"` // <-- ADD THIS LINE
 	Buildings    []Building          `json:"buildings,omitempty"`
 	Dumpsters    []*models.Dumpster  `json:"dumpsters,omitempty"`
 	CreatedAt    time.Time           `json:"created_at"`
@@ -62,9 +64,9 @@ func NewPropertyFromModel(
 		City:         p.City,
 		State:        p.State,
 		ZipCode:      p.ZipCode,
+		TimeZone:     p.TimeZone, // <-- ADD THIS LINE
 		Buildings:    b,
 		Dumpsters:    d,
 		CreatedAt:    p.CreatedAt,
 	}
 }
-
