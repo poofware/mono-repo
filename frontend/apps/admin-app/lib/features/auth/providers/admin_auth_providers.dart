@@ -21,7 +21,7 @@ final adminAuthApiProvider = Provider<AdminAuthApi>((ref) {
   return AdminAuthApi(
     tokenStorage: tokenStorage,
     useRealAttestation: PoofAdminFlavorConfig.instance.testMode == false,
-    onAuthLost: () => ref.read(authControllerProvider).handleAuthLost(),
+   // onAuthLost: () => ref.read(authControllerProvider).handleAuthLost(),
   );
 });
 

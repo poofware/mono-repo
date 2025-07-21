@@ -1,4 +1,5 @@
-// NEW FILE
+// frontend/apps/admin-app/lib/features/auth/data/api/admin_auth_api.dart
+
 import 'dart:convert';
 import 'package:poof_admin/core/config/flavors.dart';
 import 'package:poof_admin/features/auth/data/models/admin.dart';
@@ -8,21 +9,21 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 class AdminAuthApi extends BaseAuthApi<Admin, AdminLoginRequest, JsonSerializable> {
   @override
   final BaseTokenStorage tokenStorage;
-  @override
-  final void Function()? onAuthLost;
+ // @override
+//  final void Function()? onAuthLost;
   @override
   final bool useRealAttestation;
 
   @override
-  String get baseUrl => PoofAdminFlavorConfig.instance.authServiceURL;
+  String get baseUrl => PoofAdminFlavorConfig.instance.gatewayURL; // <-- CHANGE THIS
   @override
-  String get refreshTokenPath => '/admin/refresh_token';
+  String get refreshTokenPath => '/auth/v1/admin/refresh_token'; // <-- CHANGE THIS
   @override
-  String get attestationChallengePath => '/challenge';
+  String get attestationChallengePath => '/auth/v1/challenge'; // <-- CHANGE THIS
 
   AdminAuthApi({
     required this.tokenStorage,
-    this.onAuthLost,
+   // this.onAuthLost,
     this.useRealAttestation = false,
   });
 
@@ -30,7 +31,7 @@ class AdminAuthApi extends BaseAuthApi<Admin, AdminLoginRequest, JsonSerializabl
   Future<LoginResponseBase<Admin>> login(AdminLoginRequest request) async {
     final resp = await sendPublicRequest(
       method: 'POST',
-      path: '/admin/login',
+      path: '/auth/v1/admin/login', // <-- CHANGE THIS
       body: request,
     );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -43,7 +44,7 @@ class AdminAuthApi extends BaseAuthApi<Admin, AdminLoginRequest, JsonSerializabl
   Future<void> logout(RefreshTokenRequest request) async {
     await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/admin/logout',
+      path: '/auth/v1/admin/logout', // <-- CHANGE THIS
       body: request,
       attemptRefreshOn401: false,
     );

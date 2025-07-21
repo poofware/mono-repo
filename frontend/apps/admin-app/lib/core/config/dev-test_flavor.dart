@@ -1,3 +1,5 @@
+// frontend/apps/admin-app/lib/core/config/dev-test_flavor.dart
+
 import 'package:flutter/material.dart';
 import 'flavors.dart';
 
@@ -16,6 +18,7 @@ void configureDevTestFlavor() {
     name: "DEV-TEST",
     color: Colors.red,
     location: BannerLocation.topStart,
+    gatewayURL: urls.gatewayURL, // <-- ADD THIS
     authServiceURL: urls.authServiceURL,
     apiServiceURL: urls.apiServiceURL,
     testMode: true, // <-- Set testMode to true

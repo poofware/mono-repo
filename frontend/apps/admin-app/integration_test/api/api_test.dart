@@ -3,7 +3,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:otp/otp.dart';
-import 'package:poof_admin/core/config/dev-test_flavor.dart';
+// --- MODIFICATION START ---
+import 'package:poof_admin/core/config/dev_flavor.dart'; // CHANGE THIS IMPORT
+// --- MODIFICATION END ---
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 import 'package:poof_admin/features/auth/data/models/admin_login_request.dart';
@@ -46,7 +48,10 @@ void main() {
 
   // This setup runs ONCE for all tests in this file.
   setUpAll(() {
-    configureDevTestFlavor();
+    // --- MODIFICATION START ---
+    // Use the dev flavor to enable real network calls.
+    configureDevFlavor(); 
+    // --- MODIFICATION END ---
     TestContext.authRepo = TestContext.container.read(adminAuthRepositoryProvider);
     TestContext.accountRepo = TestContext.container.read(adminAccountRepositoryProvider);
     TestContext.jobsRepo = TestContext.container.read(adminJobsRepositoryProvider);
@@ -81,6 +86,7 @@ void main() {
       }
     });
 
+    // ... The rest of your tests remain unchanged ...
     // --- ACCOUNT MANAGEMENT ---
     testWidgets('Step 2: Create Full Hierarchy (PM, Property, Building, Unit, Dumpster, JobDef)', (tester) async {
       final accountRepo = TestContext.accountRepo;

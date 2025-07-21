@@ -2,6 +2,7 @@ package dtos
 
 import (
 	"github.com/poofware/go-models"
+	"time"
 )
 
 type PropertyManager struct {
@@ -15,6 +16,8 @@ type PropertyManager struct {
 	ZipCode       string                    `json:"zip_code"`
 	AccountStatus models.AccountStatusType `json:"account_status"`
 	SetupProgress models.SetupProgressType `json:"setup_progress"`
+	CreatedAt     time.Time                 `json:"created_at"`
+	UpdatedAt     time.Time                 `json:"updated_at"`
 }
 
 func NewPMFromModel(pm models.PropertyManager) PropertyManager {
@@ -29,5 +32,7 @@ func NewPMFromModel(pm models.PropertyManager) PropertyManager {
 		ZipCode:       pm.ZipCode,
 		AccountStatus: pm.AccountStatus,
 		SetupProgress: pm.SetupProgress,
+		CreatedAt:     pm.CreatedAt,
+		UpdatedAt:     pm.UpdatedAt,
 	}
 }

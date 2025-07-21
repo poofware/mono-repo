@@ -1,3 +1,5 @@
+// frontend/apps/admin-app/lib/core/config/dev_flavor.dart
+
 import 'package:flutter/material.dart';
 import 'flavors.dart';
 
@@ -14,6 +16,7 @@ void configureDevFlavor() {
     name: "DEV",
     color: Colors.red,
     location: BannerLocation.topStart,
+    gatewayURL: urls.gatewayURL, // <-- ADD THIS
     authServiceURL: urls.authServiceURL,
     apiServiceURL: urls.apiServiceURL,
     testMode: false,

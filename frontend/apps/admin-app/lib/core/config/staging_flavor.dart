@@ -8,6 +8,7 @@ void configureStagingFlavor() {
     name: "STAGING",
     color: Colors.orange,
     location: BannerLocation.topStart,
+    gatewayURL: 'https://staging.thepoofapp.com', 
     authServiceURL: "https://staging.thepoofapp.com/auth/$apiVersion",
     apiServiceURL: "https://staging.thepoofapp.com/api/$apiVersion",
   );
