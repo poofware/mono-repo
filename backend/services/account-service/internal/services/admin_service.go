@@ -559,7 +559,7 @@ func (s *AdminService) CreateUnit(ctx context.Context, adminID uuid.UUID, req in
 		PropertyID:  req.PropertyID,
 		BuildingID:  req.BuildingID,
 		UnitNumber:  req.UnitNumber,
-		TenantToken: uuid.NewString(),
+		TenantToken: req.TenantToken,
 	}
 
 	if err := s.unitRepo.Create(ctx, unit); err != nil {

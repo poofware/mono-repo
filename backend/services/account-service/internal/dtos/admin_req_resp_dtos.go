@@ -106,6 +106,7 @@ type CreateUnitRequest struct {
 	PropertyID uuid.UUID `json:"property_id" validate:"required"`
 	BuildingID uuid.UUID `json:"building_id" validate:"required"`
 	UnitNumber string    `json:"unit_number" validate:"required"`
+	TenantToken string    `json:"tenant_token" validate:"required,uuid4"`
 }
 
 type UpdateUnitRequest struct {
