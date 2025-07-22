@@ -256,6 +256,8 @@ func (s *CheckrService) CreateCheckrInvitation(ctx context.Context, workerID uui
 				},
 			},
 		}
+
+		utils.Logger.Debugf("Creating new Checkr candidate for workerID: %s", w.ID)
 		created, cErr := s.client.CreateCandidate(ctx, cand)
 		if cErr != nil {
 			return "", fmt.Errorf("failed to create checkr candidate: %w", cErr)
@@ -301,7 +303,7 @@ func (s *CheckrService) CreateCheckrInvitation(ctx context.Context, workerID uui
 			},
 		},
 	}
-	utils.Logger.Debugf("Creating new Checkr invitation for candidate=%s", *w2.CheckrCandidateID)
+	utils.Logger.Infof("Creating new Checkr invitation for existing candidateID: %s", *w2.CheckrCandidateID)
 	inv, err3 := s.client.CreateInvitation(ctx, newInv)
 	if err3 != nil {
 		return "", fmt.Errorf("failed to create checkr invitation: %w", err3)
@@ -758,6 +760,7 @@ func (s *CheckrService) GetCheckrStatus(ctx context.Context, workerID uuid.UUID)
 
 	// 1. Poll INVITATION status if worker is stuck at BACKGROUND_CHECK.
 	if w.SetupProgress == models.SetupProgressBackgroundCheck && w.CheckrInvitationID != nil && *w.CheckrInvitationID != "" {
+		utils.Logger.Debugf("Polling Checkr API for invitation status for worker %s (invitation ID: %s) due to incomplete state.", w.ID, *w.CheckrInvitationID)
 		utils.Logger.Infof("Worker %s is in BACKGROUND_CHECK. Polling invitation %s status from Checkr API.", w.ID, *w.CheckrInvitationID)
 		inv, invErr := s.client.GetInvitation(ctx, *w.CheckrInvitationID)
 		if invErr != nil {
@@ -875,6 +878,7 @@ func (s *CheckrService) GetWorkerCheckrOutcome(
 		}
 
 		if w.CheckrReportID != nil && *w.CheckrReportID != "" {
+			utils.Logger.Debugf("Polling Checkr API for report outcome for worker %s (report ID: %s) due to UNKNOWN status.", w.ID, *w.CheckrReportID)
 			utils.Logger.Infof("Outcome unknown for worker %s. Polling report %s from Checkr API.", w.ID, *w.CheckrReportID)
 			report, reportErr := s.client.GetReport(ctx, *w.CheckrReportID)
 

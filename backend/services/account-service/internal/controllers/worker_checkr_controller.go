@@ -51,6 +51,8 @@ func (c *WorkerCheckrController) CreateInvitationHandler(w http.ResponseWriter, 
 		return
 	}
 
+	utils.Logger.Debugf("Attempting to create Checkr invitation for workerID: %s", ctxUserID.(string))
+
 	// Call the service to create or reuse a Checkr invitation.
 	invURL, invErr := c.checkrService.CreateCheckrInvitation(r.Context(), workerID)
 	if invErr != nil {
@@ -63,6 +65,8 @@ func (c *WorkerCheckrController) CreateInvitationHandler(w http.ResponseWriter, 
 		)
 		return
 	}
+
+	utils.Logger.Debugf("Successfully created/reused Checkr invitation for workerID: %s. Invitation URL: %s", workerID, invURL)
 
 	// Construct the response
 	resp := internal_dtos.CheckrInvitationResponse{
@@ -111,6 +115,8 @@ func (c *WorkerCheckrController) GetCheckrStatusHandler(w http.ResponseWriter, r
 		)
 		return
 	}
+
+	utils.Logger.Debugf("Checked Checkr status for workerID: %s. Status: %s", workerID, flowStatus)
 
 	// Construct the DTO response
 	resp := internal_dtos.CheckrStatusResponse{
@@ -250,6 +256,8 @@ func (c *WorkerCheckrController) GetCheckrOutcomeHandler(
 		)
 		return
 	}
+
+	utils.Logger.Debugf("Retrieved Checkr outcome for workerID: %s. Outcome: %s", workerID, worker.CheckrReportOutcome)
 
 	utils.RespondWithJSON(w, http.StatusOK, dtos.NewWorkerFromModel(*worker))
 }
