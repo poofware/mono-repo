@@ -249,6 +249,12 @@ func (s *CheckrService) CreateCheckrInvitation(ctx context.Context, workerID uui
 				constants.WebhookMetadataGeneratedByKey: s.generatedBy,
 			},
 			CustomID: w.ID.String(),
+			WorkLocations: []checkr.WorkLocation{
+				{
+					Country: defaultWorkerCountry,
+					State:   w.State,
+				},
+			},
 		}
 		created, cErr := s.client.CreateCandidate(ctx, cand)
 		if cErr != nil {
