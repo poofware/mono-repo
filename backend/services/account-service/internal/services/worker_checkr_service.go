@@ -837,6 +837,12 @@ func (s *CheckrService) GetWorkerCheckrOutcome(
 		return models.ReportOutcomeUnknownStatus, nil
 	}
 
+	// log the statuses
+	utils.Logger.Infof("Worker %s => CheckrReportOutcome=%s, AccountStatus=%s", w.ID,
+		w.CheckrReportOutcome, w.AccountStatus)
+
+	utils.Logger.Debugf("Worker %s => CheckrReportID=%s", w.ID, utils.Val(w.CheckrReportID))
+
 	// --- Robust Fallback Polling ---
 	if w.CheckrReportOutcome == models.ReportOutcomeUnknownStatus &&
 		w.AccountStatus == models.AccountStatusBackgroundCheckPending &&

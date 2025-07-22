@@ -70,10 +70,11 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
     try {
       final repo = ref.read(workerAccountRepositoryProvider);
       final worker = await repo.getWorker();
+      final outcomeResp = await repo.getCheckrOutcome();
 
       final isActive = worker.accountStatus == AccountStatusType.active;
       final isApproved =
-          worker.checkrReportOutcome == CheckrReportOutcome.approved;
+          outcomeResp.outcome == CheckrReportOutcome.approved;
 
       if (isActive) {
         await ref.read(jobsNotifierProvider.notifier).goOnline();
