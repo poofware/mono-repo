@@ -120,8 +120,9 @@ func (c *WorkerCheckrController) GetCheckrStatusHandler(w http.ResponseWriter, r
 
 // ───────────────────────────────────────────────────────────────────
 // GET /api/v1/account/worker/checkr/report-eta      (UPDATED)
-//   • expects query‑param `time_zone` (IANA TZ, e.g. America/Denver)
-//   • returns localised ETA or null
+//   - expects query‑param `time_zone` (IANA TZ, e.g. America/Denver)
+//   - returns localised ETA or null
+//
 // ───────────────────────────────────────────────────────────────────
 func (c *WorkerCheckrController) GetCheckrReportETAHandler(w http.ResponseWriter, r *http.Request) {
 	ctxUserID := r.Context().Value(middleware.ContextKeyUserID)
@@ -226,23 +227,30 @@ func (c *WorkerCheckrController) GetCheckrOutcomeHandler(
 		return
 	}
 
-	outcome, svcErr := c.checkrService.GetWorkerCheckrOutcome(r.Context(), workerID)
+	worker, svcErr := c.checkrService.GetWorkerCheckrOutcome(r.Context(), workerID)
 	if svcErr != nil {
 		utils.Logger.WithError(svcErr).Error("Failed to retrieve Checkr outcome")
 		utils.RespondErrorWithCode(
 			w,
 			http.StatusInternalServerError,
 			utils.ErrCodeInternal,
-			"Unable to retrieve background‑check outcome",
+			"Unable to retrieve worker",
 			svcErr,
 		)
 		return
 	}
-
-	resp := dtos.CheckrOutcomeResponse{
-		Outcome: outcome,
+	if worker == nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusNotFound,
+			utils.ErrCodeNotFound,
+			"Worker not found",
+			nil,
+		)
+		return
 	}
-	utils.RespondWithJSON(w, http.StatusOK, resp)
+
+	utils.RespondWithJSON(w, http.StatusOK, dtos.NewWorkerFromModel(*worker))
 }
 
 // NEW: CreateSessionTokenHandler -> GET /api/v1/account/worker/checkr/session-token

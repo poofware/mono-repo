@@ -32,13 +32,6 @@ type CheckrETAResponse struct {
 }
 
 // ------------------------------------------------------------------
-// Background‑check outcome
-// ------------------------------------------------------------------
-type CheckrOutcomeResponse struct {
-	Outcome models.ReportOutcomeType `json:"outcome"`
-}
-
-// ------------------------------------------------------------------
 // NEW: Session Token for Web SDK Embed
 // ------------------------------------------------------------------
 type CheckrSessionTokenResponse struct {

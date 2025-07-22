@@ -108,12 +108,12 @@ class WorkerAccountApi with AuthenticatedApiMixin {
     );
   }
 
-  Future<CheckrOutcomeResponse> getCheckrOutcome() async {
+  Future<Worker> getCheckrOutcome() async {
     final resp = await sendAuthenticatedRequest(
       method: 'GET',
       path: '/account/worker/checkr/outcome',
     );
-    return CheckrOutcomeResponse.fromJson(
+    return Worker.fromJson(
       jsonDecode(resp.body) as Map<String, dynamic>,
     );
   }

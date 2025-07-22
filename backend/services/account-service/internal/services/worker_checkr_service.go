@@ -827,20 +827,21 @@ func (s *CheckrService) GetWorkerCheckrETA(ctx context.Context, workerID uuid.UU
 	return w.CheckrReportETA, nil
 }
 
-// GetWorkerCheckrOutcome returns the worker's latest stored ReportOutcome.
-// If the worker does not exist, or no outcome has been set yet, it returns
-// ReportOutcomeUnknownStatus.
+// GetWorkerCheckrOutcome retrieves the worker and ensures the background-check
+// outcome is fully up to date. It performs the same "self healing" polling as
+// before but now returns the refreshed *Worker object so callers have a
+// consistent view of the worker state.
 func (s *CheckrService) GetWorkerCheckrOutcome(
 	ctx context.Context,
 	workerID uuid.UUID,
-) (models.ReportOutcomeType, error) {
+) (*models.Worker, error) {
 
 	w, err := s.repo.GetByID(ctx, workerID)
 	if err != nil {
-		return models.ReportOutcomeUnknownStatus, err
+		return nil, err
 	}
 	if w == nil {
-		return models.ReportOutcomeUnknownStatus, nil
+		return nil, fmt.Errorf("worker not found, ID=%s", workerID)
 	}
 
 	// log the statuses
@@ -908,8 +909,8 @@ func (s *CheckrService) GetWorkerCheckrOutcome(
 		}
 	}
 
-	// Return the current value (zero value is already "UNKNOWN")
-	return w.CheckrReportOutcome, nil
+	// Return the fully refreshed worker
+	return w, nil
 }
 
 // NEW: CreateSessionToken generates a short-lived token for the Checkr Web SDK.

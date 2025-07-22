@@ -73,11 +73,10 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
       // --- START OF MODIFICATION ---
 
       if (!cfg.testMode) {
-        final outcomeResp = await repo.getCheckrOutcome();
-        final worker = await repo.getWorker();
+        final worker = await repo.getCheckrOutcome();
         if (mounted) {
           setState(() {
-            _outcome = outcomeResp.outcome;
+            _outcome = worker.checkrReportOutcome;
             _email = worker.email;
             _isLoading = false;
           });

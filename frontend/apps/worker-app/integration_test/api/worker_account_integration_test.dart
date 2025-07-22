@@ -221,8 +221,8 @@ void main() {
     });
 
     testWidgets('Checkr outcome – expect unknown', (tester) async {
-      final outcomeResp = await accountRepo.getCheckrOutcome();
-      expect(outcomeResp.outcome, CheckrReportOutcome.unknown);
+      final worker = await accountRepo.getCheckrOutcome();
+      expect(worker.checkrReportOutcome, CheckrReportOutcome.unknown);
     });
 
     // -----------------------   Token handling   -----------------------
