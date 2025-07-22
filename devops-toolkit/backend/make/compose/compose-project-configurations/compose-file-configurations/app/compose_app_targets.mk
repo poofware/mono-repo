@@ -196,15 +196,23 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
   _up-app:
 	  @export LOG_LEVEL=; \
 	  if fly app list -q | grep -q "\b$(FLY_APP_NAME)\b"; then \
-		  echo "[INFO] [Up App] App $(FLY_APP_NAME) already exists. Skipping..."; \
+	  	echo "[INFO] [Up App] App $(FLY_APP_NAME) already exists."; \
 	  else \
-		  echo "[INFO] [Up App] Creating app $(FLY_APP_NAME) on fly.io..."; \
-		  fly apps create $(FLY_APP_NAME) --org $(FLY_STAGING_ORG_NAME); \
-		  echo "[INFO] [Up App] Done. App $(FLY_APP_NAME) created."; \
-		  echo "[INFO] [Up App] Setting secrets for app $(FLY_APP_NAME)..."; \
-		  fly secrets set BWS_ACCESS_TOKEN=$(BWS_ACCESS_TOKEN) --app $(FLY_APP_NAME); \
-		  echo "[INFO] [Up App] Done. Secrets set for app $(FLY_APP_NAME)."; \
+	  	echo "[INFO] [Up App] Creating app $(FLY_APP_NAME) on fly.io..."; \
+	  	fly apps create $(FLY_APP_NAME) --org $(FLY_STAGING_ORG_NAME); \
+	  	echo "[INFO] [Up App] Done. App $(FLY_APP_NAME) created."; \
 	  fi; \
+	  \
+	  if ! fly secrets list --app $(FLY_APP_NAME) --json \
+	  	| jq -e '.[].Name | select(.=="BWS_ACCESS_TOKEN")' >/dev/null; \
+	  then \
+	  	echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN not found – setting it…"; \
+	  	fly secrets set BWS_ACCESS_TOKEN=$(BWS_ACCESS_TOKEN) --app $(FLY_APP_NAME); \
+	  	echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN set."; \
+	  else \
+	  	echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN already present – skipping."; \
+	  fi; \
+	  \
 	  echo "[INFO] [Up App] Starting app $(FLY_APP_NAME) on fly.io..."; \
 	  fly deploy -a $(FLY_APP_NAME) -c $(STAGING_FLY_TOML_PATH) --image $(APP_NAME) --local-only --ha=false --yes; \
 	  echo "[INFO] [Up App] Done. App $(FLY_APP_NAME) started."
