@@ -845,38 +845,60 @@ func (s *CheckrService) GetWorkerCheckrOutcome(
 
 	// --- Robust Fallback Polling ---
 	if w.CheckrReportOutcome == models.ReportOutcomeUnknownStatus &&
-		w.AccountStatus == models.AccountStatusBackgroundCheckPending &&
-		w.CheckrReportID != nil && *w.CheckrReportID != "" {
+		w.AccountStatus == models.AccountStatusBackgroundCheckPending {
 
-		utils.Logger.Infof("Outcome unknown for worker %s. Polling report %s from Checkr API.", w.ID, *w.CheckrReportID)
-		report, reportErr := s.client.GetReport(ctx, *w.CheckrReportID)
-		if reportErr != nil {
-			utils.Logger.WithError(reportErr).Warnf("Failed to poll Checkr report for ID %s", *w.CheckrReportID)
-		} else if report.Status == checkr.ReportStatusComplete {
-			utils.Logger.Infof("Polling found Checkr report %s is 'complete'. Triggering self-healing.", report.ID)
-			s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
+		// If we don't have a report ID yet, attempt to fetch it via the candidate
+		if (w.CheckrReportID == nil || *w.CheckrReportID == "") &&
+			w.CheckrCandidateID != nil && *w.CheckrCandidateID != "" {
 
-			reportWebhookObj := checkr.ReportWebhookObj{
-				ID:                      report.ID,
-				Object:                  report.Object,
-				URI:                     report.URI,
-				Status:                  report.Status,
-				Result:                  report.Result,
-				Adjudication:            report.Adjudication,
-				Assessment:              report.Assessment,
-				Package:                 report.Package,
-				CandidateID:             report.CandidateID,
-				IncludesCanceled:        report.IncludesCanceled,
-				EstimatedCompletionTime: report.EstimatedTime,
-				CreatedAt:               *report.CreatedAt,
+			utils.Logger.Infof("Outcome unknown for worker %s with no report ID. Polling candidate %s from Checkr API.", w.ID, *w.CheckrCandidateID)
+			cand, candErr := s.client.GetCandidate(ctx, *w.CheckrCandidateID)
+			if candErr != nil {
+				utils.Logger.WithError(candErr).Warnf("Failed to poll Checkr candidate for ID %s", *w.CheckrCandidateID)
+			} else if len(cand.ReportIDs) > 0 {
+				// Use the most recent report ID
+				rid := cand.ReportIDs[len(cand.ReportIDs)-1]
+				if err := s.repo.UpdateWithRetry(ctx, w.ID, func(stored *models.Worker) error {
+					stored.CheckrReportID = &rid
+					return nil
+				}); err == nil {
+					w.CheckrReportID = &rid
+				}
 			}
+		}
 
-			if err := s.handleReportEvent(ctx, "report.completed", reportWebhookObj); err != nil {
-				utils.Logger.WithError(err).Error("Self-healing failed for completed report.")
+		if w.CheckrReportID != nil && *w.CheckrReportID != "" {
+			utils.Logger.Infof("Outcome unknown for worker %s. Polling report %s from Checkr API.", w.ID, *w.CheckrReportID)
+			report, reportErr := s.client.GetReport(ctx, *w.CheckrReportID)
+
+			if reportErr != nil {
+				utils.Logger.WithError(reportErr).Warnf("Failed to poll Checkr report for ID %s", *w.CheckrReportID)
+			} else if report.Status == checkr.ReportStatusComplete {
+				utils.Logger.Infof("Polling found Checkr report %s is 'complete'. Triggering self-healing.", report.ID)
+				s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
+
+				reportWebhookObj := checkr.ReportWebhookObj{
+					ID:                      report.ID,
+					Object:                  report.Object,
+					URI:                     report.URI,
+					Status:                  report.Status,
+					Result:                  report.Result,
+					Adjudication:            report.Adjudication,
+					Assessment:              report.Assessment,
+					Package:                 report.Package,
+					CandidateID:             report.CandidateID,
+					IncludesCanceled:        report.IncludesCanceled,
+					EstimatedCompletionTime: report.EstimatedTime,
+					CreatedAt:               *report.CreatedAt,
+				}
+
+				if err := s.handleReportEvent(ctx, "report.completed", reportWebhookObj); err != nil {
+					utils.Logger.WithError(err).Error("Self-healing failed for completed report.")
+				}
+
+				// Reload worker for updated outcome
+				w, _ = s.repo.GetByID(ctx, workerID)
 			}
-
-			// Reload worker for updated outcome
-			w, _ = s.repo.GetByID(ctx, workerID)
 		}
 	}
 
