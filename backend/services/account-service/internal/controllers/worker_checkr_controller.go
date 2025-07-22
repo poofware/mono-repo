@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/account-service/internal/dtos"
+	internal_dtos "github.com/poofware/account-service/internal/dtos"
 	"github.com/poofware/account-service/internal/services"
 	"github.com/poofware/go-middleware"
 	"github.com/poofware/go-utils"
+	"github.com/poofware/go-dtos"
 )
 
 // WorkerCheckrController handles Checkr-related endpoints for the Worker role.
@@ -64,7 +65,7 @@ func (c *WorkerCheckrController) CreateInvitationHandler(w http.ResponseWriter, 
 	}
 
 	// Construct the response
-	resp := dtos.CheckrInvitationResponse{
+	resp := internal_dtos.CheckrInvitationResponse{
 		Message:       "Checkr invitation (and candidate if needed) created/reused",
 		InvitationURL: invURL,
 	}
@@ -112,7 +113,7 @@ func (c *WorkerCheckrController) GetCheckrStatusHandler(w http.ResponseWriter, r
 	}
 
 	// Construct the DTO response
-	resp := dtos.CheckrStatusResponse{
+	resp := internal_dtos.CheckrStatusResponse{
 		Status: flowStatus,
 	}
 	utils.RespondWithJSON(w, http.StatusOK, resp)
@@ -192,7 +193,7 @@ func (c *WorkerCheckrController) GetCheckrReportETAHandler(w http.ResponseWriter
 		etaString = &str
 	}
 
-	resp := dtos.CheckrETAResponse{
+	resp := internal_dtos.CheckrETAResponse{
 		ReportETA: etaString,
 	}
 	utils.RespondWithJSON(w, http.StatusOK, resp)
@@ -293,7 +294,7 @@ func (c *WorkerCheckrController) CreateSessionTokenHandler(w http.ResponseWriter
 		return
 	}
 
-	resp := dtos.CheckrSessionTokenResponse{
+	resp := internal_dtos.CheckrSessionTokenResponse{
 		Token: token,
 	}
 	utils.RespondWithJSON(w, http.StatusOK, resp)
