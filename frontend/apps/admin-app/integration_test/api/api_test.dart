@@ -54,9 +54,10 @@ void main() {
     TestContext.jobsRepo = TestContext.container.read(adminJobsRepositoryProvider);
   });
 
-  group('Admin App E2E API Flow', () {
+ group('Admin App E2E API Flow', () {
     // --- AUTHENTICATION ---
     testWidgets('Step 1: Login and Establish Authenticated Session', (tester) async {
+      // This test remains unchanged
       print('Running Step 1: Logging in as admin...');
       expect(TestContext.authRepo, isNotNull, reason: 'Auth repository must be initialized.');
 
@@ -83,46 +84,128 @@ void main() {
       }
     });
 
-    // ... The rest of your tests remain unchanged ...
-    // --- ACCOUNT MANAGEMENT ---
-    testWidgets('Step 2: Create Full Hierarchy (PM, Property, Building, Unit, Dumpster, JobDef)', (tester) async {
+    // --- MODIFICATION: HIERARCHY CREATION BROKEN INTO INDIVIDUAL STEPS ---
+    testWidgets('Step 2.1: Create Property Manager', (tester) async {
       final accountRepo = TestContext.accountRepo;
-      final jobsRepo = TestContext.jobsRepo;
-      expect(accountRepo, isNotNull, reason: 'Account repository must be available from auth test.');
-      expect(jobsRepo, isNotNull, reason: 'Jobs repository must be available from auth test.');
+      expect(accountRepo, isNotNull);
 
-      // Create Property Manager
-      final pmData = { 'email': 'integration-test-${uuid.v4()}@example.com', 'business_name': 'Integration Test PM', 'business_address': '123 Test St', 'city': 'Testville', 'state': 'CA', 'zip_code': '90210' };
+      final pmData = {
+        'email': 'integration-test-${uuid.v4()}@example.com',
+        'business_name': 'Integration Test PM',
+        'business_address': '123 Test St',
+        'city': 'Testville',
+        'state': 'CA',
+        'zip_code': '90210'
+      };
       createdPm = await accountRepo!.createPropertyManager(pmData);
-      expect(createdPm, isNotNull);
-
-      // Create Property
-      final propData = { 'manager_id': createdPm!.id, 'property_name': 'Integration Test Property', 'address': '456 Test Ave', 'city': 'Testville', 'state': 'CA', 'zip_code': '90210', 'timezone': 'America/Los_Angeles', 'latitude': 34.0522, 'longitude': -118.2437 };
-      createdProperty = await accountRepo.createProperty(propData);
-      expect(createdProperty, isNotNull);
-
-      // Create Building
-      final buildingData = { 'property_id': createdProperty!.id, 'building_name': 'Building A' };
-      createdBuilding = await accountRepo.createBuilding(buildingData);
-      expect(createdBuilding, isNotNull);
-
-      // Create Unit
-      final unitData = { 'property_id': createdProperty!.id, 'building_id': createdBuilding!.id, 'unit_number': '101', 'tenant_token': uuid.v4() };
-      createdUnit = await accountRepo.createUnit(unitData);
-      expect(createdUnit, isNotNull);
-
-      // Create Dumpster
-      final dumpsterData = { 'property_id': createdProperty!.id, 'dumpster_number': 'D1', 'latitude': 34.0520, 'longitude': -118.2430 };
-      createdDumpster = await accountRepo.createDumpster(dumpsterData);
-      expect(createdDumpster, isNotNull);
-
-      // Create Job Definition
-      final jobDefData = { 'manager_id': createdPm!.id, 'property_id': createdProperty!.id, 'title': 'Daily Test Service', 'assigned_building_ids': [createdBuilding!.id], 'dumpster_ids': [createdDumpster!.id], 'frequency': 'DAILY', 'start_date': DateTime.now().toIso8601String(), 'earliest_start_time': '2025-01-01T18:00:00Z', 'latest_start_time': '2025-01-01T22:00:00Z', 'daily_pay_estimates': List.generate(7, (i) => {'day_of_week': i, 'base_pay': 25.0, 'estimated_time_minutes': 60}), };
-      createdJobDef = await jobsRepo!.createJobDefinition(jobDefData);
-      expect(createdJobDef, isNotNull);
+      expect(createdPm, isNotNull, reason: "Property Manager creation failed.");
     });
 
+    testWidgets('Step 2.2: Create Property', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdPm, isNotNull, reason: "Pre-requisite PM is null.");
+      
+      final propData = {
+        'manager_id': createdPm!.id,
+        'property_name': 'Integration Test Property',
+        'address': '456 Test Ave',
+        'city': 'Testville',
+        'state': 'CA',
+        'zip_code': '90210',
+        'timezone': 'America/Los_Angeles',
+        'latitude': 34.0522,
+        'longitude': -118.2437
+      };
+      createdProperty = await accountRepo!.createProperty(propData);
+      expect(createdProperty, isNotNull, reason: "Property creation failed.");
+    });
+
+    testWidgets('Step 2.3: Create Building', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdProperty, isNotNull, reason: "Pre-requisite Property is null.");
+
+      final buildingData = {
+        'property_id': createdProperty!.id,
+        'building_name': 'Building A'
+      };
+      createdBuilding = await accountRepo!.createBuilding(buildingData);
+      expect(createdBuilding, isNotNull, reason: "Building creation failed.");
+    });
+
+    testWidgets('Step 2.4: Create Unit', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdProperty, isNotNull);
+      expect(createdBuilding, isNotNull);
+      
+      final unitData = {
+        'property_id': createdProperty!.id,
+        'building_id': createdBuilding!.id,
+        'unit_number': '101',
+        'tenant_token': uuid.v4()
+      };
+      createdUnit = await accountRepo!.createUnit(unitData);
+      expect(createdUnit, isNotNull, reason: "Unit creation failed.");
+    });
+
+    testWidgets('Step 2.5: Create Dumpster', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdProperty, isNotNull);
+      
+      final dumpsterData = {
+        'property_id': createdProperty!.id,
+        'dumpster_number': 'D1',
+        'latitude': 34.0520,
+        'longitude': -118.2430
+      };
+      createdDumpster = await accountRepo!.createDumpster(dumpsterData);
+      expect(createdDumpster, isNotNull, reason: "Dumpster creation failed.");
+    });
+
+    testWidgets('Step 2.6: Create Job Definition', (tester) async {
+      final jobsRepo = TestContext.jobsRepo;
+      expect(createdPm, isNotNull);
+      expect(createdProperty, isNotNull);
+      expect(createdBuilding, isNotNull);
+      expect(createdDumpster, isNotNull);
+          // Construct time values based on the current date, just like the app's UI logic does.
+      // This ensures the payload format matches what the backend expects.
+      final now = DateTime.now();
+      final earliestStartTime = DateTime(now.year, now.month, now.day, 18, 0, 0).toUtc();
+      final latestStartTime = DateTime(now.year, now.month, now.day, 22, 0, 0).toUtc();
+
+      final dailyEstimates = List.generate(7, (index) => {
+        'day_of_week': index,
+        'base_pay': 25.0,
+        'estimated_time_minutes': 60,
+      });
+
+      // MODIFICATION: Added optional fields to more closely match the UI payload
+      // This is a more robust payload.
+      final jobDefData = {
+        'manager_id': createdPm!.id,
+        'property_id': createdProperty!.id,
+        'title': 'Daily Test Service',
+        'description': 'A test service created via integration test.',
+        'assigned_building_ids': [createdBuilding!.id],
+        'dumpster_ids': [createdDumpster!.id],
+        'frequency': 'DAILY',
+        'weekdays': <int>[], // Empty for DAILY frequency
+        'start_date': DateTime.now().toIso8601String(),
+        'earliest_start_time': earliestStartTime.toIso8601String(),
+        'latest_start_time': latestStartTime.toIso8601String(),
+        'skip_holidays': false,
+        'completion_rules': {
+          'proof_photos_required': true,
+        },
+        'daily_pay_estimates': dailyEstimates,
+      };
+      createdJobDef = await jobsRepo!.createJobDefinition(jobDefData);
+      expect(createdJobDef, isNotNull, reason: "Job Definition creation failed.");
+    });
+    
+    // --- UPDATE TEST ---
     testWidgets('Step 3: Update Entities', (tester) async {
+      // This test remains largely the same
       final accountRepo = TestContext.accountRepo;
       expect(createdPm, isNotNull);
       expect(createdProperty, isNotNull);
@@ -136,22 +219,42 @@ void main() {
       expect(updatedProperty.propertyName, 'Integration Test Property (Updated)');
     });
 
-    testWidgets('Step 4: Delete Hierarchy in Reverse Order', (tester) async {
-        final accountRepo = TestContext.accountRepo;
-        final jobsRepo = TestContext.jobsRepo;
-        expect(createdJobDef, isNotNull);
-        expect(createdDumpster, isNotNull);
-        expect(createdUnit, isNotNull);
-        expect(createdBuilding, isNotNull);
-        expect(createdProperty, isNotNull);
-        expect(createdPm, isNotNull);
-
-        await jobsRepo!.deleteJobDefinition({'id': createdJobDef!.id});
-        await accountRepo!.deleteDumpster({'id': createdDumpster!.id});
-        await accountRepo.deleteUnit({'id': createdUnit!.id});
-        await accountRepo.deleteBuilding({'id': createdBuilding!.id});
-        await accountRepo.deleteProperty({'id': createdProperty!.id});
-        await accountRepo.deletePropertyManager({'id': createdPm!.id});
+    // --- MODIFICATION: DELETION BROKEN INTO INDIVIDUAL STEPS ---
+    testWidgets('Step 4.1: Delete Job Definition', (tester) async {
+      final jobsRepo = TestContext.jobsRepo;
+      expect(createdJobDef, isNotNull);
+      await jobsRepo!.deleteJobDefinition({'id': createdJobDef!.id});
     });
+
+    testWidgets('Step 4.2: Delete Dumpster', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdDumpster, isNotNull);
+      await accountRepo!.deleteDumpster({'id': createdDumpster!.id});
+    });
+
+    testWidgets('Step 4.3: Delete Unit', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdUnit, isNotNull);
+      await accountRepo!.deleteUnit({'id': createdUnit!.id});
+    });
+
+    testWidgets('Step 4.4: Delete Building', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdBuilding, isNotNull);
+      await accountRepo!.deleteBuilding({'id': createdBuilding!.id});
+    });
+
+    testWidgets('Step 4.5: Delete Property', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdProperty, isNotNull);
+      await accountRepo!.deleteProperty({'id': createdProperty!.id});
+    });
+
+    testWidgets('Step 4.6: Delete Property Manager', (tester) async {
+      final accountRepo = TestContext.accountRepo;
+      expect(createdPm, isNotNull);
+      await accountRepo!.deletePropertyManager({'id': createdPm!.id});
+    });
+
   });
 }
