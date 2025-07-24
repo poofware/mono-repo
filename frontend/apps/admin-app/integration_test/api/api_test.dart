@@ -170,17 +170,15 @@ void main() {
           // Construct time values based on the current date, just like the app's UI logic does.
       // This ensures the payload format matches what the backend expects.
       final now = DateTime.now();
-      final earliestStartTime = DateTime(now.year, now.month, now.day, 18, 0, 0).toUtc();
-      final latestStartTime = DateTime(now.year, now.month, now.day, 22, 0, 0).toUtc();
-
+      final earliestStartTime = DateTime.utc(now.year, now.month, now.day, 18, 0, 0);
+      final latestStartTime = DateTime.utc(now.year, now.month, now.day, 22, 0, 0);
+      // --- FIX: Ensure base_pay is a double (e.g., 25.0) ---
       final dailyEstimates = List.generate(7, (index) => {
         'day_of_week': index,
-        'base_pay': 25.0,
+        'base_pay': 25.0, // <-- Explicitly a double
         'estimated_time_minutes': 60,
       });
 
-      // MODIFICATION: Added optional fields to more closely match the UI payload
-      // This is a more robust payload.
       final jobDefData = {
         'manager_id': createdPm!.id,
         'property_id': createdProperty!.id,
@@ -189,8 +187,9 @@ void main() {
         'assigned_building_ids': [createdBuilding!.id],
         'dumpster_ids': [createdDumpster!.id],
         'frequency': 'DAILY',
-        'weekdays': <int>[], // Empty for DAILY frequency
-        'start_date': DateTime.now().toIso8601String(),
+        'weekdays': const <int>[], // Empty for DAILY frequency
+        // FIX: Ensure the date is sent in UTC format to avoid parsing errors on the backend.
+        'start_date': DateTime.now().toUtc().toIso8601String(),
         'earliest_start_time': earliestStartTime.toIso8601String(),
         'latest_start_time': latestStartTime.toIso8601String(),
         'skip_holidays': false,
@@ -223,7 +222,7 @@ void main() {
     testWidgets('Step 4.1: Delete Job Definition', (tester) async {
       final jobsRepo = TestContext.jobsRepo;
       expect(createdJobDef, isNotNull);
-      await jobsRepo!.deleteJobDefinition({'id': createdJobDef!.id});
+      await jobsRepo!.deleteJobDefinition({'definition_id': createdJobDef!.id});
     });
 
     testWidgets('Step 4.2: Delete Dumpster', (tester) async {
