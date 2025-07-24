@@ -36,7 +36,7 @@ class PhoneInputFormatter extends TextInputFormatter {
       buf.write(digits[i++]);
     }
 
-    if (digits.length > 3) {
+    if (digits.length >= 3) {
       buf.write(') ');
       while (i < 6 && i < digits.length) {
         buf.write(digits[i++]);

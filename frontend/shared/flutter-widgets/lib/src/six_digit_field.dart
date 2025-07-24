@@ -129,7 +129,6 @@ class _SixDigitFieldState extends State<SixDigitField>
 
   /// Delay clipboard read just enough for splash to render first.
   Future<void> _handlePasteTap() async {
-    await Future.delayed(const Duration(milliseconds: 160));
     if (mounted) await _pasteFromClipboard();
   }
 

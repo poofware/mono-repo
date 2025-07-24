@@ -58,7 +58,10 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
       }
 
       final invite = await repo.createCheckrInvitation();
-      router.pushNamed(AppRouteNames.checkrInProgressPage, extra: invite.invitationUrl);
+      await router.pushNamed(
+        AppRouteNames.checkrInProgressPage,
+        extra: invite.invitationUrl,
+      );
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
       scaffoldMessenger.showSnackBar(

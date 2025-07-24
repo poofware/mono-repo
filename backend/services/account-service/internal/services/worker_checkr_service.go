@@ -767,11 +767,11 @@ func (s *CheckrService) GetCheckrStatus(ctx context.Context, workerID uuid.UUID)
 			utils.Logger.WithError(invErr).Warnf("Failed to poll Checkr invitation status for ID %s", *w.CheckrInvitationID)
 		} else if inv.Status == "completed" {
 			utils.Logger.Infof("Polling found Checkr invitation %s is 'completed'. Triggering self-healing.", inv.ID)
-			s.sendWebhookMissAlert("Checkr Invitation", inv.ID, w.ID)
 			if err := s.handleInvitationCompleted(ctx, inv.ID); err != nil {
 				utils.Logger.WithError(err).Error("Self-healing failed for completed invitation.")
 				return dtos.CheckrFlowStatusIncomplete, nil
 			}
+			s.sendWebhookMissAlert("Checkr Invitation", inv.ID, w.ID)
 			// After successful self-healing, the worker's state is now advanced.
 			return dtos.CheckrFlowStatusComplete, nil
 		}
@@ -785,7 +785,6 @@ func (s *CheckrService) GetCheckrStatus(ctx context.Context, workerID uuid.UUID)
 			utils.Logger.WithError(reportErr).Warnf("Failed to poll Checkr report status for ID %s", *w.CheckrReportID)
 		} else if report.Status == checkr.ReportStatusComplete {
 			utils.Logger.Infof("Polling found Checkr report %s is 'complete'. Triggering self-healing.", report.ID)
-			s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
 
 			// **FIX START**: Manually construct the ReportWebhookObj from the full Report object.
 			reportWebhookObj := checkr.ReportWebhookObj{
@@ -807,6 +806,7 @@ func (s *CheckrService) GetCheckrStatus(ctx context.Context, workerID uuid.UUID)
 				utils.Logger.WithError(err).Error("Self-healing failed for completed report.")
 				return dtos.CheckrFlowStatusIncomplete, nil
 			}
+			s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
 			// **FIX END**
 
 			// The worker's state should now be updated.
@@ -886,7 +886,6 @@ func (s *CheckrService) GetWorkerCheckrOutcome(
 				utils.Logger.WithError(reportErr).Warnf("Failed to poll Checkr report for ID %s", *w.CheckrReportID)
 			} else if report.Status == checkr.ReportStatusComplete {
 				utils.Logger.Infof("Polling found Checkr report %s is 'complete'. Triggering self-healing.", report.ID)
-				s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
 
 				reportWebhookObj := checkr.ReportWebhookObj{
 					ID:                      report.ID,
@@ -905,6 +904,8 @@ func (s *CheckrService) GetWorkerCheckrOutcome(
 
 				if err := s.handleReportEvent(ctx, "report.completed", reportWebhookObj); err != nil {
 					utils.Logger.WithError(err).Error("Self-healing failed for completed report.")
+				} else {
+					s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
 				}
 
 				// Reload worker for updated outcome
