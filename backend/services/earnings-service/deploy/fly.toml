@@ -22,12 +22,12 @@ primary_region = "atl"            # three-letter region
     # KEY = "value"
 
 # ─── Deploy behaviour ──────────────────────────────────────────
-# [deploy]
+[deploy]
 #   release_command          = ""    # run before release
 #   release_command_timeout  = "5m"  # default
-#   strategy                 = "rolling"
+  strategy                 = "bluegreen"  # "rolling" or "bluegreen"
 #   max_unavailable          = 0.33  # for rolling
-#   wait_timeout             = "5m"
+  wait_timeout             = "1m"
 #   [deploy.release_command_vm]      # size for the one-off VM
 #     size   = ""
 #     memory = ""
@@ -42,7 +42,7 @@ primary_region = "atl"            # three-letter region
 [http_service]
   # processes            = []        # limit to groups
   internal_port        = 8080      # default
-  # force_https          = false
+  force_https          = true
   # auto_stop_machines   = "off"
   # auto_start_machines  = true
   # min_machines_running = 0
@@ -66,9 +66,9 @@ primary_region = "atl"            # three-letter region
   #   default_self_signed = false
 
   [[http_service.checks]]
-    grace_period   = "5s"
-    interval       = "15s"
-    timeout        = "5s"
+    grace_period   = "10s"
+    interval       = "10s"
+    timeout        = "3s"
     method         = "get"
     path           = "/health"
     protocol       = "http"
@@ -120,13 +120,13 @@ primary_region = "atl"            # three-letter region
 #     soft_limit = 20
 #     hard_limit = 0
 
-#   [[services.tcp_checks]]          # :contentReference[oaicite:16]{index=16}
+#   [[services.tcp_checks]]
 #     grace_period  = "1s"
 #     interval      = "15s"
 #     timeout       = "2s"
 #     restart_limit = 0
 
-#   [[services.http_checks]]         # :contentReference[oaicite:17]{index=17}
+#   [[services.http_checks]]
 #     grace_period  = "5s"
 #     interval      = "10s"
 #     timeout       = "2s"
