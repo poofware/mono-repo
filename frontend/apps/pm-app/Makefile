@@ -33,7 +33,7 @@ endif
 APP_NAME := $(COMPOSE_PROJECT_NAME)
 override APP_PORT := 8080
 STAGING_FLY_TOML_PATH := deploy/staging.fly.toml
-FLY_TOML_PATH := deploy/fly.toml
+PROD_FLY_TOML_PATH := deploy/fly.toml
 ifndef INCLUDED_APP_CONFIGURATION
   include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_configuration.mk
 endif

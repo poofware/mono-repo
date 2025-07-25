@@ -101,7 +101,7 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
   # If the app is a gateway to apps that are in deps, we need to include the deps targets after the app targets.
   # This ensures that gateway app targets run first, causing the dependency apps to reuse the same exported network configurations.
 
-else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
+else
   
   _export_fly_api_token:
   ifndef FLY_API_TOKEN
@@ -119,27 +119,27 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
 	  env -u MAKELEVEL $(MAKE) _fly_wireguard_down --no-print-directory; \
 	  echo "[INFO] [Fly Wireguard Up] Creating WireGuard peer $(FLY_WIREGUARD_PEER_NAME) in region $(FLY_WIREGUARD_PEER_REGION) (with auto-retry)…"; \
 	  set -e ; \
-	  if fly wireguard create $(FLY_STAGING_ORG_NAME) \
+	  if fly wireguard create $(FLY_ORG_NAME) \
 	  	$(FLY_WIREGUARD_PEER_REGION) \
 	  	$(FLY_WIREGUARD_PEER_NAME) \
 	  	$(FLY_WIREGUARD_CONF_FILE); then \
-	  	echo "[INFO] [Fly Wireguard Up] Peer created on first attempt." ; \
+		  echo "[INFO] [Fly Wireguard Up] Peer created on first attempt." ; \
 	  else \
-		echo "[WARN] [Fly Wireguard Up] Peer creation failed – duplicate or peer-limit. Selecting a peer to delete…" ; \
-		PEERS_JSON=$$(fly wireguard list $(FLY_STAGING_ORG_NAME) --json) ; \
-		TARGET_PEER=$$(echo "$$PEERS_JSON" \
+		  echo "[WARN] [Fly Wireguard Up] Peer creation failed – duplicate or peer-limit. Selecting a peer to delete…" ; \
+		  PEERS_JSON=$$(fly wireguard list $(FLY_ORG_NAME) --json) ; \
+		  TARGET_PEER=$$(echo "$$PEERS_JSON" \
 			| jq -r --arg name "$(FLY_WIREGUARD_PEER_NAME)" 'map(select(.Name==$$name))[0].Name // empty') ; \
-		if [ -z "$$TARGET_PEER" ] ; then \
-			TARGET_PEER=$$(echo "$$PEERS_JSON" | jq -r '.[-1].Name // empty') ; \
-		fi ; \
-		if [ -n "$$TARGET_PEER" ] ; then \
-			echo "[INFO] [Fly Wireguard Up] Removing peer '$$TARGET_PEER'…"; \
-			fly wireguard remove $(FLY_STAGING_ORG_NAME) $$TARGET_PEER || true ; \
-		else \
-			echo "[ERROR] [Fly Wireguard Up] No peers found to delete; aborting." ; \
-			exit 1 ; \
-		fi ; \
-		fly wireguard create $(FLY_STAGING_ORG_NAME) \
+		  if [ -z "$$TARGET_PEER" ] ; then \
+			  TARGET_PEER=$$(echo "$$PEERS_JSON" | jq -r '.[-1].Name // empty') ; \
+		  fi ; \
+		  if [ -n "$$TARGET_PEER" ] ; then \
+			  echo "[INFO] [Fly Wireguard Up] Removing peer '$$TARGET_PEER'…"; \
+			  fly wireguard remove $(FLY_ORG_NAME) $$TARGET_PEER || true ; \
+		  else \
+			  echo "[ERROR] [Fly Wireguard Up] No peers found to delete; aborting." ; \
+			  exit 1 ; \
+		  fi ; \
+		  fly wireguard create $(FLY_ORG_NAME) \
 			$(FLY_WIREGUARD_PEER_REGION) \
 			$(FLY_WIREGUARD_PEER_NAME) \
 			$(FLY_WIREGUARD_CONF_FILE) ; \
@@ -156,8 +156,8 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
 		  echo "[INFO] [Fly Wireguard Down] Stopping wireguard connection to fly.io..."; \
 		  sudo wg-quick down $(FLY_WIREGUARD_CONF_FILE) || echo "[WARN] [Fly Wireguard Down] Ignoring...no wireguard connection to fly.io found."; \
 		  rm -f $(FLY_WIREGUARD_CONF_FILE); \
-		  fly wireguard list $(FLY_STAGING_ORG_NAME) | grep -q "\b$(FLY_WIREGUARD_PEER_NAME)\b" && \
-			  fly wireguard remove $(FLY_STAGING_ORG_NAME) $(FLY_WIREGUARD_PEER_NAME) || true; \
+		  fly wireguard list $(FLY_ORG_NAME) | grep -q "\b$(FLY_WIREGUARD_PEER_NAME)\b" && \
+			fly wireguard remove $(FLY_ORG_NAME) $(FLY_WIREGUARD_PEER_NAME) || true; \
 		  echo "[INFO] [Fly Wireguard Down] Done. Wireguard connection to fly.io is down."; \
 	  fi
 
@@ -168,11 +168,11 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
   down:: _export_fly_api_token _fly_wireguard_up _up-network
 	  @export LOG_LEVEL=; \
 	  if [ "$(EXCLUDE_COMPOSE_PROFILE_APP)" -eq 1 ]; then \
-		echo "[INFO] [Down] Skipping fly app destruction... EXCLUDE_COMPOSE_PROFILE_APP is set to 1"; \
+		  echo "[INFO] [Down] Skipping fly app destruction... EXCLUDE_COMPOSE_PROFILE_APP is set to 1"; \
 	  else \
-		echo "[INFO] [Down] Destroying app $(FLY_APP_NAME) on fly.io..."; \
-		fly app destroy $(FLY_APP_NAME) --yes; \
-		echo "[INFO] [Down] Done. App $(FLY_APP_NAME) destroyed."; \
+		  echo "[INFO] [Down] Destroying app $(FLY_APP_NAME) on fly.io..."; \
+		  fly app destroy $(FLY_APP_NAME) --yes; \
+		  echo "[INFO] [Down] Done. App $(FLY_APP_NAME) destroyed."; \
 	  fi; \
 	  if [ -n "$(COMPOSE_PROFILE_MIGRATE_SERVICES)" ]; then \
 		  echo "[INFO] [Down] Wiping the migrated isolated schema from the database..."; \
@@ -196,29 +196,26 @@ else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
   _up-app:
 	  @export LOG_LEVEL=; \
 	  if fly app list -q | grep -q "\b$(FLY_APP_NAME)\b"; then \
-	  	echo "[INFO] [Up App] App $(FLY_APP_NAME) already exists."; \
+		  echo "[INFO] [Up App] App $(FLY_APP_NAME) already exists."; \
 	  else \
-	  	echo "[INFO] [Up App] Creating app $(FLY_APP_NAME) on fly.io..."; \
-	  	fly apps create $(FLY_APP_NAME) --org $(FLY_STAGING_ORG_NAME); \
-	  	echo "[INFO] [Up App] Done. App $(FLY_APP_NAME) created."; \
+	  	  echo "[INFO] [Up App] Creating app $(FLY_APP_NAME) on fly.io..."; \
+	  	  fly apps create $(FLY_APP_NAME) --org $(FLY_ORG_NAME); \
+	  	  echo "[INFO] [Up App] Done. App $(FLY_APP_NAME) created."; \
 	  fi; \
 	  \
 	  if ! fly secrets list --app $(FLY_APP_NAME) --json \
 	  	| jq -e '.[].Name | select(.=="BWS_ACCESS_TOKEN")' >/dev/null; \
 	  then \
-	  	echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN not found – setting it…"; \
-	  	fly secrets set BWS_ACCESS_TOKEN=$(BWS_ACCESS_TOKEN) --app $(FLY_APP_NAME); \
-	  	echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN set."; \
+		  echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN not found – setting it…"; \
+		  fly secrets set BWS_ACCESS_TOKEN=$(BWS_ACCESS_TOKEN) --app $(FLY_APP_NAME); \
+		  echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN set."; \
 	  else \
-	  	echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN already present – skipping."; \
+		  echo "[INFO] [Up App] Secret BWS_ACCESS_TOKEN already present – skipping."; \
 	  fi; \
 	  \
 	  echo "[INFO] [Up App] Starting app $(FLY_APP_NAME) on fly.io..."; \
-	  fly deploy -a $(FLY_APP_NAME) -c $(STAGING_FLY_TOML_PATH) --image $(APP_NAME) --local-only --ha=false --yes; \
+	  fly deploy -a $(FLY_APP_NAME) -c $(FLY_TOML_PATH) --image $(APP_NAME) --local-only --ha=false --yes; \
 	  echo "[INFO] [Up App] Done. App $(FLY_APP_NAME) started."
-
-else ifneq (,$(filter $(ENV),$(PROD_ENV)))
-  # Prod not supported at this time.
 endif
 
 ## Prints the domain that you can use to access the app from anywhere with https

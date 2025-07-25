@@ -8,6 +8,7 @@ SHELL := /bin/bash
 
 
 FLY_STAGING_ORG_NAME := poof-staging
+FLY_PROD_ORG_NAME := poof-969
 FLY_WIREGUARD_CONF_FILE := ./fly.conf
 FLY_WIREGUARD_PEER_REGION := iad
 

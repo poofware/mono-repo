@@ -107,40 +107,56 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
     export NGROK_PORT := 4040
   endif
 
-else ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
-
-  ifndef STAGING_FLY_TOML_PATH
-    $(error STAGING_FLY_TOML_PATH is not set. Please define it in your local Makefile or runtime/ci environment. \
-      Example: STAGING_FLY_TOML_PATH=staging.fly.toml)
-  endif
+else
 
   ifndef INCLUDED_FLY_CONSTANTS
     include $(DEVOPS_TOOLKIT_PATH)/backend/make/utils/fly_constants.mk
   endif
 
-  FLY_WIREGUARD_PEER_NAME := $(subst _,-,$(FLY_STAGING_ORG_NAME)-$(UNIQUE_RUNNER_ID)-$(UNIQUE_RUN_NUMBER))
-  FLY_APP_NAME            := $(subst _,-,$(APP_NAME)-$(UNIQUE_RUNNER_ID)-$(UNIQUE_RUN_NUMBER))
-  FLY_URL := https://$(FLY_APP_NAME).fly.dev
-
-  ifndef APP_URL_FROM_COMPOSE_NETWORK
-    export APP_URL_FROM_COMPOSE_NETWORK := $(FLY_URL)
-  endif
-
-  ifndef APP_URL_FROM_ANYWHERE
-    export APP_URL_FROM_ANYWHERE := $(FLY_URL)
-  endif
-
   DEPS_PASSTHROUGH_VARS += FLY_API_TOKEN
   DEPS_PASSTHROUGH_VARS += FLY_WIREGUARD_UP
 
-else ifneq (,$(filter $(ENV),$(PROD_ENV)))
+  ifneq (,$(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)))
 
-  ifndef FLY_TOML_PATH
-    $(error FLY_TOML_PATH is not set. Please define it in your local Makefile or runtime/ci environment. \
-      Example: FLY_TOML_PATH=fly.toml)
+    ifndef STAGING_FLY_TOML_PATH
+      $(error STAGING_FLY_TOML_PATH is not set. Please define it in your local Makefile or runtime/ci environment. \
+        Example: STAGING_FLY_TOML_PATH=staging.fly.toml)
+    endif
+
+    FLY_TOML_PATH := $(STAGING_FLY_TOML_PATH)
+    FLY_ORG_NAME := $(FLY_STAGING_ORG_NAME)
+    FLY_APP_NAME := $(subst _,-,$(APP_NAME)-$(UNIQUE_RUNNER_ID)-$(UNIQUE_RUN_NUMBER))
+    FLY_URL := https://$(FLY_APP_NAME).fly.dev
+    FLY_WIREGUARD_PEER_NAME := $(subst _,-,$(FLY_STAGING_ORG_NAME)-$(UNIQUE_RUNNER_ID)-$(UNIQUE_RUN_NUMBER))
+
+    ifndef APP_URL_FROM_COMPOSE_NETWORK
+      export APP_URL_FROM_COMPOSE_NETWORK := $(FLY_URL)
+    endif
+  
+    ifndef APP_URL_FROM_ANYWHERE
+      export APP_URL_FROM_ANYWHERE := $(FLY_URL)
+    endif
+  else ifneq (,$(filter $(ENV),$(PROD_ENV)))
+
+    ifndef PROD_FLY_TOML_PATH
+      $(error PROD_FLY_TOML_PATH is not set. Please define it in your local Makefile or runtime/ci environment. \
+        Example: PROD_FLY_TOML_PATH=fly.toml)
+    endif
+
+    FLY_TOML_PATH := $(PROD_FLY_TOML_PATH)
+    FLY_ORG_NAME := $(FLY_PROD_ORG_NAME)
+    FLY_APP_NAME := $(subst _,-,$(APP_NAME)-$(UNIQUE_RUN_NUMBER))
+    FLY_URL := https://$(FLY_APP_NAME).fly.dev
+    FLY_WIREGUARD_PEER_NAME := $(subst _,-,$(FLY_ORG_NAME)-$(UNIQUE_RUNNER_ID)-$(UNIQUE_RUN_NUMBER))
+
+    ifndef APP_URL_FROM_COMPOSE_NETWORK
+      export APP_URL_FROM_COMPOSE_NETWORK := https://thepoofapp.com
+    endif
+  
+    ifndef APP_URL_FROM_ANYWHERE
+      export APP_URL_FROM_ANYWHERE := https://thepoofapp.com
+    endif
   endif
-
-  # PROD IS NOT SUPPORTED YET
 
 endif
 

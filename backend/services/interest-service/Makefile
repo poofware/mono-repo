@@ -35,7 +35,7 @@ export APP_PORT ?= 8080
 export SHARED_PATH := $(REPO_ROOT)/backend/shared
 PACKAGES := go-utils
 STAGING_FLY_TOML_PATH := deploy/staging.fly.toml
-FLY_TOML_PATH := deploy/fly.toml
+PROD_FLY_TOML_PATH := deploy/fly.toml
 ifndef INCLUDED_COMPOSE_GO_APP_CONFIGURATION
   include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/go-app/compose_go_app_configuration.mk
 endif

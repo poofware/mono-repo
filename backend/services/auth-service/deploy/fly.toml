@@ -3,7 +3,7 @@
 # ┃         Defaults shown per Fly docs (May 1 2025)            ┃
 # ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 # app            = "APP_NAME"       # unique across Fly ↦ docs
-primary_region = "iad"            # three-letter region
+primary_region = "atl"            # three-letter region
 
 # ─── Runtime options ───────────────────────────────────────────
 # kill_signal   = "SIGINT"          # default signal
