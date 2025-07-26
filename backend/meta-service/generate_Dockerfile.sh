@@ -149,10 +149,8 @@ done
 
 # ──────────────────────────────  Stage 4b: website assets & nginx config  ─────────────
 cat <<'EOF'
-# Copy nginx configuration and built static site from the website image
-COPY nginx.conf /etc/nginx/nginx.conf
-
-COPY nginx_cf.template /etc/nginx/templates/cf-auth.conf.template
+# Copy nginx template and built static site from the website image
+COPY nginx.template /etc/nginx/templates/nginx.template
 
 COPY --from=the-website /usr/share/nginx/html/     /usr/share/nginx/html/
 COPY --from=pm-app /usr/share/nginx/html/pm/ /usr/share/nginx/html/pm/

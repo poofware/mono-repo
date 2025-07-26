@@ -30,19 +30,26 @@ if $REQUIRE_CF; then
     echo "[ERROR] LaunchDarkly requires Cloudflare but 'EDGE_AUTH_SECRET' not found in BWS." >&2
     exit 1
   fi
-  export EDGE_AUTH_SECRET
+  EDGE_AUTH_MAP_DEFAULT=0
+  EDGE_AUTH_GUARD='if ($cf_ok = 0) { return 403; }'
   echo "[INFO] Cloudflare header enforcement enabled."
-  envsubst < /etc/nginx/templates/cf-auth.conf.template > /etc/nginx/nginx.conf
 else
+  EDGE_AUTH_SECRET="unused"
+  EDGE_AUTH_MAP_DEFAULT=1
+  EDGE_AUTH_GUARD=''
   echo "[INFO] Cloudflare header enforcement disabled."
 fi
+
+export EDGE_AUTH_SECRET EDGE_AUTH_MAP_DEFAULT EDGE_AUTH_GUARD
+envsubst '${EDGE_AUTH_SECRET} ${EDGE_AUTH_MAP_DEFAULT} ${EDGE_AUTH_GUARD}' \
+  < /etc/nginx/templates/nginx.template > /etc/nginx/nginx.conf
 
 ulimit -n 65535 || true
 ulimit -u 65535 || true
 
 IFS=' ' read -ra SERVICE_ARRAY <<< "$SERVICES"
 for svc in "${SERVICE_ARRAY[@]}"; do
-  (set -a && . /root/${svc}.env && exec /root/${svc}) &
+  (set -a && . "/root/${svc}.env" && exec "/root/${svc}") &
 done
 
 /root/health_check &

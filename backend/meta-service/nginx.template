@@ -2,6 +2,8 @@
 
 worker_processes auto;
 env EDGE_AUTH_SECRET;
+env EDGE_AUTH_MAP_DEFAULT;
+env EDGE_AUTH_GUARD;
 worker_rlimit_nofile 65535;
 events
 {
@@ -12,12 +14,15 @@ events
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
+
+    # Ensure map hashing works even with long secrets
+    map_hash_bucket_size 128;
+
     map $http_x_cf_auth $cf_ok {
-        default 0;
-        "$EDGE_AUTH_SECRET" 1;
+        default ${EDGE_AUTH_MAP_DEFAULT};
+        "${EDGE_AUTH_SECRET}" 1;
     }
-
-
+    
     types {
         # ES-module startup code
         application/javascript        js mjs;
@@ -27,7 +32,7 @@ http {
         application/wasm              wasm;
 
         # PWA / web-manifest
-        application/manifestjson     webmanifest json;
+        application/manifest+json     webmanifest json;
     }
 
     keepalive_timeout 30;
@@ -37,7 +42,7 @@ http {
     # Configure reverse proxy server on port 8080
     server {
         listen 8080;
-        if ($cf_ok = 0) { return 403; }
+        ${EDGE_AUTH_GUARD}
         large_client_header_buffers 4 16k;
 
         # Proxy /health requests to the health_check service on port 8081
@@ -49,7 +54,7 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/auth/(v[0-9])/(.) {
+        location ~ ^/auth/(v[0-9]+)/(.+) {
             # can also pass $request_uri to get the full URI
             proxy_pass http://127.0.0.1:8082/auth/$1/$2?$args;
             proxy_set_header Host $host;
@@ -58,7 +63,7 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/api/(v[0-9])/account/(.) {
+        location ~ ^/api/(v[0-9]+)/account/(.+) {
             # can also pass $request_uri to get the full URI
             proxy_pass http://127.0.0.1:8083/api/$1/account/$2?$args;
             proxy_set_header Host $host;
@@ -85,7 +90,7 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/api/(v[0-9])/interest/(.) {
+        location ~ ^/api/(v[0-9]+)/interest/(.+) {
             # can also pass $request_uri to get the full URI
             proxy_pass http://127.0.0.1:8084/api/$1/interest/$2?$args;
             proxy_set_header Host $host;
@@ -94,7 +99,7 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/api/(v[0-9])/jobs/(.) {
+        location ~ ^/api/(v[0-9]+)/jobs/(.+) {
             # can also pass $request_uri to get the full URI
             proxy_pass http://127.0.0.1:8085/api/$1/jobs/$2?$args;
             proxy_set_header Host $host;
@@ -103,7 +108,7 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/api/(v[0-9])/earnings/(.) {
+        location ~ ^/api/(v[0-9]+)/earnings/(.+) {
             # can also pass $request_uri to get the full URI
             proxy_pass http://127.0.0.1:8086/api/$1/earnings/$2?$args;
             proxy_set_header Host $host;
