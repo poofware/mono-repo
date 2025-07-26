@@ -3,6 +3,7 @@ module github.com/poofware/go-utils
 go 1.23.1
 
 require (
+	github.com/bitwarden/sdk-go v1.0.2
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/golang-jwt/jwt/v5 v5.2.2

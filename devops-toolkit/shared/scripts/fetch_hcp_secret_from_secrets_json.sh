@@ -35,7 +35,7 @@ RAW_RESPONSE="$("$(dirname "${BASH_SOURCE[0]}")/fetch_hcp_secret.sh" SECRETS_JSO
 # 2. Extract the raw JSON string from the RAW_RESPONSE JSON.
 SECRETS_JSON="$(echo "$RAW_RESPONSE" | jq -r '.SECRETS_JSON // empty')"
 
-if [ -z "$SECRETS_JSON" ]; then
+if [ -z "$SECRETS_JSON" ] || [ "$SECRETS_JSON" == "null" ]; then
   echo "[ERROR] Could not retrieve the 'SECRETS_JSON' secret or it is empty." >&2
   echo "Full response was:" >&2
   echo "$RAW_RESPONSE" >&2
@@ -53,7 +53,12 @@ if [ -n "$SECRET_FIELD_NAME" ]; then
 
   echo "[INFO] Fetched secret '$SECRET_FIELD_NAME' successfully." >&2
 
-  echo "$SECRET_FIELD_VALUE"
+  # Always output as JSON
+  if echo "$SECRET_FIELD_VALUE" | jq -e . >/dev/null 2>&1; then
+    printf '{"%s": %s}\n' "$SECRET_FIELD_NAME" "$SECRET_FIELD_VALUE"
+  else
+    printf '{"%s": "%s"}\n' "$SECRET_FIELD_NAME" "$SECRET_FIELD_VALUE"
+  fi
 else
   
   echo "[INFO] Fetched SECRETS_JSON successfully." >&2

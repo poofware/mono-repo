@@ -76,13 +76,13 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 		log.Fatal("ENV env var is missing")
 	}
 
-	// 2. HCP Secrets Client
-	client, err := utils.NewHCPSecretsClient()
-	require.NoError(t, err, "Failed to init HCPSecretsClient")
+	// 2. BWS Secrets Client
+	client, err := utils.NewBWSSecretsClient()
+	require.NoError(t, err, "Failed to init BWSSecretsClient")
 
 	// 3. Shared Secrets (RSA Key, DB Encryption Key, Stripe Secret Key)
 	sharedAppName := fmt.Sprintf("shared-%s", env)
-	sharedSecrets, err := client.GetHCPSecretsFromSecretsJSON(sharedAppName)
+	sharedSecrets, err := client.GetBWSSecrets(sharedAppName)
 	require.NoError(t, err, "Failed to fetch shared secrets")
 
 	privateKeyB64, ok := sharedSecrets["RSA_PRIVATE_KEY_BASE64"]
@@ -105,12 +105,12 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 
 	// 4. App-Specific Secrets (DB_URL, Webhook Secrets, API Keys)
 	appNameEnv := fmt.Sprintf("%s-%s", appName, env)
-	appSecrets, err := client.GetHCPSecretsFromSecretsJSON(appNameEnv)
+	appSecrets, err := client.GetBWSSecrets(appNameEnv)
 	require.NoError(t, err)
 	dbURL, ok := appSecrets["DB_URL"]
 	require.True(t, ok && dbURL != "", "DB_URL not found in appSecrets")
 
-	stripeWebhookSecret := appSecrets["STRIPE_WEBHOOK_SECRET"] // Can be empty if not used by service
+	stripeWebhookSecret := sharedSecrets["STRIPE_WEBHOOK_SECRET"] // Can be empty if not used by service
 	checkrAPIKey := appSecrets["CHECKR_API_KEY"]               // Can be empty if not used by service
 
 	// 5. Connect to DB with isolated role

@@ -1,7 +1,5 @@
 package dtos
 
-import "github.com/poofware/go-models" // enums
-
 // ------------------------------------------------------------------
 // Invitation
 // ------------------------------------------------------------------
@@ -29,13 +27,6 @@ type CheckrStatusResponse struct {
 // ------------------------------------------------------------------
 type CheckrETAResponse struct {
 	ReportETA *string `json:"report_eta"`
-}
-
-// ------------------------------------------------------------------
-// Background‑check outcome
-// ------------------------------------------------------------------
-type CheckrOutcomeResponse struct {
-	Outcome models.ReportOutcomeType `json:"outcome"`
 }
 
 // ------------------------------------------------------------------

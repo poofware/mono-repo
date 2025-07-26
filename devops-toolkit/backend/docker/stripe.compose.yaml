@@ -3,15 +3,15 @@ x-build-network: &build-network
 
 x-environment: &environment
   environment:
-    HCP_TOKEN_ENC_KEY: ${HCP_TOKEN_ENC_KEY?Docker Compose Config Error! HCP_TOKEN_ENC_KEY is not set!}
+    BWS_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN?Docker Compose Config Error! BWS_ACCESS_TOKEN is not set!}
 
 x-build-args: &build-args
   APP_NAME: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}
   ENV: ${ENV?Docker Compose Config Error! ENV is not set!}
-  HCP_ORG_ID: ${HCP_ORG_ID?Docker Compose Config Error! HCP_ORG_ID is not set!}
-  HCP_PROJECT_ID: ${HCP_PROJECT_ID?Docker Compose Config Error! HCP_PROJECT_ID is not set!}
-  HCP_ENCRYPTED_API_TOKEN: ${HCP_ENCRYPTED_API_TOKEN?Docker Compose Config Error! HCP_ENCRYPTED_API_TOKEN is not set!}
   STRIPE_CLI_VERSION: 1.25.1
+
+x-build-labels: &build-labels
+  com.docker.compose.project: ${COMPOSE_PROJECT_NAME:?Docker Compose Config Error! COMPOSE_PROJECT_NAME is not set!}
 
 services:
   # ----------------------
@@ -31,6 +31,9 @@ services:
         STRIPE_WEBHOOK_CONNECTED_EVENTS: ${STRIPE_WEBHOOK_CONNECTED_EVENTS:-}
         STRIPE_WEBHOOK_PLATFORM_EVENTS: ${STRIPE_WEBHOOK_PLATFORM_EVENTS:-}
         STRIPE_WEBHOOK_ROUTE: ${STRIPE_WEBHOOK_ROUTE?Docker Compose Config Error! STRIPE_WEBHOOK_ROUTE is not set!}
+      labels:
+        <<: *build-labels
+        com.docker.compose.service: stripe-listener
     image: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-stripe-listener
     container_name: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-stripe-listener_instance
     networks:
@@ -58,6 +61,9 @@ services:
         STRIPE_WEBHOOK_CHECK_ROUTE: ${STRIPE_WEBHOOK_CHECK_ROUTE?Docker Compose Config Error! STRIPE_WEBHOOK_CHECK_ROUTE is not set!}
         UNIQUE_RUN_NUMBER: ${UNIQUE_RUN_NUMBER?Docker Compose Config Error! UNIQUE_RUN_NUMBER is not set!}
         UNIQUE_RUNNER_ID: ${UNIQUE_RUNNER_ID?Docker Compose Config Error! UNIQUE_RUNNER_ID is not set!}
+      labels:
+        <<: *build-labels
+        com.docker.compose.service: stripe-webhook-check
     image: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-stripe-webhook-check
     container_name: ${APP_NAME?Docker Compose Config Error! APP_NAME is not set!}-stripe-webhook-check_instance
     profiles:

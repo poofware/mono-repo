@@ -113,8 +113,3 @@ func (h *TestHelper) CompleteCheckrReport(reportID, candidateID, webhookURL stri
 	h.PostCheckrWebhook(webhookURL, payload)
 	h.T.Log("Mocked Checkr report.completed event posted.")
 }
-
-// StrPtr is a simple helper to get a pointer to a string literal.
-func StrPtr(s string) *string {
-	return &s
-}

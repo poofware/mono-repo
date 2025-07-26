@@ -184,14 +184,14 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
                       WelcomeButton(
                         text: appLocalizations.welcomeLoginButton,
                         fontSize: 18,
-                        isLoading: _isNavigating,
-                        onPressed: () async {
-                          if (_isNavigating) return;
+                        // no isLoading → no spinner, but we still block repeat taps
+                        onPressed: () {
+                          if (_isNavigating) return;       // lock‑out
                           setState(() => _isNavigating = true);
-                          await context.pushNamed(AppRouteNames.loginPage);
-                          if (mounted) {
-                            setState(() => _isNavigating = false);
-                          }
+                          // clear the flag once the route is popped
+                          context.pushNamed(AppRouteNames.loginPage).then((_) {
+                            if (mounted) setState(() => _isNavigating = false);
+                          });
                         },
                       ),
             
@@ -200,13 +200,12 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
             
                       // create-account link
                       GestureDetector(
-                        onTap: () async {
+                        onTap: () {
                           if (_isNavigating) return;
                           setState(() => _isNavigating = true);
-                          await context.pushNamed(AppRouteNames.createAccountPage);
-                          if (mounted) {
-                            setState(() => _isNavigating = false);
-                          }
+                          context.pushNamed(AppRouteNames.createAccountPage).then((_) {
+                            if (mounted) setState(() => _isNavigating = false);
+                          });
                         },
                         child: Text(
                           appLocalizations.welcomeCreateAccountButton,

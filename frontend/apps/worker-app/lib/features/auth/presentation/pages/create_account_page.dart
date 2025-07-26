@@ -297,6 +297,7 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
                       TextField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
                         decoration: customInputDecoration(
                           labelText: appLocalizations.createAccountEmailLabel,
                         ),

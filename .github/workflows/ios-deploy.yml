@@ -1,0 +1,102 @@
+name: iOS Build and Upload to TestFlight
+
+permissions:
+  contents: write  # Needed if you want to push Podfile.lock changes
+
+on:
+  push:
+    branches:
+      - main
+      - testflight
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          submodules: recursive
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Select Xcode Version
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2.0'
+
+      - name: Set up Flutter
+        uses: flutter-actions/setup-flutter@v3
+        with:
+          channel: 'beta'
+          cache-sdk: true
+
+      - name: Set up Ruby and Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          
+      - name: Setup GNU user‑land
+        run: |
+          ########################################
+          # 1 • Install packages                 #
+          ########################################
+          brew install make bash \
+                       coreutils findutils gnu-sed gnu-tar gnu-which \
+                       grep gawk diffutils gnu-indent gnu-getopt
+
+          # Replace BSD make
+          sudo ln -sf "$(brew --prefix make)/bin/gmake" /usr/local/bin/make
+
+          ########################################
+          # 2 • Expose them to all later steps   #
+          ########################################
+          # Homebrew’s main bin (bash, gmake, etc.)
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+
+          # GNU user‑land “gnubin” directories
+          for dir in \
+            "$(brew --prefix coreutils)/libexec/gnubin" \
+            "$(brew --prefix findutils)/libexec/gnubin" \
+            "$(brew --prefix gnu-sed)/libexec/gnubin" \
+            "$(brew --prefix gnu-tar)/libexec/gnubin" \
+            "$(brew --prefix gnu-which)/libexec/gnubin" \
+            "$(brew --prefix grep)/libexec/gnubin" \
+            "$(brew --prefix gawk)/libexec/gnubin" \
+            "$(brew --prefix diffutils)/libexec/gnubin" \
+            "$(brew --prefix gnu-indent)/libexec/gnubin" \
+            "$(brew --prefix gnu-getopt)/bin"
+          do
+            echo "$dir" >> "$GITHUB_PATH"
+          done
+
+          ########################################
+          # 3 • Make them visible in THIS step   #
+          ########################################
+          export PATH="$(cat "$GITHUB_PATH" | tr '\n' ':')$PATH"
+
+          ########################################
+          # 4 • Quick sanity check               #
+          ########################################
+          echo "make -> $(which make)"
+          echo "bash -> $(which bash)"
+          echo "ls   -> $(which ls) ($(ls --version | head -n1))"
+
+      - name: Install All Dependencies via Makefile
+        working-directory: frontend/apps/worker-app
+        run: make dependencies-ios
+
+      - name: Deploy to TestFlight via Makefile
+        working-directory: frontend/apps/worker-app
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          UNIQUE_RUNNER_ID: ${{ github.ref_name == 'main' && secrets.UNIQUE_RUNNER_ID || 'jacob-moore' }}
+          UNIQUE_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          make deploy-ios ENV=${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+

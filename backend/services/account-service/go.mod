@@ -18,6 +18,7 @@ require (
 	github.com/poofware/go-testhelpers v0.0.0-20250623155146-c502e35b0d10
 	github.com/poofware/go-utils v0.0.0-20250630000146-7d946433b1f0
 	github.com/rs/cors v1.11.1
+	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/stretchr/testify v1.10.0
 	github.com/stripe/stripe-go/v82 v82.2.1
 	golang.org/x/crypto v0.38.0
@@ -63,7 +64,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/otp v1.5.0 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
-	github.com/sendgrid/sendgrid-go v3.16.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/twilio/twilio-go v1.25.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

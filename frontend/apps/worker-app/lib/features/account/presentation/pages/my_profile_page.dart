@@ -21,6 +21,7 @@ import 'package:poof_worker/core/config/flavors.dart';
 
 import 'checkr_outcome_page.dart';
 import 'saving_overlay.dart';
+import '../widgets/profile_form_fields.dart';
 
 class MyProfilePage extends ConsumerStatefulWidget {
   const MyProfilePage({super.key});
@@ -30,47 +31,71 @@ class MyProfilePage extends ConsumerStatefulWidget {
 }
 
 class _MyProfilePageState extends ConsumerState<MyProfilePage> {
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
-  late final TextEditingController _yearController;
-  late final TextEditingController _makeController;
-  late final TextEditingController _modelController;
-  late final TextEditingController _addressController;
+
+  // State for the new reusable widgets
+  AddressResolved? _addressState;
+  String _aptSuite = '';
+  int _vehicleYear = 0;
+  String _vehicleMake = '';
+  String _vehicleModel = '';
 
   bool _hasInitializedFields = false;
   bool _isSaving = false;
   bool _isEditing = false;
+  bool _isFormValid = true;
 
   @override
   void initState() {
     super.initState();
+    _firstNameController = TextEditingController();
+    _lastNameController = TextEditingController();
     _emailController = TextEditingController();
     _phoneController = TextEditingController();
-    _yearController = TextEditingController();
-    _makeController = TextEditingController();
-    _modelController = TextEditingController();
-    _addressController = TextEditingController();
+    _firstNameController.addListener(_validateForm);
+    _lastNameController.addListener(_validateForm);
+    _emailController.addListener(_validateForm);
   }
 
   @override
   void dispose() {
+    _firstNameController.removeListener(_validateForm);
+    _lastNameController.removeListener(_validateForm);
+    _emailController.removeListener(_validateForm);
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _yearController.dispose();
-    _makeController.dispose();
-    _modelController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
-  // A helper function to present the CheckrOutcomePage as a modal sheet.
+  void _validateForm() {
+    final isValid = _firstNameController.text.trim().isNotEmpty &&
+        _lastNameController.text.trim().isNotEmpty &&
+        _emailController.text.trim().isNotEmpty &&
+        _phoneController.text.trim().isNotEmpty &&
+        _addressState != null &&
+        _vehicleYear > 0 &&
+        _vehicleMake.isNotEmpty &&
+        _vehicleModel.isNotEmpty;
+
+    if (isValid != _isFormValid) {
+      setState(() {
+        _isFormValid = isValid;
+      });
+    }
+  }
+
   Future<void> _showCheckrOutcomePage() async {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Checkr Outcome', // Accessibility label for the barrier.
+      barrierLabel: 'Checkr Outcome',
       transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => const CheckrOutcomePage(),
+      pageBuilder: (_, _, _) => const CheckrOutcomePage(),
       transitionBuilder: (context, anim1, anim2, child) {
         return SlideTransition(
           position: Tween(
@@ -86,14 +111,13 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     );
   }
 
-  // 0. Dummy data used exclusively in test-mode
   Worker get _dummyWorker => Worker(
         id: 'dummy-worker-id',
         email: 'jane.doe@example.com',
         phoneNumber: '+1 555-555-1234',
         firstName: 'Jane',
         lastName: 'Doe',
-        streetAddress: '123 Mockingbird Ln, Springfield, IL 62704',
+        streetAddress: '123 Mockingbird Ln',
         aptSuite: 'Apt 4B',
         city: 'Springfield',
         state: 'IL',
@@ -126,9 +150,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     final fullName =
         '${worker?.firstName ?? ''} ${worker?.lastName ?? ''}'.trim();
 
-    // Dynamically build the list of account management tiles
     final accountManagementTiles = <Widget>[
-      // Conditionally add the status check tile
       if (worker?.accountStatus == AccountStatusType.backgroundCheckPending)
         _StatefulLinkTile(
           icon: Icons.hourglass_top_outlined,
@@ -136,7 +158,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
           subtitle: appLocalizations.myProfilePageCheckStatusSubtitle,
           onTap: _showCheckrOutcomePage,
         ),
-      // The permanent tiles
       _StatefulLinkTile(
         icon: Icons.credit_card_outlined,
         title: appLocalizations.myProfilePageManagePaymentsButton,
@@ -155,7 +176,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // --- Custom Header ---
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
               child: Row(
@@ -188,19 +208,27 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                 ],
               ),
             ),
-            // --- Scrollable Content Area ---
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
-                    // --- Avatar & Name Header ---
                     _buildProfileHeader(theme, worker!, fullName, appLocalizations),
-
-                    // --- Contact Info Section ---
                     _buildSection(
                       title: appLocalizations.myProfilePageContactSection,
                       children: [
+                        _buildEditableProfileField(
+                          controller: _firstNameController,
+                          label: appLocalizations.myProfilePageFirstNameLabel,
+                          icon: Icons.person_outline,
+                          isEditing: _isEditing,
+                        ),
+                        _buildEditableProfileField(
+                          controller: _lastNameController,
+                          label: appLocalizations.myProfilePageLastNameLabel,
+                          icon: Icons.person_outline,
+                          isEditing: _isEditing,
+                        ),
                         _buildEditableProfileField(
                           controller: _emailController,
                           label: appLocalizations.myProfilePageEmailLabel,
@@ -215,42 +243,42 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                           isEditing: _isEditing,
                           keyboardType: TextInputType.phone,
                         ),
-                        _buildEditableProfileField(
-                          controller: _addressController,
-                          label: appLocalizations.myProfilePageAddressLabel,
-                          icon: Icons.location_on_outlined,
+                        AddressFormField(
+                          initialStreet: worker.streetAddress,
+                          initialAptSuite: worker.aptSuite ?? '',
+                          initialCity: worker.city,
+                          initialState: worker.state,
+                          initialZip: worker.zipCode,
                           isEditing: _isEditing,
-                        ),
+                          onChanged: (resolved, apt) {
+                            setState(() {
+                              _addressState = resolved;
+                              _aptSuite = apt;
+                              _validateForm();
+                            });
+                          },
+                        )
                       ],
                     ),
-
-                    // --- Vehicle Info Section ---
                     _buildSection(
                       title: appLocalizations.myProfilePageVehicleSection,
                       children: [
-                        _buildEditableProfileField(
-                          controller: _yearController,
-                          label: appLocalizations.myProfilePageVehicleYearLabel,
-                          icon: Icons.calendar_today_outlined,
+                        VehicleFormField(
+                          initialYear: worker.vehicleYear,
+                          initialMake: worker.vehicleMake,
+                          initialModel: worker.vehicleModel,
                           isEditing: _isEditing,
-                          keyboardType: TextInputType.number,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _makeController,
-                          label: appLocalizations.myProfilePageVehicleMakeLabel,
-                          icon: Icons.factory_outlined,
-                          isEditing: _isEditing,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _modelController,
-                          label: appLocalizations.myProfilePageVehicleModelLabel,
-                          icon: Icons.directions_car_outlined,
-                          isEditing: _isEditing,
-                        ),
+                          onChanged: (year, make, model) {
+                            setState(() {
+                              _vehicleYear = year;
+                              _vehicleMake = make;
+                              _vehicleModel = model;
+                              _validateForm();
+                            });
+                          },
+                        )
                       ],
                     ),
-
-                    // --- Account Management Section ---
                     _buildSection(
                       title:
                           appLocalizations.myProfilePageAccountManagementSection,
@@ -260,8 +288,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                 ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
               ),
             ),
-
-            // --- Sticky Save Button ---
             if (_isEditing)
               Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -270,8 +296,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                       ? appLocalizations.myProfilePageSavingButton
                       : appLocalizations.myProfilePageSaveChangesButton,
                   isLoading: _isSaving,
-                  showSpinner: false, // Use overlay spinner instead
-                  onPressed: () => _saveProfile(worker),
+                  showSpinner: false,
+                  onPressed: _isFormValid ? () => _saveProfile(worker) : null,
                 ),
               ),
           ],
@@ -286,8 +312,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       ],
     );
   }
-
-  // --- NEW WIDGET BUILDERS for modern UI ---
 
   Widget _buildProfileHeader(ThemeData theme, Worker worker, String fullName, AppLocalizations appLocalizations) {
     return Container(
@@ -362,7 +386,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     bool isEditing = false,
     TextInputType keyboardType = TextInputType.text,
   }) {
-    // Wrap the AnimatedSwitcher with AnimatedSize to fix the "jank".
     return AnimatedSize(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
@@ -376,7 +399,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                 keyboardType: keyboardType,
                 decoration: _customInputDecoration(labelText: label),
               )
-            : _ProfileReadOnlyField(
+            : ProfileReadOnlyField(
                 key: ValueKey('${label}_view'),
                 icon: icon,
                 label: label,
@@ -403,19 +426,29 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     );
   }
 
-  // --- Helper logic (mostly unchanged) ---
   void _populateControllers(Worker w) {
+    _firstNameController.text = w.firstName;
+    _lastNameController.text = w.lastName;
     _emailController.text = w.email;
     _phoneController.text = w.phoneNumber;
-    _yearController.text = w.vehicleYear.toString();
-    _makeController.text = w.vehicleMake;
-    _modelController.text = w.vehicleModel;
-    _addressController.text = w.streetAddress;
+    _addressState = AddressResolved(
+      street: w.streetAddress,
+      city: w.city,
+      state: w.state,
+      postalCode: w.zipCode,
+    );
+    _aptSuite = w.aptSuite ?? '';
+    _vehicleYear = w.vehicleYear;
+    _vehicleMake = w.vehicleMake;
+    _vehicleModel = w.vehicleModel;
   }
 
   void _cancelEdit(Worker worker) {
     _populateControllers(worker);
-    setState(() => _isEditing = false);
+    setState(() {
+      _isEditing = false;
+      _isFormValid = true; 
+    });
   }
 
   Future<void> _launchUrl(String url) async {
@@ -430,8 +463,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 }
 
   Future<void> _handleManagePayouts() async {
-    // This handler no longer sets the page-level _isSaving flag.
-    // The loading state is now handled entirely within _StatefulLinkTile.
     final BuildContext capturedContext = context;
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
@@ -453,26 +484,26 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
   Future<void> _saveProfile(Worker worker) async {
     setState(() => _isSaving = true);
-
     final BuildContext capturedContext = context;
 
     final patchFields = <String, dynamic>{};
-    final trimmedEmail = _emailController.text.trim();
-    final trimmedPhone = _phoneController.text.trim();
-    final trimmedAddress = _addressController.text.trim();
-    final trimmedMake = _makeController.text.trim();
-    final trimmedModel = _modelController.text.trim();
-    final trimmedYearStr = _yearController.text.trim();
-    final int? parsedYear = int.tryParse(trimmedYearStr.isEmpty ? '0' : trimmedYearStr);
-
-    if (trimmedEmail != worker.email) patchFields['email'] = trimmedEmail;
-    if (trimmedPhone != worker.phoneNumber) patchFields['phone_number'] = trimmedPhone;
-    if (trimmedAddress != worker.streetAddress) patchFields['street_address'] = trimmedAddress;
-    if (parsedYear != null && parsedYear != 0 && parsedYear != worker.vehicleYear) {
-      patchFields['vehicle_year'] = parsedYear;
+    if (_firstNameController.text.trim() != worker.firstName) patchFields['first_name'] = _firstNameController.text.trim();
+    if (_lastNameController.text.trim() != worker.lastName) patchFields['last_name'] = _lastNameController.text.trim();
+    if (_emailController.text.trim() != worker.email) patchFields['email'] = _emailController.text.trim();
+    if (_phoneController.text.trim() != worker.phoneNumber) patchFields['phone_number'] = _phoneController.text.trim();
+    
+    if (_addressState != null) {
+      if (_addressState!.street != worker.streetAddress) patchFields['street_address'] = _addressState!.street;
+      if (_addressState!.city != worker.city) patchFields['city'] = _addressState!.city;
+      if (_addressState!.state != worker.state) patchFields['state'] = _addressState!.state;
+      if (_addressState!.postalCode != worker.zipCode) patchFields['zip_code'] = _addressState!.postalCode;
     }
-    if (trimmedMake != worker.vehicleMake) patchFields['vehicle_make'] = trimmedMake;
-    if (trimmedModel != worker.vehicleModel) patchFields['vehicle_model'] = trimmedModel;
+
+    if (_aptSuite != (worker.aptSuite ?? '')) patchFields['apt_suite'] = _aptSuite;
+    
+    if (_vehicleYear != worker.vehicleYear) patchFields['vehicle_year'] = _vehicleYear;
+    if (_vehicleMake != worker.vehicleMake) patchFields['vehicle_make'] = _vehicleMake;
+    if (_vehicleModel != worker.vehicleModel) patchFields['vehicle_model'] = _vehicleModel;
 
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
     if (isTestMode) {
@@ -488,8 +519,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
     final workerAuthRepo = ref.read(workerAuthRepositoryProvider);
     try {
-      if (patchFields.containsKey('phone_number')) await workerAuthRepo.checkPhoneValid(trimmedPhone);
-      if (patchFields.containsKey('email')) await workerAuthRepo.checkEmailValid(trimmedEmail);
+      if (patchFields.containsKey('phone_number')) await workerAuthRepo.checkPhoneValid(patchFields['phone_number']);
+      if (patchFields.containsKey('email')) await workerAuthRepo.checkEmailValid(patchFields['email']);
       if (!capturedContext.mounted) return;
       await _attemptPatch(patchFields, capturedContext);
     } on Exception catch (e) {
@@ -505,9 +536,15 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     final appLocalizations = AppLocalizations.of(context);
 
     final patchRequest = WorkerPatchRequest(
+      firstName: changedFields['first_name'],
+      lastName: changedFields['last_name'],
       email: changedFields['email'],
       phoneNumber: changedFields['phone_number'],
       streetAddress: changedFields['street_address'],
+      aptSuite: changedFields['apt_suite'],
+      city: changedFields['city'],
+      state: changedFields['state'],
+      zipCode: changedFields['zip_code'],
       vehicleYear: changedFields['vehicle_year'],
       vehicleMake: changedFields['vehicle_make'],
       vehicleModel: changedFields['vehicle_model'],
@@ -556,7 +593,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     if (e is ApiException) {
       message = userFacingMessage(context, e);
     } else {
-      message = AppLocalizations.of(context).loginUnexpectedError(e.toString());
+       message = AppLocalizations.of(context).loginUnexpectedError(e.toString());
     }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
@@ -569,50 +606,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   }
 }
 
-/// A clean, read-only display for a profile field.
-class _ProfileReadOnlyField extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  const _ProfileReadOnlyField({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, color: theme.colorScheme.primary, size: 24),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.bodyLarge,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Simple loader scaffold used until Worker data arrives (prod only).
 class _LoadingScaffold extends StatelessWidget {
   final AppLocalizations appLocalizations;
   const _LoadingScaffold({required this.appLocalizations});
@@ -650,7 +643,6 @@ class _LoadingScaffold extends StatelessWidget {
   }
 }
 
-/// A stateful, tappable list tile for launching external links.
 class _StatefulLinkTile extends StatefulWidget {
   final IconData icon;
   final String title;

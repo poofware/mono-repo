@@ -28,9 +28,7 @@ help::
 	@echo "WITH_DEPS: $(WITH_DEPS)"
 	@echo "DEPS: $(DEPS)"
 	@echo "COMPOSE_FILE: $(COMPOSE_FILE)"
-	@echo "HCP_CLIENT_ID": xxxxxxxx
-	@echo "HCP_CLIENT_SECRET": xxxxxxxx
-	@echo "HCP_TOKEN_ENC_KEY": xxxxxxxx
+	@echo "BWS_ACCESS_TOKEN": xxxxxxxx
 	@echo "--------------------------------------------------"
 	@echo
 	@echo "--------------------------------------------------"

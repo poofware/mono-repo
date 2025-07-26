@@ -3,7 +3,6 @@ set -e
 
 echo "[INFO] Starting stripe-webhook-check-entrypoint..."
 
-: "${HCP_ENCRYPTED_API_TOKEN:?HCP_ENCRYPTED_API_TOKEN env var is required}"
 : "${APP_URL_FROM_ANYWHERE:?APP_URL_FROM_ANYWHERE env var is required}"
 : "${STRIPE_WEBHOOK_CHECK_ROUTE:?STRIPE_WEBHOOK_CHECK_ROUTE env var is required}"
 : "${APP_NAME:?APP_NAME env var is required}"
@@ -13,19 +12,14 @@ echo "[INFO] Starting stripe-webhook-check-entrypoint..."
 # 1) Wait for the service to be healthy
 source ./health_check.sh
 
-# 2) Decrypt the HCP token if needed
-source ./encryption.sh
-export HCP_API_TOKEN="$(decrypt_token "${HCP_ENCRYPTED_API_TOKEN}")"
-echo "[INFO] Decrypted HCP_API_TOKEN successfully."
-
-# 3) Fetch Stripe secret from HCP for CLI usage
-STRIPE_SECRET_KEY="$(./fetch_hcp_secret_from_secrets_json.sh STRIPE_SECRET_KEY)"
+# 3) Fetch Stripe secret from BWS for CLI usage
+STRIPE_SECRET_KEY="$(./fetch_bws_secret.sh STRIPE_SECRET_KEY | jq -r '.STRIPE_SECRET_KEY // empty')"
 
 if [ -z "$STRIPE_SECRET_KEY" ] || [ "$STRIPE_SECRET_KEY" = "null" ]; then
-  echo "[ERROR] Could not retrieve 'STRIPE_SECRET_KEY' from HCP."
+  echo "[ERROR] Could not retrieve 'STRIPE_SECRET_KEY' from BWS."
   exit 1
 fi
-echo "[INFO] 'STRIPE_SECRET_KEY' fetched from HCP."
+echo "[INFO] 'STRIPE_SECRET_KEY' fetched from BWS."
 
 # 4) Set up a trap to ensure the connected account is always deleted
 ACCOUNT_ID=""

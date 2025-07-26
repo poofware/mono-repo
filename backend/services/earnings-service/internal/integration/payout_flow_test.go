@@ -84,7 +84,9 @@ func getOrCreateWorkerForStripeAccount(t *testing.T, ctx context.Context, emailP
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 1: Payout Lifecycle (Aggregation & Processing)
+
 ------------------------------------------------------------------------------
 This test verifies the core service logic that is called by cron jobs,
 ensuring the business logic for creating and processing payouts works as
@@ -184,7 +186,9 @@ func TestPayoutLifecycle(t *testing.T) {
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 2: Real Webhook Event Handling
+
 ------------------------------------------------------------------------------
 This test triggers actions that cause Stripe to send real webhooks back to
 the service, verifying the service handles these asynchronous events correctly.
@@ -266,7 +270,9 @@ func TestRealWebhookEvents(t *testing.T) {
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 3: Mocked Webhook Event Handling
+
 ------------------------------------------------------------------------------
 This test simulates various webhook events from Stripe by mocking and sending
 the payloads manually. This is used for edge cases that are difficult to
@@ -450,7 +456,9 @@ func TestMockedWebhookEventHandling(t *testing.T) {
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 4: Webhook-Driven Recovery Flow
+
 ------------------------------------------------------------------------------
 This test verifies that the service can recover a failed payout after a
 worker updates their Stripe account, triggering an `account.updated` webhook.
@@ -499,11 +507,31 @@ func TestWebhookDrivenRecovery(t *testing.T) {
 	require.NotNil(t, payout, "Payout was not re-queued to PENDING after account.updated webhook")
 	require.NotNil(t, payout.NextAttemptAt, "NextAttemptAt should be set for the retry")
 	t.Logf("Successfully verified that payout %s was re-queued to PENDING.", payout.ID)
+
+	// --- 4. Ensure duplicate payout.failed webhooks do not alter the re-queued payout ---
+	generatedBy := fmt.Sprintf("%s-%s-%s", cfg.AppName, cfg.UniqueRunnerID, cfg.UniqueRunNumber)
+	dupPayload := h.MockStripeWebhookPayload(t, "payout.failed", map[string]any{
+		"id":           *payout.StripePayoutID,
+		"object":       "payout",
+		"status":       "failed",
+		"failure_code": string(stripe.PayoutFailureCodeAccountClosed),
+		"metadata": map[string]string{
+			constants.WebhookMetadataPayoutIDKey:    payout.ID.String(),
+			constants.WebhookMetadataGeneratedByKey: generatedBy,
+		},
+	})
+	h.PostStripeWebhook(h.BaseURL+routes.EarningsStripeWebhook, string(dupPayload))
+	time.Sleep(500 * time.Millisecond)
+
+	payoutAfterDup, _ := payoutRepo.GetByID(ctx, payout.ID)
+	require.Equal(t, internal_models.PayoutStatusPending, payoutAfterDup.Status, "Duplicate webhook should not alter payout status")
 }
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 5: Earnings Summary API Endpoint
+
 ------------------------------------------------------------------------------
 */
 func TestGetEarningsSummaryEndpoint(t *testing.T) {
@@ -649,7 +677,9 @@ func TestGetEarningsSummaryEndpoint(t *testing.T) {
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 6: Payout Failure Scenarios & Idempotency
+
 ------------------------------------------------------------------------------
 This test verifies specific failure modes based on Connect account states and
 platform balance, and also ensures that payout processing is idempotent.
@@ -755,7 +785,9 @@ func TestPayoutFailureScenariosAndIdempotency(t *testing.T) {
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 7: Insufficient Balance and Recovery
+
 ------------------------------------------------------------------------------
 This test verifies the complete flow of a payout failing due to insufficient
 platform funds, and then being automatically retried and succeeding after the
@@ -822,7 +854,9 @@ func TestInsufficientBalanceAndRecovery(t *testing.T) {
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 8: Advanced Recovery and Retry Scenarios
+
 ------------------------------------------------------------------------------
 This test suite verifies more nuanced recovery and retry flows that are
 critical for service resilience but not covered in the main lifecycle tests.
@@ -941,7 +975,9 @@ func TestAdvancedRecoveryAndRetryScenarios(t *testing.T) {
 
 /*
 ------------------------------------------------------------------------------
+
 	Test 9: Webhook Security
+
 ------------------------------------------------------------------------------
 This test verifies security aspects of the webhook handler, such as signature
 validation.

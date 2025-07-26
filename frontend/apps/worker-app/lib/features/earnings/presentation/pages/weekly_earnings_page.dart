@@ -176,7 +176,7 @@ class WeekEarningsDetailPage extends StatelessWidget {
             enabled: true,
             touchTooltipData: BarTouchTooltipData(
               tooltipPadding: const EdgeInsets.all(8),
-              getTooltipItem: (group, _, rod, __) {
+              getTooltipItem: (group, _, rod, _) {
                 final day = days[group.x];
                 final dayStr = DateFormat('MMM d').format(day);
                 return BarTooltipItem(

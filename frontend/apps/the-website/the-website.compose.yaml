@@ -7,6 +7,13 @@ services:
       context: .
       dockerfile: the-website.Dockerfile
       <<: *build-network
+      labels:
+        com.docker.compose.project: ${COMPOSE_PROJECT_NAME:?Docker Compose Config Error! COMPOSE_PROJECT_NAME is not set!}
+        com.docker.compose.service: the-website
+
+      # Have to do this until there is a better option to control this from the compose cli
+      platforms:
+        - ${TARGET_PLATFORM:?Docker Compose Config Error! TARGET_PLATFORM is not set!}
     image: ${APP_NAME:?Docker Compose Config Error! APP_NAME is not set!}
     container_name: ${APP_NAME:?Docker Compose Config Error! APP_NAME is not set!}_instance
     ports:

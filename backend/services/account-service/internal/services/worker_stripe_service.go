@@ -16,7 +16,8 @@ import (
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 	"github.com/poofware/go-utils"
-
+	"github.com/sendgrid/sendgrid-go"
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/account"
 	"github.com/stripe/stripe-go/v82/accountlink"
@@ -48,24 +49,49 @@ var (
 
 // WorkerStripeService orchestrates Stripe Connect & Identity flows
 type WorkerStripeService struct {
-	Cfg                 *config.Config
-	repo                repositories.WorkerRepository
-	generatedBy         string
-	webhookPlatformID   string
-	webhookConnectID    string
+	Cfg                   *config.Config
+	repo                  repositories.WorkerRepository
+	sendgridClient        *sendgrid.Client // NEW
+	generatedBy           string
+	webhookPlatformID     string
+	webhookConnectID      string
 	webhookPlatformSecret string
 	webhookConnectSecret  string
-	mu                  sync.Mutex
+	mu                    sync.Mutex
 }
 
-func NewWorkerStripeService(cfg *config.Config, repo repositories.WorkerRepository) *WorkerStripeService {
+func NewWorkerStripeService(cfg *config.Config, repo repositories.WorkerRepository, sg *sendgrid.Client) *WorkerStripeService {
 	stripe.Key = cfg.StripeSecretKey
 
 	generated := fmt.Sprintf("%s-%s-%s", cfg.AppName, cfg.UniqueRunnerID, cfg.UniqueRunNumber)
 	return &WorkerStripeService{
-		Cfg:         cfg,
-		repo:        repo,
-		generatedBy: generated,
+		Cfg:            cfg,
+		repo:           repo,
+		sendgridClient: sg, // NEW
+		generatedBy:    generated,
+	}
+}
+
+// sendWebhookMissAlert sends an internal notification about a potential webhook failure.
+func (s *WorkerStripeService) sendWebhookMissAlert(objectType string, objectID string, workerID uuid.UUID) {
+	from := mail.NewEmail(s.Cfg.OrganizationName, s.Cfg.LDFlag_SendgridFromEmail)
+	to := mail.NewEmail("Poof Dev Team", "team@thepoofapp.com")
+	subject := fmt.Sprintf("[Webhook Resilience] Missed %s Webhook", objectType)
+	plainText := fmt.Sprintf("A %s event for ID %s (Worker ID: %s) was not received. The system self-healed by polling the API. Please investigate potential webhook delivery issues.", objectType, objectID, workerID)
+	htmlContent := fmt.Sprintf("<p>%s</p>", plainText)
+
+	msg := mail.NewSingleEmail(from, subject, to, plainText, htmlContent)
+	if s.Cfg.LDFlag_SendgridSandboxMode {
+		ms := mail.NewMailSettings()
+		ms.SetSandboxMode(mail.NewSetting(true))
+		msg.MailSettings = ms
+	}
+
+	_, err := s.sendgridClient.Send(msg)
+	if err != nil {
+		utils.Logger.WithError(err).Errorf("Failed to send webhook miss alert email for %s ID %s", objectType, objectID)
+	} else {
+		utils.Logger.Infof("Sent webhook miss alert for %s ID %s.", objectType, objectID)
 	}
 }
 
@@ -512,10 +538,34 @@ func (s *WorkerStripeService) CheckIdentityFlowStatus(ctx context.Context, userI
 	}
 
 	// If worker is already beyond ID_VERIFY, that means ID flow is effectively "complete"
-	switch worker.SetupProgress {
-	case models.SetupProgressAchPaymentAccountSetup, models.SetupProgressBackgroundCheck, models.SetupProgressDone:
+	if worker.SetupProgress != models.SetupProgressIDVerify {
 		return dtos.StripeFlowStatusComplete, nil
 	}
+
+	// --- NEW: Polling Fallback Logic ---
+	// If worker is in ID_VERIFY state, poll Stripe directly.
+	if worker.CurrentStripeIdvSessionID != nil && *worker.CurrentStripeIdvSessionID != "" {
+		utils.Logger.Infof("Polling Stripe IDV session status for worker %s", worker.ID)
+		vs, getErr := verificationsession.Get(*worker.CurrentStripeIdvSessionID, nil)
+		if getErr != nil {
+			// Don't fail the request, just log and return incomplete. The user can retry.
+			utils.Logger.WithError(getErr).Warnf("Polling Stripe IDV session %s failed", *worker.CurrentStripeIdvSessionID)
+			return dtos.StripeFlowStatusIncomplete, nil
+		}
+
+		if vs.Status == stripe.IdentityVerificationSessionStatusVerified {
+			utils.Logger.Infof("Polling found Stripe IDV session %s is 'verified'. Triggering self-healing.", vs.ID)
+			s.sendWebhookMissAlert("Stripe IDV", vs.ID, worker.ID)
+			// The session is verified. Trigger the same logic as the webhook.
+			if err := s.HandleVerificationSessionVerified(vs); err != nil {
+				utils.Logger.WithError(err).Error("Self-healing failed for verified IDV session.")
+				return dtos.StripeFlowStatusIncomplete, nil
+			}
+			// After self-healing, the state is advanced, so the flow is complete.
+			return dtos.StripeFlowStatusComplete, nil
+		}
+	}
+	// --- END of New Logic ---
 
 	// If still in ID_VERIFY, that means incomplete
 	return dtos.StripeFlowStatusIncomplete, nil
@@ -658,7 +708,7 @@ func (s *WorkerStripeService) initializeStripeConnectExpressAccount(ctx context.
 		Individual: &stripe.PersonParams{
 			FirstName: stripe.String(worker.FirstName),
 			LastName:  stripe.String(worker.LastName),
-			Phone:    stripe.String(worker.PhoneNumber),
+			Phone:     stripe.String(worker.PhoneNumber),
 		},
 		BusinessProfile: &stripe.AccountBusinessProfileParams{
 			ProductDescription: stripe.String("Poof Gig Worker"),

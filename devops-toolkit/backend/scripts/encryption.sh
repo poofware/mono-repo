@@ -4,7 +4,7 @@
 #
 # Provides two functions for encrypting/decrypting text using AES-256-CBC,
 # salted + PBKDF2 (sha256, 10000 iterations), base64 output.
-# Relies on $HCP_TOKEN_ENC_KEY being set in the environment.
+# Relies on $BWS_ACCESS_TOKEN being set in the environment.
 #
 
 set -euo pipefail
@@ -17,8 +17,8 @@ set -euo pipefail
 # Usage: encrypt_token "plaintext"
 ###############################################################################
 encrypt_token() {
-  if [[ -z "${HCP_TOKEN_ENC_KEY:-}" ]]; then
-    echo "[ERROR] HCP_TOKEN_ENC_KEY must be set to encrypt the token." >&2
+  if [[ -z "${BWS_ACCESS_TOKEN:-}" ]]; then
+    echo "[ERROR] BWS_ACCESS_TOKEN must be set to encrypt the token." >&2
     return 1
   fi
 
@@ -27,7 +27,7 @@ encrypt_token() {
 
   echo -n "${plaintext}" \
     | openssl enc -aes-256-cbc -salt -pbkdf2 -md sha256 -iter 10000 -base64 -A \
-      -pass pass:"${HCP_TOKEN_ENC_KEY}"
+      -pass pass:"${BWS_ACCESS_TOKEN}"
   # Add a trailing newline so shell doesn't show a '%' after the file contents
   # Not strictly necessary, but a good practice
   echo
@@ -41,8 +41,8 @@ encrypt_token() {
 # Usage: decrypt_token "ciphertext"
 ###############################################################################
 decrypt_token() {
-  if [[ -z "${HCP_TOKEN_ENC_KEY:-}" ]]; then
-    echo "[ERROR] HCP_TOKEN_ENC_KEY must be set to decrypt the token." >&2
+  if [[ -z "${BWS_ACCESS_TOKEN:-}" ]]; then
+    echo "[ERROR] BWS_ACCESS_TOKEN must be set to decrypt the token." >&2
     return 1
   fi
 
@@ -51,6 +51,6 @@ decrypt_token() {
 
   echo "${ciphertext}" \
     | openssl enc -d -aes-256-cbc -salt -pbkdf2 -md sha256 -iter 10000 -base64 -A \
-      -pass pass:"${HCP_TOKEN_ENC_KEY}"
+      -pass pass:"${BWS_ACCESS_TOKEN}"
 }
 

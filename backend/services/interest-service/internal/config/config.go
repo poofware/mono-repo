@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	ld "github.com/launchdarkly/go-server-sdk/v7"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	ld "github.com/launchdarkly/go-server-sdk/v7"
 	"github.com/poofware/go-utils"
 )
 
@@ -78,25 +78,31 @@ func LoadConfig() *Config {
 	}
 
 	//----------------------------------------------------------------------
-	// 3) HCP secrets (SendGrid + LD SDK key)
+	// 3) BWS secrets (SendGrid + LD SDK key)
 	//----------------------------------------------------------------------
-	client, err := utils.NewHCPSecretsClient()
+	client, err := utils.NewBWSSecretsClient()
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Init HCP client")
+		utils.Logger.WithError(err).Fatal("Init BWS client")
 	}
-	hcpApp := fmt.Sprintf("%s-%s", AppName, env)
-	appSecrets, err := client.GetHCPSecretsFromSecretsJSON(hcpApp)
+	bwsProjectName := fmt.Sprintf("%s-%s", AppName, env)
+	appSecrets, err := client.GetBWSSecrets(bwsProjectName)
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Fetch HCP secrets")
+		utils.Logger.WithError(err).Fatal("Fetch BWS secrets")
 	}
 
-	sgAPI, ok := appSecrets["SENDGRID_API_KEY"]
-	if !ok || sgAPI == "" {
-		utils.Logger.Fatal("SENDGRID_API_KEY missing in HCP secrets")
+	//----------------------------------------------------------------------
+	// Fetch shared secrets from BWS (shared-env).
+	//----------------------------------------------------------------------
+	utils.Logger.Debugf("Fetching shared secrets from BWS for %s-%s", "shared", env)
+	bwsSharedProjectName := fmt.Sprintf("shared-%s", env)
+	sharedSecrets, err := client.GetBWSSecrets(bwsSharedProjectName)
+	if err != nil {
+		utils.Logger.WithError(err).Fatal("Failed to fetch shared secrets from BWS")
 	}
+
 	ldSDK, ok := appSecrets["LD_SDK_KEY"]
 	if !ok || ldSDK == "" {
-		utils.Logger.Fatal("LD_SDK_KEY missing in HCP secrets")
+		utils.Logger.Fatal("LD_SDK_KEY missing in BWS secrets")
 	}
 
 	//----------------------------------------------------------------------
@@ -111,7 +117,6 @@ func LoadConfig() *Config {
 		utils.Logger.Fatal("LaunchDarkly client failed to initialize")
 	}
 	defer ldClient.Close()
-
 
 	ctx := ldcontext.NewWithKind(ldcontext.Kind(LDServerContextKind), LDServerContextKey)
 
@@ -129,6 +134,11 @@ func LoadConfig() *Config {
 	}
 	utils.Logger.Debugf("validate_email_with_sendgrid flag: %t", validateWithSG)
 
+	sgAPI, ok := sharedSecrets["SENDGRID_API_KEY"]
+	if !ok || sgAPI == "" {
+		utils.Logger.Fatal("SENDGRID_API_KEY missing in BWS secrets")
+	}
+
 	utils.Logger.Infof("Loaded config for %s (%s)", AppName, env)
 
 	return &Config{
@@ -145,4 +155,3 @@ func LoadConfig() *Config {
 
 func (c *Config) Close() {
 }
-

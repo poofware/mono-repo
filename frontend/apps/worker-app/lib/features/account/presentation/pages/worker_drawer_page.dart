@@ -49,7 +49,7 @@ class WorkerSideDrawer extends ConsumerWidget {
                         barrierDismissible: true,
                         barrierLabel: 'Help & Support',
                         transitionDuration: const Duration(milliseconds: 300),
-                        pageBuilder: (_, __, ___) => const HelpAndSupportPage(),
+                        pageBuilder: (_, _, _) => const HelpAndSupportPage(),
                         transitionBuilder: (context, anim1, anim2, child) {
                           return SlideTransition(
                             position: Tween(

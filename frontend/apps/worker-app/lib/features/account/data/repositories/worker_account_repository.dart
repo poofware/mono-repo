@@ -43,7 +43,11 @@ class WorkerAccountRepository {
   Future<CheckrETAResponse> getCheckrReportEta(String timeZone) =>
       _api.getCheckrReportEta(timeZone);
 
-  Future<CheckrOutcomeResponse> getCheckrOutcome() => _api.getCheckrOutcome();
+  Future<Worker> getCheckrOutcome() async {
+    final worker = await _api.getCheckrOutcome();
+    _workerNotifier.setWorker(worker);
+    return worker;
+  }
 
   Future<String> completeBackgroundCheck() => _api.completeBackgroundCheck();
 

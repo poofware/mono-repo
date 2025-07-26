@@ -4,7 +4,7 @@
 
 SHELL := /bin/bash
 
-.PHONY: up _up-db migrate _unlocked_migrate _up-app-pre _up-app-post-check
+.PHONY: up _up-db migrate _unlocked_migrate _up-app-pre up-app-post-check
 
 # Check that the current working directory is the root of a project by verifying that the root Makefile exists.
 ifeq ($(wildcard Makefile),)
@@ -84,7 +84,7 @@ _up-app-pre:
 		echo "[INFO] [Up-App-Pre] Done. Any '$(COMPOSE_PROFILE_APP_PRE)' services found are up and running."; \
 	fi
 
-_up-app-post-check:
+up-app-post-check::
 	@if [ -z "$(COMPOSE_PROFILE_APP_POST_CHECK_SERVICES)" ]; then \
 		echo "[WARN] [Up-App-Post-Check] No services found matching the '$(COMPOSE_PROFILE_APP_POST_CHECK)' profile. Skipping..."; \
 	else \
@@ -135,7 +135,7 @@ endif
 	@if [ "$(EXCLUDE_COMPOSE_PROFILE_APP_POST_CHECK)" -eq 1 ]; then \
 	  echo "[INFO] [Up] Skipping app post-check... EXCLUDE_COMPOSE_PROFILE_APP_POST_CHECK is set to 1"; \
 	else \
-	  $(MAKE) _up-app-post-check --no-print-directory; \
+	  $(MAKE) up-app-post-check --no-print-directory; \
 	fi
 
 ## Starts services for all compose profiles in order (EXCLUDE_COMPOSE_PROFILE_APP=1 to exclude profile 'app' from 'up' - EXCLUDE_COMPOSE_PROFILE_APP_POST_CHECK=1 to exclude profile 'app_post_check' from 'up' - WITH_DEPS=1 to 'up' dependency projects as well)

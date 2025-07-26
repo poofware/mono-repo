@@ -7,7 +7,7 @@ services:
     profiles:
       - app_post_check
 
-  go-integration-test:
+  go-app-integration-test:
     profiles:
       - app_integration_test
 

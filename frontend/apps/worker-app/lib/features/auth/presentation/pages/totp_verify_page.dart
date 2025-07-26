@@ -110,22 +110,11 @@ class _TotpVerifyPageState extends ConsumerState<TotpVerifyPage> {
                           children: [
                             SixDigitField(
                               autofocus: true,
-                              onChanged: (val) => setState(() => _sixDigitCode = val),
                               showPasteButton: true,
+                              onChanged: (val) =>
+                                  setState(() => _sixDigitCode = val),
                               onSubmitted: (code) => _handleVerification(),
                             ),
-                            const SizedBox(height: 24),
-                            Text(
-                              appLocalizations.totpVerifyAccountNameInfo,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                            ),
-                            Text(
-                                '\'Poof Worker: ${widget.args.displayIdentifier}\'',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
                           ],
                         ),
                       )

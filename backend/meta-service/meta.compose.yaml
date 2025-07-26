@@ -7,17 +7,25 @@ x-networks: &networks
 
 x-environment: &environment
   environment:
-    HCP_TOKEN_ENC_KEY: ${HCP_TOKEN_ENC_KEY?Docker Compose Config Error! HCP_TOKEN_ENC_KEY is not set!}
+    BWS_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN?Docker Compose Config Error! BWS_ACCESS_TOKEN is not set!}
 
 services:
   meta-service:
     build:
       context: .
+      additional_contexts:
+        devops-toolkit: ${DEVOPS_TOOLKIT_PATH?Docker Compose Config Error! DEVOPS_TOOLKIT_PATH is not set!}
       dockerfile: Dockerfile.generated
       target: meta-service-runner
       <<: *build-network
       args:
+        ENV: ${ENV?Docker Compose Config Error! ENV is not set!}
         APP_PORT: ${APP_PORT?Docker Compose Config Error! APP_PORT is not set!}
+        SERVICES: ${SERVICES?Docker Compose Config Error! SERVICES is not set!}
+
+      # Have to do this until there is a better option to control this from the compose cli
+      platforms:
+        - ${TARGET_PLATFORM:?Docker Compose Config Error! TARGET_PLATFORM is not set!}
     container_name: meta-service_instance
     image: meta-service
     ports: 

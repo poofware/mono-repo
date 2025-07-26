@@ -1,5 +1,5 @@
 services:
-  go-integration-test:
+  go-app-integration-test:
     stdin_open: true
     tty: true
     profiles:

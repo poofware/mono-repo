@@ -1,4 +1,5 @@
-//go:build (dev_test || staging_test)
+//go:build dev_test || staging_test
+
 package integration
 
 import (
@@ -426,12 +427,14 @@ func checkCheckrOutcome(baseURL, accessToken, platform, deviceID string) error {
 		return fmt.Errorf("checkr/outcome: expected 200, got %d – %s", resp.StatusCode, string(body))
 	}
 
-	var out struct{ Outcome string `json:"outcome"` }
+	var out struct {
+		CheckrReportOutcome string `json:"checkr_report_outcome"`
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return err
 	}
-	if strings.ToUpper(out.Outcome) != "UNKNOWN" {
-		return fmt.Errorf("unexpected outcome %q (want \"UNKNOWN\")", out.Outcome)
+	if strings.ToUpper(out.CheckrReportOutcome) != "UNKNOWN" {
+		return fmt.Errorf("unexpected outcome %q (want \"UNKNOWN\")", out.CheckrReportOutcome)
 	}
 	return nil
 }

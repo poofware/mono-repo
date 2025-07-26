@@ -9,44 +9,46 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	ld "github.com/launchdarkly/go-server-sdk/v7"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	ld "github.com/launchdarkly/go-server-sdk/v7"
 	"github.com/poofware/go-utils"
 )
 
 type Config struct {
-	OrganizationName                    string
-	AppName                             string
-	AppPort                             string
-	AppUrl                              string
-	UniqueRunNumber                     string
-	UniqueRunnerID                      string
-	DBUrl                               string
-	DBEncryptionKey                     []byte
-	StripeSecretKey                     string
-	StripeWebhookSecret                 string
-	CheckrAPIKey                        string
-	TwilioAccountSID                    string
-	TwilioAuthToken                     string
-	SendgridAPIKey                      string
-	RSAPrivateKey                       *rsa.PrivateKey
-	RSAPublicKey                        *rsa.PublicKey
-	LDFlag_PrefillStripeExpressKYC      bool
-	LDFlag_AllowOOSSetupFlow            bool
-	LDFlag_SeedDbWithTestAccounts     bool
-	LDFlag_CheckrStagingMode            bool
-	LDFlag_DynamicCheckrWebhookEndpoint bool
-	LDFlag_ValidatePhoneWithTwilio      bool
-	LDFlag_ValidateEmailWithSendGrid    bool
-	LDFlag_UsingIsolatedSchema            bool
-	LDFlag_DynamicStripeWebhookEndpoint bool
-	LDFlag_DoRealMobileDeviceAttestation    bool
-	LDFlag_CORSHighSecurity 			bool
+	OrganizationName                     string
+	AppName                              string
+	AppPort                              string
+	AppUrl                               string
+	UniqueRunNumber                      string
+	UniqueRunnerID                       string
+	DBUrl                                string
+	DBEncryptionKey                      []byte
+	StripeSecretKey                      string
+	StripeWebhookSecret                  string
+	CheckrAPIKey                         string
+	TwilioAccountSID                     string
+	TwilioAuthToken                      string
+	SendgridAPIKey                       string
+	RSAPrivateKey                        *rsa.PrivateKey
+	RSAPublicKey                         *rsa.PublicKey
+	LDFlag_PrefillStripeExpressKYC       bool
+	LDFlag_AllowOOSSetupFlow             bool
+	LDFlag_SeedDbWithTestAccounts        bool
+	LDFlag_CheckrStagingMode             bool
+	LDFlag_DynamicCheckrWebhookEndpoint  bool
+	LDFlag_ValidatePhoneWithTwilio       bool
+	LDFlag_ValidateEmailWithSendGrid     bool
+	LDFlag_UsingIsolatedSchema           bool
+	LDFlag_DynamicStripeWebhookEndpoint  bool
+	LDFlag_DoRealMobileDeviceAttestation bool
+	LDFlag_CORSHighSecurity              bool
+	LDFlag_SendgridFromEmail             string
+	LDFlag_SendgridSandboxMode           bool // NEW
 }
 
 const (
-	OrganizationName     = utils.OrganizationName
-	LDConnectionTimeout  = 5 * time.Second
+	OrganizationName    = utils.OrganizationName
+	LDConnectionTimeout = 5 * time.Second
 )
 
 // Default values, override via ldflags at build time to inject encrypted secrets.
@@ -99,29 +101,29 @@ func LoadConfig() *Config {
 	utils.Logger.Debugf("App can be accessed at: %s", appUrl)
 
 	//----------------------------------------------------------------------
-	// Create HCPSecretsClient
+	// Create BWSSecretsClient
 	//----------------------------------------------------------------------
-	client, err := utils.NewHCPSecretsClient()
+	client, err := utils.NewBWSSecretsClient()
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to initialize HCPSecretsClient")
+		utils.Logger.WithError(err).Fatal("Failed to initialize BWSSecretsClient")
 	}
 
 	//----------------------------------------------------------------------
-	// Fetch app-specific secrets from HCP (appName-env)
+	// Fetch app-specific secrets from BWS (appName-env)
 	//----------------------------------------------------------------------
-	hcpAppName := fmt.Sprintf("%s-%s", AppName, env)
-	appSecrets, err := client.GetHCPSecretsFromSecretsJSON(hcpAppName)
+	bwsProjectName := fmt.Sprintf("%s-%s", AppName, env)
+	appSecrets, err := client.GetBWSSecrets(bwsProjectName)
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to fetch app-specific secrets from HCP")
+		utils.Logger.WithError(err).Fatal("Failed to fetch app-specific secrets from BWS")
 	}
 
 	//----------------------------------------------------------------------
-	// Fetch shared secrets from HCP (shared-env)
+	// Fetch shared secrets from BWS (shared-env)
 	//----------------------------------------------------------------------
-	hcpSharedAppName := fmt.Sprintf("shared-%s", env)
-	sharedSecrets, err := client.GetHCPSecretsFromSecretsJSON(hcpSharedAppName)
+	bwsSharedProjectName := fmt.Sprintf("shared-%s", env)
+	sharedSecrets, err := client.GetBWSSecrets(bwsSharedProjectName)
 	if err != nil {
-		utils.Logger.WithError(err).Fatal("Failed to fetch shared secrets from HCP")
+		utils.Logger.WithError(err).Fatal("Failed to fetch shared secrets from BWS")
 	}
 
 	//----------------------------------------------------------------------
@@ -129,36 +131,17 @@ func LoadConfig() *Config {
 	//----------------------------------------------------------------------
 	dbURL, ok := appSecrets["DB_URL"]
 	if !ok || dbURL == "" {
-		utils.Logger.Fatalf("DB_URL not found in HCP secrets (%s)", hcpAppName)
-	}
-
-	stripeWebhookSecret, ok := appSecrets["STRIPE_WEBHOOK_SECRET"]
-	if !ok || stripeWebhookSecret == "" {
-		utils.Logger.Fatalf("STRIPE_WEBHOOK_SECRET not found in HCP secrets (%s)", hcpAppName)
+		utils.Logger.Fatalf("DB_URL not found in BWS secrets (%s)", bwsProjectName)
 	}
 
 	ldSDKKey, ok := appSecrets["LD_SDK_KEY"]
 	if !ok || ldSDKKey == "" {
-		utils.Logger.Fatalf("LD_SDK_KEY not found in HCP secrets (%s)", hcpAppName)
+		utils.Logger.Fatalf("LD_SDK_KEY not found in BWS secrets (%s)", bwsProjectName)
 	}
 
 	checkrAPIKey, ok := appSecrets["CHECKR_API_KEY"]
 	if !ok || checkrAPIKey == "" {
-		utils.Logger.Fatalf("CHECKR_API_KEY not found in HCP secrets (%s)", hcpAppName)
-	}
-
-	twilioAccountSID, ok := appSecrets["TWILIO_ACCOUNT_SID"]
-	if !ok || twilioAccountSID == "" {
-		utils.Logger.Fatalf("TWILIO_ACCOUNT_SID not found in HCP secrets (%s)", hcpAppName)
-	}
-	twilioAuthToken, ok := appSecrets["TWILIO_AUTH_TOKEN"]
-	if !ok || twilioAuthToken == "" {
-		utils.Logger.Fatalf("TWILIO_AUTH_TOKEN not found in HCP secrets (%s)", hcpAppName)
-	}
-
-	sendgridAPIKey, ok := appSecrets["SENDGRID_API_KEY"]
-	if !ok || sendgridAPIKey == "" {
-		utils.Logger.Fatalf("SENDGRID_API_KEY not found in HCP secrets (%s)", hcpAppName)
+		utils.Logger.Fatalf("CHECKR_API_KEY not found in BWS secrets (%s)", bwsProjectName)
 	}
 
 	//----------------------------------------------------------------------
@@ -166,7 +149,7 @@ func LoadConfig() *Config {
 	//----------------------------------------------------------------------
 	dbEncryptionKeyBase64, ok := sharedSecrets["DB_ENCRYPTION_KEY_BASE64"]
 	if !ok || dbEncryptionKeyBase64 == "" {
-		utils.Logger.Fatal("DB_ENCRYPTION_KEY_BASE64 not found in HCP secrets (appName-env)")
+		utils.Logger.Fatal("DB_ENCRYPTION_KEY_BASE64 not found in BWS secrets (appName-env)")
 	}
 	decodedKey, err := base64.StdEncoding.DecodeString(dbEncryptionKeyBase64)
 	if err != nil {
@@ -178,7 +161,7 @@ func LoadConfig() *Config {
 
 	privateKeyBase64, ok := sharedSecrets["RSA_PRIVATE_KEY_BASE64"]
 	if !ok || privateKeyBase64 == "" {
-		utils.Logger.Fatal("RSA_PRIVATE_KEY_BASE64 not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("RSA_PRIVATE_KEY_BASE64 not found in BWS secrets (shared-env)")
 	}
 	privateKeyPEM, err := base64.StdEncoding.DecodeString(privateKeyBase64)
 	if err != nil {
@@ -195,7 +178,7 @@ func LoadConfig() *Config {
 
 	publicKeyBase64, ok := sharedSecrets["RSA_PUBLIC_KEY_BASE64"]
 	if !ok || publicKeyBase64 == "" {
-		utils.Logger.Fatal("RSA_PUBLIC_KEY_BASE64 not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("RSA_PUBLIC_KEY_BASE64 not found in BWS secrets (shared-env)")
 	}
 	publicKeyPEM, err := base64.StdEncoding.DecodeString(publicKeyBase64)
 	if err != nil {
@@ -212,7 +195,21 @@ func LoadConfig() *Config {
 
 	stripeSecretKey, ok := sharedSecrets["STRIPE_SECRET_KEY"]
 	if !ok || stripeSecretKey == "" {
-		utils.Logger.Fatal("STRIPE_SECRET_KEY not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("STRIPE_SECRET_KEY not found in BWS secrets (shared-env)")
+	}
+
+	twilioAccountSID, ok := sharedSecrets["TWILIO_ACCOUNT_SID"]
+	if !ok || twilioAccountSID == "" {
+		utils.Logger.Fatalf("TWILIO_ACCOUNT_SID not found in BWS secrets (%s)", bwsProjectName)
+	}
+	twilioAuthToken, ok := sharedSecrets["TWILIO_AUTH_TOKEN"]
+	if !ok || twilioAuthToken == "" {
+		utils.Logger.Fatalf("TWILIO_AUTH_TOKEN not found in BWS secrets (%s)", bwsProjectName)
+	}
+
+	sendgridAPIKey, ok := sharedSecrets["SENDGRID_API_KEY"]
+	if !ok || sendgridAPIKey == "" {
+		utils.Logger.Fatalf("SENDGRID_API_KEY not found in BWS secrets (%s)", bwsProjectName)
 	}
 
 	//----------------------------------------------------------------------
@@ -299,7 +296,7 @@ func LoadConfig() *Config {
 	// Fetch LD_SDK_KEY_SHARED for shared LaunchDarkly flags
 	ldSDKKeyShared, ok := sharedSecrets["LD_SDK_KEY_SHARED"]
 	if !ok || ldSDKKeyShared == "" {
-		utils.Logger.Fatal("LD_SDK_KEY_SHARED not found in HCP secrets (shared-env)")
+		utils.Logger.Fatal("LD_SDK_KEY_SHARED not found in BWS secrets (shared-env)")
 	}
 
 	// Fetch do_real_mobile_device_attestation flag from LaunchDarkly using LD_SDK_KEY_SHARED
@@ -321,6 +318,29 @@ func LoadConfig() *Config {
 		utils.Logger.WithError(err).Fatal("Error retrieving cors_high_security flag")
 	}
 	utils.Logger.Debugf("cors_high_security flag: %t", corsHighSecurityFlag)
+
+	sendgridSandboxMode, err := ldClientShared.BoolVariation("sendgrid_sandbox_mode", context, false)
+	if err != nil {
+		ldClientShared.Close()
+		utils.Logger.WithError(err).Fatal("Error retrieving sendgrid_sandbox_mode flag")
+	}
+	utils.Logger.Debugf("sendgrid_sandbox_mode flag: %t", sendgridSandboxMode)
+
+	sendgridFromEmail, err := ldClientShared.StringVariation("sendgrid_from_email", context, "")
+	if err != nil {
+		ldClientShared.Close()
+		utils.Logger.WithError(err).Fatal("Error retrieving sendgrid_from_email flag")
+	}
+	utils.Logger.Debugf("sendgrid_from_email flag: %s", sendgridFromEmail)
+
+	var stripeWebhookSecret string
+	if !dynamicStripeWebhook {
+		var ok bool
+		stripeWebhookSecret, ok = sharedSecrets["STRIPE_WEBHOOK_SECRET"]
+		if !ok || stripeWebhookSecret == "" {
+			utils.Logger.Fatalf("STRIPE_WEBHOOK_SECRET not found in BWS secrets (%s)", bwsSharedProjectName)
+		}
+	}
 
 	return &Config{
 		OrganizationName:                     OrganizationName,
@@ -350,6 +370,9 @@ func LoadConfig() *Config {
 		LDFlag_DynamicStripeWebhookEndpoint:  dynamicStripeWebhook,
 		LDFlag_DoRealMobileDeviceAttestation: doRealMobileDeviceAttestation,
 		LDFlag_CORSHighSecurity:              corsHighSecurityFlag,
+		LDFlag_SendgridFromEmail:             sendgridFromEmail,
+		LDFlag_SendgridSandboxMode:           sendgridSandboxMode, // NEW
 	}
 }
 
+func (c *Config) Close() {}
