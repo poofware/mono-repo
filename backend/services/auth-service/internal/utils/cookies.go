@@ -1,4 +1,3 @@
-// cookie_utils.go
 //
 // Hardened helper for issuing / clearing JWT cookies + the full
 // security-header block (May 2025 best-practice checklist).
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/poofware/go-middleware" // ⟵ use the canonical constants
+	"github.com/poofware/go-utils"
 )
 
 /*
@@ -24,7 +24,7 @@ import (
        sameSiteHighSecurity,
    )
 
-     ClearAuthCookies(w, refreshPath, sameSiteHighSecurity)
+   ClearAuthCookies(w, refreshPath, sameSiteHighSecurity)
 */
 
 // SetAuthCookies writes two secure cookies **and** every response
@@ -49,6 +49,8 @@ func SetAuthCookies(
 		refreshSameSitePolicy = "None"
 	}
 	partitioned := !sameSiteHighSecurity
+	utils.Logger.Debugf("[cookies] SetAuthCookies: accessSameSite=%s, refreshSameSite=%s, partitioned=%t, refreshPath=%s",
+		accessSameSitePolicy, refreshSameSitePolicy, partitioned, refreshPath)
 
 	writeCookie(
 		w,
@@ -84,6 +86,8 @@ func ClearAuthCookies(w http.ResponseWriter, refreshPath string, sameSiteHighSec
 		refreshSameSitePolicy = "None"
 	}
 	partitioned := !sameSiteHighSecurity
+	utils.Logger.Debugf("[cookies] ClearAuthCookies: accessSameSite=%s, refreshSameSite=%s, partitioned=%t, refreshPath=%s",
+		accessSameSitePolicy, refreshSameSitePolicy, partitioned, refreshPath)
 
 	w.Header().Add("Set-Cookie",
 		fmt.Sprintf("%s=; Path=/; Expires=%s; Max-Age=0; SameSite=%s; Secure; HttpOnly; Priority=High%s",
@@ -124,6 +128,7 @@ func writeCookie(
 	line := fmt.Sprintf("%s=%s; Path=%s; Max-Age=%d; Expires=%s; SameSite=%s; Secure; HttpOnly; Priority=High%s",
 		name, value, path, maxAge, expires, sameSitePolicy, partitionAttr(partitioned))
 
+	utils.Logger.Debugf("[cookies] writing cookie %s path=%s SameSite=%s Partitioned=%t", name, path, sameSitePolicy, partitioned)
 	w.Header().Add("Set-Cookie", line)
 }
 
