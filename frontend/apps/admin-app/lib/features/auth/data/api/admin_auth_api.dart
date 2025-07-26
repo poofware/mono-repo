@@ -9,8 +9,8 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 class AdminAuthApi extends BaseAuthApi<Admin, AdminLoginRequest, JsonSerializable> {
   @override
   final BaseTokenStorage tokenStorage;
- // @override
-//  final void Function()? onAuthLost;
+  @override
+  final void Function()? onAuthLost;
   @override
   final bool useRealAttestation;
 
@@ -23,7 +23,7 @@ class AdminAuthApi extends BaseAuthApi<Admin, AdminLoginRequest, JsonSerializabl
 
   AdminAuthApi({
     required this.tokenStorage,
-   // this.onAuthLost,
+    this.onAuthLost,
     this.useRealAttestation = false,
   });
 
