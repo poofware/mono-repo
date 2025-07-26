@@ -212,11 +212,6 @@ func LoadConfig() *Config {
 		utils.Logger.Fatalf("SENDGRID_API_KEY not found in BWS secrets (%s)", bwsProjectName)
 	}
 
-	stripeWebhookSecret, ok := sharedSecrets["STRIPE_WEBHOOK_SECRET"]
-	if !ok || stripeWebhookSecret == "" {
-		utils.Logger.Fatalf("STRIPE_WEBHOOK_SECRET not found in BWS secrets (%s)", bwsProjectName)
-	}
-
 	//----------------------------------------------------------------------
 	// Initialize the LaunchDarkly client with the LD_SDK_KEY.
 	//----------------------------------------------------------------------
@@ -337,6 +332,15 @@ func LoadConfig() *Config {
 		utils.Logger.WithError(err).Fatal("Error retrieving sendgrid_from_email flag")
 	}
 	utils.Logger.Debugf("sendgrid_from_email flag: %s", sendgridFromEmail)
+
+	var stripeWebhookSecret string
+	if !dynamicStripeWebhook {
+		var ok bool
+		stripeWebhookSecret, ok = sharedSecrets["STRIPE_WEBHOOK_SECRET"]
+		if !ok || stripeWebhookSecret == "" {
+			utils.Logger.Fatalf("STRIPE_WEBHOOK_SECRET not found in BWS secrets (%s)", bwsSharedProjectName)
+		}
+	}
 
 	return &Config{
 		OrganizationName:                     OrganizationName,

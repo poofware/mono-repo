@@ -50,7 +50,7 @@ endif
 build::
 	@echo "[INFO] [Build] ENV=$(ENV)"
 
-ifeq ($(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV)),)
+ifeq ($(filter $(ENV),$(STAGING_ENV) $(STAGING_TEST_ENV) $(PROD_ENV)),)
 	@if [ -n "$$(echo '$(COMPOSE_BUILD_BASE_SERVICES)' | xargs)" ]; then \
 		echo "[INFO] [Build] Building Docker images for base services: $(COMPOSE_BUILD_BASE_SERVICES)..."; \
 		$(SSH_DOCKER_BUILD_CMD) build $(COMPOSE_BUILD_BASE_SERVICES); \

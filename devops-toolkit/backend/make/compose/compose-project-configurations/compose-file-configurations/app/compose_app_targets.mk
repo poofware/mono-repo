@@ -4,7 +4,6 @@
 
 SHELL := /bin/bash
 
-.PHONY: help
 
 # Check that the current working directory is the root of a project by verifying that the root Makefile exists.
 ifeq ($(wildcard Makefile),)
@@ -40,6 +39,7 @@ build:: _export-target-platform
 up:: _export-target-platform
 integration-test:: _export-target-platform
 up-app-post-check:: _export-target-platform
+help:: _export-target-platform
 
 ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
 
@@ -111,12 +111,13 @@ else
 	  @echo "[INFO] [Export Fly Api Token] Fly API token set."
   endif
 
-  _fly_wireguard_up:
+  ## Wireguard up target
+  fly_wireguard_up:
   ifndef FLY_WIREGUARD_UP
 	  $(eval export FLY_WIREGUARD_UP := 1)
 	  @export LOG_LEVEL=; \
 	  echo "[INFO] [Fly Wireguard Up] Calling Fly Wireguard Down target to ensure clean state..."; \
-	  env -u MAKELEVEL $(MAKE) _fly_wireguard_down --no-print-directory; \
+	  env -u MAKELEVEL $(MAKE) fly_wireguard_down --no-print-directory; \
 	  echo "[INFO] [Fly Wireguard Up] Creating WireGuard peer $(FLY_WIREGUARD_PEER_NAME) in region $(FLY_WIREGUARD_PEER_REGION) (with auto-retry)…"; \
 	  set -e ; \
 	  if fly wireguard create $(FLY_ORG_NAME) \
@@ -150,7 +151,8 @@ else
 	  @echo "[INFO] [Fly Wireguard Up] Done – tunnel is live."
   endif
 
-  _fly_wireguard_down:
+  ## Wireguard down target
+  fly_wireguard_down:
 	  @if [ "$(MAKELEVEL)" -eq 0 ]; then \
 		  export LOG_LEVEL=; \
 		  echo "[INFO] [Fly Wireguard Down] Stopping wireguard connection to fly.io..."; \
@@ -161,11 +163,11 @@ else
 		  echo "[INFO] [Fly Wireguard Down] Done. Wireguard connection to fly.io is down."; \
 	  fi
 
-  integration-test:: _export_fly_api_token _fly_wireguard_up
-  up:: _export_fly_api_token _fly_wireguard_up
-  ci:: _export_fly_api_token _fly_wireguard_up
-  clean:: _export_fly_api_token _fly_wireguard_up
-  down:: _export_fly_api_token _fly_wireguard_up _up-network
+  integration-test:: _export_fly_api_token fly_wireguard_up
+  up:: _export_fly_api_token fly_wireguard_up
+  ci:: _export_fly_api_token fly_wireguard_up
+  clean:: _export_fly_api_token fly_wireguard_up
+  down:: _export_fly_api_token fly_wireguard_up _up-network
 	  @export LOG_LEVEL=; \
 	  if [ "$(EXCLUDE_COMPOSE_PROFILE_APP)" -eq 1 ]; then \
 		  echo "[INFO] [Down] Skipping fly app destruction... EXCLUDE_COMPOSE_PROFILE_APP is set to 1"; \
@@ -179,18 +181,18 @@ else
 		  $(MAKE) migrate --no-print-directory MIGRATE_MODE=backward COMPOSE_PROFILE_MIGRATE_SERVICES="$(COMPOSE_PROFILE_MIGRATE_SERVICES)"; \
 		  echo "[INFO] [Down] Done. Isolated schema wiped from the database."; \
 	  fi
-  migrate:: _export_fly_api_token _fly_wireguard_up
+  migrate:: _export_fly_api_token fly_wireguard_up
 
   ifndef INCLUDED_COMPOSE_PROJECT_TARGETS
     include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-targets/compose_project_targets.mk
   endif
   
-  integration-test:: _fly_wireguard_down
-  up:: _fly_wireguard_down
-  ci:: _fly_wireguard_down
-  clean:: _fly_wireguard_down
-  down:: _fly_wireguard_down
-  migrate:: _fly_wireguard_down
+  integration-test:: fly_wireguard_down
+  up:: fly_wireguard_down
+  ci:: fly_wireguard_down
+  clean:: fly_wireguard_down
+  down:: fly_wireguard_down
+  migrate:: fly_wireguard_down
 
   # OVERRIDE default _up-app target to use fly.io instead of docker-compose
   _up-app:

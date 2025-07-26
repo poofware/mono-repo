@@ -140,11 +140,6 @@ func LoadConfig() *Config {
 		utils.Logger.Fatal("STRIPE_SECRET_KEY not found in BWS secrets (shared-env)")
 	}
 
-	stripeWebhookSecret, ok := sharedSecrets["STRIPE_WEBHOOK_SECRET"]
-	if !ok || stripeWebhookSecret == "" {
-		utils.Logger.Fatalf("STRIPE_WEBHOOK_SECRET not found in BWS secrets (%s)", appSecretsName)
-	}
-
 	sendgridAPIKey, ok := sharedSecrets["SENDGRID_API_KEY"]
 	if !ok || sendgridAPIKey == "" {
 		utils.Logger.Fatalf("SENDGRID_API_KEY not found in BWS secrets (%s)", appSecretsName)
@@ -222,6 +217,15 @@ func LoadConfig() *Config {
 		utils.Logger.WithError(err).Fatal("Error retrieving cors_high_security flag")
 	}
 	utils.Logger.Debugf("cors_high_security flag: %t", corsHighSecurityFlag)
+
+	var stripeWebhookSecret string
+	if !dynamicStripeWebhookFlag {
+		var ok bool
+		stripeWebhookSecret, ok = sharedSecrets["STRIPE_WEBHOOK_SECRET"]
+		if !ok || stripeWebhookSecret == "" {
+			utils.Logger.Fatalf("STRIPE_WEBHOOK_SECRET not found in BWS secrets (%s)", sharedSecretsName)
+		}
+	}
 
 	return &Config{
 		OrganizationName:                     OrganizationName,

@@ -28,8 +28,6 @@ help::
 	@echo "WITH_DEPS: $(WITH_DEPS)"
 	@echo "DEPS: $(DEPS)"
 	@echo "COMPOSE_FILE: $(COMPOSE_FILE)"
-	@echo "BWS_CLIENT_ID": xxxxxxxx
-	@echo "BWS_CLIENT_SECRET": xxxxxxxx
 	@echo "BWS_ACCESS_TOKEN": xxxxxxxx
 	@echo "--------------------------------------------------"
 	@echo

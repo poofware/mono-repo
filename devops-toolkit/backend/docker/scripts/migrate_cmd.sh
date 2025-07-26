@@ -166,7 +166,7 @@ DROP_ISOLATED_AFTER=false
 case "${MIGRATE_MODE}" in
   forward|"")
     if [[ "${ENV}" == "prod" ]]; then
-      echo "[INFO] (prod) Migrating forward **one** version…"
+      echo "[INFO] (prod) Migrating forward one version…"
       DESTINATION="+1"
     else
       echo "[INFO] (non-prod) Migrating to latest version…"
@@ -175,7 +175,7 @@ case "${MIGRATE_MODE}" in
     ;;
   backward)
     if [[ "${ENV}" == "prod" ]]; then
-      echo "[INFO] (prod) Rolling back **one** version…"
+      echo "[INFO] (prod) Rolling back one version…"
       DESTINATION="-1"
     else
       echo "[INFO] (non-prod) Rolling back to version 0 (clean slate)…"
@@ -231,6 +231,24 @@ SQL
 
   # Invoke cleanup on *any* exit path (success, error, or interrupt)
   trap cleanup_isolated EXIT
+fi
+
+###############################################################################
+# 6½. Skip the +1 if we're already at head (keeps 1‑step‑forward policy)
+###############################################################################
+if [[ "${ENV}" == "prod" && "${DESTINATION}" == "+1" ]]; then
+  vt="schema_version"
+  [[ -n "${ISOLATED_SCHEMA:-}" ]] && vt="\"${ISOLATED_SCHEMA}\".schema_version"
+
+  current=$(psql "${EFFECTIVE_DB_URL}" -Atq -c "select version from ${vt} limit 1")
+  latest=$(ls migrations | grep -E '^[0-9]+' | cut -d_ -f1 | sort -n | tail -1)
+
+  if [[ -z "${current}" ]]; then current=0; fi
+
+  if (( current >= latest )); then
+    echo "[INFO] Database is already at latest version (${latest}); skipping."
+    exit 0
+  fi
 fi
 
 ###############################################################################
