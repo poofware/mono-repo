@@ -1,3 +1,4 @@
+// cookie_utils.go
 //
 // Hardened helper for issuing / clearing JWT cookies + the full
 // security-header block (May 2025 best-practice checklist).
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/poofware/go-middleware" // ⟵ use the canonical constants
-	"github.com/poofware/go-utils"
 )
 
 /*
@@ -48,9 +48,6 @@ func SetAuthCookies(
 		accessSameSitePolicy = "None"
 		refreshSameSitePolicy = "None"
 	}
-	partitioned := !sameSiteHighSecurity
-	utils.Logger.Debugf("[cookies] SetAuthCookies: accessSameSite=%s, refreshSameSite=%s, partitioned=%t, refreshPath=%s",
-		accessSameSitePolicy, refreshSameSitePolicy, partitioned, refreshPath)
 
 	writeCookie(
 		w,
@@ -59,7 +56,6 @@ func SetAuthCookies(
 		"/", // Access token accompanies every API call
 		int(accessTTL.Seconds()),
 		accessSameSitePolicy,
-		partitioned,
 	)
 
 	writeCookie(
@@ -69,7 +65,6 @@ func SetAuthCookies(
 		refreshPath, // Only the refresh endpoint ever receives it
 		int(refreshTTL.Seconds()),
 		refreshSameSitePolicy,
-		partitioned,
 	)
 
 	addSecurityHeaders(w)
@@ -85,25 +80,20 @@ func ClearAuthCookies(w http.ResponseWriter, refreshPath string, sameSiteHighSec
 		accessSameSitePolicy = "None"
 		refreshSameSitePolicy = "None"
 	}
-	partitioned := !sameSiteHighSecurity
-	utils.Logger.Debugf("[cookies] ClearAuthCookies: accessSameSite=%s, refreshSameSite=%s, partitioned=%t, refreshPath=%s",
-		accessSameSitePolicy, refreshSameSitePolicy, partitioned, refreshPath)
 
 	w.Header().Add("Set-Cookie",
-		fmt.Sprintf("%s=; Path=/; Expires=%s; Max-Age=0; SameSite=%s; Secure; HttpOnly; Priority=High%s",
+		fmt.Sprintf("%s=; Path=/; Expires=%s; Max-Age=0; SameSite=%s; Secure; HttpOnly; Priority=High",
 			middleware.AccessTokenCookieName,
 			expired,
 			accessSameSitePolicy,
-			partitionAttr(partitioned),
 		))
 
 	w.Header().Add("Set-Cookie",
-		fmt.Sprintf("%s=; Path=%s; Expires=%s; Max-Age=0; SameSite=%s; Secure; HttpOnly; Priority=High%s",
+		fmt.Sprintf("%s=; Path=%s; Expires=%s; Max-Age=0; SameSite=%s; Secure; HttpOnly; Priority=High",
 			middleware.RefreshTokenCookieName,
 			refreshPath,
 			expired,
 			refreshSameSitePolicy,
-			partitionAttr(partitioned),
 		))
 
 	addSecurityHeaders(w)
@@ -117,26 +107,17 @@ func writeCookie(
 	w http.ResponseWriter,
 	name, value, path string,
 	maxAge int,
-	sameSitePolicy string,
-	partitioned bool,
+	sameSitePolicy string, // "Lax" or "Strict"
 ) {
 	expires := time.Now().
 		Add(time.Duration(maxAge) * time.Second).
 		UTC().
 		Format(http.TimeFormat)
 
-	line := fmt.Sprintf("%s=%s; Path=%s; Max-Age=%d; Expires=%s; SameSite=%s; Secure; HttpOnly; Priority=High%s",
-		name, value, path, maxAge, expires, sameSitePolicy, partitionAttr(partitioned))
+	line := fmt.Sprintf("%s=%s; Path=%s; Max-Age=%d; Expires=%s; SameSite=%s; Secure; HttpOnly; Priority=High",
+		name, value, path, maxAge, expires, sameSitePolicy)
 
-	utils.Logger.Debugf("[cookies] writing cookie %s path=%s SameSite=%s Partitioned=%t", name, path, sameSitePolicy, partitioned)
 	w.Header().Add("Set-Cookie", line)
-}
-
-func partitionAttr(on bool) string {
-	if on {
-		return "; Partitioned"
-	}
-	return ""
 }
 
 // addSecurityHeaders applies the transport, CSP, COOP/COEP and
@@ -161,3 +142,4 @@ func addSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("Permissions-Policy", "geolocation=(), camera=(), microphone=(), interest-cohort=()")
 }
+
