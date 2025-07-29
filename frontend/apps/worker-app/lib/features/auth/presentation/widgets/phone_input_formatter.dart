@@ -15,7 +15,16 @@ class PhoneInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
+    var oldDigits = oldValue.text.replaceAll(RegExp(r'\D'), '');
     var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+
+    // If the user deleted a formatting character, treat it as deleting the
+    // preceding digit so that backspace works intuitively.
+    if (newValue.text.length < oldValue.text.length &&
+        digits.length == oldDigits.length &&
+        oldDigits.isNotEmpty) {
+      digits = oldDigits.substring(0, oldDigits.length - 1);
+    }
 
     // Strip a single leading US/CA country code “1”
     if (digits.length == 11 && digits.startsWith('1')) {
