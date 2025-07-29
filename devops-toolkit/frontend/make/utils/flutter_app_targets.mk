@@ -124,7 +124,7 @@ _run-env: logs
 		set -eo pipefail; \
 		web_flags=""; \
 		if [ "$(PLATFORM)" = "web" ]; then \
-			web_flags="-d chrome --wasm"; \
+			web_flags="-d chrome"; \
 		fi; \
 		flutter run $$web_flags --target lib/main/main_$(ENV).dart --dart-define=CURRENT_BACKEND_DOMAIN=$$CURRENT_BACKEND_DOMAIN \
 		--dart-define=GCP_SDK_KEY=$(GCP_SDK_KEY) \
