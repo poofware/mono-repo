@@ -154,6 +154,15 @@ void main() {
       // 3c) verify with known valid code => success
       await pmAuthRepo.verifyEmailCode(testEmail, validVerificationCode);
     });
+      testWidgets('3b) Request SMS Code => positive verify', (
+      tester,
+    ) async {
+      // 3b-a) request SMS code for the main test phone
+      await pmAuthRepo.requestSMSCode(testPhone);
+
+      // 3b-b) verify with the known valid test code
+      await pmAuthRepo.verifySMSCode(testPhone, validVerificationCode);
+    });
 
     // ─────────────────────────────────────────────────────────────
     // 4) Negative TOTP usage + unverified phone scenarios
@@ -189,7 +198,7 @@ void main() {
           lastName: 'Tester',
           email: ephemeralEmail,
           phoneNumber:
-              ephemeralPhone, // Provided, valid format, not SMS-verified
+              null, // Provided, valid format, not SMS-verified
           businessName: 'ValidPhoneReg LLC',
           businessAddress: '123 Valid Lane',
           city: 'Nowhere',
@@ -374,8 +383,7 @@ void main() {
         firstName: 'TestPM',
         lastName: 'Integration',
         email: testEmail,
-        phoneNumber:
-            testPhone, // optional but verified in step 2 if your backend requires it
+        phoneNumber: testPhone, // optional but verified in step 2 if your backend requires it
         businessName: 'TestBizName',
         businessAddress: '123 PM St',
         city: 'TestCity',

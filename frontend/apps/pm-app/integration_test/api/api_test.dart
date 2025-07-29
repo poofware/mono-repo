@@ -24,8 +24,8 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   // Run each test suite
- // pm_auth.main();
-  jobs.main();
+  pm_auth.main();
+  //jobs.main();
   // newTest.main();                               // add more here
 }
 
