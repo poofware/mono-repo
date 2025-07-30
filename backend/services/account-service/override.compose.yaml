@@ -5,8 +5,8 @@ services:
     profiles:
       - app_integration_test
     # Uncomment this if you want to do manual testing of stripe and checkr flows
-    # command: >
-    #   ./integration_test -test.v -manual
+    command: >
+      ./integration_test -test.v -manual
 
   go-app:
     profiles:

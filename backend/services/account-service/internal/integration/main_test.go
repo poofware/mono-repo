@@ -30,6 +30,7 @@ func TestMain(m *testing.M) {
 
 	// The TestHelper already parses this flag.
 	flag.Bool("manual", false, "Run with UI (headless Chrome) for testing")
+	flag.Parse()
 
 	// Use a dummy testing.T to initialize the helper.
 	// We can't use one from a real test since TestMain runs before tests.

@@ -590,6 +590,7 @@ func (s *CheckrService) handleReportEvent(ctx context.Context, eventType string,
 		return nil
 	}
 
+	var engage bool
 	if err := s.repo.UpdateWithRetry(ctx, w.ID, func(stored *models.Worker) error {
 		// If the worker doesn't already have this reportID, store it
 		if stored.CheckrReportID == nil || *stored.CheckrReportID == "" {
@@ -613,6 +614,9 @@ func (s *CheckrService) handleReportEvent(ctx context.Context, eventType string,
 				stored.AccountStatus == models.AccountStatusBackgroundCheckPending {
 				stored.AccountStatus = models.AccountStatusActive
 				utils.Logger.Infof("report.completed => worker %s => account status set to ACTIVE", stored.ID)
+				if rep.Adjudication == nil || *rep.Adjudication != checkr.ReportAdjudicationEngaged {
+					engage = true
+				}
 			}
 
 		case "report.engaged":
@@ -646,6 +650,15 @@ func (s *CheckrService) handleReportEvent(ctx context.Context, eventType string,
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	if engage {
+		_, err := s.client.UpdateReport(ctx, rep.ID, map[string]any{"adjudication": checkr.ReportAdjudicationEngaged})
+		if err != nil {
+			utils.Logger.WithError(err).Warnf("Failed to engage Checkr report %s", rep.ID)
+		} else {
+			utils.Logger.Infof("Automatically engaged Checkr report %s", rep.ID)
+		}
 	}
 
 	return nil
