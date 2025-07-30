@@ -13,6 +13,7 @@ require (
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/launchdarkly/go-sdk-common/v3 v3.2.0
 	github.com/launchdarkly/go-server-sdk/v7 v7.10.1
+	github.com/openai/openai-go v1.12.0
 	github.com/poofware/go-middleware v0.0.0-20250630000242-2b08a6db51fd
 	github.com/poofware/go-models v0.0.0-20250625174000-827ad2621e44
 	github.com/poofware/go-repositories v0.0.0-20250630182314-3b41c01a1492
@@ -74,6 +75,10 @@ require (
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stripe/stripe-go/v82 v82.2.1 // indirect
+	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0 // indirect

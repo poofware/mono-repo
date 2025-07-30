@@ -13,7 +13,6 @@ RUN apk update && apk add --no-cache git openssh curl openssl build-base musl-de
 # Private repos? Configure SSH known_hosts if needed
 ENV GOPRIVATE=github.com/poofware/*
 ENV CGO_ENABLED=1
-ENV CGO_LDFLAGS="-static -lm"
 RUN git config --global url."git@github.com:".insteadOf "https://github.com/";
 
 WORKDIR /go/app
@@ -81,6 +80,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
     --mount=type=cache,id=go-build-app,target=/root/.cache/go-build \
     go build \
       -ldflags "\
+        -linkmode external -extldflags '-static -lm' \
         -X 'github.com/poofware/${APP_NAME}/internal/config.AppName=${APP_NAME}' \
         -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
         -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \

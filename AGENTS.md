@@ -163,4 +163,48 @@ The Makefiles in each service contain `deploy-[platform]` targets that are used 
 
 The repository is configured with GitHub Actions for continuous integration and deployment. Workflows are located in the `.github/workflows` directory. Pushes to `develop`, `main`, `testflight`, and `playstore` branches will trigger the respective build, test, and deployment pipelines.
 
+## 9. Local Compilation (Without Docker)
 
+For developers who cannot use Docker or prefer a native Go workflow, each backend service can be compiled and run directly on the host machine.
+
+### Prerequisites
+
+  - Go version 1.24 or higher must be installed and available in your system's `PATH`.
+  - You must have a `BWS_ACCESS_TOKEN` exported in your shell to fetch application secrets.
+
+### Compilation Steps
+
+Each Go service uses build-time variables (`ldflags`) to inject configuration like the application name and build details. The following command template can be used to compile any service.
+
+1.  **Navigate to the service directory**:
+
+    ```bash
+    cd backend/services/<service-name>
+    ```
+
+2.  **Build the binary**: Use the `go build` command with the appropriate `ldflags`. The `-o` flag specifies the output binary name.
+
+    **General Command:**
+
+    ```bash
+    go build -ldflags="\
+      -linkmode external -extldflags '-lm' \
+      -X 'github.com/poofware/<service-name>/internal/config.AppName=<service-name>' \
+      -X 'github.com/poofware/<service-name>/internal/config.UniqueRunNumber=local-run' \
+      -X 'github.com/poofware/<service-name>/internal/config.UniqueRunnerID=local-dev' \
+      -X 'github.com/poofware/<service-name>/internal/config.LDServerContextKey=server' \
+      -X 'github.com/poofware/<service-name>/internal/config.LDServerContextKind=user'" \
+      -o <service-name> ./cmd/main.go
+    ```
+
+### Service-Specific Instructions
+
+Use the following table to substitute the correct `<service-name>` in the compilation command above for each microservice.
+
+| Service              | `<service-name>`   |
+| -------------------- | ------------------ |
+| **account-service** | `account-service`  |
+| **auth-service** | `auth-service`     |
+| **earnings-service** | `earnings-service` |
+| **interest-service** | `interest-service` |
+| **jobs-service** | `jobs-service`     |

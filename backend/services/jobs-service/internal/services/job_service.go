@@ -958,25 +958,25 @@ func (s *JobService) CreateJobDefinition(
 	}
 
 	newDef := &models.JobDefinition{
-		ID:                  uuid.New(),
-		ManagerID:           pmID,
-		PropertyID:          req.PropertyID,
-		Title:               req.Title,
-		Description:         req.Description,
-		AssignedBuildingIDs: req.AssignedBuildingIDs,
-		DumpsterIDs:         req.DumpsterIDs,
-		Status:              models.JobStatusType(strings.ToUpper(status)),
-		Frequency:           req.Frequency,
-		Weekdays:            req.Weekdays,
-		IntervalWeeks:       req.IntervalWeeks,
-		StartDate:           req.StartDate,
-		EndDate:             req.EndDate,
-		EarliestStartTime:   req.EarliestStartTime,
-		LatestStartTime:     req.LatestStartTime,
-		StartTimeHint:       effectiveStartTimeHint,
-		SkipHolidays:        req.SkipHolidays,
-		HolidayExceptions:   req.HolidayExceptions,
-		DailyPayEstimates:   dailyEstimatesToUse,
+		ID:                      uuid.New(),
+		ManagerID:               pmID,
+		PropertyID:              req.PropertyID,
+		Title:                   req.Title,
+		Description:             req.Description,
+		AssignedUnitsByBuilding: req.AssignedUnitsByBuilding,
+		DumpsterIDs:             req.DumpsterIDs,
+		Status:                  models.JobStatusType(strings.ToUpper(status)),
+		Frequency:               req.Frequency,
+		Weekdays:                req.Weekdays,
+		IntervalWeeks:           req.IntervalWeeks,
+		StartDate:               req.StartDate,
+		EndDate:                 req.EndDate,
+		EarliestStartTime:       req.EarliestStartTime,
+		LatestStartTime:         req.LatestStartTime,
+		StartTimeHint:           effectiveStartTimeHint,
+		SkipHolidays:            req.SkipHolidays,
+		HolidayExceptions:       req.HolidayExceptions,
+		DailyPayEstimates:       dailyEstimatesToUse,
 	}
 
 	if req.Details != nil {
@@ -1156,7 +1156,6 @@ func (s *JobService) CancelJobInstance(
 		return dto, nil
 	}
 
-
 	// Case 2: Canceled after the no-show cutoff. Job is fully CANCELED.
 	// This is treated with the same severity as a no-show.
 	expectedVersion := inst.RowVersion
@@ -1289,14 +1288,14 @@ func (s *JobService) buildInstanceDTO(
 	}
 
 	var buildings []dtos.BuildingDTO
-	if len(jdef.AssignedBuildingIDs) > 0 {
+	if len(jdef.AssignedUnitsByBuilding) > 0 {
 		allBldgs, err := s.bldgRepo.ListByPropertyID(ctx, prop.ID)
 		if err != nil {
 			return nil, err
 		}
 		bldgSet := make(map[uuid.UUID]bool)
-		for _, bID := range jdef.AssignedBuildingIDs {
-			bldgSet[bID] = true
+		for _, grp := range jdef.AssignedUnitsByBuilding {
+			bldgSet[grp.BuildingID] = true
 		}
 		for _, b := range allBldgs {
 			if bldgSet[b.ID] {
@@ -1369,12 +1368,12 @@ func (s *JobService) buildInstanceDTO(
 	}
 
 	dto := &dtos.JobInstanceDTO{
-		InstanceID:                 inst.ID,
-		DefinitionID:               inst.DefinitionID,
-		PropertyID:                 prop.ID,
-		ServiceDate:                inst.ServiceDate.Format("2006-01-02"),
-		Status:                     string(inst.Status),
-		Pay:                        effectivePay,
+		InstanceID:   inst.ID,
+		DefinitionID: inst.DefinitionID,
+		PropertyID:   prop.ID,
+		ServiceDate:  inst.ServiceDate.Format("2006-01-02"),
+		Status:       string(inst.Status),
+		Pay:          effectivePay,
 		Property: dtos.PropertyDTO{
 			PropertyID:   prop.ID,
 			PropertyName: prop.PropertyName,
@@ -1619,7 +1618,7 @@ func (s *JobService) isJobReleasedToWorker(
 	// --- BUGFIX: Use math.Round for a robust day calculation ---
 	// The original int(...) truncation could cause off-by-one errors due to floating point inaccuracies
 	// when calculating durations across timezones or DST changes.
-	durationHours := inst.ServiceDate.Truncate(24*time.Hour).Sub(baseMidnightForProp.Truncate(24*time.Hour)).Hours()
+	durationHours := inst.ServiceDate.Truncate(24 * time.Hour).Sub(baseMidnightForProp.Truncate(24 * time.Hour)).Hours()
 	daysAhead := int(math.Round(durationHours / 24.0))
 
 	baseDateForReleaseCalc := baseMidnightForProp.AddDate(0, 0, daysAhead-(constants.DaysToListOpenJobsRange-2))

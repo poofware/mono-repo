@@ -35,6 +35,7 @@ type Config struct {
 	TwilioAccountSID string
 	TwilioAuthToken  string
 	SendGridAPIKey   string
+	OpenAIAPIKey     string
 
 	// Auth
 	RSAPrivateKey *rsa.PrivateKey
@@ -52,6 +53,7 @@ type Config struct {
 	LDFlag_SeedDbWithTestData            bool
 	LDFlag_DoRealMobileDeviceAttestation bool
 	LDFlag_CORSHighSecurity              bool
+	LDFlag_OpenAIPhtoVerification        bool
 }
 
 const (
@@ -237,6 +239,21 @@ func LoadConfig() *Config {
 	}
 	utils.Logger.Debugf("seed_db_with_test_data flag: %t", seedDbWithTestDataFlag)
 
+	openaiPhotoFlag, err := ldClient.BoolVariation("openai_photo_verification", ctx, false)
+	if err != nil {
+		utils.Logger.WithError(err).Fatal("Error retrieving openai_photo_verification flag")
+	}
+	utils.Logger.Debugf("openai_photo_verification flag: %t", openaiPhotoFlag)
+
+	var openaiKey string
+	if openaiPhotoFlag {
+		val, ok := appSecrets["OPENAI_API_KEY"]
+		if !ok || val == "" {
+			utils.Logger.Fatal("OPENAI_API_KEY secret missing but flag enabled")
+		}
+		openaiKey = val
+	}
+
 	if useGMapsRoutesAPIFlag {
 		val, ok := appSecrets["GMAPS_ROUTES_API_KEY"]
 		if !ok || val == "" {
@@ -297,6 +314,7 @@ func LoadConfig() *Config {
 		TwilioAccountSID:                     twilioSID,
 		TwilioAuthToken:                      twilioToken,
 		SendGridAPIKey:                       sgAPIKey,
+		OpenAIAPIKey:                         openaiKey,
 		RSAPrivateKey:                        privKey,
 		RSAPublicKey:                         pubKey,
 		AppleDeviceCheckKey:                  priv,
@@ -309,6 +327,7 @@ func LoadConfig() *Config {
 		LDFlag_SeedDbWithTestData:            seedDbWithTestDataFlag,
 		LDFlag_DoRealMobileDeviceAttestation: doRealMobileDeviceAttestation,
 		LDFlag_CORSHighSecurity:              corsHighSecurityFlag,
+		LDFlag_OpenAIPhtoVerification:        openaiPhotoFlag,
 	}
 }
 

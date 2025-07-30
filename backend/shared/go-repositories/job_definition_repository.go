@@ -55,11 +55,12 @@ func (r *jobRepo) Create(ctx context.Context, j *models.JobDefinition) error {
 	dailyPayEstimates, _ := json.Marshal(j.DailyPayEstimates) // NEW
 	comp, _ := json.Marshal(j.CompletionRules)
 	support, _ := json.Marshal(j.SupportContact)
+	assigned, _ := json.Marshal(j.AssignedUnitsByBuilding)
 
 	_, err := r.db.Exec(ctx, `
         INSERT INTO job_definitions (
             id, manager_id, property_id, title, description,
-            assigned_building_ids, dumpster_ids, status, frequency,
+            assigned_units_by_building, dumpster_ids, status, frequency,
             weekdays, interval_weeks, start_date, end_date,
             earliest_start_time, latest_start_time, start_time_hint,
             skip_holidays, holiday_exceptions,
@@ -76,7 +77,7 @@ func (r *jobRepo) Create(ctx context.Context, j *models.JobDefinition) error {
         )
     `,
 		j.ID, j.ManagerID, j.PropertyID, j.Title, j.Description,
-		j.AssignedBuildingIDs, j.DumpsterIDs, j.Status, j.Frequency,
+		assigned, j.DumpsterIDs, j.Status, j.Frequency,
 		j.Weekdays, j.IntervalWeeks, j.StartDate, j.EndDate,
 		j.EarliestStartTime, j.LatestStartTime, j.StartTimeHint,
 		j.SkipHolidays, j.HolidayExceptions,
@@ -190,11 +191,12 @@ func (r *jobRepo) update(
 	dailyPayEstimates, _ := json.Marshal(j.DailyPayEstimates) // NEW
 	comp, _ := json.Marshal(j.CompletionRules)
 	support, _ := json.Marshal(j.SupportContact)
+	assigned, _ := json.Marshal(j.AssignedUnitsByBuilding)
 
 	sql := `
         UPDATE job_definitions SET
             title=$1, description=$2,
-            assigned_building_ids=$3, dumpster_ids=$4,
+            assigned_units_by_building=$3, dumpster_ids=$4,
             status=$5, frequency=$6,
             weekdays=$7, interval_weeks=$8,
             start_date=$9, end_date=$10,
@@ -204,7 +206,7 @@ func (r *jobRepo) update(
             updated_at=NOW()`
 	args := []any{
 		j.Title, j.Description,
-		j.AssignedBuildingIDs, j.DumpsterIDs,
+		assigned, j.DumpsterIDs,
 		j.Status, j.Frequency,
 		j.Weekdays, j.IntervalWeeks,
 		j.StartDate, j.EndDate,
@@ -232,7 +234,7 @@ func baseSelectJob() string {
 	return `
         SELECT
             id, manager_id, property_id, title, description,
-            assigned_building_ids, dumpster_ids, status, frequency,
+            assigned_units_by_building, dumpster_ids, status, frequency,
             weekdays, interval_weeks, start_date, end_date,
             earliest_start_time, latest_start_time, start_time_hint,
             skip_holidays, holiday_exceptions,
@@ -246,7 +248,8 @@ func (r *jobRepo) scanJob(row pgx.Row) (*models.JobDefinition, error) {
 	var j models.JobDefinition
 
 	var desc *string
-	var assigned, dumpsters []uuid.UUID
+	var assignedB []byte
+	var dumpsters []uuid.UUID
 	var status, freq string
 	var weekdays []int16
 	var interval *int
@@ -258,7 +261,7 @@ func (r *jobRepo) scanJob(row pgx.Row) (*models.JobDefinition, error) {
 
 	err := row.Scan(
 		&j.ID, &j.ManagerID, &j.PropertyID, &j.Title, &desc,
-		&assigned, &dumpsters, &status, &freq,
+		&assignedB, &dumpsters, &status, &freq,
 		&weekdays, &interval, &startDate, &endDate,
 		&eStart, &lStart, &sHint,
 		&j.SkipHolidays, &holExc,
@@ -274,7 +277,7 @@ func (r *jobRepo) scanJob(row pgx.Row) (*models.JobDefinition, error) {
 	}
 
 	j.Description = desc
-	j.AssignedBuildingIDs = assigned
+	_ = json.Unmarshal(assignedB, &j.AssignedUnitsByBuilding)
 	j.DumpsterIDs = dumpsters
 	j.Status = models.JobStatusType(status)
 	j.Frequency = models.JobFrequencyType(freq)
@@ -295,4 +298,3 @@ func (r *jobRepo) scanJob(row pgx.Row) (*models.JobDefinition, error) {
 
 	return &j, nil
 }
-

@@ -115,7 +115,8 @@ func SeedAllTestData(
 
 /*
 ------------------------------------------------------------------
-	  1) seedDefaultPMIfNeeded
+ 1. seedDefaultPMIfNeeded
+
 ------------------------------------------------------------------
 */
 func seedDefaultPMIfNeeded(
@@ -149,7 +150,9 @@ func seedDefaultPMIfNeeded(
 
 /*
 ------------------------------------------------------------------
-	  1.5) seedDefaultWorkersIfNeeded (NEW)
+
+	1.5) seedDefaultWorkersIfNeeded (NEW)
+
 ------------------------------------------------------------------
 */
 func seedDefaultWorkersIfNeeded(
@@ -229,7 +232,8 @@ func seedDefaultWorkersIfNeeded(
 
 /*
 ------------------------------------------------------------------
-	  2) seedPropertyDataIfNeeded
+ 2. seedPropertyDataIfNeeded
+
 ------------------------------------------------------------------
 */
 func seedPropertyDataIfNeeded(
@@ -371,6 +375,7 @@ func ensureDumpster(
 /*
 	------------------------------------------------------------------
 	  3) seedJobDefinitionsIfNeeded
+
 ------------------------------------------------------------------
 */
 func seedJobDefinitionsIfNeeded(
@@ -546,13 +551,17 @@ func createDailyDefinition(
 		}
 	}
 
+	groups := make([]models.AssignedUnitGroup, len(assignedBuildingIDs))
+	for i, bID := range assignedBuildingIDs {
+		groups[i] = models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}}
+	}
 	req := dtos.CreateJobDefinitionRequest{
-		PropertyID:          propID,
-		Title:               title,
-		Description:         utils.Ptr("automatic seed job"),
-		AssignedBuildingIDs: assignedBuildingIDs,
-		DumpsterIDs:         []uuid.UUID{dumpsterID},
-		Frequency:           models.JobFreqDaily,
+		PropertyID:              propID,
+		Title:                   title,
+		Description:             utils.Ptr("automatic seed job"),
+		AssignedUnitsByBuilding: groups,
+		DumpsterIDs:             []uuid.UUID{dumpsterID},
+		Frequency:               models.JobFreqDaily,
 		// Weekdays not needed for JobFreqDaily, but if it were CUSTOM, it would be like: []int16{1, 2, 3, 4, 5}
 		// FIX: Set StartDate to "yesterday" relative to UTC now. This ensures that when the
 		// instance creation logic runs for the property's local "today", the check `day.Before(StartDate)`
@@ -625,13 +634,17 @@ func createRealisticTimeWindowDefinition(
 		}
 	}
 
+	groups := make([]models.AssignedUnitGroup, len(assignedBuildingIDs))
+	for i, bID := range assignedBuildingIDs {
+		groups[i] = models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}}
+	}
 	req := dtos.CreateJobDefinitionRequest{
-		PropertyID:          propID,
-		Title:               title,
-		Description:         utils.Ptr("automatic seed job with realistic time window"),
-		AssignedBuildingIDs: assignedBuildingIDs,
-		DumpsterIDs:         []uuid.UUID{dumpsterID},
-		Frequency:           models.JobFreqDaily,
+		PropertyID:              propID,
+		Title:                   title,
+		Description:             utils.Ptr("automatic seed job with realistic time window"),
+		AssignedUnitsByBuilding: groups,
+		DumpsterIDs:             []uuid.UUID{dumpsterID},
+		Frequency:               models.JobFreqDaily,
 		// FIX: Set StartDate to "yesterday" relative to UTC now. This ensures that when the
 		// instance creation logic runs for the property's local "today", the check `day.Before(StartDate)`
 		// will not fail, preventing the off-by-one error caused by timezone differences.
@@ -702,17 +715,17 @@ func seedHistoricalDefinition(
 	}
 
 	req := dtos.CreateJobDefinitionRequest{
-		PropertyID:          propID,
-		Title:               title,
-		Description:         utils.Ptr("Historical job data for demonstration purposes."),
-		AssignedBuildingIDs: []uuid.UUID{}, // No specific buildings
-		DumpsterIDs:         []uuid.UUID{dumpID},
-		Frequency:           models.JobFreqDaily,
-		StartDate:           time.Now().UTC().AddDate(-1, 0, 0), // Start date a year ago
-		EarliestStartTime:   earliest,
-		LatestStartTime:     latest,
-		SkipHolidays:        true,
-		DailyPayEstimates:   dailyEstimates,
+		PropertyID:              propID,
+		Title:                   title,
+		Description:             utils.Ptr("Historical job data for demonstration purposes."),
+		AssignedUnitsByBuilding: []models.AssignedUnitGroup{},
+		DumpsterIDs:             []uuid.UUID{dumpID},
+		Frequency:               models.JobFreqDaily,
+		StartDate:               time.Now().UTC().AddDate(-1, 0, 0), // Start date a year ago
+		EarliestStartTime:       earliest,
+		LatestStartTime:         latest,
+		SkipHolidays:            true,
+		DailyPayEstimates:       dailyEstimates,
 		CompletionRules: &models.JobCompletionRules{
 			ProofPhotosRequired: true,
 		},
@@ -860,6 +873,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 /*
 	------------------------------------------------------------------
 	  6) seedCliftFarmPropertyIfNeeded (NEW)
+
 ------------------------------------------------------------------
 */
 func seedCliftFarmPropertyIfNeeded(
