@@ -32,7 +32,7 @@ const duplicateThreshold = 60 * time.Minute
 const createWebhookMaxRetries = 1
 
 // The Checkr package slug we always use for Poof gig workers.
-const defaultWorkerCheckrPackageSlug = "poof_gig_worker"
+const defaultWorkerCheckrPackageSlug = "poof_worker"
 
 // Hard-code the country as "US"
 const defaultWorkerCountry = "US"
