@@ -40,6 +40,8 @@ type JobService struct {
 	workerRepo     repositories.WorkerRepository
 	agentRepo      repositories.AgentRepository
 	unitRepo       repositories.UnitRepository
+	juvRepo        repositories.JobUnitVerificationRepository
+	openai         *OpenAIService
 	twilioClient   *twilio.RestClient
 	sendgridClient *sendgrid.Client
 }
@@ -60,6 +62,8 @@ func NewJobService(
 	workerRepo repositories.WorkerRepository,
 	agentRepo repositories.AgentRepository,
 	unitRepo repositories.UnitRepository,
+	juvRepo repositories.JobUnitVerificationRepository,
+	openai *OpenAIService,
 	twilioClient *twilio.RestClient,
 	sendgridClient *sendgrid.Client,
 ) *JobService {
@@ -73,6 +77,8 @@ func NewJobService(
 		workerRepo:     workerRepo,
 		agentRepo:      agentRepo,
 		unitRepo:       unitRepo,
+		juvRepo:        juvRepo,
+		openai:         openai,
 		twilioClient:   twilioClient,
 		sendgridClient: sendgridClient,
 	}
@@ -556,17 +562,18 @@ func (s *JobService) StartJobInstanceWithLocation(
 	return dto, nil
 }
 
-// CompleteJobInstanceWithLocation transitions from IN_PROGRESS => COMPLETED
-func (s *JobService) CompleteJobInstanceWithLocation(
+// VerifyUnitPhoto processes a photo for a specific unit.
+func (s *JobService) VerifyUnitPhoto(
 	ctx context.Context,
 	workerID string,
 	instanceID uuid.UUID,
+	unitID uuid.UUID,
 	lat float64,
 	lng float64,
 	accuracy float64,
 	timestampMS int64,
 	isMock bool,
-	photoCount int,
+	photo []byte,
 ) (*dtos.JobInstanceDTO, error) {
 
 	inst, err := s.instRepo.GetByID(ctx, instanceID)
@@ -576,7 +583,6 @@ func (s *JobService) CompleteJobInstanceWithLocation(
 	if inst == nil {
 		return nil, nil
 	}
-
 	if inst.AssignedWorkerID == nil || inst.AssignedWorkerID.String() != workerID {
 		return nil, internal_utils.ErrNotAssignedWorker
 	}
@@ -584,47 +590,170 @@ func (s *JobService) CompleteJobInstanceWithLocation(
 		return nil, internal_utils.ErrWrongStatus
 	}
 
-	defn, defErr := s.defRepo.GetByID(ctx, inst.DefinitionID)
-	if defErr != nil || defn == nil {
+	defn, err := s.defRepo.GetByID(ctx, inst.DefinitionID)
+	if err != nil || defn == nil {
 		return nil, fmt.Errorf("job definition not found")
 	}
-	prop, propErr := s.propRepo.GetByID(ctx, defn.PropertyID)
-	if propErr != nil || prop == nil {
+	prop, err := s.propRepo.GetByID(ctx, defn.PropertyID)
+	if err != nil || prop == nil {
 		return nil, fmt.Errorf("property not found")
 	}
 
-	distMeters := internal_utils.ComputeDistanceMeters(lat, lng, prop.Latitude, prop.Longitude)
-	if distMeters > float64(constants.LocationRadiusMeters) {
+	dist := internal_utils.ComputeDistanceMeters(lat, lng, prop.Latitude, prop.Longitude)
+	if dist > float64(constants.LocationRadiusMeters) {
 		return nil, internal_utils.ErrLocationOutOfBounds
 	}
 
-	if defn.CompletionRules.ProofPhotosRequired {
-		// We just need at least one photo if proof is required,
-		// not necessarily one per building.
-		if photoCount < 1 {
-			return nil, internal_utils.ErrNoPhotosProvided
-		}
-	}
-
-	rowVersion := inst.RowVersion
-	updated, err2 := s.instRepo.UpdateStatusToCompleted(ctx, instanceID, rowVersion)
-	if err2 != nil {
-		if strings.Contains(err2.Error(), utils.ErrRowVersionConflict.Error()) {
-			latest, _ := s.instRepo.GetByID(ctx, instanceID)
-			if latest != nil {
-				return nil, internal_utils.NewRowVersionConflictError(latest)
+	// Ensure unit is part of the assignment
+	allowed := false
+	for _, grp := range defn.AssignedUnitsByBuilding {
+		for _, uid := range grp.UnitIDs {
+			if uid == unitID {
+				allowed = true
+				break
 			}
 		}
-		return nil, err2
+		if allowed {
+			break
+		}
 	}
-	if updated == nil {
-		return nil, utils.ErrNoRowsUpdated
+	if !allowed {
+		return nil, internal_utils.ErrInvalidPayload
 	}
 
-	if updated.CheckInAt != nil && updated.CheckOutAt != nil {
-		timeSpent := max(updated.CheckOutAt.Sub(*updated.CheckInAt).Minutes(), 1)
-		actualMins := int(math.Round(timeSpent))
-		_ = s.applyCompletionTimeEma(ctx, defn.ID, updated.ServiceDate.Weekday(), actualMins)
+	unit, err := s.unitRepo.GetByID(ctx, unitID)
+	if err != nil || unit == nil {
+		return nil, fmt.Errorf("unit not found")
+	}
+
+	result, err := s.openai.VerifyPhoto(ctx, photo, unit.UnitNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	status := models.UnitVerificationFailed
+	if result.TrashCanPresent && result.NoTrashBagVisible && result.DoorNumberMatches {
+		status = models.UnitVerificationVerified
+	}
+
+	v, err := s.juvRepo.GetByInstanceAndUnit(ctx, instanceID, unitID)
+	if err != nil {
+		return nil, err
+	}
+	if v == nil {
+		v = &models.JobUnitVerification{
+			ID:            uuid.New(),
+			JobInstanceID: instanceID,
+			UnitID:        unitID,
+			Status:        status,
+		}
+		if err := s.juvRepo.Create(ctx, v); err != nil {
+			return nil, err
+		}
+	} else {
+		v.Status = status
+		if _, err := s.juvRepo.UpdateIfVersion(ctx, v, v.RowVersion); err != nil {
+			return nil, err
+		}
+	}
+
+	dto, _ := s.buildInstanceDTO(ctx, inst, nil, nil)
+	return dto, nil
+}
+
+// ProcessDumpTrip marks verified units as dumped and completes the job if all are dumped.
+func (s *JobService) ProcessDumpTrip(
+	ctx context.Context,
+	workerID string,
+	locReq dtos.JobLocationActionRequest,
+) (*dtos.JobInstanceDTO, error) {
+	inst, err := s.instRepo.GetByID(ctx, locReq.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+	if inst == nil {
+		return nil, nil
+	}
+	if inst.AssignedWorkerID == nil || inst.AssignedWorkerID.String() != workerID {
+		return nil, internal_utils.ErrNotAssignedWorker
+	}
+	if inst.Status != models.InstanceStatusInProgress {
+		return nil, internal_utils.ErrWrongStatus
+	}
+
+	defn, err := s.defRepo.GetByID(ctx, inst.DefinitionID)
+	if err != nil || defn == nil {
+		return nil, fmt.Errorf("job definition not found")
+	}
+	prop, err := s.propRepo.GetByID(ctx, defn.PropertyID)
+	if err != nil || prop == nil {
+		return nil, fmt.Errorf("property not found")
+	}
+
+	// Verify location is near one of the dumpsters
+	dumps, err := s.dumpRepo.ListByPropertyID(ctx, prop.ID)
+	if err != nil {
+		return nil, err
+	}
+	within := false
+	for _, d := range dumps {
+		if ContainsUUID(defn.DumpsterIDs, d.ID) {
+			dist := internal_utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
+			if dist <= float64(constants.LocationRadiusMeters) {
+				within = true
+				break
+			}
+		}
+	}
+	if !within {
+		return nil, internal_utils.ErrLocationOutOfBounds
+	}
+
+	verifs, err := s.juvRepo.ListByInstanceID(ctx, inst.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range verifs {
+		if v.Status == models.UnitVerificationVerified {
+			v.Status = models.UnitVerificationDumped
+			_, _ = s.juvRepo.UpdateIfVersion(ctx, v, v.RowVersion)
+		}
+	}
+
+	// check if all units dumped
+	total := 0
+	dumped := 0
+	for _, grp := range defn.AssignedUnitsByBuilding {
+		total += len(grp.UnitIDs)
+	}
+	for _, v := range verifs {
+		if v.Status == models.UnitVerificationDumped {
+			dumped++
+		}
+	}
+
+	var updated *models.JobInstance
+	if dumped >= total {
+		rv := inst.RowVersion
+		updated, err = s.instRepo.UpdateStatusToCompleted(ctx, inst.ID, rv)
+		if err != nil {
+			if strings.Contains(err.Error(), utils.ErrRowVersionConflict.Error()) {
+				latest, _ := s.instRepo.GetByID(ctx, inst.ID)
+				if latest != nil {
+					return nil, internal_utils.NewRowVersionConflictError(latest)
+				}
+			}
+			return nil, err
+		}
+		if updated != nil && updated.CheckInAt != nil && updated.CheckOutAt != nil {
+			timeSpent := max(updated.CheckOutAt.Sub(*updated.CheckInAt).Minutes(), 1)
+			actualMins := int(math.Round(timeSpent))
+			_ = s.applyCompletionTimeEma(ctx, defn.ID, updated.ServiceDate.Weekday(), actualMins)
+		}
+	}
+
+	if updated == nil {
+		updated = inst
 	}
 
 	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil)
@@ -1288,24 +1417,60 @@ func (s *JobService) buildInstanceDTO(
 	}
 
 	var buildings []dtos.BuildingDTO
+	var unitDTOs []dtos.UnitVerificationDTO
 	if len(jdef.AssignedUnitsByBuilding) > 0 {
-		allBldgs, err := s.bldgRepo.ListByPropertyID(ctx, prop.ID)
-		if err != nil {
-			return nil, err
+		// cache buildings by ID
+		bCache := make(map[uuid.UUID]*models.PropertyBuilding)
+		// Preload existing verifications
+		verifs, _ := s.juvRepo.ListByInstanceID(ctx, inst.ID)
+		statusMap := make(map[uuid.UUID]models.UnitVerificationStatus)
+		for _, v := range verifs {
+			statusMap[v.UnitID] = v.Status
 		}
-		bldgSet := make(map[uuid.UUID]bool)
+
 		for _, grp := range jdef.AssignedUnitsByBuilding {
-			bldgSet[grp.BuildingID] = true
-		}
-		for _, b := range allBldgs {
-			if bldgSet[b.ID] {
-				buildings = append(buildings, dtos.BuildingDTO{
-					BuildingID: b.ID,
-					Name:       b.BuildingName,
-					Latitude:   b.Latitude,
-					Longitude:  b.Longitude,
-				})
+			b, ok := bCache[grp.BuildingID]
+			if !ok {
+				b, _ = s.bldgRepo.GetByID(ctx, grp.BuildingID)
+				if b == nil {
+					continue
+				}
+				bCache[grp.BuildingID] = b
 			}
+
+			// build unit set for quick lookup
+			uidSet := make(map[uuid.UUID]struct{}, len(grp.UnitIDs))
+			for _, uid := range grp.UnitIDs {
+				uidSet[uid] = struct{}{}
+			}
+
+			units, _ := s.unitRepo.ListByBuildingID(ctx, grp.BuildingID)
+			var bUnits []dtos.UnitVerificationDTO
+			for _, u := range units {
+				if _, ok := uidSet[u.ID]; !ok {
+					continue
+				}
+				st := statusMap[u.ID]
+				if st == "" {
+					st = models.UnitVerificationPending
+				}
+				udto := dtos.UnitVerificationDTO{
+					UnitID:     u.ID,
+					BuildingID: grp.BuildingID,
+					UnitNumber: u.UnitNumber,
+					Status:     string(st),
+				}
+				bUnits = append(bUnits, udto)
+				unitDTOs = append(unitDTOs, udto)
+			}
+
+			buildings = append(buildings, dtos.BuildingDTO{
+				BuildingID: b.ID,
+				Name:       b.BuildingName,
+				Latitude:   b.Latitude,
+				Longitude:  b.Longitude,
+				Units:      bUnits,
+			})
 		}
 	}
 
@@ -1388,6 +1553,7 @@ func (s *JobService) buildInstanceDTO(
 		Buildings:                  buildings,
 		NumberOfDumpsters:          len(dumpsters),
 		Dumpsters:                  dumpsters,
+		UnitVerifications:          unitDTOs,
 		StartTimeHint:              sthProp,
 		WorkerStartTimeHint:        sthWorker,
 		PropertyServiceWindowStart: pwws,

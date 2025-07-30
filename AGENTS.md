@@ -1,3 +1,7 @@
+Understood. I've made the final refinement to remove the environment variable setup from the non-Docker sections, as they are no longer needed for a compile-only workflow.
+
+Here is the complete and final version of `AGENTS.md`.
+
 # Developer Guide
 
 Welcome to the monorepo! This guide provides all the necessary information for developers to get started with setting up, running, and testing the services and applications.
@@ -198,7 +202,6 @@ For developers who cannot use Docker or prefer a native Go workflow, each backen
 ### Prerequisites
 
   - Go version 1.24 or higher must be installed and available in your system's `PATH`.
-  - You must have a `BWS_ACCESS_TOKEN` exported in your shell to fetch application secrets.
 
 ### Compilation Steps
 
@@ -239,86 +242,30 @@ Use the following table to substitute the correct `<service-name>` in the compil
 
 -----
 
-## 10. Local Testing (Without Docker)
+## 10. Validating Backend Changes (Without Docker)
 
-When Docker is unavailable, you can still run the integration tests by manually setting up the necessary components: a PostgreSQL database and the service executable.
+Without the Docker environment, the focus for backend development shifts from running tests locally to ensuring that any code changes compile successfully.
 
-### 10.1. Step 1: Running a Local Database
+### 10.1. Compiling the Service Binary
 
-The services require a PostgreSQL database. Install it using a package manager like Homebrew (macOS) or APT (Debian/Ubuntu).
+After making changes to a backend service, your primary responsibility is to confirm that it still builds into an executable. Follow the instructions in **Section 9** to compile the service you are working on. A successful build indicates that the code is syntactically correct and all dependencies are properly resolved.
+
+### 10.2. Compiling the Test Binary
+
+In addition to the service binary, you must also ensure the integration tests still compile. This step verifies that your changes have not broken the test suite, which is critical for maintaining alignment with the production code.
+
+Navigate to the service directory and run the following command:
 
 ```bash
-# macOS
-brew install postgresql
-
-# Debian/Ubuntu
-sudo apt-get update
-sudo apt-get install postgresql
+# Note the dev_test build tag
+go test -c -tags "dev_test,integration" -o integration.test ./internal/integration/...
 ```
 
-After installation, ensure the database is running and create the user and database that the services expect:
+This will create a test executable named `integration.test`.
 
-  - **User**: `user`
-  - **Password**: `password`
-  - **Database**: `mydatabase`
+### 10.3. A Note on Execution and Testing
 
-### 10.2. Step 2: Running Database Migrations
-
-Before launching the service, you must apply the database schema. This is handled by the `tern` migration tool.
-
-1.  **Install Tern**:
-
-    ```bash
-    go install "github.com/jackc/tern/v2@v2.3.2"
-    ```
-
-2.  **Run Migrations**: From the `backend` directory, run the following command to apply all migrations from the `backend/migrations` folder to your local database.
-
-    ```bash
-    # Make sure you are in the 'backend' directory
-    tern migrate --migrations ./migrations --conn-string "postgres://user:password@localhost:5432/mydatabase"
-    ```
-
-### 10.3. Step 3: Running the Service
-
-With the database migrated, the service can be compiled and run on a local port.
-
-1.  **Navigate to the service directory** (e.g., `backend/services/account-service`).
-
-2.  **Compile the service binary** using the `go build` command from Section 9.
-
-3.  **Run the executable** with the required environment variables.
-
-    ```bash
-    export BWS_ACCESS_TOKEN="your_token_here"
-    export ENV="dev-test"
-    export APP_PORT="8083" # Use the port for the specific service
-    export APP_URL_FROM_ANYWHERE="http://localhost:8083"
-    export DB_URL="postgres://user:password@localhost:5432/mydatabase"
-
-    ./account-service
-    ```
-
-### 10.4. Step 4: Running the Tests
-
-With the database and service running, you can now execute the integration tests.
-
-1.  **Compile the test binary**: The test files are compiled into a separate executable.
-
-    ```bash
-    go test -c -tags "dev-test,integration" -o integration.test ./internal/integration/...
-    ```
-
-2.  **Run the test executable**: Set the `APP_URL_FROM_COMPOSE_NETWORK` variable to point to your locally running service.
-
-    ```bash
-    export BWS_ACCESS_TOKEN="your_token_here"
-    export APP_URL_FROM_COMPOSE_NETWORK="http://localhost:8083"
-
-    ./integration.test -test.v
-    ```
-
-It is crucial to **always run all tests after any code change**. This ensures your modifications align with the production services and that the project remains buildable and stable.
+**Do not run the compiled service or test binaries.** The test suite relies on the `docker-compose` pipeline to set up databases and orchestrate services. Manually replicating this environment is complex and not a required workflow. Your responsibility is to ensure both the service and test code compile successfully. The CI/CD pipeline will handle the execution and testing.
 
 -----
 

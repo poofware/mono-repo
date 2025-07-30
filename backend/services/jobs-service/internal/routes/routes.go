@@ -12,6 +12,10 @@ const (
 	JobsComplete = "/api/v1/jobs/complete"
 	JobsUnaccept = "/api/v1/jobs/unaccept"
 
+	// NEW endpoints for unit verification workflow
+	JobsVerifyUnitPhoto = "/api/v1/jobs/verify-unit-photo"
+	JobsDumpBags        = "/api/v1/jobs/dump-bags"
+
 	// NEW endpoint for “start job”
 	JobsStart = "/api/v1/jobs/start"
 
@@ -22,4 +26,3 @@ const (
 	JobsDefinitionStatus = "/api/v1/jobs/definition/status"
 	JobsDefinitionCreate = "/api/v1/manager/jobs/definition"
 )
-

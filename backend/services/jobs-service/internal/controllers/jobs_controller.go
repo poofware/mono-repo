@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -387,6 +388,129 @@ func (c *JobsController) StartJobHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // ----------------------------------------------------------------
+// POST /api/v1/jobs/verify-unit-photo
+// ----------------------------------------------------------------
+func (c *JobsController) VerifyPhotoHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	ctxUserID := ctx.Value(middleware.ContextKeyUserID)
+	if ctxUserID == nil {
+		utils.RespondErrorWithCode(w, http.StatusUnauthorized, utils.ErrCodeUnauthorized, "No userID in context", nil, nil)
+		return
+	}
+
+	if err := r.ParseMultipartForm(16 << 20); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Failed to parse form", nil, err)
+		return
+	}
+	form := r.MultipartForm
+
+	instIDStr := form.Value["instance_id"]
+	unitIDStr := form.Value["unit_id"]
+	latStr := form.Value["lat"]
+	lngStr := form.Value["lng"]
+	accStr := form.Value["accuracy"]
+	tsStr := form.Value["timestamp"]
+	mockStr := form.Value["is_mock"]
+
+	if len(instIDStr) == 0 || len(unitIDStr) == 0 || len(latStr) == 0 || len(lngStr) == 0 || len(accStr) == 0 || len(tsStr) == 0 || len(mockStr) == 0 {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "missing required form fields", nil, nil)
+		return
+	}
+
+	instID, err := uuid.Parse(instIDStr[0])
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid instance_id", nil, err)
+		return
+	}
+	unitID, err := uuid.Parse(unitIDStr[0])
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid unit_id", nil, err)
+		return
+	}
+	latVal, err := strconv.ParseFloat(latStr[0], 64)
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid lat", nil, err)
+		return
+	}
+	lngVal, err := strconv.ParseFloat(lngStr[0], 64)
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid lng", nil, err)
+		return
+	}
+	accVal, err := strconv.ParseFloat(accStr[0], 64)
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid accuracy", nil, err)
+		return
+	}
+	tsVal, err := strconv.ParseInt(tsStr[0], 10, 64)
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid timestamp", nil, err)
+		return
+	}
+	mockVal, err := strconv.ParseBool(mockStr[0])
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid is_mock", nil, err)
+		return
+	}
+	if photoHeaders := form.File["photo"]; len(photoHeaders) == 0 {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "photo is required", nil, nil)
+		return
+	}
+	file, err := form.File["photo"][0].Open()
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "failed to open photo", nil, err)
+		return
+	}
+	defer file.Close()
+	imgData, _ := io.ReadAll(file)
+
+	updated, svcErr := c.jobService.VerifyUnitPhoto(ctx, ctxUserID.(string), instID, unitID, latVal, lngVal, accVal, tsVal, mockVal, imgData)
+	if svcErr != nil {
+		utils.Logger.WithError(svcErr).Error("Verify photo error")
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, svcErr.Error(), "Could not verify photo", nil, svcErr)
+		return
+	}
+	if updated == nil {
+		utils.RespondErrorWithCode(w, http.StatusNotFound, utils.ErrCodeNotFound, "Job not found", nil, nil)
+		return
+	}
+	utils.RespondWithJSON(w, http.StatusOK, dtos.JobInstanceActionResponse{Updated: *updated})
+}
+
+// ----------------------------------------------------------------
+// POST /api/v1/jobs/dump-bags
+// ----------------------------------------------------------------
+func (c *JobsController) DumpBagsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	ctxUserID := ctx.Value(middleware.ContextKeyUserID)
+	if ctxUserID == nil {
+		utils.RespondErrorWithCode(w, http.StatusUnauthorized, utils.ErrCodeUnauthorized, "No userID in context", nil, nil)
+		return
+	}
+	var body dtos.JobLocationActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON", nil, err)
+		return
+	}
+	if body.InstanceID == uuid.Nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "instance_id is required", nil, nil)
+		return
+	}
+
+	updated, svcErr := c.jobService.ProcessDumpTrip(ctx, ctxUserID.(string), body)
+	if svcErr != nil {
+		utils.Logger.WithError(svcErr).Error("Dump bags error")
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, svcErr.Error(), "Could not dump bags", nil, svcErr)
+		return
+	}
+	if updated == nil {
+		utils.RespondErrorWithCode(w, http.StatusNotFound, utils.ErrCodeNotFound, "Job not found", nil, nil)
+		return
+	}
+	utils.RespondWithJSON(w, http.StatusOK, dtos.JobInstanceActionResponse{Updated: *updated})
+}
+
+// ----------------------------------------------------------------
 // POST /api/v1/jobs/complete
 // device-attested + location + photos
 // ...
@@ -507,22 +631,16 @@ func (c *JobsController) CompleteJobHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	photoCount := 0
-	if photos := form.File["photos[]"]; photos != nil {
-		photoCount = len(photos)
+	req := dtos.JobLocationActionRequest{
+		InstanceID: instUUID,
+		Lat:        latVal,
+		Lng:        lngVal,
+		Accuracy:   accVal,
+		Timestamp:  tsVal,
+		IsMock:     mockVal,
 	}
 
-	updated, svcErr := c.jobService.CompleteJobInstanceWithLocation(
-		ctx,
-		ctxUserID.(string),
-		instUUID,
-		latVal,
-		lngVal,
-		accVal,
-		tsVal,
-		mockVal,
-		photoCount,
-	)
+	updated, svcErr := c.jobService.ProcessDumpTrip(ctx, ctxUserID.(string), req)
 	if svcErr != nil {
 		switch e := svcErr.(type) {
 		case *internal_utils.RowVersionConflictError:
