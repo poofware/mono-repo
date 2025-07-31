@@ -231,7 +231,9 @@ func TestListOpenJobs(t *testing.T) {
 
 /*
 ───────────────────────────────────────────────────────────────────
+
 	3.5) ListMyJobs (assigned or in-progress)
+
 ───────────────────────────────────────────────────────────────────
 */
 func TestListMyJobs(t *testing.T) {
@@ -311,7 +313,7 @@ func TestJobDefinitionFlow(t *testing.T) {
 			PropertyID:                 p.ID,
 			Title:                      "Trash Global BiWeekly",
 			Description:                utils.Ptr("Clean up trash across property using global estimates."),
-			AssignedBuildingIDs:        []uuid.UUID{bID},
+			AssignedUnitsByBuilding:    []models.AssignedUnitGroup{{BuildingID: bID, UnitIDs: []uuid.UUID{}}},
 			DumpsterIDs:                []uuid.UUID{dID},
 			Frequency:                  models.JobFreqBiWeekly,
 			StartDate:                  time.Now().AddDate(0, 0, 1),
@@ -356,17 +358,17 @@ func TestJobDefinitionFlow(t *testing.T) {
 		}
 
 		reqDTO := dtos.CreateJobDefinitionRequest{
-			PropertyID:          p.ID,
-			Title:               "Trash Custom DailyEst",
-			AssignedBuildingIDs: []uuid.UUID{bID},
-			DumpsterIDs:         []uuid.UUID{dID},
-			Frequency:           models.JobFreqCustom,
-			Weekdays:            customWeekdays,
-			IntervalWeeks:       utils.Ptr(1),
-			StartDate:           time.Now().AddDate(0, 0, 1),
-			EarliestStartTime:   earliest,
-			LatestStartTime:     latest,
-			DailyPayEstimates:   requiredDailyEstimatesForCustom,
+			PropertyID:              p.ID,
+			Title:                   "Trash Custom DailyEst",
+			AssignedUnitsByBuilding: []models.AssignedUnitGroup{{BuildingID: bID, UnitIDs: []uuid.UUID{}}},
+			DumpsterIDs:             []uuid.UUID{dID},
+			Frequency:               models.JobFreqCustom,
+			Weekdays:                customWeekdays,
+			IntervalWeeks:           utils.Ptr(1),
+			StartDate:               time.Now().AddDate(0, 0, 1),
+			EarliestStartTime:       earliest,
+			LatestStartTime:         latest,
+			DailyPayEstimates:       requiredDailyEstimatesForCustom,
 		}
 		body, _ := json.Marshal(reqDTO)
 		ep := h.BaseURL + routes.JobsDefinitionCreate
@@ -405,13 +407,13 @@ func TestJobDefinitionFlow(t *testing.T) {
 		h.T = t
 		// Create a definition where the no-show time for today is in the past.
 		now := time.Now().UTC()
-		latestStart := now.Add(-time.Hour)          // 1 hour ago
+		latestStart := now.Add(-time.Hour)               // 1 hour ago
 		earliestStart := latestStart.Add(-2 * time.Hour) // 3 hours ago
 
 		reqDTO := dtos.CreateJobDefinitionRequest{
 			PropertyID:                 p.ID,
 			Title:                      "ExpiredTodayDef",
-			AssignedBuildingIDs:        []uuid.UUID{bID},
+			AssignedUnitsByBuilding:    []models.AssignedUnitGroup{{BuildingID: bID, UnitIDs: []uuid.UUID{}}},
 			DumpsterIDs:                []uuid.UUID{dID},
 			Frequency:                  models.JobFreqDaily,
 			StartDate:                  now.AddDate(0, 0, -1), // Started yesterday
@@ -456,15 +458,15 @@ func TestJobDefinitionFlow(t *testing.T) {
 			{DayOfWeek: int(time.Sunday), BasePay: 60.0, EstimatedTimeMinutes: 50},
 		}
 		reqDTO := dtos.CreateJobDefinitionRequest{
-			PropertyID:          p.ID,
-			Title:               "Fail Mismatch WDays",
-			AssignedBuildingIDs: []uuid.UUID{bID},
-			DumpsterIDs:         []uuid.UUID{dID},
-			Frequency:           models.JobFreqWeekdays,
-			StartDate:           time.Now().AddDate(0, 0, 1),
-			EarliestStartTime:   earliest,
-			LatestStartTime:     latest,
-			DailyPayEstimates:   mismatchedDailyEstimates,
+			PropertyID:              p.ID,
+			Title:                   "Fail Mismatch WDays",
+			AssignedUnitsByBuilding: []models.AssignedUnitGroup{{BuildingID: bID, UnitIDs: []uuid.UUID{}}},
+			DumpsterIDs:             []uuid.UUID{dID},
+			Frequency:               models.JobFreqWeekdays,
+			StartDate:               time.Now().AddDate(0, 0, 1),
+			EarliestStartTime:       earliest,
+			LatestStartTime:         latest,
+			DailyPayEstimates:       mismatchedDailyEstimates,
 		}
 		body, _ := json.Marshal(reqDTO)
 		ep := h.BaseURL + routes.JobsDefinitionCreate
@@ -485,14 +487,14 @@ func TestJobDefinitionFlow(t *testing.T) {
 	t.Run("CreateDefinition_FailMissingPayTimeInput", func(t *testing.T) {
 		h.T = t
 		reqDTO := dtos.CreateJobDefinitionRequest{
-			PropertyID:          p.ID,
-			Title:               "Fail Missing Input",
-			AssignedBuildingIDs: []uuid.UUID{bID},
-			DumpsterIDs:         []uuid.UUID{dID},
-			Frequency:           models.JobFreqDaily,
-			StartDate:           time.Now().AddDate(0, 0, 1),
-			EarliestStartTime:   earliest,
-			LatestStartTime:     latest,
+			PropertyID:              p.ID,
+			Title:                   "Fail Missing Input",
+			AssignedUnitsByBuilding: []models.AssignedUnitGroup{{BuildingID: bID, UnitIDs: []uuid.UUID{}}},
+			DumpsterIDs:             []uuid.UUID{dID},
+			Frequency:               models.JobFreqDaily,
+			StartDate:               time.Now().AddDate(0, 0, 1),
+			EarliestStartTime:       earliest,
+			LatestStartTime:         latest,
 		}
 		body, _ := json.Marshal(reqDTO)
 		ep := h.BaseURL + routes.JobsDefinitionCreate
@@ -685,7 +687,8 @@ func TestFullWorkerFlow(t *testing.T) {
 
 /*
 ───────────────────────────────────────────────────────────────────
- 5.5. Accept Job Account Status & Time Gating
+
+	5.5. Accept Job Account Status & Time Gating
 
 ───────────────────────────────────────────────────────────────────
 */

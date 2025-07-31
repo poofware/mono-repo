@@ -192,21 +192,26 @@ func (h *TestHelper) CreateTestJobDefinition(t *testing.T, ctx context.Context, 
 	duration := latest.Sub(earliest)
 	hint := earliest.Add(duration / 2)
 
+	assigned := make([]models.AssignedUnitGroup, len(buildingIDs))
+	for i, bID := range buildingIDs {
+		assigned[i] = models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}}
+	}
+
 	def := &models.JobDefinition{
-		ID:                  uuid.New(),
-		ManagerID:           managerID,
-		PropertyID:          propID,
-		Title:               title,
-		AssignedBuildingIDs: buildingIDs,
-		DumpsterIDs:         dumpsterIDs,
-		Frequency:           freq,
-		Weekdays:            weekdays,
-		Status:              status,
-		StartDate:           time.Now().UTC().AddDate(0, 0, -1),
-		EarliestStartTime:   earliest,
-		LatestStartTime:     latest,
-		StartTimeHint:       hint,
-		DailyPayEstimates:   dailyEstimates,
+		ID:                      uuid.New(),
+		ManagerID:               managerID,
+		PropertyID:              propID,
+		Title:                   title,
+		AssignedUnitsByBuilding: assigned,
+		DumpsterIDs:             dumpsterIDs,
+		Frequency:               freq,
+		Weekdays:                weekdays,
+		Status:                  status,
+		StartDate:               time.Now().UTC().AddDate(0, 0, -1),
+		EarliestStartTime:       earliest,
+		LatestStartTime:         latest,
+		StartTimeHint:           hint,
+		DailyPayEstimates:       dailyEstimates,
 	}
 	require.NoError(t, h.JobDefRepo.Create(ctx, def))
 	createdDef, err := h.JobDefRepo.GetByID(ctx, def.ID)

@@ -1,7 +1,3 @@
-Understood. I've made the final refinement to remove the environment variable setup from the non-Docker sections, as they are no longer needed for a compile-only workflow.
-
-Here is the complete and final version of `AGENTS.md`.
-
 # Developer Guide
 
 Welcome to the monorepo! This guide provides all the necessary information for developers to get started with setting up, running, and testing the services and applications.
@@ -127,6 +123,41 @@ Below are the paths for each service:
 | **jobs-service** | `backend/services/jobs-service`   | `make build`   | `make ci`    |
 | **meta-service** | `backend/meta-service`            | `make build`   | `make ci`    |
 
+
+## 4.1. Testing Requirements
+
+For every new feature or bug fix in the backend services, you must add or update the corresponding unit and integration tests to ensure code quality and maintain system reliability.
+
+**Note**: We are only writing integration tests for now, but will be adding unit tests in the future.
+
+### Unit Tests
+
+Unit tests should be created for individual functions and methods, focusing on testing business logic in isolation.
+
+- **Location:** Place unit tests alongside the code being tested, following Go conventions (e.g., `service_test.go` for `service.go`)
+- **Running Unit Tests:** From any service directory, run:
+  ```bash
+  go test ./...
+  ```
+- **Coverage:** Aim for comprehensive coverage of new functionality and edge cases
+
+**Note:** Do not write unit tests right now. We will be adding unit tests in the future.
+
+### Integration Tests
+
+Integration tests verify that different components work together correctly and are located in each service's `internal/integration/` directory.
+
+- **Location:** `backend/services/<service-name>/internal/integration/`
+- **Running Integration Tests:** Use the CI command which includes integration tests:
+  ```bash
+  make ci
+  ```
+- **Requirements:** Integration tests must be updated when:
+  - Adding new API endpoints
+  - Modifying existing endpoint behavior
+  - Changing database schemas or queries
+  - Updating service interactions
+
 -----
 
 ## 5. Frontend Development
@@ -250,9 +281,9 @@ Without the Docker environment, the focus for backend development shifts from ru
 
 After making changes to a backend service, your primary responsibility is to confirm that it still builds into an executable. Follow the instructions in **Section 9** to compile the service you are working on. A successful build indicates that the code is syntactically correct and all dependencies are properly resolved.
 
-### 10.2. Compiling the Test Binary
+### 10.2. Updating and Compiling Tests
 
-In addition to the service binary, you must also ensure the integration tests still compile. This step verifies that your changes have not broken the test suite, which is critical for maintaining alignment with the production code.
+After making any code changes, it is the agent's primary responsibility to **update the corresponding integration tests** to ensure they accurately reflect the new logic. Once the tests are updated, you must compile them to verify that your changes have not broken the test suite's build.
 
 Navigate to the service directory and run the following command:
 
@@ -273,11 +304,11 @@ This will create a test executable named `integration.test`.
 
 The Flutter build process does not require Docker for the frontend itself. However, running the app or its tests requires a live backend, which is too complex to set up without the Docker pipeline.
 
-Therefore, when Docker is not available, the primary goal is to **ensure the Flutter code compiles successfully**.
+Therefore, when Docker is not available, the primary goal is to **ensure the Flutter application and its tests compile successfully.** It is the agent's responsibility to update any relevant tests to align with their code changes.
 
 ### 11.1. Building the App
 
-Use the existing `make` targets to build the Flutter application for each platform. This verifies that your code changes have not introduced any compilation errors.
+Use the existing `make` targets to build the Flutter application for each platform. This verifies that your code changes have not introduced any compilation errors in either the application or its test files.
 
 1.  **Navigate to the app directory**:
 
