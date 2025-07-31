@@ -158,33 +158,8 @@ func (c *JobsController) AcceptJobHandler(w http.ResponseWriter, r *http.Request
 		)
 		return
 	}
-	if body.Lat < -90 || body.Lat > 90 || body.Lng < -180 || body.Lng > 180 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"lat/lng out of range", nil, nil,
-		)
-		return
-	}
-	if body.Accuracy > 30 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeLocationInaccurate,
-			"GPS accuracy is too low. Please move to an area with a clearer view of the sky.", nil, nil,
-		)
-		return
-	}
-	nowMS := time.Now().UnixMilli()
-	if math.Abs(float64(nowMS-body.Timestamp)) > 30000 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"location timestamp not within ±30s of server time", nil, nil,
-		)
-		return
-	}
-	if body.IsMock {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"is_mock must be false", nil, nil,
-		)
+	if code, msg := internal_utils.ValidateLocationData(body.Lat, body.Lng, body.Accuracy, body.Timestamp, body.IsMock); code != "" {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
 		return
 	}
 
@@ -452,6 +427,10 @@ func (c *JobsController) VerifyPhotoHandler(w http.ResponseWriter, r *http.Reque
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid is_mock", nil, err)
 		return
 	}
+	if code, msg := internal_utils.ValidateLocationData(latVal, lngVal, accVal, tsVal, mockVal); code != "" {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
+		return
+	}
 	if photoHeaders := form.File["photo"]; len(photoHeaders) == 0 {
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "photo is required", nil, nil)
 		return
@@ -494,6 +473,10 @@ func (c *JobsController) DumpBagsHandler(w http.ResponseWriter, r *http.Request)
 	}
 	if body.InstanceID == uuid.Nil {
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "instance_id is required", nil, nil)
+		return
+	}
+	if code, msg := internal_utils.ValidateLocationData(body.Lat, body.Lng, body.Accuracy, body.Timestamp, body.IsMock); code != "" {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
 		return
 	}
 

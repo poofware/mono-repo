@@ -603,28 +603,28 @@ func TestFullWorkerFlow(t *testing.T) {
 	earliest, latest := h.TestSameDayTimeWindow()
 
 	w := h.CreateTestWorker(ctx, "workerflow")
-    p := h.CreateTestProperty(ctx, "FullFlowProp", testPM.ID, 0.0, 0.0)
-    bldg := h.CreateTestBuilding(ctx, p.ID, "Test Building for Full Flow")
-    dumpster := h.CreateTestDumpster(ctx, p.ID, "Test Dumpster for Full Flow")
+	p := h.CreateTestProperty(ctx, "FullFlowProp", testPM.ID, 0.0, 0.0)
+	bldg := h.CreateTestBuilding(ctx, p.ID, "Test Building for Full Flow")
+	dumpster := h.CreateTestDumpster(ctx, p.ID, "Test Dumpster for Full Flow")
 
-    defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "FullFlowJob",
-                []uuid.UUID{bldg.ID}, []uuid.UUID{dumpster.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "FullFlowJob",
+		[]uuid.UUID{bldg.ID}, []uuid.UUID{dumpster.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
-    // Create a unit and assign it to the job definition
-    unit := &models.Unit{
-        ID:         uuid.New(),
-        PropertyID: p.ID,
-        BuildingID: bldg.ID,
-        UnitNumber: "101",
-    }
-    require.NoError(t, h.UnitRepo.Create(ctx, unit))
+	// Create a unit and assign it to the job definition
+	unit := &models.Unit{
+		ID:         uuid.New(),
+		PropertyID: p.ID,
+		BuildingID: bldg.ID,
+		UnitNumber: "101",
+	}
+	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 
-    require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
-        j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
-        return nil
-    }))
+	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
+		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
+		return nil
+	}))
 
-    inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
 
 	workerJWT := h.CreateMobileJWT(w.ID, "flow-device-123", "FAKE-PLAY")
 
@@ -668,62 +668,62 @@ func TestFullWorkerFlow(t *testing.T) {
 		require.Equal(t, "IN_PROGRESS", r.Updated.Status)
 	})
 
-       t.Run("VerifyUnitPhoto", func(t *testing.T) {
-               h.T = t
-               var buf bytes.Buffer
-               writer := multipart.NewWriter(&buf)
-               writer.WriteField("instance_id", inst.ID.String())
-               writer.WriteField("unit_id", unit.ID.String())
-               writer.WriteField("lat", "0.0")
-               writer.WriteField("lng", "0.0")
-               writer.WriteField("accuracy", "3.7")
-               writer.WriteField("timestamp", fmt.Sprintf("%d", time.Now().UnixMilli()))
-               writer.WriteField("is_mock", "false")
-               part, err := writer.CreateFormFile("photo", "test.jpg")
-               require.NoError(t, err)
-               _, _ = part.Write([]byte("fake image bytes"))
-               writer.Close()
+	t.Run("VerifyUnitPhoto", func(t *testing.T) {
+		h.T = t
+		var buf bytes.Buffer
+		writer := multipart.NewWriter(&buf)
+		writer.WriteField("instance_id", inst.ID.String())
+		writer.WriteField("unit_id", unit.ID.String())
+		writer.WriteField("lat", "0.0")
+		writer.WriteField("lng", "0.0")
+		writer.WriteField("accuracy", "3.7")
+		writer.WriteField("timestamp", fmt.Sprintf("%d", time.Now().UnixMilli()))
+		writer.WriteField("is_mock", "false")
+		part, err := writer.CreateFormFile("photo", "test.jpg")
+		require.NoError(t, err)
+		_, _ = part.Write([]byte("fake image bytes"))
+		writer.Close()
 
-               ep := h.BaseURL + routes.JobsVerifyUnitPhoto
-               req := h.BuildAuthRequest("POST", ep, workerJWT, buf.Bytes(), "android", "flow-device-123")
-               req.Header.Set("Content-Type", writer.FormDataContentType())
+		ep := h.BaseURL + routes.JobsVerifyUnitPhoto
+		req := h.BuildAuthRequest("POST", ep, workerJWT, buf.Bytes(), "android", "flow-device-123")
+		req.Header.Set("Content-Type", writer.FormDataContentType())
 
-               c := h.NewHTTPClient()
-               resp := h.DoRequest(req, c)
-               defer resp.Body.Close()
-               require.Equal(t, 200, resp.StatusCode)
+		c := h.NewHTTPClient()
+		resp := h.DoRequest(req, c)
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
 
-               var r dtos.JobInstanceActionResponse
-               data, _ := io.ReadAll(resp.Body)
-               json.Unmarshal(data, &r)
-               require.Equal(t, "IN_PROGRESS", r.Updated.Status)
-               require.Len(t, r.Updated.UnitVerifications, 1)
-               require.Equal(t, "VERIFIED", r.Updated.UnitVerifications[0].Status)
-       })
+		var r dtos.JobInstanceActionResponse
+		data, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(data, &r)
+		require.Equal(t, "IN_PROGRESS", r.Updated.Status)
+		require.Len(t, r.Updated.UnitVerifications, 1)
+		require.Equal(t, "VERIFIED", r.Updated.UnitVerifications[0].Status)
+	})
 
-       t.Run("DumpBags", func(t *testing.T) {
-               h.T = t
-               payload := dtos.JobLocationActionRequest{
-                       InstanceID: inst.ID,
-                       Lat:        0.0,
-                       Lng:        0.0,
-                       Accuracy:   3.7,
-                       Timestamp:  time.Now().UnixMilli(),
-                       IsMock:     false,
-               }
-               body, _ := json.Marshal(payload)
-               ep := h.BaseURL + routes.JobsDumpBags
-               req := h.BuildAuthRequest("POST", ep, workerJWT, body, "android", "flow-device-123")
-               c := h.NewHTTPClient()
-               resp := h.DoRequest(req, c)
-               defer resp.Body.Close()
-               require.Equal(t, 200, resp.StatusCode)
+	t.Run("DumpBags", func(t *testing.T) {
+		h.T = t
+		payload := dtos.JobLocationActionRequest{
+			InstanceID: inst.ID,
+			Lat:        0.0,
+			Lng:        0.0,
+			Accuracy:   3.7,
+			Timestamp:  time.Now().UnixMilli(),
+			IsMock:     false,
+		}
+		body, _ := json.Marshal(payload)
+		ep := h.BaseURL + routes.JobsDumpBags
+		req := h.BuildAuthRequest("POST", ep, workerJWT, body, "android", "flow-device-123")
+		c := h.NewHTTPClient()
+		resp := h.DoRequest(req, c)
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
 
-               var r dtos.JobInstanceActionResponse
-               data, _ := io.ReadAll(resp.Body)
-               json.Unmarshal(data, &r)
-               require.Equal(t, "COMPLETED", r.Updated.Status)
-       })
+		var r dtos.JobInstanceActionResponse
+		data, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(data, &r)
+		require.Equal(t, "COMPLETED", r.Updated.Status)
+	})
 }
 
 /*
@@ -1022,22 +1022,22 @@ func TestConcurrencyComplete(t *testing.T) {
 	ctx := h.Ctx
 	earliest, latest := h.TestSameDayTimeWindow()
 
-        p := h.CreateTestProperty(ctx, "ConcCompProp", testPM.ID, 0.0, 0.0)
-        b := h.CreateTestBuilding(ctx, p.ID, "Conc Bldg")
-        d := h.CreateTestDumpster(ctx, p.ID, "Conc Dump")
-        defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "ConcurrencyCompleteTest",
-                []uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+	p := h.CreateTestProperty(ctx, "ConcCompProp", testPM.ID, 0.0, 0.0)
+	b := h.CreateTestBuilding(ctx, p.ID, "Conc Bldg")
+	d := h.CreateTestDumpster(ctx, p.ID, "Conc Dump")
+	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "ConcurrencyCompleteTest",
+		[]uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
-        unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "101"}
-        require.NoError(t, h.UnitRepo.Create(ctx, unit))
-        require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
-                j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
-                return nil
-        }))
+	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "101"}
+	require.NoError(t, h.UnitRepo.Create(ctx, unit))
+	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
+		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
+		return nil
+	}))
 
-        inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
-        w := h.CreateTestWorker(ctx, "completeConc")
-        wJWT := h.CreateMobileJWT(w.ID, "completeConc-dev", "FAKE-PLAY")
+	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+	w := h.CreateTestWorker(ctx, "completeConc")
+	wJWT := h.CreateMobileJWT(w.ID, "completeConc-dev", "FAKE-PLAY")
 
 	aLoc := dtos.JobLocationActionRequest{
 		InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Accuracy: 5.0, Timestamp: time.Now().UnixMilli(), IsMock: false,
@@ -1053,59 +1053,59 @@ func TestConcurrencyComplete(t *testing.T) {
 	}
 	sBody, _ := json.Marshal(sLoc)
 	sReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsStart, wJWT, sBody, "android", "completeConc-dev")
-        sResp := h.DoRequest(sReq, h.NewHTTPClient())
-        defer sResp.Body.Close()
-        require.Equal(t, 200, sResp.StatusCode)
+	sResp := h.DoRequest(sReq, h.NewHTTPClient())
+	defer sResp.Body.Close()
+	require.Equal(t, 200, sResp.StatusCode)
 
-        // Verify the unit first
-        {
-                var buf bytes.Buffer
-                writer := multipart.NewWriter(&buf)
-                writer.WriteField("instance_id", inst.ID.String())
-                writer.WriteField("unit_id", unit.ID.String())
-                writer.WriteField("lat", "0.0")
-                writer.WriteField("lng", "0.0")
-                writer.WriteField("accuracy", "2.5")
-                writer.WriteField("timestamp", fmt.Sprintf("%d", time.Now().UnixMilli()))
-                writer.WriteField("is_mock", "false")
-                part, _ := writer.CreateFormFile("photo", "v.jpg")
-                part.Write([]byte("dummy"))
-                writer.Close()
+	// Verify the unit first
+	{
+		var buf bytes.Buffer
+		writer := multipart.NewWriter(&buf)
+		writer.WriteField("instance_id", inst.ID.String())
+		writer.WriteField("unit_id", unit.ID.String())
+		writer.WriteField("lat", "0.0")
+		writer.WriteField("lng", "0.0")
+		writer.WriteField("accuracy", "2.5")
+		writer.WriteField("timestamp", fmt.Sprintf("%d", time.Now().UnixMilli()))
+		writer.WriteField("is_mock", "false")
+		part, _ := writer.CreateFormFile("photo", "v.jpg")
+		part.Write([]byte("dummy"))
+		writer.Close()
 
-                req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsVerifyUnitPhoto, wJWT, buf.Bytes(), "android", "completeConc-dev")
-                req.Header.Set("Content-Type", writer.FormDataContentType())
-                resp := h.DoRequest(req, h.NewHTTPClient())
-                defer resp.Body.Close()
-                require.Equal(t, 200, resp.StatusCode)
-        }
+		req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsVerifyUnitPhoto, wJWT, buf.Bytes(), "android", "completeConc-dev")
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		resp := h.DoRequest(req, h.NewHTTPClient())
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+	}
 
-        doDump := func() int {
-                payload := dtos.JobLocationActionRequest{
-                        InstanceID: inst.ID,
-                        Lat:        0.0,
-                        Lng:        0.0,
-                        Accuracy:   2.5,
-                        Timestamp:  time.Now().UnixMilli(),
-                        IsMock:     false,
-                }
-                body, _ := json.Marshal(payload)
-                req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, wJWT, body, "android", "completeConc-dev")
-                resp := h.DoRequest(req, h.NewHTTPClient())
-                defer resp.Body.Close()
-                return resp.StatusCode
-        }
+	doDump := func() int {
+		payload := dtos.JobLocationActionRequest{
+			InstanceID: inst.ID,
+			Lat:        0.0,
+			Lng:        0.0,
+			Accuracy:   2.5,
+			Timestamp:  time.Now().UnixMilli(),
+			IsMock:     false,
+		}
+		body, _ := json.Marshal(payload)
+		req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, wJWT, body, "android", "completeConc-dev")
+		resp := h.DoRequest(req, h.NewHTTPClient())
+		defer resp.Body.Close()
+		return resp.StatusCode
+	}
 
-        var results [2]int
-        var wg sync.WaitGroup
-        wg.Add(2)
-        go func() {
-                defer wg.Done()
-                results[0] = doDump()
-        }()
-        go func() {
-                defer wg.Done()
-                results[1] = doDump()
-        }()
+	var results [2]int
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		results[0] = doDump()
+	}()
+	go func() {
+		defer wg.Done()
+		results[1] = doDump()
+	}()
 	wg.Wait()
 
 	success := 0
@@ -1547,15 +1547,15 @@ func TestJobEstimatedTimeEmaFlow(t *testing.T) {
 	bID := h.CreateTestBuilding(ctx, p.ID, "Test Building for EMA Flow").ID
 	dID := h.CreateTestDumpster(ctx, p.ID, "Test Dumpster for EMA Flow").ID
 
-        defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "EmaTestDef",
-                []uuid.UUID{bID}, []uuid.UUID{dID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "EmaTestDef",
+		[]uuid.UUID{bID}, []uuid.UUID{dID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
-        unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: bID, UnitNumber: "101"}
-        require.NoError(t, h.UnitRepo.Create(ctx, unit))
-        require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
-                j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
-                return nil
-        }))
+	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: bID, UnitNumber: "101"}
+	require.NoError(t, h.UnitRepo.Create(ctx, unit))
+	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
+		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
+		return nil
+	}))
 
 	initialServiceDate := time.Now().UTC().Truncate(24 * time.Hour)
 	weekdayForTest := initialServiceDate.Weekday()
@@ -1571,50 +1571,50 @@ func TestJobEstimatedTimeEmaFlow(t *testing.T) {
 		_, dbErr := h.DB.Exec(ctx, updateQuery, models.InstanceStatusInProgress, w.ID, checkinTime, inst.ID)
 		require.NoError(t, dbErr, "Failed to manually set instance to IN_PROGRESS with check_in_at for instance %s", inst.ID)
 
-                // Verify the unit via API
-                var buf bytes.Buffer
-                writer := multipart.NewWriter(&buf)
-                writer.WriteField("instance_id", inst.ID.String())
-                writer.WriteField("unit_id", unit.ID.String())
-                writer.WriteField("lat", "0.0")
-                writer.WriteField("lng", "0.0")
-                writer.WriteField("accuracy", "5.0")
-                writer.WriteField("timestamp", fmt.Sprintf("%d", time.Now().UnixMilli()))
-                writer.WriteField("is_mock", "false")
-                part, _ := writer.CreateFormFile("photo", "ema.jpg")
-                _, _ = part.Write([]byte("fake photo data"))
-                writer.Close()
+		// Verify the unit via API
+		var buf bytes.Buffer
+		writer := multipart.NewWriter(&buf)
+		writer.WriteField("instance_id", inst.ID.String())
+		writer.WriteField("unit_id", unit.ID.String())
+		writer.WriteField("lat", "0.0")
+		writer.WriteField("lng", "0.0")
+		writer.WriteField("accuracy", "5.0")
+		writer.WriteField("timestamp", fmt.Sprintf("%d", time.Now().UnixMilli()))
+		writer.WriteField("is_mock", "false")
+		part, _ := writer.CreateFormFile("photo", "ema.jpg")
+		_, _ = part.Write([]byte("fake photo data"))
+		writer.Close()
 
-                verifyReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsVerifyUnitPhoto, workerJWT, buf.Bytes(), "android", "ema-test-device")
-                verifyReq.Header.Set("Content-Type", writer.FormDataContentType())
-                verifyResp := h.DoRequest(verifyReq, h.NewHTTPClient())
-                defer verifyResp.Body.Close()
-                require.Equal(t, 200, verifyResp.StatusCode)
+		verifyReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsVerifyUnitPhoto, workerJWT, buf.Bytes(), "android", "ema-test-device")
+		verifyReq.Header.Set("Content-Type", writer.FormDataContentType())
+		verifyResp := h.DoRequest(verifyReq, h.NewHTTPClient())
+		defer verifyResp.Body.Close()
+		require.Equal(t, 200, verifyResp.StatusCode)
 
-                payload := dtos.JobLocationActionRequest{
-                        InstanceID: inst.ID,
-                        Lat:        0.0,
-                        Lng:        0.0,
-                        Accuracy:   5.0,
-                        Timestamp:  time.Now().UnixMilli(),
-                        IsMock:     false,
-                }
-                body, _ := json.Marshal(payload)
-                dumpReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, workerJWT, body, "android", "ema-test-device")
-                dumpResp := h.DoRequest(dumpReq, h.NewHTTPClient())
-                defer dumpResp.Body.Close()
+		payload := dtos.JobLocationActionRequest{
+			InstanceID: inst.ID,
+			Lat:        0.0,
+			Lng:        0.0,
+			Accuracy:   5.0,
+			Timestamp:  time.Now().UnixMilli(),
+			IsMock:     false,
+		}
+		body, _ := json.Marshal(payload)
+		dumpReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, workerJWT, body, "android", "ema-test-device")
+		dumpResp := h.DoRequest(dumpReq, h.NewHTTPClient())
+		defer dumpResp.Body.Close()
 
-                if dumpResp.StatusCode != 200 {
-                        bodyBytes, _ := io.ReadAll(dumpResp.Body)
-                        t.Logf("DumpBags failed unexpectedly. Status: %d, Body: %s. Instance ServiceDate: %v",
-                                dumpResp.StatusCode, string(bodyBytes), currentServiceDate)
-                }
-                require.Equal(t, 200, dumpResp.StatusCode, "Dump bags should succeed for instance %s", inst.ID)
+		if dumpResp.StatusCode != 200 {
+			bodyBytes, _ := io.ReadAll(dumpResp.Body)
+			t.Logf("DumpBags failed unexpectedly. Status: %d, Body: %s. Instance ServiceDate: %v",
+				dumpResp.StatusCode, string(bodyBytes), currentServiceDate)
+		}
+		require.Equal(t, 200, dumpResp.StatusCode, "Dump bags should succeed for instance %s", inst.ID)
 
-                var out dtos.JobInstanceActionResponse
-                cData, _ := io.ReadAll(dumpResp.Body)
-                require.NoError(t, json.Unmarshal(cData, &out), "Failed to unmarshal dump response for instance %s", inst.ID)
-                require.Equal(t, "COMPLETED", out.Updated.Status)
+		var out dtos.JobInstanceActionResponse
+		cData, _ := io.ReadAll(dumpResp.Body)
+		require.NoError(t, json.Unmarshal(cData, &out), "Failed to unmarshal dump response for instance %s", inst.ID)
+		require.Equal(t, "COMPLETED", out.Updated.Status)
 
 		defAfter, errGet := h.JobDefRepo.GetByID(ctx, defn.ID)
 		require.NoError(t, errGet)
@@ -1935,4 +1935,74 @@ func TestMultiWorkerCancelAndReacceptFlow(t *testing.T) {
 	acceptRespB := h.DoRequest(acceptReqB, h.NewHTTPClient())
 	defer acceptRespB.Body.Close()
 	require.Equal(t, http.StatusOK, acceptRespB.StatusCode, "Worker B should be able to accept the re-opened job")
+}
+
+/*
+───────────────────────────────────────────────────────────────────
+18. Location Validation on Verify Photo & Dump Bags
+───────────────────────────────────────────────────────────────────
+*/
+func TestLocationValidation(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+	earliest, latest := h.TestSameDayTimeWindow()
+
+	w := h.CreateTestWorker(ctx, "loc-validate")
+	p := h.CreateTestProperty(ctx, "LocValProp", testPM.ID, 0.0, 0.0)
+	b := h.CreateTestBuilding(ctx, p.ID, "LocValBldg")
+	d := h.CreateTestDumpster(ctx, p.ID, "LocValDump")
+	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "LocValJob",
+		[]uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "100"}
+	require.NoError(t, h.UnitRepo.Create(ctx, unit))
+	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
+		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
+		return nil
+	}))
+	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+	jwt := h.CreateMobileJWT(w.ID, "locval-dev", "FAKE-PLAY")
+
+	loc := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 5, Timestamp: time.Now().UnixMilli(), IsMock: false}
+	body, _ := json.Marshal(loc)
+	acceptReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsAccept, jwt, body, "android", "locval-dev")
+	acceptResp := h.DoRequest(acceptReq, h.NewHTTPClient())
+	defer acceptResp.Body.Close()
+	require.Equal(t, http.StatusOK, acceptResp.StatusCode)
+
+	startReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsStart, jwt, body, "android", "locval-dev")
+	startResp := h.DoRequest(startReq, h.NewHTTPClient())
+	defer startResp.Body.Close()
+	require.Equal(t, http.StatusOK, startResp.StatusCode)
+
+	t.Run("VerifyPhoto_Inaccurate", func(t *testing.T) {
+		h.T = t
+		var buf bytes.Buffer
+		writer := multipart.NewWriter(&buf)
+		writer.WriteField("instance_id", inst.ID.String())
+		writer.WriteField("unit_id", unit.ID.String())
+		writer.WriteField("lat", "0")
+		writer.WriteField("lng", "0")
+		writer.WriteField("accuracy", "50")
+		writer.WriteField("timestamp", fmt.Sprintf("%d", time.Now().UnixMilli()))
+		writer.WriteField("is_mock", "false")
+		part, _ := writer.CreateFormFile("photo", "bad.jpg")
+		part.Write([]byte("dummy"))
+		writer.Close()
+
+		req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsVerifyUnitPhoto, jwt, buf.Bytes(), "android", "locval-dev")
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		resp := h.DoRequest(req, h.NewHTTPClient())
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	})
+
+	t.Run("DumpBags_Inaccurate", func(t *testing.T) {
+		h.T = t
+		badLoc := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 50, Timestamp: time.Now().UnixMilli(), IsMock: false}
+		b, _ := json.Marshal(badLoc)
+		req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, jwt, b, "android", "locval-dev")
+		resp := h.DoRequest(req, h.NewHTTPClient())
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	})
 }
