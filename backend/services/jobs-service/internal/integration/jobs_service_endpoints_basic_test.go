@@ -185,22 +185,19 @@ func TestListOpenJobs(t *testing.T) {
 		h.T = t
 
 		// --- FIX: Create time window relative to the property's timezone ---
-		propLoc, err := time.LoadLocation(p1.TimeZone)
-		require.NoError(t, err)
-		nowInPropLoc := time.Now().In(propLoc)
+               propLoc, err := time.LoadLocation(p1.TimeZone)
+               require.NoError(t, err)
 
-		// Create a definition where the acceptance cutoff for today's job has already passed.
-		// The original logic could fail the `latest > earliest` DB check when run near midnight.
-		// This revised logic sets `latest_start` to be `now - 20m`. This means the acceptance
-		// cutoff is `now - 60m` (in the past), while keeping the time values on the same calendar day.
-		latestStart := nowInPropLoc.Add(-20 * time.Minute)
-		earliestStart := latestStart.Add(-100 * time.Minute) // A 100min duration satisfies all constraints.
+               // Use deterministic evening hours to avoid crossing midnight in any timezone.
+               today := time.Now().In(propLoc)
+               latestStart := time.Date(today.Year(), today.Month(), today.Day(), 20, 0, 0, 0, propLoc)
+               earliestStart := latestStart.Add(-2 * time.Hour)
 
 		unacceptableDef := h.CreateTestJobDefinition(t, ctx, testPM.ID, p1.ID, "UnacceptableJobDef",
 			[]uuid.UUID{b1_p1.ID}, []uuid.UUID{d1_p1.ID}, earliestStart, latestStart, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
 		// Create the instance for today in the property's timezone to be certain about the service date.
-		todayInPropTZ := time.Date(nowInPropLoc.Year(), nowInPropLoc.Month(), nowInPropLoc.Day(), 0, 0, 0, 0, propLoc)
+               todayInPropTZ := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, propLoc)
 		_ = h.CreateTestJobInstance(t, ctx, unacceptableDef.ID, todayInPropTZ, models.InstanceStatusOpen, nil)
 
 		// List jobs again

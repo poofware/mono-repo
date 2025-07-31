@@ -41,7 +41,7 @@ func TestJobEstimatedTimeEmaFlow(t *testing.T) {
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "EmaTestDef",
 		[]uuid.UUID{bID}, []uuid.UUID{dID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
-	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: bID, UnitNumber: "101"}
+       unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: bID, UnitNumber: "101", TenantToken: uuid.NewString()}
 	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
 		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
@@ -444,7 +444,7 @@ func TestLocationValidation(t *testing.T) {
 	d := h.CreateTestDumpster(ctx, p.ID, "LocValDump")
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "LocValJob",
 		[]uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "100"}
+       unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "100", TenantToken: uuid.NewString()}
 	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
 		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}

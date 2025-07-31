@@ -45,12 +45,13 @@ func TestFullWorkerFlow(t *testing.T) {
 		[]uuid.UUID{bldg.ID}, []uuid.UUID{dumpster.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
 	// Create a unit and assign it to the job definition
-	unit := &models.Unit{
-		ID:         uuid.New(),
-		PropertyID: p.ID,
-		BuildingID: bldg.ID,
-		UnitNumber: "101",
-	}
+       unit := &models.Unit{
+               ID:         uuid.New(),
+               PropertyID: p.ID,
+               BuildingID: bldg.ID,
+               UnitNumber: "101",
+               TenantToken: uuid.NewString(),
+       }
 	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 
 	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
@@ -462,7 +463,7 @@ func TestConcurrencyComplete(t *testing.T) {
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "ConcurrencyCompleteTest",
 		[]uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
-	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "101"}
+       unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "101", TenantToken: uuid.NewString()}
 	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
 		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
