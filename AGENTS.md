@@ -306,6 +306,8 @@ The Flutter build process does not require Docker for the frontend itself. Howev
 
 Therefore, when Docker is not available, the primary goal is to **ensure the Flutter application and its tests compile successfully.** It is the agent's responsibility to update any relevant tests to align with their code changes.
 
+**Note:** Only attempt to compile if flutter is installed in the environment.
+
 ### 11.1. Building the App
 
 Use the existing `make` targets to build the Flutter application for each platform. This verifies that your code changes have not introduced any compilation errors in either the application or its test files.
