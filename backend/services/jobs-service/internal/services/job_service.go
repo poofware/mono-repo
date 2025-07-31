@@ -3,6 +3,7 @@
 package services
 
 import (
+	"slices"
 	"context"
 	"fmt"
 	"math"
@@ -607,12 +608,9 @@ func (s *JobService) VerifyUnitPhoto(
 	// Ensure unit is part of the assignment
 	allowed := false
 	for _, grp := range defn.AssignedUnitsByBuilding {
-		for _, uid := range grp.UnitIDs {
-			if uid == unitID {
+		if slices.Contains(grp.UnitIDs, unitID) {
 				allowed = true
-				break
 			}
-		}
 		if allowed {
 			break
 		}

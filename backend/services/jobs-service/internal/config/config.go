@@ -53,7 +53,7 @@ type Config struct {
 	LDFlag_SeedDbWithTestData            bool
 	LDFlag_DoRealMobileDeviceAttestation bool
 	LDFlag_CORSHighSecurity              bool
-	LDFlag_OpenAIPhtoVerification        bool
+	LDFlag_OpenAIPhotoVerification        bool
 }
 
 const (
@@ -327,7 +327,7 @@ func LoadConfig() *Config {
 		LDFlag_SeedDbWithTestData:            seedDbWithTestDataFlag,
 		LDFlag_DoRealMobileDeviceAttestation: doRealMobileDeviceAttestation,
 		LDFlag_CORSHighSecurity:              corsHighSecurityFlag,
-		LDFlag_OpenAIPhtoVerification:        openaiPhotoFlag,
+		LDFlag_OpenAIPhotoVerification:        openaiPhotoFlag,
 	}
 }
 
