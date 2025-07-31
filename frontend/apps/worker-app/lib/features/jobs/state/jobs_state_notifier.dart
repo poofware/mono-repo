@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:poof_worker/features/jobs/state/jobs_state.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
@@ -20,6 +21,7 @@ import 'package:poof_worker/features/jobs/data/repositories/worker_jobs_reposito
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
+import 'package:poof_worker/features/jobs/utils/job_photo_persistence.dart';
 
 // NEW IMPORT for earnings
 import 'package:poof_worker/features/earnings/providers/earnings_providers.dart';
@@ -424,37 +426,110 @@ class JobsNotifier extends StateNotifier<JobsState> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  //  COMPLETE JOB
+  //  VERIFY UNIT PHOTO
   // ─────────────────────────────────────────────────────────────────────────
-  Future<bool> completeJob(String instanceId, List<File> photos) async {
+  Future<bool> verifyUnitPhoto(String unitId, XFile photo) async {
     final logger = ref.read(appLoggerProvider);
-    logger.d(
-        'Attempting to complete job $instanceId with ${photos.length} photos...');
+    final job = state.inProgressJob;
+    if (job == null) return false;
+
+    logger.d('Verifying photo for unit $unitId of job ${job.instanceId}');
+
+    final saved = await JobPhotoPersistence.savePhoto(job.instanceId, photo);
+
     try {
+      late final JobInstance updated;
       if (_flavor.testMode) {
-        logger.d('Completing job $instanceId in test mode.');
-        await Future.delayed(const Duration(milliseconds: 800));
+        await Future.delayed(const Duration(milliseconds: 300));
+        final updatedBuildings = job.buildings.map((b) {
+          final units = b.units.map((u) {
+            if (u.unitId == unitId) {
+              return UnitVerification(
+                unitId: u.unitId,
+                buildingId: u.buildingId,
+                unitNumber: u.unitNumber,
+                status: UnitVerificationStatus.verified,
+              );
+            }
+            return u;
+          }).toList();
+          return Building(
+            buildingId: b.buildingId,
+            name: b.name,
+            latitude: b.latitude,
+            longitude: b.longitude,
+            units: units,
+          );
+        }).toList();
+        updated = job.copyWith(buildings: updatedBuildings);
       } else {
         final position = await _getHighAccuracyFix();
-        await _repository.completeJob(
-          instanceId: instanceId,
+        updated = await _repository.verifyPhoto(
+          instanceId: job.instanceId,
+          unitId: unitId,
           lat: position.latitude,
           lng: position.longitude,
           accuracy: position.accuracy,
           timestamp: position.timestamp.millisecondsSinceEpoch,
           isMock: position.isMocked,
-          photos: photos,
+          photo: File(saved.path),
         );
       }
 
-      state = state.copyWith(
-          clearInProgressJob: true, clearError: true);
-      logger.d('Job $instanceId completed successfully.');
-
-      ref.read(earningsNotifierProvider.notifier).fetchEarningsSummary(force: true);
+      state = state.copyWith(inProgressJob: updated, clearError: true);
+      await JobPhotoPersistence.clearPhotos(job.instanceId);
+      logger.d('Unit $unitId verified successfully.');
       return true;
     } catch (e) {
-      logger.e('Error completing job $instanceId: $e');
+      logger.e('Error verifying unit $unitId: $e');
+      state = state.copyWith(error: e);
+      return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  DUMP BAGS
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<bool> dumpBags() async {
+    final logger = ref.read(appLoggerProvider);
+    final job = state.inProgressJob;
+    if (job == null) return false;
+
+    logger.d('Dumping bags for job ${job.instanceId}');
+
+    try {
+      late final JobInstance updated;
+      if (_flavor.testMode) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        updated = job;
+      } else {
+        final position = await _getHighAccuracyFix();
+        updated = await _repository.dumpBags(
+          instanceId: job.instanceId,
+          lat: position.latitude,
+          lng: position.longitude,
+          accuracy: position.accuracy,
+          timestamp: position.timestamp.millisecondsSinceEpoch,
+          isMock: position.isMocked,
+        );
+      }
+
+      final completed = updated.status == JobInstanceStatus.completed;
+      state = state.copyWith(
+        inProgressJob: completed ? null : updated,
+        clearError: true,
+        clearInProgressJob: completed,
+      );
+
+      if (completed) {
+        ref.read(earningsNotifierProvider.notifier).fetchEarningsSummary(force: true);
+        await JobPhotoPersistence.clearPhotos(job.instanceId);
+      }
+
+      logger.d('Dump trip processed. Job completed: $completed');
+      return true;
+    } catch (e) {
+      logger.e('Error processing dump for job ${job.instanceId}: $e');
       state = state.copyWith(error: e);
       return false;
     }

@@ -114,7 +114,7 @@ While developing a specific service, you can run its build and test commands ind
 
 Below are the paths for each service:
 
-| Service            | Path                              | Build Command  | Test Command |
+| Service            | Path                              | Build Command   | Test Command |
 | ------------------ | --------------------------------- | -------------- | ------------ |
 | **account-service**| `backend/services/account-service`| `make build`   | `make ci`    |
 | **auth-service** | `backend/services/auth-service`   | `make build`   | `make ci`    |
@@ -197,6 +197,28 @@ This is the main public-facing website.
   - **Path:** `frontend/apps/the-website`
   - **Build:** `make build-web`
   - **Test:** `make ci-web`
+
+### 5.1. Testing Requirements
+
+For every new feature or bug fix in the frontend applications, you must add or update the corresponding API integration tests to ensure code quality and maintain system reliability. This is critical for maintaining a stable data layer and preventing regressions.
+
+#### API Integration Tests
+
+API integration tests verify that the frontend's data layer correctly interacts with the backend services.
+
+-   **Location:** `frontend/apps/worker-app/integration_test/api`
+-   **Running Integration Tests:** Use the CI command for the desired platform:
+    ```bash
+    # For Android
+    make ci-android
+
+    # For iOS
+    make ci-ios
+    ```
+-   **Requirements:** API integration tests must be created or updated whenever changes are made to the data layer of the application, including:
+    -   Adding new API service methods
+    -   Modifying existing API service method behavior
+    -   Changing the structure of data models that are sent to or received from the backend
 
 -----
 
@@ -306,7 +328,7 @@ The Flutter build process does not require Docker for the frontend itself. Howev
 
 Therefore, when Docker is not available, the primary goal is to **ensure the Flutter application and its tests compile successfully.** It is the agent's responsibility to update any relevant tests to align with their code changes.
 
-**Note:** Only attempt to compile if flutter is installed in the environment.
+**Important:** Only attempt to run, build, or test the Flutter application if the Flutter SDK is installed and configured in your environment.
 
 ### 11.1. Building the App
 
@@ -331,3 +353,4 @@ Use the existing `make` targets to build the Flutter application for each platfo
 ### 11.2. A Note on Testing
 
 **Do not attempt to run Flutter tests without Docker.** The end-to-end and integration tests for Flutter depend on the full backend stack managed by `docker-compose`. Setting this up manually is not a supported workflow. Your responsibility is to ensure the code compiles, and the CI/CD pipeline will handle the full test suite.
+

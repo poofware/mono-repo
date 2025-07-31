@@ -16,6 +16,66 @@ enum JobInstanceStatus {
   canceled,
 }
 
+enum UnitVerificationStatus { pending, verified, dumped, failed }
+
+UnitVerificationStatus unitVerificationStatusFromString(String raw) {
+  switch (raw.toUpperCase()) {
+    case 'PENDING':
+      return UnitVerificationStatus.pending;
+    case 'VERIFIED':
+      return UnitVerificationStatus.verified;
+    case 'DUMPED':
+      return UnitVerificationStatus.dumped;
+    case 'FAILED':
+      return UnitVerificationStatus.failed;
+    default:
+      throw ArgumentError('Invalid UnitVerificationStatus: $raw');
+  }
+}
+
+String unitVerificationStatusToString(UnitVerificationStatus status) {
+  switch (status) {
+    case UnitVerificationStatus.pending:
+      return 'PENDING';
+    case UnitVerificationStatus.verified:
+      return 'VERIFIED';
+    case UnitVerificationStatus.dumped:
+      return 'DUMPED';
+    case UnitVerificationStatus.failed:
+      return 'FAILED';
+  }
+}
+
+class UnitVerification {
+  final String unitId;
+  final String buildingId;
+  final String unitNumber;
+  final UnitVerificationStatus status;
+
+  const UnitVerification({
+    required this.unitId,
+    required this.buildingId,
+    required this.unitNumber,
+    required this.status,
+  });
+
+  factory UnitVerification.fromJson(Map<String, dynamic> json) {
+    return UnitVerification(
+      unitId: json['unit_id'] as String,
+      buildingId: json['building_id'] as String,
+      unitNumber: json['unit_number'] as String,
+      status: unitVerificationStatusFromString(json['status'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'unit_id': unitId,
+        'building_id': buildingId,
+        'unit_number': unitNumber,
+        'status': unitVerificationStatusToString(status),
+      };
+}
+
 JobInstanceStatus jobInstanceStatusFromString(String raw) {
   switch (raw.toUpperCase()) {
     case 'OPEN':
@@ -41,20 +101,29 @@ class Building {
   final String name;
   final double latitude;
   final double longitude;
+  final List<UnitVerification> units;
 
   const Building({
     required this.buildingId,
     required this.name,
     required this.latitude,
     required this.longitude,
+    this.units = const [],
   });
 
   factory Building.fromJson(Map<String, dynamic> json) {
+    final unitsList = <UnitVerification>[];
+    if (json['units'] is List) {
+      for (final u in (json['units'] as List)) {
+        unitsList.add(UnitVerification.fromJson(u as Map<String, dynamic>));
+      }
+    }
     return Building(
       buildingId: json['building_id'] as String,
       name: json['building_name'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
+      units: unitsList,
     );
   }
 }
@@ -349,6 +418,7 @@ extension JobInstanceCopyWith on JobInstance {
     JobInstanceStatus? status,
     double? pay,
     Property? property,
+    List<Building>? buildings,
     String? propertyServiceWindowStart,
     String? workerServiceWindowStart,
     String? propertyServiceWindowEnd,
@@ -368,7 +438,7 @@ extension JobInstanceCopyWith on JobInstance {
       pay: pay ?? this.pay,
       property: property ?? this.property,
       numberOfBuildings: numberOfBuildings,
-      buildings: buildings,
+      buildings: buildings ?? this.buildings,
       numberOfDumpsters: numberOfDumpsters,
       dumpsters: dumpsters,
       startTimeHint: startTimeHint,

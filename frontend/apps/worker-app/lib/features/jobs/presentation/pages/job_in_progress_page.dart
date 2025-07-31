@@ -235,14 +235,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     if (_isCompleting) return;
     setState(() => _isCompleting = true);
 
-    final photoFiles = _photos.map((xfile) => File(xfile.path)).toList();
-    final wasSuccess = await ref
-        .read(jobsNotifierProvider.notifier)
-        .completeJob(widget.job.instanceId, photoFiles);
-        
+    final wasSuccess =
+        await ref.read(jobsNotifierProvider.notifier).dumpBags();
+
     if (mounted) {
       if (wasSuccess) {
-        await JobPhotoPersistence.clearPhotos(widget.job.instanceId);
         _navigateBack();
       } else {
         // Just reset the UI state. Error is handled globally.

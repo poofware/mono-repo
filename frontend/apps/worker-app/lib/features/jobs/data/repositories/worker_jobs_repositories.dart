@@ -77,26 +77,47 @@ class WorkerJobsRepository {
     return _api.unacceptJob(instanceId);
   }
 
-  /// POST /api/v1/jobs/complete (multipart, device-attested)
-  /// Attach `photos` as proof.
-  Future<JobInstance> completeJob({
+  /// POST /api/v1/jobs/verify-unit-photo
+  Future<JobInstance> verifyPhoto({
+    required String instanceId,
+    required String unitId,
+    required double lat,
+    required double lng,
+    double accuracy = 0,
+    int? timestamp,
+    bool isMock = false,
+    required File photo,
+  }) async {
+    final ts = timestamp ?? DateTime.now().millisecondsSinceEpoch;
+    return _api.verifyPhoto(
+      instanceId: instanceId,
+      unitId: unitId,
+      lat: lat,
+      lng: lng,
+      accuracy: accuracy,
+      timestamp: ts,
+      isMock: isMock,
+      photo: photo,
+    );
+  }
+
+  /// POST /api/v1/jobs/dump-bags
+  Future<JobInstance> dumpBags({
     required String instanceId,
     required double lat,
     required double lng,
     double accuracy = 0,
     int? timestamp,
     bool isMock = false,
-    List<File> photos = const [],
   }) async {
     final ts = timestamp ?? DateTime.now().millisecondsSinceEpoch;
-    return _api.completeJob(
+    return _api.dumpBags(
       instanceId: instanceId,
       lat: lat,
       lng: lng,
       accuracy: accuracy,
       timestamp: ts,
       isMock: isMock,
-      photos: photos,
     );
   }
 

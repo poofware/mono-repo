@@ -155,20 +155,17 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     return jar.updated;
   }
 
-  /// POST /jobs/complete (multipart form-data)
-  ///
-  /// `photos` is optional. If empty, no files are attached, but the server might reject
-  /// if the job requires proof photos. `lat` and `lng` must be included as form fields.
-  Future<JobInstance> completeJob({
+  /// POST /jobs/verify-unit-photo (multipart)
+  Future<JobInstance> verifyPhoto({
     required String instanceId,
+    required String unitId,
     required double lat,
     required double lng,
     required double accuracy,
     required int timestamp,
     bool isMock = false,
-    List<File> photos = const [],
+    required File photo,
   }) async {
-    // 1) prepare fields:
     final req = JobLocationActionRequest(
       instanceId: instanceId,
       lat: lat,
@@ -178,17 +175,45 @@ class WorkerJobsApi with AuthenticatedApiMixin {
       isMock: isMock,
     );
     final fields = req.toFormFields();
+    fields['unit_id'] = unitId;
 
-    // 2) call new sendAuthenticatedMultipartRequest
     final resp = await sendAuthenticatedMultipartRequest(
       method: 'POST',
-      path: '$_v1Jobs/complete',
+      path: '$_v1Jobs/verify-unit-photo',
       fields: fields,
-      files: photos, // We rely on IoAuthStrategy for actual file uploading
+      files: [photo],
       requireAttestation: true,
     );
 
-    // 3) parse success
+    final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+    final jar = JobInstanceActionResponse.fromJson(decoded);
+    return jar.updated;
+  }
+
+  /// POST /jobs/dump-bags
+  Future<JobInstance> dumpBags({
+    required String instanceId,
+    required double lat,
+    required double lng,
+    required double accuracy,
+    required int timestamp,
+    bool isMock = false,
+  }) async {
+    final req = JobLocationActionRequest(
+      instanceId: instanceId,
+      lat: lat,
+      lng: lng,
+      accuracy: accuracy,
+      timestamp: timestamp,
+      isMock: isMock,
+    );
+
+    final resp = await sendAuthenticatedRequest(
+      method: 'POST',
+      path: '$_v1Jobs/dump-bags',
+      body: req,
+      requireAttestation: true,
+    );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
     final jar = JobInstanceActionResponse.fromJson(decoded);
     return jar.updated;
