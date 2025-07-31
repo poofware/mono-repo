@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'flavors.dart';
 
 void configureProdFlavor() {
-  const String apiVersion = 'v1';
-
   const gcpSdkKey = String.fromEnvironment('GCP_SDK_KEY');
   if (gcpSdkKey.isEmpty) {
     throw Exception('GCP_SDK_KEY is not set. Please set it in your build configuration for production.');
@@ -13,8 +11,8 @@ void configureProdFlavor() {
     name: "", // or "PROD" if you still want to see it
     color: Colors.green,
     location: BannerLocation.topStart,
-    authServiceURL: 'https://thepoofapp.com/auth/$apiVersion',
-    apiServiceURL: 'https://thepoofapp.com/api/$apiVersion',
+    authServiceURL: 'https://thepoofapp.com/auth',
+    apiServiceURL: 'https://thepoofapp.com/api',
     baseUrl: 'https://thepoofapp.com',
     gcpSdkKey: gcpSdkKey,
     realDeviceAttestation: true,

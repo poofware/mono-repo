@@ -5,6 +5,8 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/config/flavors.dart';
 import '../models/job_models.dart';
 
+const String _v1Jobs = '/v1/jobs';
+
 /// A specialized API client for the "jobs-service" endpoints relevant to workers.
 ///
 /// We use [AuthenticatedApiMixin] for normal JSON endpoints (list, accept, start, unaccept).
@@ -52,7 +54,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     final queryParams = '?lat=$lat&lng=$lng&page=$page&size=$size';
     final resp = await sendAuthenticatedRequest(
       method: 'GET',
-      path: '/jobs/open$queryParams',
+      path: '$_v1Jobs/open$queryParams',
     );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
     return ListJobsResponse.fromJson(decoded);
@@ -71,7 +73,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     final queryParams = '?lat=$lat&lng=$lng&page=$page&size=$size';
     final resp = await sendAuthenticatedRequest(
       method: 'GET',
-      path: '/jobs/my$queryParams',
+      path: '$_v1Jobs/my$queryParams',
     );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
     return ListJobsResponse.fromJson(decoded);
@@ -98,7 +100,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
 
     final resp = await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/jobs/accept',
+      path: '$_v1Jobs/accept',
       body: req,
       requireAttestation: true,
     );
@@ -128,7 +130,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
 
     final resp = await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/jobs/start',
+      path: '$_v1Jobs/start',
       body: req,
       requireAttestation: true,
     );
@@ -144,7 +146,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
 
     final resp = await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/jobs/unaccept',
+      path: '$_v1Jobs/unaccept',
       body: req,
       requireAttestation: false,
     );
@@ -180,7 +182,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     // 2) call new sendAuthenticatedMultipartRequest
     final resp = await sendAuthenticatedMultipartRequest(
       method: 'POST',
-      path: '/jobs/complete',
+      path: '$_v1Jobs/complete',
       fields: fields,
       files: photos, // We rely on IoAuthStrategy for actual file uploading
       requireAttestation: true,
@@ -197,7 +199,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     final req = JobActionRequest(instanceId);
     final resp = await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/jobs/cancel',
+      path: '$_v1Jobs/cancel',
       body: req,
       requireAttestation: false, // Or true if desired
     );

@@ -139,11 +139,10 @@ func main() {
 		middleware.MobileAttestationMiddleware(cfg.LDFlag_DoRealMobileDeviceAttestation, attVerifier),
 	)
 
-	locationSecured.HandleFunc(routes.JobsStart, jobsController.StartJobHandler).Methods(http.MethodPost)
-	locationSecured.HandleFunc(routes.JobsComplete, jobsController.CompleteJobHandler).Methods(http.MethodPost)
-	locationSecured.HandleFunc(routes.JobsAccept, jobsController.AcceptJobHandler).Methods(http.MethodPost)
-	locationSecured.HandleFunc(routes.JobsVerifyUnitPhoto, jobsController.VerifyPhotoHandler).Methods(http.MethodPost)
-	locationSecured.HandleFunc(routes.JobsDumpBags, jobsController.DumpBagsHandler).Methods(http.MethodPost)
+       locationSecured.HandleFunc(routes.JobsStart, jobsController.StartJobHandler).Methods(http.MethodPost)
+       locationSecured.HandleFunc(routes.JobsAccept, jobsController.AcceptJobHandler).Methods(http.MethodPost)
+       locationSecured.HandleFunc(routes.JobsVerifyUnitPhoto, jobsController.VerifyPhotoHandler).Methods(http.MethodPost)
+       locationSecured.HandleFunc(routes.JobsDumpBags, jobsController.DumpBagsHandler).Methods(http.MethodPost)
 
 	c := cron.New()
 	_, dailyErr := c.AddFunc("5 0 * * *", func() {
