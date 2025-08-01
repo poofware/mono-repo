@@ -188,6 +188,8 @@ cd frontend/apps/worker-app
 ```
 2.  **Run the analyzer**:
 ```bash
+# Generate localization files (if applicable)
+flutter gen-l10n --verbose
 flutter analyze
 ```
 **This is the mandatory validation step for agents.** Agents must **not** compile or run the application using `make` commands. The `flutter analyze` command is sufficient for code validation.
@@ -368,6 +370,8 @@ cd frontend/apps/worker-app
 ```
 2.  **Run the analyzer**:
 ```bash
+# Generate localization files (if applicable)
+flutter gen-l10n --verbose
 flutter analyze
 ```
 **This is the only command agents should run for Flutter development.** Agents are specifically instructed **not** to try to compile the Dart code with the `make` commands.
