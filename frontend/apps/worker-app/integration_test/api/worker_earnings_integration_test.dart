@@ -59,6 +59,8 @@ void main() {
     // 2. Initialize auth components
     workerNotifier = WorkerStateNotifier();
     tokenStorage = SecureTokenStorage();
+    // Remove tokens from previous runs to avoid stale authentication state.
+    await tokenStorage.clearTokens();
     final workerAuthApi = WorkerAuthApi(tokenStorage: tokenStorage);
     authRepo = WorkerAuthRepository(
       authApi: workerAuthApi,

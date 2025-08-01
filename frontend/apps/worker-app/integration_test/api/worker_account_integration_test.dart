@@ -75,6 +75,8 @@ void main() {
 
     // 1) Auth side: WorkerAuthApi + Secure Storage + Repo
     tokenStorage = SecureTokenStorage();
+    // Clear any persisted tokens from previous runs to start fresh.
+    await tokenStorage.clearTokens();
     final workerAuthApi = WorkerAuthApi(tokenStorage: tokenStorage);
     authRepo = WorkerAuthRepository(
       authApi: workerAuthApi,

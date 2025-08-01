@@ -122,6 +122,8 @@ void main() {
     // 2) Initialize token storage + repos
     final workerNotifier = WorkerStateNotifier();
     tokenStorage = SecureTokenStorage();
+    // Ensure any persisted tokens from prior test runs are removed.
+    await tokenStorage.clearTokens();
     final workerAuthApi = WorkerAuthApi(tokenStorage: tokenStorage);
     authRepo = WorkerAuthRepository(
       authApi: workerAuthApi,
