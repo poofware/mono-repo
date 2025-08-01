@@ -37,6 +37,17 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
   static const int _bagLimit = 8;
 
+  void _openFullMap() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JobMapPage(
+          job: widget.job,
+          buildAsScaffold: true,
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -231,24 +242,59 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final verified = _verifiedCount(job);
     final slideEnabled = verified > 0;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(job.property.propertyName),
-        actions: [
-          IconButton(
-            onPressed: _handleCancel,
-            icon: const Icon(Icons.cancel),
-            tooltip: l10n.jobInProgressCancelButton,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
+    return WillPopScope(
+      onWillPop: () async => false,
+      child: Scaffold(
+        body: Column(
+          children: [
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      job.property.propertyName,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    IconButton(
+                      onPressed: _handleCancel,
+                      icon: const Icon(Icons.cancel),
+                      tooltip: l10n.jobInProgressCancelButton,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: SizedBox(height: 180, child: widget.preWarmedMap),
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _openFullMap,
+                child: Stack(
+                  children: [
+                    SizedBox(height: 180, child: widget.preWarmedMap),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.open_in_full,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           Padding(
@@ -269,7 +315,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
             child: SizedBox(
               width: double.infinity,
               child: SlideAction(
@@ -282,9 +328,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
-                sliderButtonIcon: const Icon(
+                sliderButtonIcon: Icon(
                   Icons.delete,
-                  color: AppColors.poofColor,
+                  color: slideEnabled ? AppColors.poofColor : Colors.grey,
                 ),
                 sliderRotate: false,
                 enabled: slideEnabled,
@@ -294,6 +340,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }

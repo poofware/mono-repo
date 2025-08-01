@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	sdk "github.com/bitwarden/sdk-go"
 )
@@ -17,6 +18,12 @@ import (
 // projects and secrets. Change this here if the organization ever moves.
 const bwsOrgID = "874c7885-c255-47bf-a5ef-b31d012e77aa"
 
+// Retry parameters for Bitwarden API calls.
+const (
+	maxRetries     = 5
+	initialBackoff = 500 * time.Millisecond
+)
+
 //--------------------------------------------------------------------
 // Client wrapper
 //--------------------------------------------------------------------
@@ -27,7 +34,8 @@ type BWSSecretsClient struct {
 }
 
 // NewBWSSecretsClient logs in with the access token from the environment
-// and returns a ready‑to‑use client.
+// and returns a ready-to-use client. Implements manual retries with
+// exponential backoff (mirrors the DB connection logic used elsewhere).
 func NewBWSSecretsClient() (*BWSSecretsClient, error) {
 	accessToken := os.Getenv("BWS_ACCESS_TOKEN")
 	if strings.TrimSpace(accessToken) == "" {
@@ -39,11 +47,36 @@ func NewBWSSecretsClient() (*BWSSecretsClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("initialising Bitwarden SDK client: %w", err)
 	}
-	if err := bw.AccessTokenLogin(accessToken, nil); err != nil {
-		return nil, fmt.Errorf("Bitwarden access‑token login failed: %w", err)
+
+	//------------------------------------------------------------------
+	// Retry AccessTokenLogin on HTTP-429 (“Too Many Requests”) responses.
+	//------------------------------------------------------------------
+	backoff := initialBackoff
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err = bw.AccessTokenLogin(accessToken, nil)
+		if err == nil {
+			// Success.
+			return &BWSSecretsClient{bw: bw}, nil
+		}
+
+		// Retry only on 429 errors (Bitwarden rate-limit), detected by
+		// inspecting the error message. sdk-go does not expose a typed
+		// error with StatusCode, so string-match is the simplest option.
+		if !strings.Contains(err.Error(), "429") &&
+			!strings.Contains(err.Error(), "Too Many Requests") {
+			return nil, fmt.Errorf("Bitwarden access-token login failed: %w", err)
+		}
+
+		if attempt == maxRetries {
+			return nil, fmt.Errorf("Bitwarden access-token login failed after %d attempts: %w", maxRetries, err)
+		}
+
+		time.Sleep(backoff)
+		backoff *= 2
 	}
 
-	return &BWSSecretsClient{bw: bw}, nil
+	// The loop should return on success or error; reaching here is impossible.
+	return nil, errors.New("unexpected error in NewBWSSecretsClient")
 }
 
 // Close releases resources held by the underlying SDK client.

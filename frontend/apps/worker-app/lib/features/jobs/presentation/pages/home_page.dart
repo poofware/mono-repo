@@ -834,11 +834,11 @@ class _HomePageState extends ConsumerState<HomePage>
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor.withOpacity(0.85),
+                          color: Theme.of(context).cardColor.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.10),
+                              color: Colors.black.withValues(alpha: 0.10),
                               blurRadius: 5,
                               offset: const Offset(0, 2),
                             ),
@@ -867,11 +867,11 @@ class _HomePageState extends ConsumerState<HomePage>
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color:
-                                Theme.of(context).cardColor.withOpacity(0.85),
+                                Theme.of(context).cardColor.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.10),
+                                color: Colors.black.withValues(alpha: 0.10),
                                 blurRadius: 5,
                                 offset: const Offset(0, 2),
                               ),

@@ -1039,7 +1039,10 @@ func seedCliftFarmPropertyIfNeeded(
 		Longitude:      -86.7606387432878,
 	}
 	if err := dumpRepo.Create(ctx, d); err != nil {
-		// This should not be a unique violation if the parent property creation was new.
+		if isUniqueViolation(err) {
+			utils.Logger.Infof("jobs-service: Clift Farm dumpster (id=%s) for property (id=%s) already exists; skipping creation.", dumpsterID, propID)
+			return nil
+		}
 		return fmt.Errorf("create dumpster id=%s for Clift Farm prop=%s: %w", dumpsterID, propID, err)
 	}
 	utils.Logger.Infof("jobs-service: Created dumpster (id=%s) for Clift Farm property (id=%s).", dumpsterID, propID)

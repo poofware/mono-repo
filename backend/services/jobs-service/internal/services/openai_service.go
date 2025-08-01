@@ -63,7 +63,9 @@ func (s *OpenAIService) VerifyPhoto(
 			"trash_can_present",
 			"no_trash_bag_visible",
 			"door_number_matches",
+			"door_number_detected",
 		},
+		"additionalProperties": false,
 	}
 
 	fn := shared.FunctionDefinitionParam{
