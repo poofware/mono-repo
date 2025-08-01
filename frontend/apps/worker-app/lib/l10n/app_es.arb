@@ -328,6 +328,16 @@
   },
   "jobInProgressPictureSnackbar": "Tomando una foto... (marcador de posición)",
   "jobInProgressMessageSnackbar": "Enviando mensaje... (marcador de posición)",
+  "jobInProgressDumpBagsButton": "Desechar Bolsas",
+  "jobInProgressDumpBagsAction": "Deslizar para Desechar Bolsas",
+  "jobInProgressBagsCollected": "Bolsas Recogidas: {count} / {max}",
+  "@jobInProgressBagsCollected": {
+    "placeholders": {"count": {"type": "int"}, "max": {"type": "int"}}
+  },
+  "jobInProgressUnitStatusPending": "Pendiente",
+  "jobInProgressUnitStatusVerified": "Verificado",
+  "jobInProgressUnitStatusFailed": "Fallido",
+  "jobInProgressUnitStatusDumped": "Desechado",
   "settingsPageTitle": "Configuración",
   "settingsPageEnableNotifications": "Habilitar Notificaciones",
   "settingsPageDarkMode": "Modo Oscuro",

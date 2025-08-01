@@ -327,6 +327,16 @@
   },
   "jobInProgressPictureSnackbar": "Taking a picture... (placeholder)",
   "jobInProgressMessageSnackbar": "Messaging... (placeholder)",
+  "jobInProgressDumpBagsButton": "Dump Bags",
+  "jobInProgressDumpBagsAction": "Slide to Dump Bags",
+  "jobInProgressBagsCollected": "Bags Collected: {count} / {max}",
+  "@jobInProgressBagsCollected": {
+    "placeholders": {"count": {"type": "int"}, "max": {"type": "int"}}
+  },
+  "jobInProgressUnitStatusPending": "Pending",
+  "jobInProgressUnitStatusVerified": "Verified",
+  "jobInProgressUnitStatusFailed": "Failed",
+  "jobInProgressUnitStatusDumped": "Dumped",
   "settingsPageTitle": "Settings",
   "settingsPageEnableNotifications": "Enable Notifications",
   "settingsPageDarkMode": "Dark Mode",
