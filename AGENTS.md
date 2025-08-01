@@ -70,7 +70,8 @@ This is the **only required validation step** for Dart code.
     # Then run the analyzer
     flutter analyze
     ```
-3.  **You are strictly forbidden from running any `make` commands (`run-*`, `build-*`, `ci-*`).** The `flutter analyze` command is your only validation task.
+3.  **Address analyzer output**: Even if `flutter analyze` only shows informational messages, you must fix important suggestions such as deprecation warnings, performance issues, and code quality improvements.
+4.  **You are strictly forbidden from running any `make` commands (`run-*`, `build-*`, `ci-*`).** The `flutter analyze` command is your only validation task.
 
 ### 2.2. Testing Requirements
 
