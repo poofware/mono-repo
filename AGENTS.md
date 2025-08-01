@@ -1,3 +1,5 @@
+Of course. Here is the entire `agents.md` file updated with your requested changes.
+
 # Developer Guide
 
 Welcome to the monorepo! This guide provides all the necessary information for developers to get started with setting up, running, and testing the services and applications.
@@ -109,19 +111,21 @@ This command will:
 
 While developing a specific service, you can run its build and test commands individually from its directory.
 
-- **Build:** `make build` - This command compiles the service to ensure it builds successfully. It does not run the service.
+> **Agent Instruction:** For all Go development, agents are encouraged **not** to perform a full build unless absolutely necessary. The preferred action is to run a static code analyzer to ensure the code is satisfactory. This provides the fastest feedback loop, similar to using `flutter analyze` for Dart. See **Section 10.1** for the required commands.
+
+- **Build:** `make build` - This command compiles the service to ensure it builds successfully but can be slow. It does not run the service.
 - **Test:** `make ci` - This command runs the continuous integration pipeline for the service, which typically includes building the code, running database migrations, and executing integration tests within a clean Docker environment.
 
 Below are the paths for each service:
 
-| Service            | Path                              | Build Command | Test Command |
-| ------------------ | --------------------------------- | -------------- | ------------ |
-| **account-service**| `backend/services/account-service`| `make build`   | `make ci`    |
-| **auth-service**   | `backend/services/auth-service`   | `make build`   | `make ci`    |
-| **earnings-service**| `backend/services/earnings-service`| `make build`  | `make ci`    |
-| **interest-service**| `backend/services/interest-service`| `make build` | `make ci`    |
-| **jobs-service**   | `backend/services/jobs-service`   | `make build`   | `make ci`    |
-| **meta-service**   | `backend/meta-service`            | `make build`   | `make ci`    |
+| Service            | Path                              | Analyze Command                 | Test Command |
+| ------------------ | --------------------------------- | ------------------------------- | ------------ |
+| **account-service**| `backend/services/account-service`| `staticcheck ./...` or `go vet ./...` | `make ci`    |
+| **auth-service**   | `backend/services/auth-service`   | `staticcheck ./...` or `go vet ./...` | `make ci`    |
+| **earnings-service**| `backend/services/earnings-service`| `staticcheck ./...` or `go vet ./...` | `make ci`    |
+| **interest-service**| `backend/services/interest-service`| `staticcheck ./...` or `go vet ./...` | `make ci`    |
+| **jobs-service**   | `backend/services/jobs-service`   | `staticcheck ./...` or `go vet ./...` | `make ci`    |
+| **meta-service**   | `backend/meta-service`            | `staticcheck ./...` or `go vet ./...` | `make ci`    |
 
 
 ## 4.1. Testing Requirements
@@ -320,13 +324,33 @@ Use the following table to substitute the correct `<service-name>` in the compil
 
 ## 10. Validating Backend Changes (Without Docker)
 
-Without the Docker environment, the focus for backend development shifts from running tests locally to ensuring that any code changes compile successfully.
+When the Docker environment is unavailable, the focus for backend development shifts from running a full test suite to ensuring code quality through static analysis and compilation. This workflow provides a fast feedback loop on the correctness of your changes.
 
-### 10.1. Compiling the Service Binary
+### 10.1. Static Code Analysis (Primary Agent Workflow)
 
-After making changes to a backend service, your primary responsibility is to confirm that it still builds into an executable. Follow the instructions in **Section 9** to compile the service you are working on. A successful build indicates that the code is syntactically correct and all dependencies are properly resolved.
+This is the fastest and most efficient way to validate your Go code. Instead of performing a full build, use static analysis tools to catch syntax errors, style issues, potential bugs, and performance problems. This is the backend equivalent of running `flutter analyze` for Dart.
 
-### 10.2. Updating and Compiling Tests
+1.  **Navigate to the service directory**:
+    ```bash
+    cd backend/services/<service-name>
+    ```
+2.  **Run the analyzer**:
+    Run `staticcheck` for a comprehensive analysis. It is the preferred tool.
+    ```bash
+    staticcheck ./...
+    ```
+    If `staticcheck` is not installed, you can use `go vet` as a fallback, which is built into the Go toolchain. It is less comprehensive but still effective for catching common errors.
+    ```bash
+    go vet ./...
+    ```    **This is the mandatory first validation step for agents working on backend services.**
+
+### 10.2. Compiling the Service Binary
+
+After your code passes static analysis, you can perform a full compilation to ensure it builds into an executable. This is a more thorough check but is significantly slower than running the analyzer.
+
+Follow the instructions in **Section 9** to compile the service you are working on. A successful build indicates that the code is syntactically correct and all dependencies are properly resolved.
+
+### 10.3. Updating and Compiling Tests
 
 After making any code changes, it is the agent's primary responsibility to **update the corresponding integration tests** to ensure they accurately reflect the new logic. Once the tests are updated, you must compile them to verify that your changes have not broken the test suite's build.
 
@@ -342,13 +366,14 @@ go test -c -tags "dev_test,integration" \
 -X 'github.com/poofware/<service-name>/internal/config.UniqueRunnerID=local-dev' \
 -X 'github.com/poofware/<service-name>/internal/config.LDServerContextKey=server' \
 -X 'github.com/poofware/<service-name>/internal/config.LDServerContextKind=user'" \
--o integration.test ./internal/integration/...```
+-o integration.test ./internal/integration/...
+```
 
 This will create a test executable named `integration.test`.
 
-### 10.3. A Note on Execution and Testing
+### 10.4. A Note on Execution and Testing
 
-**Do not run the compiled service or test binaries.** The test suite relies on the `docker-compose` pipeline to set up databases and orchestrate services. Manually replicating this environment is complex and not a required workflow. Your responsibility is to ensure both the service and test code compile successfully. The CI/CD pipeline will handle the execution and testing.
+**Do not run the compiled service or test binaries.** The test suite relies on the `docker-compose` pipeline to set up databases and orchestrate services. Manually replicating this environment is complex and not a required workflow. Your responsibility is to ensure both the service and test code compile successfully after passing static analysis. The CI/CD pipeline will handle the execution and testing.
 
 -----
 
