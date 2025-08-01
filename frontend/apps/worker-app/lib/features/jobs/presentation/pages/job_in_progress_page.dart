@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
@@ -14,6 +15,7 @@ import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/job_map_page.dart';
 import 'package:poof_worker/features/jobs/presentation/widgets/slide_button_widget.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:poof_worker/core/routing/router.dart';
 
 class JobInProgressPage extends ConsumerStatefulWidget {
   final JobInstance job;
@@ -40,10 +42,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   void _openFullMap() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => JobMapPage(
-          job: widget.job,
-          buildAsScaffold: true,
-        ),
+        builder: (_) => JobMapPage(job: widget.job, buildAsScaffold: true),
       ),
     );
   }
@@ -52,8 +51,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   void initState() {
     super.initState();
     if (widget.job.checkInAt != null) {
-      _elapsedTime =
-          DateTime.now().toUtc().difference(widget.job.checkInAt!.toUtc());
+      _elapsedTime = DateTime.now().toUtc().difference(
+        widget.job.checkInAt!.toUtc(),
+      );
     }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _elapsedTime += const Duration(seconds: 1));
@@ -91,17 +91,17 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           title: Text(l10n.jobInProgressPhotoConfirmDialogTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.file(File(photo.path), fit: BoxFit.contain),
-            const SizedBox(height: 16),
-            Text(l10n.jobInProgressPhotoConfirmDialogContent),
-            const SizedBox(height: 8),
-            Text(
-              l10n.jobInProgressPhotoInstructions,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
+            children: [
+              Image.file(File(photo.path), fit: BoxFit.contain),
+              const SizedBox(height: 16),
+              Text(l10n.jobInProgressPhotoConfirmDialogContent),
+              const SizedBox(height: 8),
+              Text(
+                l10n.jobInProgressPhotoInstructions,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -135,7 +135,13 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final success = await ref.read(jobsNotifierProvider.notifier).dumpBags();
     if (success && mounted) {
       final job = ref.read(jobsNotifierProvider).inProgressJob;
-      if (job == null) Navigator.of(context).pop();
+      if (job == null) {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.goNamed(AppRouteNames.mainTab);
+        }
+      }
     }
   }
 
@@ -162,9 +168,16 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
     if (confirmed != true) return;
 
-    final wasSuccess =
-        await ref.read(jobsNotifierProvider.notifier).cancelJob(widget.job.instanceId);
-    if (mounted && wasSuccess) Navigator.of(context).pop();
+    final wasSuccess = await ref
+        .read(jobsNotifierProvider.notifier)
+        .cancelJob(widget.job.instanceId);
+    if (mounted && wasSuccess) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.goNamed(AppRouteNames.mainTab);
+      }
+    }
   }
 
   void _showFailureReason(UnitVerification unit) {
@@ -173,9 +186,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(l10n.jobInProgressFailureReasonTitle),
-        content: Text(unit.failureReason?.isNotEmpty == true
-            ? unit.failureReason!
-            : l10n.jobInProgressFailureReasonUnknown),
+        content: Text(
+          unit.failureReason?.isNotEmpty == true
+              ? unit.failureReason!
+              : l10n.jobInProgressFailureReasonUnknown,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -192,7 +207,6 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         .where((u) => u.status == UnitVerificationStatus.verified)
         .length;
   }
-
 
   String _formatDuration(Duration d) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -291,7 +305,10 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           children: [
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -308,94 +325,98 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: _openFullMap,
-                child: Stack(
-                  children: [
-                    SizedBox(height: 180, child: widget.preWarmedMap),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.open_in_full,
-                          color: Colors.white,
-                          size: 20,
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _openFullMap,
+                  child: Stack(
+                    children: [
+                      SizedBox(height: 180, child: widget.preWarmedMap),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.open_in_full,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(l10n.jobInProgressBagsCollected(verified, _bagLimit)),
-                Text(_formatDuration(_elapsedTime)),
-              ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(l10n.jobInProgressBagsCollected(verified, _bagLimit)),
+                  Text(_formatDuration(_elapsedTime)),
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Card(
-              color: Colors.grey.shade100,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  l10n.jobInProgressPhotoInstructions,
-                  style: const TextStyle(fontSize: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: Card(
+                color: Colors.grey.shade100,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    l10n.jobInProgressPhotoInstructions,
+                    style: const TextStyle(fontSize: 14),
+                  ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              children: job.buildings
-                  .map((b) => _buildBuildingTile(b, l10n))
-                  .toList(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: SlideAction(
-                text: l10n.jobInProgressDumpBagsAction,
-                outerColor:
-                    slideEnabled ? AppColors.poofColor : Colors.grey.shade400,
-                innerColor: Colors.white,
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                sliderButtonIcon: Icon(
-                  Icons.delete,
-                  color: slideEnabled ? AppColors.poofColor : Colors.grey,
-                ),
-                sliderRotate: false,
-                enabled: slideEnabled,
-                onSubmit: slideEnabled ? _dumpBags : null,
+            Expanded(
+              child: ListView(
+                children: job.buildings
+                    .map((b) => _buildBuildingTile(b, l10n))
+                    .toList(),
               ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: SlideAction(
+                  text: l10n.jobInProgressDumpBagsAction,
+                  outerColor: slideEnabled
+                      ? AppColors.poofColor
+                      : Colors.grey.shade400,
+                  innerColor: Colors.white,
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  sliderButtonIcon: Icon(
+                    Icons.delete,
+                    color: slideEnabled ? AppColors.poofColor : Colors.grey,
+                  ),
+                  sliderRotate: false,
+                  enabled: slideEnabled,
+                  onSubmit: slideEnabled ? _dumpBags : null,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 }
