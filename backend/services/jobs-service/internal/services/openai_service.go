@@ -1,14 +1,16 @@
 package services
 
 import (
-	"context"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
+        "context"
+        "encoding/base64"
+        "encoding/json"
+        "fmt"
 
-	openai "github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
-	"github.com/openai/openai-go/shared"
+        openai "github.com/openai/openai-go"
+        "github.com/openai/openai-go/option"
+        "github.com/openai/openai-go/shared"
+       logrus "github.com/sirupsen/logrus"
+       "github.com/poofware/go-utils"
 )
 
 // VerificationResult mirrors the expected JSON from GPT-4o.
@@ -40,14 +42,15 @@ func (s *OpenAIService) VerifyPhoto(
 	expectedDoor string,
 ) (*VerificationResult, error) {
 
-	// Feature disabled; auto‑accept.
-	if s.client == nil {
-		return &VerificationResult{
-			TrashCanPresent:   true,
-			NoTrashBagVisible: true,
-			DoorNumberMatches: true,
-		}, nil
-	}
+        // Feature disabled; auto‑accept.
+        if s.client == nil {
+                utils.Logger.Debug("openai verification skipped; feature disabled")
+                return &VerificationResult{
+                        TrashCanPresent:   true,
+                        NoTrashBagVisible: true,
+                        DoorNumberMatches: true,
+                }, nil
+        }
 
 	b64 := base64.StdEncoding.EncodeToString(img)
 
@@ -119,13 +122,20 @@ If you can’t see a door number set door_number_matches=false and door_number_d
 	}
 
 	var out VerificationResult
-	if err := json.Unmarshal(
-		[]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments),
-		&out,
-	); err != nil {
-		return nil, fmt.Errorf("unmarshal verification result: %w", err)
-	}
+        if err := json.Unmarshal(
+                []byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments),
+                &out,
+        ); err != nil {
+                return nil, fmt.Errorf("unmarshal verification result: %w", err)
+        }
 
-	return &out, nil
+        utils.Logger.WithFields(logrus.Fields{
+                "trash_can_present":   out.TrashCanPresent,
+                "no_trash_bag_visible": out.NoTrashBagVisible,
+                "door_number_matches": out.DoorNumberMatches,
+                "door_number_detected": out.DoorNumberDetected,
+        }).Debug("openai raw result")
+
+        return &out, nil
 }
 

@@ -91,12 +91,17 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           title: Text(l10n.jobInProgressPhotoConfirmDialogTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.file(File(photo.path), fit: BoxFit.contain),
-              const SizedBox(height: 16),
-              Text(l10n.jobInProgressPhotoConfirmDialogContent),
-            ],
-          ),
+          children: [
+            Image.file(File(photo.path), fit: BoxFit.contain),
+            const SizedBox(height: 16),
+            Text(l10n.jobInProgressPhotoConfirmDialogContent),
+            const SizedBox(height: 8),
+            Text(
+              l10n.jobInProgressPhotoInstructions,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -162,6 +167,25 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     if (mounted && wasSuccess) Navigator.of(context).pop();
   }
 
+  void _showFailureReason(UnitVerification unit) {
+    final l10n = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(l10n.jobInProgressFailureReasonTitle),
+        content: Text(unit.failureReason?.isNotEmpty == true
+            ? unit.failureReason!
+            : l10n.jobInProgressFailureReasonUnknown),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
   int _verifiedCount(JobInstance job) {
     return job.buildings
         .expand((b) => b.units)
@@ -214,22 +238,40 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final canTakePhoto =
         u.status == UnitVerificationStatus.pending ||
         u.status == UnitVerificationStatus.failed;
+    Widget trailing;
+    if (canTakePhoto) {
+      final cameraBtn = waiting
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : IconButton(
+              icon: const Icon(Icons.camera_alt),
+              onPressed: () => _takePhoto(u),
+            );
+      if (u.status == UnitVerificationStatus.failed) {
+        trailing = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              onPressed: () => _showFailureReason(u),
+            ),
+            cameraBtn,
+          ],
+        );
+      } else {
+        trailing = cameraBtn;
+      }
+    } else {
+      trailing = Icon(icon, color: color);
+    }
 
     return ListTile(
       title: Text('Unit ${u.unitNumber}'),
       subtitle: Text(label),
-      trailing: canTakePhoto
-          ? waiting
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.camera_alt),
-                  onPressed: () => _takePhoto(u),
-                )
-          : Icon(icon, color: color),
+      trailing: trailing,
     );
   }
 
@@ -305,6 +347,19 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 Text(l10n.jobInProgressBagsCollected(verified, _bagLimit)),
                 Text(_formatDuration(_elapsedTime)),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Card(
+              color: Colors.grey.shade100,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  l10n.jobInProgressPhotoInstructions,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
             ),
           ),
           Expanded(

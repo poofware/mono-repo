@@ -131,7 +131,6 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
         if (widget.isForWarmup) {
           await mapController.moveCamera(CameraUpdate.newLatLngBounds(bounds, 60.0));
           await _waitUntilTilesRender(mapController);
-          await Future.delayed(const Duration(milliseconds: 500));
         } else { // This case now only runs for a totally cold start
           await mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60.0));
           await Future.delayed(const Duration(milliseconds: 250));

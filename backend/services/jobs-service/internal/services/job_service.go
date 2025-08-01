@@ -18,9 +18,10 @@ import (
 	"github.com/poofware/jobs-service/internal/config"
 	"github.com/poofware/jobs-service/internal/constants"
 	"github.com/poofware/jobs-service/internal/dtos"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
-	"github.com/sendgrid/sendgrid-go"
-	"github.com/twilio/twilio-go"
+       internal_utils "github.com/poofware/jobs-service/internal/utils"
+       "github.com/sendgrid/sendgrid-go"
+       "github.com/twilio/twilio-go"
+       logrus "github.com/sirupsen/logrus"
 )
 
 const (
@@ -176,8 +177,8 @@ func (s *JobService) ListOpenJobs(
 	// 2. Calculate routes once per property.
 	routeCache := make(map[uuid.UUID]*routeInfo)
 	if q.Lat != 0 || q.Lng != 0 {
-		for propID := range instancesByPropID {
-			prop, _ := propsCache[propID]
+                for propID := range instancesByPropID {
+                        prop := propsCache[propID]
 			if prop == nil {
 				continue
 			}
@@ -313,8 +314,8 @@ func (s *JobService) ListMyJobs(
 
 	routeCache := make(map[uuid.UUID]*routeInfo)
 	if q.Lat != 0 || q.Lng != 0 {
-		for propID := range instancesByPropID {
-			prop, _ := propsCache[propID]
+                for propID := range instancesByPropID {
+                        prop := propsCache[propID]
 			if prop == nil {
 				continue
 			}
@@ -624,36 +625,69 @@ func (s *JobService) VerifyUnitPhoto(
 		return nil, fmt.Errorf("unit not found")
 	}
 
-	result, err := s.openai.VerifyPhoto(ctx, photo, unit.UnitNumber)
-	if err != nil {
-		return nil, err
-	}
+        result, err := s.openai.VerifyPhoto(ctx, photo, unit.UnitNumber)
+        if err != nil {
+                return nil, err
+        }
+        utils.Logger.WithFields(logrus.Fields{
+                "unit_id":            unitID,
+                "trash_can_present":   result.TrashCanPresent,
+                "no_trash_bag_visible": result.NoTrashBagVisible,
+                "door_number_matches": result.DoorNumberMatches,
+                "door_number_detected": result.DoorNumberDetected,
+        }).Debug("openai verification result")
 
-	status := models.UnitVerificationFailed
-	if result.TrashCanPresent && result.NoTrashBagVisible && result.DoorNumberMatches {
-		status = models.UnitVerificationVerified
-	}
+        status := models.UnitVerificationFailed
+        var reason string
+        if result.TrashCanPresent && result.NoTrashBagVisible && result.DoorNumberMatches {
+                status = models.UnitVerificationVerified
+        } else {
+                var rs []string
+                if !result.TrashCanPresent {
+                        rs = append(rs, "trash can not visible")
+                }
+                if !result.NoTrashBagVisible {
+                        rs = append(rs, "trash bag visible")
+                }
+                if !result.DoorNumberMatches {
+                        if result.DoorNumberDetected != "" {
+                                rs = append(rs, fmt.Sprintf("door %s mismatch", result.DoorNumberDetected))
+                        } else {
+                                rs = append(rs, "door number missing")
+                        }
+                }
+                reason = strings.Join(rs, "; ")
+        }
 
 	v, err := s.juvRepo.GetByInstanceAndUnit(ctx, instanceID, unitID)
 	if err != nil {
 		return nil, err
 	}
-	if v == nil {
-		v = &models.JobUnitVerification{
-			ID:            uuid.New(),
-			JobInstanceID: instanceID,
-			UnitID:        unitID,
-			Status:        status,
-		}
-		if err := s.juvRepo.Create(ctx, v); err != nil {
-			return nil, err
-		}
-	} else {
-		v.Status = status
-		if _, err := s.juvRepo.UpdateIfVersion(ctx, v, v.RowVersion); err != nil {
-			return nil, err
-		}
-	}
+        if v == nil {
+                v = &models.JobUnitVerification{
+                        ID:            uuid.New(),
+                        JobInstanceID: instanceID,
+                        UnitID:        unitID,
+                        Status:        status,
+                        Reason:        nil,
+                }
+                if reason != "" {
+                        v.Reason = &reason
+                }
+                if err := s.juvRepo.Create(ctx, v); err != nil {
+                        return nil, err
+                }
+        } else {
+                v.Status = status
+                if reason != "" {
+                        v.Reason = &reason
+                } else {
+                        v.Reason = nil
+                }
+                if _, err := s.juvRepo.UpdateIfVersion(ctx, v, v.RowVersion); err != nil {
+                        return nil, err
+                }
+        }
 
 	dto, _ := s.buildInstanceDTO(ctx, inst, nil, nil)
 	return dto, nil
@@ -1420,11 +1454,11 @@ func (s *JobService) buildInstanceDTO(
 		// cache buildings by ID
 		bCache := make(map[uuid.UUID]*models.PropertyBuilding)
 		// Preload existing verifications
-		verifs, _ := s.juvRepo.ListByInstanceID(ctx, inst.ID)
-		statusMap := make(map[uuid.UUID]models.UnitVerificationStatus)
-		for _, v := range verifs {
-			statusMap[v.UnitID] = v.Status
-		}
+               verifs, _ := s.juvRepo.ListByInstanceID(ctx, inst.ID)
+               verifMap := make(map[uuid.UUID]*models.JobUnitVerification)
+               for _, v := range verifs {
+                       verifMap[v.UnitID] = v
+               }
 
 		for _, grp := range jdef.AssignedUnitsByBuilding {
 			b, ok := bCache[grp.BuildingID]
@@ -1442,25 +1476,31 @@ func (s *JobService) buildInstanceDTO(
 				uidSet[uid] = struct{}{}
 			}
 
-			units, _ := s.unitRepo.ListByBuildingID(ctx, grp.BuildingID)
-			var bUnits []dtos.UnitVerificationDTO
-			for _, u := range units {
-				if _, ok := uidSet[u.ID]; !ok {
-					continue
-				}
-				st := statusMap[u.ID]
-				if st == "" {
-					st = models.UnitVerificationPending
-				}
-				udto := dtos.UnitVerificationDTO{
-					UnitID:     u.ID,
-					BuildingID: grp.BuildingID,
-					UnitNumber: u.UnitNumber,
-					Status:     string(st),
-				}
-				bUnits = append(bUnits, udto)
-				unitDTOs = append(unitDTOs, udto)
-			}
+                       units, _ := s.unitRepo.ListByBuildingID(ctx, grp.BuildingID)
+                       var bUnits []dtos.UnitVerificationDTO
+                       for _, u := range units {
+                               if _, ok := uidSet[u.ID]; !ok {
+                                       continue
+                               }
+                               vf := verifMap[u.ID]
+                               st := models.UnitVerificationPending
+                               var reason string
+                               if vf != nil {
+                                       st = vf.Status
+                                       if vf.Reason != nil {
+                                               reason = *vf.Reason
+                                       }
+                               }
+                               udto := dtos.UnitVerificationDTO{
+                                       UnitID:        u.ID,
+                                       BuildingID:    grp.BuildingID,
+                                       UnitNumber:    u.UnitNumber,
+                                       Status:        string(st),
+                                       FailureReason: reason,
+                               }
+                               bUnits = append(bUnits, udto)
+                               unitDTOs = append(unitDTOs, udto)
+                       }
 
 			buildings = append(buildings, dtos.BuildingDTO{
 				BuildingID: b.ID,

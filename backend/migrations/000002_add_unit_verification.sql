@@ -15,6 +15,7 @@ CREATE TABLE job_unit_verifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     row_version BIGINT NOT NULL DEFAULT 1,
+    reason TEXT,
     UNIQUE (job_instance_id, unit_id)
 );
 

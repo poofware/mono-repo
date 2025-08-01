@@ -24,14 +24,15 @@ type AssignedUnitGroup struct {
 
 // JobUnitVerification records the verification status for a single unit within a job instance.
 type JobUnitVerification struct {
-	Versioned
+        Versioned
 
-	ID            uuid.UUID              `json:"id"`
-	JobInstanceID uuid.UUID              `json:"job_instance_id"`
-	UnitID        uuid.UUID              `json:"unit_id"`
-	Status        UnitVerificationStatus `json:"status"`
-	CreatedAt     time.Time              `json:"created_at"`
-	UpdatedAt     time.Time              `json:"updated_at"`
+        ID            uuid.UUID              `json:"id"`
+        JobInstanceID uuid.UUID              `json:"job_instance_id"`
+        UnitID        uuid.UUID              `json:"unit_id"`
+        Status        UnitVerificationStatus `json:"status"`
+        Reason        *string                `json:"reason,omitempty"`
+        CreatedAt     time.Time              `json:"created_at"`
+        UpdatedAt     time.Time              `json:"updated_at"`
 }
 
 func (j *JobUnitVerification) GetID() string {

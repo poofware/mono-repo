@@ -449,6 +449,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
                 buildingId: u.buildingId,
                 unitNumber: u.unitNumber,
                 status: UnitVerificationStatus.verified,
+                failureReason: null,
               );
             }
             return u;

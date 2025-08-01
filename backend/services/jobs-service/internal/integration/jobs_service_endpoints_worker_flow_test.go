@@ -154,11 +154,12 @@ func TestFullWorkerFlow(t *testing.T) {
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
 
-		var r dtos.JobInstanceActionResponse
-		data, _ := io.ReadAll(resp.Body)
-		json.Unmarshal(data, &r)
-		require.Equal(t, "COMPLETED", r.Updated.Status)
-	})
+                var r dtos.JobInstanceActionResponse
+                data, _ := io.ReadAll(resp.Body)
+                json.Unmarshal(data, &r)
+                require.Equal(t, "COMPLETED", r.Updated.Status)
+                require.Len(t, r.Updated.UnitVerifications, 0)
+        })
 }
 
 /*

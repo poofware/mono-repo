@@ -51,12 +51,14 @@ class UnitVerification {
   final String buildingId;
   final String unitNumber;
   final UnitVerificationStatus status;
+  final String? failureReason;
 
   const UnitVerification({
     required this.unitId,
     required this.buildingId,
     required this.unitNumber,
     required this.status,
+    this.failureReason,
   });
 
   factory UnitVerification.fromJson(Map<String, dynamic> json) {
@@ -65,6 +67,7 @@ class UnitVerification {
       buildingId: json['building_id'] as String,
       unitNumber: json['unit_number'] as String,
       status: unitVerificationStatusFromString(json['status'] as String),
+      failureReason: json['failure_reason'] as String?,
     );
   }
 
@@ -73,6 +76,7 @@ class UnitVerification {
         'building_id': buildingId,
         'unit_number': unitNumber,
         'status': unitVerificationStatusToString(status),
+        if (failureReason != null) 'failure_reason': failureReason,
       };
 }
 
