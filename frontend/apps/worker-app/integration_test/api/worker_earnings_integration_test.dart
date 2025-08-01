@@ -32,7 +32,7 @@ void main() {
 
   // Credentials for the seeded "active" worker
   const seededWorkerPhone = '+15552220000';
-  const seededWorkerTotpSecret = 'defaultworkerstatusactivestotpsecret';
+  const seededWorkerTotpSecret = 'defaultworkerstatusactivestotpsecretokay';
 
   String generateTOTPCode(String secret) {
     return OTP.generateTOTPCodeString(

@@ -90,7 +90,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
     ENV_TRANSFORMED=$(echo "${ENV}" | tr '-' '_') && \
     go test -c -tags "${ENV_TRANSFORMED},integration" \
       -ldflags "\
-        -linkmode external -extldflags '-static' \
+        -linkmode external -extldflags '-static -lm' \
         -X 'github.com/poofware/${APP_NAME}/internal/config.AppName=${APP_NAME}' \
         -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
         -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \

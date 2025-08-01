@@ -311,7 +311,15 @@ Navigate to the service directory and run the following command:
 
 ```bash
 # Note the dev_test build tag
-go test -c -tags "dev_test,integration" -o integration.test ./internal/integration/...
+go test -c -tags "dev_test,integration" \
+  -ldflags="\
+    -linkmode external -extldflags '-lm' \
+    -X 'github.com/poofware/<service-name>/internal/config.AppName=<service-name>' \
+    -X 'github.com/poofware/<service-name>/internal/config.UniqueRunNumber=local-run' \
+    -X 'github.com/poofware/<service-name>/internal/config.UniqueRunnerID=local-dev' \
+    -X 'github.com/poofware/<service-name>/internal/config.LDServerContextKey=server' \
+    -X 'github.com/poofware/<service-name>/internal/config.LDServerContextKind=user'" \
+  -o integration.test ./internal/integration/...
 ```
 
 This will create a test executable named `integration.test`.

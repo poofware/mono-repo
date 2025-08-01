@@ -94,7 +94,7 @@ void main() {
 
   // Use credentials for the fully active, seeded worker
   const seededPhone = '+15552220000';
-  const seededTotpSecret = 'defaultworkerstatusactivestotpsecret';
+  const seededTotpSecret = 'defaultworkerstatusactivestotpsecretokay';
 
   // This location matches your seeded property from seed.go
   final double propertyLat = 34.753042676669004;
@@ -226,50 +226,72 @@ void main() {
       }
     });
 
-    testWidgets('5) complete job – negative => fails if photos are required',
+    testWidgets('5) dump bags before verifying any units should fail',
         (tester) async {
       final jobAfterStart = (await jobsRepo.listMyJobs(lat: 0, lng: 0)).results.firstWhereOrNull((j) => j.instanceId == happyPathJob.instanceId);
       if (jobAfterStart?.status != JobInstanceStatus.inProgress) {
-        print('Skipping negative complete test because job is not IN_PROGRESS.');
+        print('Skipping negative dump test because job is not IN_PROGRESS.');
         return;
       }
 
       try {
-        await jobsRepo.completeJob(
+        await jobsRepo.dumpBags(
           instanceId: happyPathJob.instanceId.toString(),
           lat: propertyLat,
           lng: propertyLng,
-          photos: [], // No photos
+          accuracy: 5.0,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
         );
-        fail('Complete job without photos should have failed.');
+        fail('Dumping bags without verifying units should have failed.');
       } on ApiException catch (e) {
-        print('DEBUG (Negative Complete): API call failed correctly with: ${e.errorCode}');
-        expect(e.errorCode, 'no_photos_provided');
+        print('DEBUG (Negative Dump): API call failed correctly with: ${e.errorCode}');
+        // Guard against null errorCode when verifying failure
+        expect(e.errorCode?.isNotEmpty ?? false, isTrue);
       }
     });
 
-    testWidgets('6) complete job with dummy photo', (tester) async {
+    testWidgets('6) verify first unit photo and dump bags', (tester) async {
       final jobAfterStart = (await jobsRepo.listMyJobs(lat: 0, lng: 0)).results.firstWhereOrNull((j) => j.instanceId == happyPathJob.instanceId);
       if (jobAfterStart?.status != JobInstanceStatus.inProgress) {
-        print('Skipping complete with photo test because job is not IN_PROGRESS.');
+        print('Skipping verification test because job is not IN_PROGRESS.');
         return;
       }
+
+      if (jobAfterStart!.buildings.isEmpty || jobAfterStart.buildings.first.units.isEmpty) {
+        print('No units assigned to the job; skipping.');
+        return;
+      }
+
+      final unit = jobAfterStart.buildings.first.units.first;
 
       final tmpDir = Directory.systemTemp;
       final dummyFile = File('${tmpDir.path}/dummy_photo_test.jpg');
       await dummyFile.writeAsString('FakeImageData');
 
       try {
-        final updated = await jobsRepo.completeJob(
+        final afterVerify = await jobsRepo.verifyPhoto(
+          instanceId: happyPathJob.instanceId.toString(),
+          unitId: unit.unitId,
+          lat: propertyLat,
+          lng: propertyLng,
+          photo: dummyFile,
+        );
+
+        // Job should remain in progress after a single unit is verified
+        expect(afterVerify.status.name.toLowerCase(), anyOf(['in_progress', 'inprogress']));
+
+        final completed = await jobsRepo.dumpBags(
           instanceId: happyPathJob.instanceId.toString(),
           lat: propertyLat,
           lng: propertyLng,
-          photos: [dummyFile],
+          accuracy: 5.0,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
         );
-        print('Job complete status: ${updated.status}');
-        expect(updated.status.name.toLowerCase(), 'completed');
+
+        print('Job status after dump: ${completed.status}');
+        expect(completed.status.name.toLowerCase(), 'completed');
       } on ApiException catch (e) {
-        print('completeJob with a dummy photo failed: ${e.errorCode} / ${e.message}');
+        print('Verification or dump failed: ${e.errorCode} / ${e.message}');
         rethrow;
       } finally {
         if (await dummyFile.exists()) {
