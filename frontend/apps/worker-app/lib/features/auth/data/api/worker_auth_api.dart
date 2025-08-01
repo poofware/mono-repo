@@ -31,10 +31,10 @@ class WorkerAuthApi
   String get baseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
-  String get refreshTokenPath => '/worker/refresh_token';
+  String get refreshTokenPath => '$_v1/worker/refresh_token';
 
   @override
-  String get attestationChallengePath => '/worker/challenge';
+  String get attestationChallengePath => '$_v1/worker/challenge';
 
   WorkerAuthApi({
     required this.tokenStorage,

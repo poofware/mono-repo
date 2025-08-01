@@ -5,7 +5,8 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/config/flavors.dart';
 import '../models/job_models.dart';
 
-const String _v1Jobs = '/v1/jobs';
+const String _v1 = '/v1';
+const String _v1Jobs = '$_v1/jobs';
 
 /// A specialized API client for the "jobs-service" endpoints relevant to workers.
 ///
@@ -27,13 +28,13 @@ class WorkerJobsApi with AuthenticatedApiMixin {
   String get refreshTokenBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
-  String get refreshTokenPath => '/worker/refresh_token';
+  String get refreshTokenPath => '$_v1/worker/refresh_token';
 
   @override
   String get attestationChallengeBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
-  String get attestationChallengePath => '/worker/challenge';
+  String get attestationChallengePath => '$_v1/worker/challenge';
 
   @override
   final bool useRealAttestation;
