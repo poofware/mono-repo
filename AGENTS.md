@@ -50,11 +50,41 @@ After your code and tests pass static analysis, you can optionally perform a com
 
 -----
 
-## 2. Frontend Development (Flutter/Dart)
+## 2. Database Migration Guidelines
+
+When working with database schema changes, you must follow these strict guidelines:
+
+### 2.1. Migration File Management
+
+1. **Always modify the latest migration file** instead of creating new ones
+2. **Find the latest migration**: Look for the most recent timestamp in `backend/migrations/` directory
+3. **Modify in place**: Add your schema changes to the existing latest migration file
+4. **Rationale**: The latest migration represents the current development state and will be deployed to production
+
+### 2.2. Migration Workflow
+
+1. **Locate the latest migration**:
+   ```bash
+   ls -la backend/migrations/ | tail -5
+   ```
+2. **Edit the latest `.sql` file** to include your schema changes
+3. **Update corresponding Go models** in the service's `internal/models/` directory
+4. **Add integration tests** that validate your schema changes work with the updated models
+5. **Run static analysis** as described in section 1.1 to validate your changes
+
+### 2.3. Forbidden Actions
+
+- **Never create new migration files** unless explicitly instructed
+- **Never run migration commands** or database setup commands
+- **Never attempt to connect to databases** - your changes will be validated by CI
+
+-----
+
+## 3. Frontend Development (Flutter/Dart)
 
 Your workflow for the Flutter application is focused exclusively on static analysis.
 
-### 2.1. Primary Workflow: Static Analysis
+### 3.1. Primary Workflow: Static Analysis
 
 This is the **only required validation step** for Dart code.
 
@@ -73,7 +103,7 @@ This is the **only required validation step** for Dart code.
 3.  **Address analyzer output**: Even if `flutter analyze` only shows informational messages, you must fix important suggestions such as deprecation warnings, performance issues, and code quality improvements.
 4.  **You are strictly forbidden from running any `make` commands (`run-*`, `build-*`, `ci-*`).** The `flutter analyze` command is your only validation task.
 
-### 2.2. Testing Requirements
+### 3.2. Testing Requirements
 
 Your responsibility is to **add or update** API integration tests in `frontend/apps/worker-app/integration_test/api/` to reflect any changes made to the data layer (API clients, models).
 
