@@ -186,10 +186,27 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(l10n.jobInProgressFailureReasonTitle),
-        content: Text(
-          unit.failureReason?.isNotEmpty == true
-              ? unit.failureReason!
-              : l10n.jobInProgressFailureReasonUnknown,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (unit.failureReasons.isEmpty)
+              Text(l10n.jobInProgressFailureReasonUnknown)
+            else
+              ...unit.failureReasons.map(
+                (r) => Row(
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 20,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_failureReasonLabel(r, l10n))),
+                  ],
+                ),
+              ),
+          ],
         ),
         actions: [
           TextButton(
@@ -204,8 +221,27 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   int _verifiedCount(JobInstance job) {
     return job.buildings
         .expand((b) => b.units)
-        .where((u) => u.status == UnitVerificationStatus.verified)
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.verified ||
+              (u.status == UnitVerificationStatus.failed && u.permanentFailure),
+        )
         .length;
+  }
+
+  String _failureReasonLabel(String code, AppLocalizations l10n) {
+    switch (code) {
+      case 'TRASH_CAN_NOT_VISIBLE':
+        return l10n.failureReasonTrashCanNotVisible;
+      case 'TRASH_BAG_VISIBLE':
+        return l10n.failureReasonTrashBagVisible;
+      case 'DOOR_NUMBER_MISMATCH':
+        return l10n.failureReasonDoorMismatch;
+      case 'DOOR_NUMBER_MISSING':
+        return l10n.failureReasonDoorMissing;
+      default:
+        return l10n.jobInProgressFailureReasonUnknown;
+    }
   }
 
   String _formatDuration(Duration d) {
@@ -251,7 +287,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final waiting = _verifyingUnitId == u.unitId;
     final canTakePhoto =
         u.status == UnitVerificationStatus.pending ||
-        u.status == UnitVerificationStatus.failed;
+        (u.status == UnitVerificationStatus.failed && !u.permanentFailure);
     Widget trailing;
     if (canTakePhoto) {
       final cameraBtn = waiting
@@ -279,10 +315,26 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         trailing = cameraBtn;
       }
     } else {
-      trailing = Icon(icon, color: color);
+      if (u.status == UnitVerificationStatus.failed) {
+        trailing = IconButton(
+          icon: const Icon(Icons.info_outline),
+          onPressed: () => _showFailureReason(u),
+        );
+      } else {
+        trailing = Icon(icon, color: color);
+      }
+    }
+
+    Color? tileColor;
+    if (u.status == UnitVerificationStatus.verified) {
+      tileColor = Colors.green.shade50;
+    } else if (u.status == UnitVerificationStatus.failed) {
+      tileColor = Colors.red.shade50;
     }
 
     return ListTile(
+      tileColor: tileColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: Text('Unit ${u.unitNumber}'),
       subtitle: Text(label),
       trailing: trailing,
@@ -298,8 +350,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final verified = _verifiedCount(job);
     final slideEnabled = verified > 0;
 
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
+      canPop: false,
       child: Scaffold(
         body: Column(
           children: [
@@ -371,14 +423,26 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 horizontal: 16.0,
                 vertical: 8.0,
               ),
-              child: Card(
-                color: Colors.grey.shade100,
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    l10n.jobInProgressPhotoInstructions,
-                    style: const TextStyle(fontSize: 14),
-                  ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.lightbulb_outline,
+                      color: AppColors.poofColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.jobInProgressPhotoInstructions,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -31,21 +31,21 @@ func NewJobUnitVerificationRepository(db DB) JobUnitVerificationRepository {
 }
 
 func (r *jobUnitVerificationRepo) Create(ctx context.Context, v *models.JobUnitVerification) error {
-        _, err := r.db.Exec(ctx, `
+	_, err := r.db.Exec(ctx, `
         INSERT INTO job_unit_verifications (
-            id, job_instance_id, unit_id, status, reason,
+            id, job_instance_id, unit_id, status, attempt_count, failure_reasons, permanent_failure,
             created_at, updated_at, row_version
-        ) VALUES ($1,$2,$3,$4,$5,NOW(),NOW(),1)
-    `, v.ID, v.JobInstanceID, v.UnitID, v.Status, v.Reason)
-        return err
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW(),1)
+    `, v.ID, v.JobInstanceID, v.UnitID, v.Status, v.AttemptCount, v.FailureReasons, v.PermanentFailure)
+	return err
 }
 
 func (r *jobUnitVerificationRepo) UpdateIfVersion(ctx context.Context, v *models.JobUnitVerification, expected int64) (pgconn.CommandTag, error) {
-        return r.db.Exec(ctx, `
+	return r.db.Exec(ctx, `
         UPDATE job_unit_verifications
-        SET status=$1, reason=$2, row_version=row_version+1, updated_at=NOW()
-        WHERE id=$3 AND row_version=$4
-    `, v.Status, v.Reason, v.ID, expected)
+        SET status=$1, attempt_count=$2, failure_reasons=$3, permanent_failure=$4, row_version=row_version+1, updated_at=NOW()
+        WHERE id=$5 AND row_version=$6
+    `, v.Status, v.AttemptCount, v.FailureReasons, v.PermanentFailure, v.ID, expected)
 }
 
 func (r *jobUnitVerificationRepo) GetByInstanceAndUnit(ctx context.Context, instanceID, unitID uuid.UUID) (*models.JobUnitVerification, error) {
@@ -72,19 +72,19 @@ func (r *jobUnitVerificationRepo) ListByInstanceID(ctx context.Context, instance
 }
 
 func baseSelectJobUnitVerification() string {
-        return `
+	return `
         SELECT
-            id, job_instance_id, unit_id, status, reason,
+            id, job_instance_id, unit_id, status, attempt_count, failure_reasons, permanent_failure,
             row_version, created_at, updated_at
         FROM job_unit_verifications`
 }
 
 func (r *jobUnitVerificationRepo) scanVerification(row pgx.Row) (*models.JobUnitVerification, error) {
-        var v models.JobUnitVerification
-        err := row.Scan(
-                &v.ID, &v.JobInstanceID, &v.UnitID, &v.Status, &v.Reason,
-                &v.RowVersion, &v.CreatedAt, &v.UpdatedAt,
-        )
+	var v models.JobUnitVerification
+	err := row.Scan(
+		&v.ID, &v.JobInstanceID, &v.UnitID, &v.Status, &v.AttemptCount, &v.FailureReasons, &v.PermanentFailure,
+		&v.RowVersion, &v.CreatedAt, &v.UpdatedAt,
+	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -93,4 +93,3 @@ func (r *jobUnitVerificationRepo) scanVerification(row pgx.Row) (*models.JobUnit
 	}
 	return &v, nil
 }
-

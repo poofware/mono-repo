@@ -45,13 +45,13 @@ func TestFullWorkerFlow(t *testing.T) {
 		[]uuid.UUID{bldg.ID}, []uuid.UUID{dumpster.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
 	// Create a unit and assign it to the job definition
-       unit := &models.Unit{
-               ID:         uuid.New(),
-               PropertyID: p.ID,
-               BuildingID: bldg.ID,
-               UnitNumber: "101",
-               TenantToken: uuid.NewString(),
-       }
+	unit := &models.Unit{
+		ID:          uuid.New(),
+		PropertyID:  p.ID,
+		BuildingID:  bldg.ID,
+		UnitNumber:  "101",
+		TenantToken: uuid.NewString(),
+	}
 	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 
 	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
@@ -134,6 +134,7 @@ func TestFullWorkerFlow(t *testing.T) {
 		require.Equal(t, "IN_PROGRESS", r.Updated.Status)
 		require.Len(t, r.Updated.UnitVerifications, 1)
 		require.Equal(t, "VERIFIED", r.Updated.UnitVerifications[0].Status)
+		require.Equal(t, int16(0), r.Updated.UnitVerifications[0].AttemptCount)
 	})
 
 	t.Run("DumpBags", func(t *testing.T) {
@@ -154,12 +155,13 @@ func TestFullWorkerFlow(t *testing.T) {
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
 
-                var r dtos.JobInstanceActionResponse
-                data, _ := io.ReadAll(resp.Body)
-                json.Unmarshal(data, &r)
-                require.Equal(t, "COMPLETED", r.Updated.Status)
-                require.Len(t, r.Updated.UnitVerifications, 0)
-        })
+		var r dtos.JobInstanceActionResponse
+		data, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(data, &r)
+		require.Equal(t, "COMPLETED", r.Updated.Status)
+		require.Len(t, r.Updated.UnitVerifications, 1)
+		require.Equal(t, "DUMPED", r.Updated.UnitVerifications[0].Status)
+	})
 }
 
 /*
@@ -464,7 +466,7 @@ func TestConcurrencyComplete(t *testing.T) {
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "ConcurrencyCompleteTest",
 		[]uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
-       unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "101", TenantToken: uuid.NewString()}
+	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "101", TenantToken: uuid.NewString()}
 	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
 		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}

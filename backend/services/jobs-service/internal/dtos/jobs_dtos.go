@@ -88,11 +88,13 @@ type PropertyDTO struct {
 
 // UnitVerificationDTO conveys the verification state for a single unit.
 type UnitVerificationDTO struct {
-        UnitID     uuid.UUID `json:"unit_id"`
-        BuildingID uuid.UUID `json:"building_id"`
-        UnitNumber string    `json:"unit_number"`
-        Status     string    `json:"status"`
-        FailureReason string `json:"failure_reason,omitempty"`
+	UnitID           uuid.UUID `json:"unit_id"`
+	BuildingID       uuid.UUID `json:"building_id"`
+	UnitNumber       string    `json:"unit_number"`
+	Status           string    `json:"status"`
+	AttemptCount     int16     `json:"attempt_count"`
+	FailureReasons   []string  `json:"failure_reasons,omitempty"`
+	PermanentFailure bool      `json:"permanent_failure"`
 }
 
 /*

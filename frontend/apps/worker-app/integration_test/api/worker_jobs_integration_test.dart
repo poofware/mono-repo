@@ -23,11 +23,13 @@ import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 bool _isJobStartableNow(JobInstance job) {
   try {
     final now = DateTime.now();
-    
+
     // 1. Check if the service date is today.
     final serviceDate = DateFormat('yyyy-MM-dd').parse(job.serviceDate);
     final today = DateTime(now.year, now.month, now.day);
-    if (serviceDate.year != today.year || serviceDate.month != today.month || serviceDate.day != today.day) {
+    if (serviceDate.year != today.year ||
+        serviceDate.month != today.month ||
+        serviceDate.day != today.day) {
       return false;
     }
 
@@ -46,7 +48,8 @@ bool _isJobStartableNow(JobInstance job) {
       int.parse(startTimeParts[1]),
     );
 
-    var endDateTime = DateTime( // Make endDateTime mutable
+    var endDateTime = DateTime(
+      // Make endDateTime mutable
       today.year,
       today.month,
       today.day,
@@ -58,7 +61,7 @@ bool _isJobStartableNow(JobInstance job) {
     if (endDateTime.isBefore(startDateTime)) {
       endDateTime = endDateTime.add(const Duration(days: 1));
     }
-    
+
     // 4. Check if current time is within the window.
     return now.isAfter(startDateTime) && now.isBefore(endDateTime);
   } catch (e) {
@@ -99,7 +102,7 @@ void main() {
   // This location matches your seeded property from seed.go
   final double propertyLat = 34.753042676669004;
   final double propertyLng = -86.6970825455451;
-  
+
   // These will be initialized in setUpAll with three separate, startable jobs.
   late JobInstance happyPathJob;
   late JobInstance unacceptPathJob;
@@ -135,21 +138,22 @@ void main() {
 
     // 3) Login as the seeded worker
     final loginCode = generateTOTPCode(seededTotpSecret);
-    await authRepo.doLogin(LoginWorkerRequest(
-      phoneNumber: seededPhone,
-      totpCode: loginCode,
-    ));
+    await authRepo.doLogin(
+      LoginWorkerRequest(phoneNumber: seededPhone, totpCode: loginCode),
+    );
 
     // 4) Find three distinct jobs for the test flows to use.
     final openJobs = await jobsRepo.listJobs(
       lat: propertyLat,
       lng: propertyLng,
       page: 1,
-      size: 50, // Fetch a large batch to increase chances of finding suitable jobs.
+      size:
+          50, // Fetch a large batch to increase chances of finding suitable jobs.
     );
 
     final suitableJobs = openJobs.results.where((job) {
-      final isNearby = job.distanceMiles < 5.0; // Widen radius slightly to be safe.
+      final isNearby =
+          job.distanceMiles < 5.0; // Widen radius slightly to be safe.
       final isStartable = _isJobStartableNow(job);
       if (isStartable) print('Found startable job: ${job.instanceId}');
       return isNearby && isStartable;
@@ -159,7 +163,8 @@ void main() {
     expect(
       suitableJobs.length,
       greaterThanOrEqualTo(3),
-      reason: 'This integration test suite requires at least 3 startable jobs to run reliably.'
+      reason:
+          'This integration test suite requires at least 3 startable jobs to run reliably.',
     );
 
     // Assign the jobs to their respective test flows.
@@ -175,8 +180,9 @@ void main() {
   //  HAPPY PATH E2E FLOW
   // --------------------------------------------------------------------------
   group('WorkerJobs Happy Path (Accept -> Start -> Complete)', () {
-    testWidgets('1) listMyJobs => initially empty for this worker',
-        (tester) async {
+    testWidgets('1) listMyJobs => initially empty for this worker', (
+      tester,
+    ) async {
       final myJobs = await jobsRepo.listMyJobs(
         lat: propertyLat,
         lng: propertyLng,
@@ -184,8 +190,13 @@ void main() {
         size: 10,
       );
       // We only care that our specific job for this flow isn't present yet.
-      expect(myJobs.results.firstWhereOrNull((j) => j.instanceId == happyPathJob.instanceId), isNull,
-        reason: 'The chosen happy path job should not already be in "my jobs".');
+      expect(
+        myJobs.results.firstWhereOrNull(
+          (j) => j.instanceId == happyPathJob.instanceId,
+        ),
+        isNull,
+        reason: 'The chosen happy path job should not already be in "my jobs".',
+      );
     });
 
     testWidgets('2) accept the chosen job', (tester) async {
@@ -200,16 +211,23 @@ void main() {
       expect(updated.status.name.toLowerCase(), 'assigned');
     });
 
-    testWidgets('3) listMyJobs => should show 1 assigned job now',
-        (tester) async {
-      final myJobs = await jobsRepo.listMyJobs(lat: propertyLat, lng: propertyLng);
-      final found = myJobs.results.firstWhere((j) => j.instanceId == happyPathJob.instanceId,
-        orElse: () => throw Exception('Accepted job not found in my jobs.'));
+    testWidgets('3) listMyJobs => should show 1 assigned job now', (
+      tester,
+    ) async {
+      final myJobs = await jobsRepo.listMyJobs(
+        lat: propertyLat,
+        lng: propertyLng,
+      );
+      final found = myJobs.results.firstWhere(
+        (j) => j.instanceId == happyPathJob.instanceId,
+        orElse: () => throw Exception('Accepted job not found in my jobs.'),
+      );
       expect(found.status.name.toLowerCase(), 'assigned');
     });
 
-    testWidgets('4) start job => success because it is within the time window',
-        (tester) async {
+    testWidgets('4) start job => success because it is within the time window', (
+      tester,
+    ) async {
       try {
         final updated = await jobsRepo.startJob(
           instanceId: happyPathJob.instanceId.toString(),
@@ -219,18 +237,27 @@ void main() {
           timestamp: DateTime.now().millisecondsSinceEpoch,
           isMock: false,
         );
-        expect(updated.status.name.toLowerCase(), anyOf(['in_progress', 'inprogress']));
+        expect(
+          updated.status.name.toLowerCase(),
+          anyOf(['in_progress', 'inprogress']),
+        );
         print('Job started successfully: ${updated.instanceId}');
       } on ApiException catch (e) {
-        print('DEBUG (Start Job): startJob request failed with: ${e.errorCode} / ${e.message}');
-        print('DEBUG (Start Job): Current UTC time is: ${DateTime.now().toUtc()}');
+        print(
+          'DEBUG (Start Job): startJob request failed with: ${e.errorCode} / ${e.message}',
+        );
+        print(
+          'DEBUG (Start Job): Current UTC time is: ${DateTime.now().toUtc()}',
+        );
         fail('startJob was expected to succeed but failed: $e');
       }
     });
 
-    testWidgets('5) dump bags before verifying any units should fail',
-        (tester) async {
-      final jobAfterStart = (await jobsRepo.listMyJobs(lat: 0, lng: 0)).results.firstWhereOrNull((j) => j.instanceId == happyPathJob.instanceId);
+    testWidgets('5) dump bags before verifying any units should fail', (
+      tester,
+    ) async {
+      final jobAfterStart = (await jobsRepo.listMyJobs(lat: 0, lng: 0)).results
+          .firstWhereOrNull((j) => j.instanceId == happyPathJob.instanceId);
       if (jobAfterStart?.status != JobInstanceStatus.inProgress) {
         print('Skipping negative dump test because job is not IN_PROGRESS.');
         return;
@@ -246,20 +273,24 @@ void main() {
         );
         fail('Dumping bags without verifying units should have failed.');
       } on ApiException catch (e) {
-        print('DEBUG (Negative Dump): API call failed correctly with: ${e.errorCode}');
+        print(
+          'DEBUG (Negative Dump): API call failed correctly with: ${e.errorCode}',
+        );
         // Guard against null errorCode when verifying failure
         expect(e.errorCode?.isNotEmpty ?? false, isTrue);
       }
     });
 
     testWidgets('6) verify first unit photo and dump bags', (tester) async {
-      final jobAfterStart = (await jobsRepo.listMyJobs(lat: 0, lng: 0)).results.firstWhereOrNull((j) => j.instanceId == happyPathJob.instanceId);
+      final jobAfterStart = (await jobsRepo.listMyJobs(lat: 0, lng: 0)).results
+          .firstWhereOrNull((j) => j.instanceId == happyPathJob.instanceId);
       if (jobAfterStart?.status != JobInstanceStatus.inProgress) {
         print('Skipping verification test because job is not IN_PROGRESS.');
         return;
       }
 
-      if (jobAfterStart!.buildings.isEmpty || jobAfterStart.buildings.first.units.isEmpty) {
+      if (jobAfterStart!.buildings.isEmpty ||
+          jobAfterStart.buildings.first.units.isEmpty) {
         print('No units assigned to the job; skipping.');
         return;
       }
@@ -280,7 +311,12 @@ void main() {
         );
 
         // Job should remain in progress after a single unit is verified
-        expect(afterVerify.status.name.toLowerCase(), anyOf(['in_progress', 'inprogress']));
+        expect(
+          afterVerify.status.name.toLowerCase(),
+          anyOf(['in_progress', 'inprogress']),
+        );
+        expect(afterVerify.buildings.first.units.first.attemptCount, 0);
+        expect(afterVerify.buildings.first.units.first.failureReasons, isEmpty);
 
         final completed = await jobsRepo.dumpBags(
           instanceId: happyPathJob.instanceId.toString(),
@@ -292,6 +328,10 @@ void main() {
 
         print('Job status after dump: ${completed.status}');
         expect(completed.status.name.toLowerCase(), 'completed');
+        expect(
+          completed.buildings.first.units.first.status,
+          UnitVerificationStatus.dumped,
+        );
       } on ApiException catch (e) {
         print('Verification or dump failed: ${e.errorCode} / ${e.message}');
         rethrow;
@@ -307,52 +347,103 @@ void main() {
   //  UNACCEPT PATH E2E FLOW
   // --------------------------------------------------------------------------
   group('WorkerJobs Unaccept Path', () {
-    testWidgets('should correctly handle the Accept -> Unaccept flow', (tester) async {
+    testWidgets('should correctly handle the Accept -> Unaccept flow', (
+      tester,
+    ) async {
       // 1. Accept the job for this flow
       final accepted = await jobsRepo.acceptJob(
         instanceId: unacceptPathJob.instanceId.toString(),
-        lat: propertyLat, lng: propertyLng, accuracy: 5.0, timestamp: DateTime.now().millisecondsSinceEpoch);
-      expect(accepted.status.name.toLowerCase(), 'assigned', reason: "Job must be ASSIGNED after accepting.");
+        lat: propertyLat,
+        lng: propertyLng,
+        accuracy: 5.0,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      );
+      expect(
+        accepted.status.name.toLowerCase(),
+        'assigned',
+        reason: "Job must be ASSIGNED after accepting.",
+      );
 
       // 2. Unaccept the job
-      final unaccepted = await jobsRepo.unacceptJob(unacceptPathJob.instanceId.toString());
+      final unaccepted = await jobsRepo.unacceptJob(
+        unacceptPathJob.instanceId.toString(),
+      );
       print('Unaccepted job status is now: ${unaccepted.status.name}');
-      expect(unaccepted.status.name.toLowerCase(), 'open', reason: "Job status should revert to OPEN after unaccepting.");
+      expect(
+        unaccepted.status.name.toLowerCase(),
+        'open',
+        reason: "Job status should revert to OPEN after unaccepting.",
+      );
 
       // 3. Verify the job is no longer in the worker's "my jobs" list
-      final myJobs = await jobsRepo.listMyJobs(lat: propertyLat, lng: propertyLng);
-      expect(myJobs.results.any((j) => j.instanceId == unacceptPathJob.instanceId), isFalse,
-        reason: "Unaccepted job should no longer be in the 'my jobs' list.");
+      final myJobs = await jobsRepo.listMyJobs(
+        lat: propertyLat,
+        lng: propertyLng,
+      );
+      expect(
+        myJobs.results.any((j) => j.instanceId == unacceptPathJob.instanceId),
+        isFalse,
+        reason: "Unaccepted job should no longer be in the 'my jobs' list.",
+      );
     });
   });
-  
+
   // --------------------------------------------------------------------------
   //  CANCEL PATH E2E FLOW
   // --------------------------------------------------------------------------
   group('WorkerJobs Cancel Path', () {
-    testWidgets('should correctly handle the Accept -> Start -> Cancel flow', (tester) async {
+    testWidgets('should correctly handle the Accept -> Start -> Cancel flow', (
+      tester,
+    ) async {
       // 1. Accept the job for this flow
       final accepted = await jobsRepo.acceptJob(
         instanceId: cancelPathJob.instanceId.toString(),
-        lat: propertyLat, lng: propertyLng, accuracy: 5.0, timestamp: DateTime.now().millisecondsSinceEpoch);
-      expect(accepted.status.name.toLowerCase(), 'assigned', reason: "Job must be ASSIGNED after accepting.");
+        lat: propertyLat,
+        lng: propertyLng,
+        accuracy: 5.0,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      );
+      expect(
+        accepted.status.name.toLowerCase(),
+        'assigned',
+        reason: "Job must be ASSIGNED after accepting.",
+      );
 
       // 2. Start the job
       final started = await jobsRepo.startJob(
         instanceId: cancelPathJob.instanceId.toString(),
-        lat: propertyLat, lng: propertyLng, accuracy: 5.0, timestamp: DateTime.now().millisecondsSinceEpoch);
-      expect(started.status.name.toLowerCase(), anyOf(['in_progress', 'inprogress']), reason: "Job must be IN_PROGRESS after starting.");
+        lat: propertyLat,
+        lng: propertyLng,
+        accuracy: 5.0,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      );
+      expect(
+        started.status.name.toLowerCase(),
+        anyOf(['in_progress', 'inprogress']),
+        reason: "Job must be IN_PROGRESS after starting.",
+      );
 
       // 3. Cancel the job
-      final cancelledJob = await jobsRepo.cancelJob(cancelPathJob.instanceId.toString());
+      final cancelledJob = await jobsRepo.cancelJob(
+        cancelPathJob.instanceId.toString(),
+      );
       print('Canceled job status is now: ${cancelledJob.status.name}');
-      expect(cancelledJob.status.name.toLowerCase(), anyOf(['open', 'canceled']), reason: "Job status should be OPEN or CANCELED after canceling.");
+      expect(
+        cancelledJob.status.name.toLowerCase(),
+        anyOf(['open', 'canceled']),
+        reason: "Job status should be OPEN or CANCELED after canceling.",
+      );
 
       // 4. Verify the job is no longer in the worker's "my jobs" list
-      final myJobs = await jobsRepo.listMyJobs(lat: propertyLat, lng: propertyLng);
-      expect(myJobs.results.any((j) => j.instanceId == cancelPathJob.instanceId), isFalse,
-        reason: "Canceled job should not be in the 'my jobs' list");
+      final myJobs = await jobsRepo.listMyJobs(
+        lat: propertyLat,
+        lng: propertyLng,
+      );
+      expect(
+        myJobs.results.any((j) => j.instanceId == cancelPathJob.instanceId),
+        isFalse,
+        reason: "Canceled job should not be in the 'my jobs' list",
+      );
     });
   });
 }
-

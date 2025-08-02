@@ -41,7 +41,7 @@ func TestJobEstimatedTimeEmaFlow(t *testing.T) {
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "EmaTestDef",
 		[]uuid.UUID{bID}, []uuid.UUID{dID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
-       unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: bID, UnitNumber: "101", TenantToken: uuid.NewString()}
+	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: bID, UnitNumber: "101", TenantToken: uuid.NewString()}
 	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
 		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}
@@ -106,6 +106,8 @@ func TestJobEstimatedTimeEmaFlow(t *testing.T) {
 		cData, _ := io.ReadAll(dumpResp.Body)
 		require.NoError(t, json.Unmarshal(cData, &out), "Failed to unmarshal dump response for instance %s", inst.ID)
 		require.Equal(t, "COMPLETED", out.Updated.Status)
+		require.NotEmpty(t, out.Updated.UnitVerifications)
+		require.Equal(t, int16(0), out.Updated.UnitVerifications[0].AttemptCount)
 
 		defAfter, errGet := h.JobDefRepo.GetByID(ctx, defn.ID)
 		require.NoError(t, errGet)
@@ -444,7 +446,7 @@ func TestLocationValidation(t *testing.T) {
 	d := h.CreateTestDumpster(ctx, p.ID, "LocValDump")
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "LocValJob",
 		[]uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-       unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "100", TenantToken: uuid.NewString()}
+	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "100", TenantToken: uuid.NewString()}
 	require.NoError(t, h.UnitRepo.Create(ctx, unit))
 	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
 		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit.ID}

@@ -12,10 +12,12 @@ CREATE TABLE job_unit_verifications (
     ON DELETE CASCADE,
     unit_id UUID NOT NULL REFERENCES units (id) ON DELETE CASCADE,
     status UNIT_VERIFICATION_STATUS NOT NULL DEFAULT 'PENDING',
+    attempt_count SMALLINT NOT NULL DEFAULT 0,
+    failure_reasons TEXT[] NOT NULL DEFAULT '{}',
+    permanent_failure BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     row_version BIGINT NOT NULL DEFAULT 1,
-    reason TEXT,
     UNIQUE (job_instance_id, unit_id)
 );
 

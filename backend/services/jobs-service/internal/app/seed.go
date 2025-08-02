@@ -376,30 +376,59 @@ func ensureDumpster(
 // only units on that floor are included. Units are generated with sequential
 // numbers 01-30, so floors are derived by position: 1-10 => floor 1, 11-20 =>
 // floor 2, 21-30 => floor 3.
-func buildAssignedUnitGroups(
+// buildAssignedUnitGroups returns groups of unit IDs per building. If floor>0,
+// only units on that floor are included. If maxUnits>0, the total number of
+// units returned across all buildings is limited to maxUnits.
+// Units are generated with sequential numbers 01-30, so floors are derived by
+// position: 1-10 => floor 1, 11-20 => floor 2, 21-30 => floor 3.
+
+// buildAssignedUnitChunks retrieves units for the given building IDs and breaks
+// them into slices where each slice contains at most maxUnits unit IDs total.
+// Each returned slice represents units for a single job definition.
+func buildAssignedUnitChunks(
 	ctx context.Context,
 	unitRepo repositories.UnitRepository,
 	bldgIDs []uuid.UUID,
 	floor int,
-) ([]models.AssignedUnitGroup, error) {
-	groups := make([]models.AssignedUnitGroup, 0, len(bldgIDs))
+	maxUnits int,
+) ([][]models.AssignedUnitGroup, error) {
+	if maxUnits <= 0 {
+		return nil, fmt.Errorf("maxUnits must be positive")
+	}
+
+	var all []*models.Unit
 	for _, bID := range bldgIDs {
 		units, err := unitRepo.ListByBuildingID(ctx, bID)
 		if err != nil {
 			return nil, err
 		}
-		var unitIDs []uuid.UUID
 		for _, u := range units {
 			num, _ := strconv.Atoi(u.UnitNumber)
 			idx := num % 100
 			fl := (idx-1)/10 + 1
 			if floor == 0 || fl == floor {
-				unitIDs = append(unitIDs, u.ID)
+				all = append(all, u)
 			}
 		}
-		groups = append(groups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: unitIDs})
 	}
-	return groups, nil
+
+	var result [][]models.AssignedUnitGroup
+	for i := 0; i < len(all); i += maxUnits {
+		end := i + maxUnits
+		if end > len(all) {
+			end = len(all)
+		}
+		groupMap := map[uuid.UUID][]uuid.UUID{}
+		for _, u := range all[i:end] {
+			groupMap[u.BuildingID] = append(groupMap[u.BuildingID], u.ID)
+		}
+		var groups []models.AssignedUnitGroup
+		for bID, ids := range groupMap {
+			groups = append(groups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: ids})
+		}
+		result = append(result, groups)
+	}
+	return result, nil
 }
 
 /*
@@ -601,41 +630,45 @@ func createDailyDefinition(
 		}
 	}
 
-	groups, err := buildAssignedUnitGroups(ctx, unitRepo, assignedBuildingIDs, floor)
+	chunks, err := buildAssignedUnitChunks(ctx, unitRepo, assignedBuildingIDs, floor, 20)
 	if err != nil {
 		return uuid.Nil, err
-	}
-	req := dtos.CreateJobDefinitionRequest{
-		PropertyID:              propID,
-		Title:                   title,
-		Description:             utils.Ptr("automatic seed job"),
-		AssignedUnitsByBuilding: groups,
-		DumpsterIDs:             []uuid.UUID{dumpsterID},
-		Frequency:               models.JobFreqDaily,
-		// Weekdays not needed for JobFreqDaily, but if it were CUSTOM, it would be like: []int16{1, 2, 3, 4, 5}
-		// FIX: Set StartDate to "yesterday" relative to UTC now. This ensures that when the
-		// instance creation logic runs for the property's local "today", the check `day.Before(StartDate)`
-		// will not fail, preventing the off-by-one error caused by timezone differences.
-		StartDate:         time.Now().UTC().AddDate(0, 0, -1),
-		EarliestStartTime: earliest,
-		LatestStartTime:   latest,
-		SkipHolidays:      false,
-		DailyPayEstimates: dailyEstimates,
-		// THIS IS THE FIX: Explicitly require photos for seeded jobs.
-		CompletionRules: &models.JobCompletionRules{
-			ProofPhotosRequired: true,
-		},
 	}
 
 	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 
-	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", title, propID, err)
+	var firstID uuid.UUID
+	for i, groups := range chunks {
+		t := title
+		if len(chunks) > 1 {
+			t = fmt.Sprintf("%s Part %d", title, i+1)
+		}
+		req := dtos.CreateJobDefinitionRequest{
+			PropertyID:              propID,
+			Title:                   t,
+			Description:             utils.Ptr("automatic seed job"),
+			AssignedUnitsByBuilding: groups,
+			DumpsterIDs:             []uuid.UUID{dumpsterID},
+			Frequency:               models.JobFreqDaily,
+			StartDate:               time.Now().UTC().AddDate(0, 0, -1),
+			EarliestStartTime:       earliest,
+			LatestStartTime:         latest,
+			SkipHolidays:            false,
+			DailyPayEstimates:       dailyEstimates,
+			CompletionRules: &models.JobCompletionRules{
+				ProofPhotosRequired: true,
+			},
+		}
+		defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", t, propID, err)
+		}
+		utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s).", t, defID)
+		if firstID == uuid.Nil {
+			firstID = defID
+		}
 	}
-
-	utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s).", title, defID)
-	return defID, nil
+	return firstID, nil
 }
 
 // createRealisticTimeWindowDefinition seeds a job with a specific local time window (e.g., 6 AM - 9 AM).
@@ -686,40 +719,44 @@ func createRealisticTimeWindowDefinition(
 		}
 	}
 
-	groups, err := buildAssignedUnitGroups(ctx, unitRepo, assignedBuildingIDs, floor)
+	chunks, err := buildAssignedUnitChunks(ctx, unitRepo, assignedBuildingIDs, floor, 20)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	req := dtos.CreateJobDefinitionRequest{
-		PropertyID:              propID,
-		Title:                   title,
-		Description:             utils.Ptr("automatic seed job with realistic time window"),
-		AssignedUnitsByBuilding: groups,
-		DumpsterIDs:             []uuid.UUID{dumpsterID},
-		Frequency:               models.JobFreqDaily,
-		// FIX: Set StartDate to "yesterday" relative to UTC now. This ensures that when the
-		// instance creation logic runs for the property's local "today", the check `day.Before(StartDate)`
-		// will not fail, preventing the off-by-one error caused by timezone differences.
-		StartDate:         time.Now().UTC().AddDate(0, 0, -1),
-		EarliestStartTime: earliest,
-		LatestStartTime:   latest,
-		SkipHolidays:      false,
-		DailyPayEstimates: dailyEstimates,
-		// THIS IS THE FIX: Explicitly require photos for seeded jobs.
-		CompletionRules: &models.JobCompletionRules{
-			ProofPhotosRequired: true,
-		},
-	}
 
 	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-
-	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", title, propID, err)
+	var firstID uuid.UUID
+	for i, groups := range chunks {
+		t := title
+		if len(chunks) > 1 {
+			t = fmt.Sprintf("%s Part %d", title, i+1)
+		}
+		req := dtos.CreateJobDefinitionRequest{
+			PropertyID:              propID,
+			Title:                   t,
+			Description:             utils.Ptr("automatic seed job with realistic time window"),
+			AssignedUnitsByBuilding: groups,
+			DumpsterIDs:             []uuid.UUID{dumpsterID},
+			Frequency:               models.JobFreqDaily,
+			StartDate:               time.Now().UTC().AddDate(0, 0, -1),
+			EarliestStartTime:       earliest,
+			LatestStartTime:         latest,
+			SkipHolidays:            false,
+			DailyPayEstimates:       dailyEstimates,
+			CompletionRules: &models.JobCompletionRules{
+				ProofPhotosRequired: true,
+			},
+		}
+		defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", t, propID, err)
+		}
+		utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s) with realistic window.", t, defID)
+		if firstID == uuid.Nil {
+			firstID = defID
+		}
 	}
-
-	utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s) with realistic window.", title, defID)
-	return defID, nil
+	return firstID, nil
 }
 
 /*

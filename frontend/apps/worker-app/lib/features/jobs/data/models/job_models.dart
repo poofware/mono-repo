@@ -2,10 +2,7 @@
 
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show JsonSerializable;
 
-enum TransportMode {
-  car,
-  walk,
-}
+enum TransportMode { car, walk }
 
 enum JobInstanceStatus {
   open,
@@ -51,14 +48,18 @@ class UnitVerification {
   final String buildingId;
   final String unitNumber;
   final UnitVerificationStatus status;
-  final String? failureReason;
+  final int attemptCount;
+  final List<String> failureReasons;
+  final bool permanentFailure;
 
   const UnitVerification({
     required this.unitId,
     required this.buildingId,
     required this.unitNumber,
     required this.status,
-    this.failureReason,
+    this.attemptCount = 0,
+    this.failureReasons = const [],
+    this.permanentFailure = false,
   });
 
   factory UnitVerification.fromJson(Map<String, dynamic> json) {
@@ -67,17 +68,25 @@ class UnitVerification {
       buildingId: json['building_id'] as String,
       unitNumber: json['unit_number'] as String,
       status: unitVerificationStatusFromString(json['status'] as String),
-      failureReason: json['failure_reason'] as String?,
+      attemptCount: json['attempt_count'] as int? ?? 0,
+      failureReasons:
+          (json['failure_reasons'] as List?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      permanentFailure: json['permanent_failure'] as bool? ?? false,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'unit_id': unitId,
-        'building_id': buildingId,
-        'unit_number': unitNumber,
-        'status': unitVerificationStatusToString(status),
-        if (failureReason != null) 'failure_reason': failureReason,
-      };
+    'unit_id': unitId,
+    'building_id': buildingId,
+    'unit_number': unitNumber,
+    'status': unitVerificationStatusToString(status),
+    'attempt_count': attemptCount,
+    if (failureReasons.isNotEmpty) 'failure_reasons': failureReasons,
+    'permanent_failure': permanentFailure,
+  };
 }
 
 JobInstanceStatus jobInstanceStatusFromString(String raw) {
@@ -276,15 +285,21 @@ class JobInstance {
       dumpsters: dList,
       startTimeHint: (json['start_time_hint'] as String?) ?? '',
       workerStartTimeHint: (json['worker_start_time_hint'] as String?) ?? '',
-      propertyServiceWindowStart: (json['property_service_window_start'] as String?) ?? '',
-      workerServiceWindowStart: (json['worker_service_window_start'] as String?) ?? '',
-      propertyServiceWindowEnd: (json['property_service_window_end'] as String?) ?? '',
-      workerServiceWindowEnd: (json['worker_service_window_end'] as String?) ?? '',
+      propertyServiceWindowStart:
+          (json['property_service_window_start'] as String?) ?? '',
+      workerServiceWindowStart:
+          (json['worker_service_window_start'] as String?) ?? '',
+      propertyServiceWindowEnd:
+          (json['property_service_window_end'] as String?) ?? '',
+      workerServiceWindowEnd:
+          (json['worker_service_window_end'] as String?) ?? '',
       distanceMiles: (json['distance_miles'] as num?)?.toDouble() ?? 0.0,
       travelMinutes: json['travel_minutes'] as int?,
       estimatedTimeMinutes: (json['estimated_time_minutes'] as int?) ?? 60,
       transportMode: TransportMode.car,
-      checkInAt: checkInAtRaw != null ? DateTime.parse(checkInAtRaw) : null, // NEW
+      checkInAt: checkInAtRaw != null
+          ? DateTime.parse(checkInAtRaw)
+          : null, // NEW
     );
   }
 
@@ -349,22 +364,22 @@ class JobLocationActionRequest implements JsonSerializable {
 
   @override
   Map<String, dynamic> toJson() => {
-        'instance_id': instanceId,
-        'lat': lat,
-        'lng': lng,
-        'accuracy': accuracy,
-        'timestamp': timestamp,
-        'is_mock': isMock,
-      };
+    'instance_id': instanceId,
+    'lat': lat,
+    'lng': lng,
+    'accuracy': accuracy,
+    'timestamp': timestamp,
+    'is_mock': isMock,
+  };
 
   Map<String, String> toFormFields() => {
-        'instance_id': instanceId,
-        'lat': lat.toString(),
-        'lng': lng.toString(),
-        'accuracy': accuracy.toString(),
-        'timestamp': timestamp.toString(),
-        'is_mock': isMock.toString(),
-      };
+    'instance_id': instanceId,
+    'lat': lat.toString(),
+    'lng': lng.toString(),
+    'accuracy': accuracy.toString(),
+    'timestamp': timestamp.toString(),
+    'is_mock': isMock.toString(),
+  };
 }
 
 class JobActionRequest implements JsonSerializable {
@@ -372,9 +387,7 @@ class JobActionRequest implements JsonSerializable {
   JobActionRequest(this.instanceId);
 
   @override
-  Map<String, dynamic> toJson() => {
-        'instance_id': instanceId,
-      };
+  Map<String, dynamic> toJson() => {'instance_id': instanceId};
 }
 
 class ListJobsResponse {
@@ -447,10 +460,14 @@ extension JobInstanceCopyWith on JobInstance {
       dumpsters: dumpsters,
       startTimeHint: startTimeHint,
       workerStartTimeHint: workerStartTimeHint,
-      propertyServiceWindowStart: propertyServiceWindowStart ?? this.propertyServiceWindowStart,
-      workerServiceWindowStart: workerServiceWindowStart ?? this.workerServiceWindowStart,
-      propertyServiceWindowEnd: propertyServiceWindowEnd ?? this.propertyServiceWindowEnd,
-      workerServiceWindowEnd: workerServiceWindowEnd ?? this.workerServiceWindowEnd,
+      propertyServiceWindowStart:
+          propertyServiceWindowStart ?? this.propertyServiceWindowStart,
+      workerServiceWindowStart:
+          workerServiceWindowStart ?? this.workerServiceWindowStart,
+      propertyServiceWindowEnd:
+          propertyServiceWindowEnd ?? this.propertyServiceWindowEnd,
+      workerServiceWindowEnd:
+          workerServiceWindowEnd ?? this.workerServiceWindowEnd,
       distanceMiles: distanceMiles ?? this.distanceMiles,
       travelMinutes: travelMinutes ?? this.travelMinutes,
       estimatedTimeMinutes: estimatedTimeMinutes ?? this.estimatedTimeMinutes,
@@ -482,17 +499,20 @@ class DefinitionGroup {
   double get avgEstimatedTimeMinutes {
     if (instances.isEmpty) return 0.0;
     final totalMinutes = instances.fold<double>(
-        0, (sum, i) => sum + i.estimatedTimeMinutes);
+      0,
+      (sum, i) => sum + i.estimatedTimeMinutes,
+    );
     return totalMinutes / instances.length;
   }
 
   int? get avgTravelMinutes {
     if (instances.isEmpty) return null;
-    final travelTimes =
-        instances.map((i) => i.travelMinutes).whereType<int>().toList();
+    final travelTimes = instances
+        .map((i) => i.travelMinutes)
+        .whereType<int>()
+        .toList();
     if (travelTimes.isEmpty) return null;
-    return (travelTimes.fold<int>(0, (sum, t) => sum + t) /
-            travelTimes.length)
+    return (travelTimes.fold<int>(0, (sum, t) => sum + t) / travelTimes.length)
         .round();
   }
 
@@ -503,7 +523,7 @@ class DefinitionGroup {
 
     final totalMinutesInt = avgMins.round();
     if (totalMinutesInt < 60) return '$totalMinutesInt min';
-    
+
     final hours = totalMinutesInt ~/ 60;
     final minutes = totalMinutesInt % 60;
 
@@ -514,7 +534,7 @@ class DefinitionGroup {
     return '$hours hr $minutes min';
   }
 
-   String get displayAvgTravelTime {
+  String get displayAvgTravelTime {
     final avgMins = avgTravelMinutes;
     if (avgMins == null || avgMins <= 0) return 'N/A';
     return '$avgMins min';
@@ -540,7 +560,8 @@ List<DefinitionGroup> groupOpenJobs(List<JobInstance> jobs) {
   map.forEach((defId, instList) {
     if (instList.isEmpty) return;
     final first = instList.first;
-    final avgPay = instList.fold<double>(0, (sum, i) => sum + i.pay) / instList.length;
+    final avgPay =
+        instList.fold<double>(0, (sum, i) => sum + i.pay) / instList.length;
 
     result.add(
       DefinitionGroup(
