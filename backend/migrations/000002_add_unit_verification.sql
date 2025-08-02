@@ -15,6 +15,7 @@ CREATE TABLE job_unit_verifications (
     attempt_count SMALLINT NOT NULL DEFAULT 0,
     failure_reasons TEXT[] NOT NULL DEFAULT '{}',
     permanent_failure BOOLEAN NOT NULL DEFAULT FALSE,
+    missing_trash_can BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     row_version BIGINT NOT NULL DEFAULT 1,

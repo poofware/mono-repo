@@ -386,6 +386,7 @@ func (c *JobsController) VerifyPhotoHandler(w http.ResponseWriter, r *http.Reque
 	accStr := form.Value["accuracy"]
 	tsStr := form.Value["timestamp"]
 	mockStr := form.Value["is_mock"]
+	missingStr := form.Value["missing_trash_can"]
 
 	if len(instIDStr) == 0 || len(unitIDStr) == 0 || len(latStr) == 0 || len(lngStr) == 0 || len(accStr) == 0 || len(tsStr) == 0 || len(mockStr) == 0 {
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "missing required form fields", nil, nil)
@@ -427,6 +428,14 @@ func (c *JobsController) VerifyPhotoHandler(w http.ResponseWriter, r *http.Reque
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid is_mock", nil, err)
 		return
 	}
+	missingVal := false
+	if len(missingStr) > 0 {
+		missingVal, err = strconv.ParseBool(missingStr[0])
+		if err != nil {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid missing_trash_can", nil, err)
+			return
+		}
+	}
 	if code, msg := internal_utils.ValidateLocationData(latVal, lngVal, accVal, tsVal, mockVal); code != "" {
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
 		return
@@ -443,7 +452,7 @@ func (c *JobsController) VerifyPhotoHandler(w http.ResponseWriter, r *http.Reque
 	defer file.Close()
 	imgData, _ := io.ReadAll(file)
 
-	updated, svcErr := c.jobService.VerifyUnitPhoto(ctx, ctxUserID.(string), instID, unitID, latVal, lngVal, accVal, tsVal, mockVal, imgData)
+	updated, svcErr := c.jobService.VerifyUnitPhoto(ctx, ctxUserID.(string), instID, unitID, latVal, lngVal, accVal, tsVal, mockVal, missingVal, imgData)
 	if svcErr != nil {
 		utils.Logger.WithError(svcErr).Error("Verify photo error")
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, svcErr.Error(), "Could not verify photo", nil, svcErr)

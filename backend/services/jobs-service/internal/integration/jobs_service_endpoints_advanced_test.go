@@ -489,6 +489,29 @@ func TestLocationValidation(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
+	t.Run("VerifyPhoto_MissingTrashCan", func(t *testing.T) {
+		h.T = t
+		var buf bytes.Buffer
+		writer := multipart.NewWriter(&buf)
+		writer.WriteField("instance_id", inst.ID.String())
+		writer.WriteField("unit_id", unit.ID.String())
+		writer.WriteField("lat", fmt.Sprintf("%f", p.Latitude))
+		writer.WriteField("lng", fmt.Sprintf("%f", p.Longitude))
+		writer.WriteField("accuracy", "5")
+		writer.WriteField("timestamp", fmt.Sprintf("%d", time.Now().UnixMilli()))
+		writer.WriteField("is_mock", "false")
+		writer.WriteField("missing_trash_can", "true")
+		part, _ := writer.CreateFormFile("photo", "dummy.jpg")
+		part.Write([]byte("dummy"))
+		writer.Close()
+
+		req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsVerifyUnitPhoto, jwt, buf.Bytes(), "android", "locval-dev")
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		resp := h.DoRequest(req, h.NewHTTPClient())
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
 	t.Run("DumpBags_Inaccurate", func(t *testing.T) {
 		h.T = t
 		badLoc := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 50, Timestamp: time.Now().UnixMilli(), IsMock: false}

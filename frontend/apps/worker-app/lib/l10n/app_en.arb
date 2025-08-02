@@ -304,6 +304,10 @@
   "jobInProgressNoPhotos": "No photos taken yet.",
   "jobInProgressPhotosTakenHeader": "Photos Taken",
   "jobInProgressMoreOptionsTooltip": "More options",
+  "jobInProgressContactSupport": "Contact Support",
+  "jobInProgressReportMissingTrashCan": "Report Missing Trash Can",
+  "contactSupportText": "Text Support",
+  "contactSupportEmail": "Email Support",
   "jobStartFailedSnackbar": "Failed to start job: {error}",
   "@jobStartFailedSnackbar": {
     "placeholders": {

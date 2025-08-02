@@ -95,6 +95,7 @@ type UnitVerificationDTO struct {
 	AttemptCount     int16     `json:"attempt_count"`
 	FailureReasons   []string  `json:"failure_reasons,omitempty"`
 	PermanentFailure bool      `json:"permanent_failure"`
+	MissingTrashCan  bool      `json:"missing_trash_can"`
 }
 
 /*

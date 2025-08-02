@@ -51,6 +51,7 @@ class UnitVerification {
   final int attemptCount;
   final List<String> failureReasons;
   final bool permanentFailure;
+  final bool missingTrashCan;
 
   const UnitVerification({
     required this.unitId,
@@ -60,6 +61,7 @@ class UnitVerification {
     this.attemptCount = 0,
     this.failureReasons = const [],
     this.permanentFailure = false,
+    this.missingTrashCan = false,
   });
 
   factory UnitVerification.fromJson(Map<String, dynamic> json) {
@@ -75,6 +77,7 @@ class UnitVerification {
               .toList() ??
           const [],
       permanentFailure: json['permanent_failure'] as bool? ?? false,
+      missingTrashCan: json['missing_trash_can'] as bool? ?? false,
     );
   }
 
@@ -86,6 +89,7 @@ class UnitVerification {
     'attempt_count': attemptCount,
     if (failureReasons.isNotEmpty) 'failure_reasons': failureReasons,
     'permanent_failure': permanentFailure,
+    'missing_trash_can': missingTrashCan,
   };
 }
 

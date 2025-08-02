@@ -33,6 +33,7 @@ type JobUnitVerification struct {
 	AttemptCount     int16                  `json:"attempt_count"`
 	FailureReasons   []string               `json:"failure_reasons,omitempty"`
 	PermanentFailure bool                   `json:"permanent_failure"`
+	MissingTrashCan  bool                   `json:"missing_trash_can"`
 	CreatedAt        time.Time              `json:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at"`
 }

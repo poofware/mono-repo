@@ -25,13 +25,15 @@ class WorkerJobsApi with AuthenticatedApiMixin {
 
   /// For refreshing tokens. We can share the same auth server path or a dedicated route.
   @override
-  String get refreshTokenBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
+  String get refreshTokenBaseUrl =>
+      PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
   String get refreshTokenPath => '$_v1/worker/refresh_token';
 
   @override
-  String get attestationChallengeBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
+  String get attestationChallengeBaseUrl =>
+      PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
   String get attestationChallengePath => '$_v1/worker/challenge';
@@ -39,11 +41,9 @@ class WorkerJobsApi with AuthenticatedApiMixin {
   @override
   final bool useRealAttestation;
 
-  WorkerJobsApi({
-    required this.tokenStorage,
-    this.onAuthLost,
-  }) : useRealAttestation =
-      PoofWorkerFlavorConfig.instance.realDeviceAttestation;
+  WorkerJobsApi({required this.tokenStorage, this.onAuthLost})
+    : useRealAttestation =
+          PoofWorkerFlavorConfig.instance.realDeviceAttestation;
 
   /// GET /jobs/open?lat=&lng=&page=&size=
   Future<ListJobsResponse> listJobs({
@@ -166,6 +166,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     required int timestamp,
     bool isMock = false,
     required File photo,
+    bool missingTrashCan = false,
   }) async {
     final req = JobLocationActionRequest(
       instanceId: instanceId,
@@ -177,6 +178,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     );
     final fields = req.toFormFields();
     fields['unit_id'] = unitId;
+    if (missingTrashCan) fields['missing_trash_can'] = 'true';
 
     final resp = await sendAuthenticatedMultipartRequest(
       method: 'POST',
@@ -234,4 +236,3 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     return jar.updated;
   }
 }
-

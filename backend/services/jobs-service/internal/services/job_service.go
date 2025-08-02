@@ -575,6 +575,7 @@ func (s *JobService) VerifyUnitPhoto(
 	accuracy float64,
 	timestampMS int64,
 	isMock bool,
+	missingTrashCan bool,
 	photo []byte,
 ) (*dtos.JobInstanceDTO, error) {
 
@@ -640,8 +641,18 @@ func (s *JobService) VerifyUnitPhoto(
 			"door_number_detected": result.DoorNumberDetected,
 		}).Debug("openai verification result")
 
-		if !(result.TrashCanPresent && result.NoTrashBagVisible && result.DoorNumberMatches) {
-			status = models.UnitVerificationFailed
+		pass := false
+		if missingTrashCan {
+			pass = result.DoorNumberMatches
+			if !result.DoorNumberMatches {
+				if result.DoorNumberDetected != "" {
+					reasonCodes = append(reasonCodes, "DOOR_NUMBER_MISMATCH")
+				} else {
+					reasonCodes = append(reasonCodes, "DOOR_NUMBER_MISSING")
+				}
+			}
+		} else {
+			pass = result.TrashCanPresent && result.NoTrashBagVisible && result.DoorNumberMatches
 			if !result.TrashCanPresent {
 				reasonCodes = append(reasonCodes, "TRASH_CAN_NOT_VISIBLE")
 			}
@@ -655,6 +666,9 @@ func (s *JobService) VerifyUnitPhoto(
 					reasonCodes = append(reasonCodes, "DOOR_NUMBER_MISSING")
 				}
 			}
+		}
+		if !pass {
+			status = models.UnitVerificationFailed
 		}
 	}
 
@@ -675,13 +689,13 @@ func (s *JobService) VerifyUnitPhoto(
 			AttemptCount:     0,
 			FailureReasons:   []string{},
 			PermanentFailure: false,
+			MissingTrashCan:  missingTrashCan,
 		}
 	}
 
 	if status == models.UnitVerificationFailed {
 		v.AttemptCount++
-		joined := strings.Join(reasonCodes, ",")
-		v.FailureReasons = append(v.FailureReasons, joined)
+		v.FailureReasons = append(v.FailureReasons, reasonCodes...)
 		if v.AttemptCount >= 3 {
 			v.PermanentFailure = true
 		}
@@ -692,6 +706,7 @@ func (s *JobService) VerifyUnitPhoto(
 	}
 
 	v.Status = status
+	v.MissingTrashCan = missingTrashCan
 
 	if v.RowVersion == 0 {
 		if err := s.juvRepo.Create(ctx, v); err != nil {
@@ -1501,11 +1516,13 @@ func (s *JobService) buildInstanceDTO(
 				attempt := int16(0)
 				var reasons []string
 				permFail := false
+				missingCan := false
 				if vf != nil {
 					st = vf.Status
 					attempt = vf.AttemptCount
 					reasons = vf.FailureReasons
 					permFail = vf.PermanentFailure
+					missingCan = vf.MissingTrashCan
 				}
 				udto := dtos.UnitVerificationDTO{
 					UnitID:           u.ID,
@@ -1515,6 +1532,7 @@ func (s *JobService) buildInstanceDTO(
 					AttemptCount:     attempt,
 					FailureReasons:   reasons,
 					PermanentFailure: permFail,
+					MissingTrashCan:  missingCan,
 				}
 				bUnits = append(bUnits, udto)
 				unitDTOs = append(unitDTOs, udto)

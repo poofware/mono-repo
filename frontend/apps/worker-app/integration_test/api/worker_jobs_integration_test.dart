@@ -341,6 +341,28 @@ void main() {
         }
       }
     });
+
+    test('verifyPhoto missing trashcan', () async {
+      final unit = happyPathJob.buildings.first.units.first;
+      final tmpDir = Directory.systemTemp;
+      final dummyFile = File('${tmpDir.path}/dummy_photo_test.jpg');
+      await dummyFile.writeAsString('FakeImageData');
+      try {
+        final afterVerify = await jobsRepo.verifyPhoto(
+          instanceId: happyPathJob.instanceId.toString(),
+          unitId: unit.unitId,
+          lat: propertyLat,
+          lng: propertyLng,
+          photo: dummyFile,
+          missingTrashCan: true,
+        );
+        expect(afterVerify.buildings.first.units.first.missingTrashCan, isTrue);
+      } finally {
+        if (await dummyFile.exists()) {
+          await dummyFile.delete();
+        }
+      }
+    });
   });
 
   // --------------------------------------------------------------------------

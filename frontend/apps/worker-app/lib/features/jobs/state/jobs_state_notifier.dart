@@ -451,7 +451,11 @@ class JobsNotifier extends StateNotifier<JobsState> {
   // ─────────────────────────────────────────────────────────────────────────
   //  VERIFY UNIT PHOTO
   // ─────────────────────────────────────────────────────────────────────────
-  Future<bool> verifyUnitPhoto(String unitId, XFile photo) async {
+  Future<bool> verifyUnitPhoto(
+    String unitId,
+    XFile photo, {
+    bool missingTrashCan = false,
+  }) async {
     final logger = ref.read(appLoggerProvider);
     final job = state.inProgressJob;
     if (job == null) return false;
@@ -475,6 +479,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
                 attemptCount: 0,
                 failureReasons: const [],
                 permanentFailure: false,
+                missingTrashCan: missingTrashCan,
               );
             }
             return u;
@@ -499,6 +504,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
           timestamp: position.timestamp.millisecondsSinceEpoch,
           isMock: position.isMocked,
           photo: File(saved.path),
+          missingTrashCan: missingTrashCan,
         );
       }
 

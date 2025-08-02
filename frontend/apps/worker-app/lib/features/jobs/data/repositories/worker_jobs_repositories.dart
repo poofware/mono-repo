@@ -87,6 +87,7 @@ class WorkerJobsRepository {
     int? timestamp,
     bool isMock = false,
     required File photo,
+    bool missingTrashCan = false,
   }) async {
     final ts = timestamp ?? DateTime.now().millisecondsSinceEpoch;
     return _api.verifyPhoto(
@@ -98,6 +99,7 @@ class WorkerJobsRepository {
       timestamp: ts,
       isMock: isMock,
       photo: photo,
+      missingTrashCan: missingTrashCan,
     );
   }
 
@@ -126,4 +128,3 @@ class WorkerJobsRepository {
     return _api.cancelJob(instanceId);
   }
 }
-

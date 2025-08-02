@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
@@ -39,6 +40,39 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
   static const int _bagLimit = 8;
 
+  void _contactSupport() {
+    final l10n = AppLocalizations.of(context);
+    const supportEmail = 'team@thepoofapp.com';
+    const supportPhone = '2564683659';
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.sms_outlined),
+              title: Text(l10n.contactSupportText),
+              onTap: () {
+                launchUrl(Uri.parse('sms:$supportPhone'));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.email_outlined),
+              title: Text(l10n.contactSupportEmail),
+              onTap: () {
+                final subject = Uri.encodeComponent(
+                  l10n.emailSubjectGeneralHelp,
+                );
+                launchUrl(Uri.parse('mailto:$supportEmail?subject=$subject'));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _openFullMap() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -66,7 +100,10 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     super.dispose();
   }
 
-  Future<void> _takePhoto(UnitVerification unit) async {
+  Future<void> _takePhoto(
+    UnitVerification unit, {
+    bool missingTrashCan = false,
+  }) async {
     if (_isTakingPhoto) return;
     setState(() {
       _isTakingPhoto = true;
@@ -119,7 +156,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         await ensureLocationGranted();
         await ref
             .read(jobsNotifierProvider.notifier)
-            .verifyUnitPhoto(unit.unitId, photo);
+            .verifyUnitPhoto(
+              unit.unitId,
+              photo,
+              missingTrashCan: missingTrashCan,
+            );
       }
     } finally {
       if (mounted) {
@@ -196,11 +237,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               ...unit.failureReasons.map(
                 (r) => Row(
                   children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 20,
-                      color: Colors.red,
-                    ),
+                    Icon(_failureReasonIcon(r), size: 20, color: Colors.red),
                     const SizedBox(width: 8),
                     Expanded(child: Text(_failureReasonLabel(r, l10n))),
                   ],
@@ -241,6 +278,21 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         return l10n.failureReasonDoorMissing;
       default:
         return l10n.jobInProgressFailureReasonUnknown;
+    }
+  }
+
+  IconData _failureReasonIcon(String code) {
+    switch (code) {
+      case 'TRASH_CAN_NOT_VISIBLE':
+        return Icons.delete_outline;
+      case 'TRASH_BAG_VISIBLE':
+        return Icons.delete;
+      case 'DOOR_NUMBER_MISMATCH':
+        return Icons.numbers;
+      case 'DOOR_NUMBER_MISSING':
+        return Icons.help_outline;
+      default:
+        return Icons.error_outline;
     }
   }
 
@@ -300,44 +352,87 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               icon: const Icon(Icons.camera_alt),
               onPressed: () => _takePhoto(u),
             );
-      if (u.status == UnitVerificationStatus.failed) {
-        trailing = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.info_outline),
-              onPressed: () => _showFailureReason(u),
+      final menuBtn = PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
+        tooltip: l10n.jobInProgressMoreOptionsTooltip,
+        onSelected: (val) {
+          if (val == 'missing') {
+            _takePhoto(u, missingTrashCan: true);
+          } else if (val == 'reason') {
+            _showFailureReason(u);
+          }
+        },
+        itemBuilder: (context) => [
+          if (u.status == UnitVerificationStatus.failed)
+            PopupMenuItem(
+              value: 'reason',
+              child: Text(l10n.jobInProgressFailureReasonTitle),
             ),
-            cameraBtn,
-          ],
-        );
-      } else {
-        trailing = cameraBtn;
-      }
+          PopupMenuItem(
+            value: 'missing',
+            child: Text(l10n.jobInProgressReportMissingTrashCan),
+          ),
+        ],
+      );
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [cameraBtn, menuBtn],
+      );
     } else {
       if (u.status == UnitVerificationStatus.failed) {
-        trailing = IconButton(
-          icon: const Icon(Icons.info_outline),
-          onPressed: () => _showFailureReason(u),
+        trailing = PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          tooltip: l10n.jobInProgressMoreOptionsTooltip,
+          onSelected: (val) {
+            if (val == 'reason') _showFailureReason(u);
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'reason',
+              child: Text(l10n.jobInProgressFailureReasonTitle),
+            ),
+          ],
         );
       } else {
         trailing = Icon(icon, color: color);
       }
     }
 
-    Color? tileColor;
-    if (u.status == UnitVerificationStatus.verified) {
-      tileColor = Colors.green.shade50;
-    } else if (u.status == UnitVerificationStatus.failed) {
-      tileColor = Colors.red.shade50;
+    Widget statusChip(Color c, String t) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          t,
+          style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 12),
+        ),
+      );
     }
 
-    return ListTile(
-      tileColor: tileColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      title: Text('Unit ${u.unitNumber}'),
-      subtitle: Text(label),
+    final tile = ListTile(
+      title: Row(
+        children: [
+          Text('Unit ${u.unitNumber}'),
+          const SizedBox(width: 8),
+          statusChip(color, label),
+        ],
+      ),
       trailing: trailing,
+    );
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, offset: Offset(0, 2), blurRadius: 4),
+        ],
+      ),
+      child: tile,
     );
   }
 
@@ -368,10 +463,19 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                       job.property.propertyName,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    IconButton(
-                      onPressed: _handleCancel,
-                      icon: const Icon(Icons.cancel),
-                      tooltip: l10n.jobInProgressCancelButton,
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: _contactSupport,
+                          icon: const Icon(Icons.support_agent),
+                          tooltip: l10n.jobInProgressContactSupport,
+                        ),
+                        IconButton(
+                          onPressed: _handleCancel,
+                          icon: const Icon(Icons.cancel),
+                          tooltip: l10n.jobInProgressCancelButton,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -423,26 +527,17 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 horizontal: 16.0,
                 vertical: 8.0,
               ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
+              child: Card(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.lightbulb_outline,
-                      color: AppColors.poofColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        l10n.jobInProgressPhotoInstructions,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  ],
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.lightbulb_outline,
+                    color: AppColors.poofColor,
+                  ),
+                  title: Text(l10n.jobInProgressPhotoInstructions),
                 ),
               ),
             ),
