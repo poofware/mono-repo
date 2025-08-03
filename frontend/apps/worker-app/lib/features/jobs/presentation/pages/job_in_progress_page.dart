@@ -1,4 +1,4 @@
-// worker-app/lib/features/jobs/presentation/pages/job_in_progress_page.dart
+// frontend/apps/worker-app/lib/features/jobs/presentation/pages/job_in_progress_page.dart
 
 import 'dart:async';
 import 'dart:io';
@@ -40,6 +40,25 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
   static const int _bagLimit = 8;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.job.checkInAt != null) {
+      _elapsedTime = DateTime.now().toUtc().difference(
+            widget.job.checkInAt!.toUtc(),
+          );
+    }
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _elapsedTime += const Duration(seconds: 1));
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   void _contactSupport() {
     final l10n = AppLocalizations.of(context);
     const supportEmail = 'team@thepoofapp.com';
@@ -73,31 +92,47 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
   }
 
+  Future<void> _handleCancel() async {
+    final appLocalizations = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(appLocalizations.cancelJobInProgressTitle),
+        content: Text(appLocalizations.cancelJobInProgressBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(appLocalizations.cancelJobBackButton),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(appLocalizations.cancelJobConfirmButton),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final wasSuccess = await ref
+        .read(jobsNotifierProvider.notifier)
+        .cancelJob(widget.job.instanceId);
+    if (mounted && wasSuccess) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.goNamed(AppRouteNames.mainTab);
+      }
+    }
+  }
+
   void _openFullMap() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => JobMapPage(job: widget.job, buildAsScaffold: true),
       ),
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.job.checkInAt != null) {
-      _elapsedTime = DateTime.now().toUtc().difference(
-        widget.job.checkInAt!.toUtc(),
-      );
-    }
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _elapsedTime += const Duration(seconds: 1));
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 
   Future<void> _takePhoto(
@@ -154,9 +189,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
       if (confirmed == true) {
         await ensureLocationGranted();
-        await ref
-            .read(jobsNotifierProvider.notifier)
-            .verifyUnitPhoto(
+        await ref.read(jobsNotifierProvider.notifier).verifyUnitPhoto(
               unit.unitId,
               photo,
               missingTrashCan: missingTrashCan,
@@ -168,55 +201,6 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           _isTakingPhoto = false;
           _verifyingUnitId = null;
         });
-      }
-    }
-  }
-
-  Future<void> _dumpBags() async {
-    final success = await ref.read(jobsNotifierProvider.notifier).dumpBags();
-    if (success && mounted) {
-      final job = ref.read(jobsNotifierProvider).inProgressJob;
-      if (job == null) {
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.goNamed(AppRouteNames.mainTab);
-        }
-      }
-    }
-  }
-
-  Future<void> _handleCancel() async {
-    final appLocalizations = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(appLocalizations.cancelJobInProgressTitle),
-        content: Text(appLocalizations.cancelJobInProgressBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(appLocalizations.cancelJobBackButton),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(appLocalizations.cancelJobConfirmButton),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    final wasSuccess = await ref
-        .read(jobsNotifierProvider.notifier)
-        .cancelJob(widget.job.instanceId);
-    if (mounted && wasSuccess) {
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.goNamed(AppRouteNames.mainTab);
       }
     }
   }
@@ -235,12 +219,15 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               Text(l10n.jobInProgressFailureReasonUnknown)
             else
               ...unit.failureReasons.map(
-                (r) => Row(
-                  children: [
-                    Icon(_failureReasonIcon(r), size: 20, color: Colors.red),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_failureReasonLabel(r, l10n))),
-                  ],
+                (r) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      Icon(_failureReasonIcon(r), size: 20, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_failureReasonLabel(r, l10n))),
+                    ],
+                  ),
                 ),
               ),
           ],
@@ -253,6 +240,20 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _dumpBags() async {
+    final success = await ref.read(jobsNotifierProvider.notifier).dumpBags();
+    if (success && mounted) {
+      final job = ref.read(jobsNotifierProvider).inProgressJob;
+      if (job == null) {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.goNamed(AppRouteNames.mainTab);
+        }
+      }
+    }
   }
 
   int _permanentFailedCount(JobInstance job) {
@@ -271,24 +272,17 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         .where(
           (u) =>
               u.status == UnitVerificationStatus.pending ||
-              (u.status == UnitVerificationStatus.failed && !u.permanentFailure),
+              (u.status == UnitVerificationStatus.failed &&
+                  !u.permanentFailure),
         )
         .length;
   }
 
-  String _failureReasonLabel(String code, AppLocalizations l10n) {
-    switch (code) {
-      case 'TRASH_CAN_NOT_VISIBLE':
-        return l10n.failureReasonTrashCanNotVisible;
-      case 'TRASH_BAG_VISIBLE':
-        return l10n.failureReasonTrashBagVisible;
-      case 'DOOR_NUMBER_MISMATCH':
-        return l10n.failureReasonDoorMismatch;
-      case 'DOOR_NUMBER_MISSING':
-        return l10n.failureReasonDoorMissing;
-      default:
-        return l10n.jobInProgressFailureReasonUnknown;
-    }
+  String _formatDuration(Duration d) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final twoDigitMinutes = twoDigits(d.inMinutes.remainder(60));
+    final twoDigitSeconds = twoDigits(d.inSeconds.remainder(60));
+    return "${twoDigits(d.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 
   IconData _failureReasonIcon(String code) {
@@ -306,21 +300,185 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     }
   }
 
-  String _formatDuration(Duration d) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final twoDigitMinutes = twoDigits(d.inMinutes.remainder(60));
-    final twoDigitSeconds = twoDigits(d.inSeconds.remainder(60));
-    return "${twoDigits(d.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+  String _failureReasonLabel(String code, AppLocalizations l10n) {
+    switch (code) {
+      case 'TRASH_CAN_NOT_VISIBLE':
+        return l10n.failureReasonTrashCanNotVisible;
+      case 'TRASH_BAG_VISIBLE':
+        return l10n.failureReasonTrashBagVisible;
+      case 'DOOR_NUMBER_MISMATCH':
+        return l10n.failureReasonDoorMismatch;
+      case 'DOOR_NUMBER_MISSING':
+        return l10n.failureReasonDoorMissing;
+      default:
+        return l10n.jobInProgressFailureReasonUnknown;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  UI BUILDER WIDGETS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(JobInstance job, AppLocalizations l10n) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 12, 16, 12),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.support_agent),
+              tooltip: l10n.jobInProgressContactSupport,
+              onPressed: _contactSupport,
+            ),
+            Expanded(
+              child: Text(
+                job.property.propertyName,
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: l10n.jobInProgressCancelButton,
+              onPressed: _handleCancel,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapPreview() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _openFullMap,
+          child: Stack(
+            children: [
+              SizedBox(height: 180, child: widget.preWarmedMap),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.open_in_full,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsBar(int bagsCollected, AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.surfaceVariant.withValues(alpha: 0.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                Icons.shopping_bag_outlined,
+                l10n.jobInProgressBagsCollectedLabel,
+                '$bagsCollected / $_bagLimit',
+              ),
+              _buildStatItem(
+                Icons.timer_outlined,
+                l10n.jobInProgressTimeElapsed,
+                _formatDuration(_elapsedTime),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Icon(icon, size: 20, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              value,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInstructionsPanel(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          border: Border.all(color: AppColors.poofColor.withValues(alpha: 0.8), width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lightbulb_outline, color: AppColors.poofColor),
+            const SizedBox(width: 12),
+            Expanded(child: Text(l10n.jobInProgressPhotoInstructions)),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildBuildingTile(Building b, AppLocalizations l10n) {
     return ExpansionTile(
-      title: Text(b.name),
-      children: b.units.map((u) => _buildUnitTile(u, l10n)).toList(),
+      title: Text(
+        b.name,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      childrenPadding: const EdgeInsets.only(bottom: 8),
+      children: b.units.map((u) => _buildUnitListItem(u, l10n)).toList(),
     );
   }
 
-  Widget _buildUnitTile(UnitVerification u, AppLocalizations l10n) {
+  Widget _buildUnitListItem(UnitVerification u, AppLocalizations l10n) {
     IconData icon;
     Color color;
     String label;
@@ -349,9 +507,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     }
 
     final waiting = _verifyingUnitId == u.unitId;
-    final canTakePhoto =
-        u.status == UnitVerificationStatus.pending ||
+    final canTakePhoto = u.status == UnitVerificationStatus.pending ||
         (u.status == UnitVerificationStatus.failed && !u.permanentFailure);
+
     Widget trailing;
     if (canTakePhoto) {
       final cameraBtn = waiting
@@ -410,27 +568,13 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       }
     }
 
-    Widget statusChip(Color c, String t) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: c.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          t,
-          style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 12),
-        ),
-      );
-    }
-
     final tile = ListTile(
       leading: Icon(icon, color: color),
       title: Row(
         children: [
           Text('Unit ${u.unitNumber}'),
           const SizedBox(width: 8),
-          statusChip(color, label),
+          _buildStatusChip(color, label),
         ],
       ),
       trailing: trailing,
@@ -449,6 +593,57 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
   }
 
+  Widget _buildStatusChip(Color c, String t) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        t,
+        style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildBottomActionBar(String text, IconData icon, bool enabled,
+      Future<void> Function()? onSubmit) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: SlideAction(
+          text: text,
+          outerColor: enabled ? AppColors.poofColor : Colors.grey.shade400,
+          innerColor: Colors.white,
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          sliderButtonIcon: Icon(
+            icon,
+            color: enabled ? AppColors.poofColor : Colors.grey,
+          ),
+          sliderRotate: false,
+          enabled: enabled,
+          onSubmit: onSubmit,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -459,8 +654,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final permFailed = _permanentFailedCount(job);
     final remaining = _remainingCount(job);
     final hasVerified = bagsCollected > 0;
-    final slideEnabled =
-        hasVerified || (bagsCollected == 0 && permFailed > 0 && remaining == 0);
+    final slideEnabled = hasVerified ||
+        (bagsCollected == 0 && permFailed > 0 && remaining == 0);
     final slideText = hasVerified
         ? l10n.jobInProgressDumpBagsAction
         : l10n.jobInProgressCompleteJobAction;
@@ -469,134 +664,26 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     return PopScope(
       canPop: false,
       child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         body: Column(
           children: [
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 12,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      job.property.propertyName,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: _contactSupport,
-                          icon: const Icon(Icons.support_agent),
-                          tooltip: l10n.jobInProgressContactSupport,
-                        ),
-                        IconButton(
-                          onPressed: _handleCancel,
-                          icon: const Icon(Icons.cancel),
-                          tooltip: l10n.jobInProgressCancelButton,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _openFullMap,
-                  child: Stack(
-                    children: [
-                      SizedBox(height: 180, child: widget.preWarmedMap),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.black54,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.open_in_full,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            _buildHeader(job, l10n),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 16),
                 children: [
-                  Text(l10n.jobInProgressBagsCollected(bagsCollected, _bagLimit)),
-                  Text(_formatDuration(_elapsedTime)),
+                  _buildMapPreview(),
+                  _buildStatsBar(bagsCollected, l10n),
+                  _buildInstructionsPanel(l10n),
+                  ...job.buildings.map((b) => _buildBuildingTile(b, l10n)),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.lightbulb_outline,
-                      color: AppColors.poofColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(l10n.jobInProgressPhotoInstructions)),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                children: job.buildings
-                    .map((b) => _buildBuildingTile(b, l10n))
-                    .toList(),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: SlideAction(
-                  text: slideText,
-                  outerColor:
-                      slideEnabled ? AppColors.poofColor : Colors.grey.shade400,
-                  innerColor: Colors.white,
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  sliderButtonIcon: Icon(
-                    slideIcon,
-                    color: slideEnabled ? AppColors.poofColor : Colors.grey,
-                  ),
-                  sliderRotate: false,
-                  enabled: slideEnabled,
-                  onSubmit: slideEnabled ? _dumpBags : null,
-                ),
-              ),
+            _buildBottomActionBar(
+              slideText,
+              slideIcon,
+              slideEnabled,
+              slideEnabled ? _dumpBags : null,
             ),
           ],
         ),
@@ -612,4 +699,3 @@ int bagCount(JobInstance job) {
       .where((u) => u.status == UnitVerificationStatus.verified)
       .length;
 }
-

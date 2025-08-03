@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -376,11 +377,8 @@ func ensureDumpster(
 // only units on that floor are included. Units are generated with sequential
 // numbers 01-30, so floors are derived by position: 1-10 => floor 1, 11-20 =>
 // floor 2, 21-30 => floor 3.
-// buildAssignedUnitGroups returns groups of unit IDs per building. If floor>0,
-// only units on that floor are included. If maxUnits>0, the total number of
-// units returned across all buildings is limited to maxUnits.
-// Units are generated with sequential numbers 01-30, so floors are derived by
-// position: 1-10 => floor 1, 11-20 => floor 2, 21-30 => floor 3.
+// If maxUnits>0, the total number of units returned across all buildings is
+// limited to maxUnits.
 
 // buildAssignedUnitChunks retrieves units for the given building IDs and breaks
 // them into slices where each slice contains at most maxUnits unit IDs total.
@@ -418,13 +416,34 @@ func buildAssignedUnitChunks(
 		if end > len(all) {
 			end = len(all)
 		}
-		groupMap := map[uuid.UUID][]uuid.UUID{}
-		for _, u := range all[i:end] {
-			groupMap[u.BuildingID] = append(groupMap[u.BuildingID], u.ID)
+
+		type grpInfo struct {
+			ids    []uuid.UUID
+			floors map[int16]struct{}
 		}
+		groupMap := map[uuid.UUID]*grpInfo{}
+		for _, u := range all[i:end] {
+			num, _ := strconv.Atoi(u.UnitNumber)
+			idx := num % 100
+			fl := int16((idx-1)/10 + 1)
+
+			gi, ok := groupMap[u.BuildingID]
+			if !ok {
+				gi = &grpInfo{floors: make(map[int16]struct{})}
+				groupMap[u.BuildingID] = gi
+			}
+			gi.ids = append(gi.ids, u.ID)
+			gi.floors[fl] = struct{}{}
+		}
+
 		var groups []models.AssignedUnitGroup
-		for bID, ids := range groupMap {
-			groups = append(groups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: ids})
+		for bID, gi := range groupMap {
+			floors := make([]int16, 0, len(gi.floors))
+			for f := range gi.floors {
+				floors = append(floors, f)
+			}
+			sort.Slice(floors, func(i, j int) bool { return floors[i] < floors[j] })
+			groups = append(groups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: gi.ids, Floors: floors})
 		}
 		result = append(result, groups)
 	}

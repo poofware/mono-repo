@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/features/jobs/providers/providers.dart';
 import 'package:poof_worker/features/jobs/presentation/widgets/tap_ripple_overlay.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class JobMapPage extends ConsumerStatefulWidget {
   final JobInstance job;
@@ -35,6 +36,7 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
   final Completer<GoogleMapController> _internalMapController = Completer();
   Set<Marker> _markers = {};
   bool _isMapReady = false;
+  String _mapStyle = '';
 
   static const _quickTapMax = Duration(milliseconds: 180);
   Offset? _tapStartPosition;
@@ -48,25 +50,35 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
     // This now correctly sets the initial state if the map was already warmed.
     _isMapReady = JobMapPage._warmedJobIds.contains(widget.job.instanceId);
     _createMarkers();
+    rootBundle.loadString('assets/jsons/map_style.json').then((style) {
+      if (mounted) {
+        setState(() => _mapStyle = style);
+      }
+    });
   }
 
   void _createMarkers() {
-    // This logic is unchanged
     final Set<Marker> markers = {};
     for (final building in widget.job.buildings) {
+      final markerId = MarkerId('building_${building.buildingId}');
       markers.add(Marker(
-        markerId: MarkerId('building_${building.buildingId}'),
+        markerId: markerId,
         position: LatLng(building.latitude, building.longitude),
         infoWindow: InfoWindow(title: building.name),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        icon: BitmapDescriptor.defaultMarkerWithHue(
+          BitmapDescriptor.hueViolet,
+        ),
       ));
     }
     for (final dumpster in widget.job.dumpsters) {
+      final markerId = MarkerId('dumpster_${dumpster.dumpsterId}');
       markers.add(Marker(
-        markerId: MarkerId('dumpster_${dumpster.dumpsterId}'),
+        markerId: markerId,
         position: LatLng(dumpster.latitude, dumpster.longitude),
         infoWindow: InfoWindow(title: 'Dumpster ${dumpster.number}'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        icon: BitmapDescriptor.defaultMarkerWithHue(
+          BitmapDescriptor.hueAzure,
+        ),
       ));
     }
     setState(() => _markers = markers);
@@ -179,12 +191,14 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
         children: [
           GoogleMap(
             mapType: MapType.hybrid,
+            style: _mapStyle.isEmpty ? null : _mapStyle,
             initialCameraPosition: initialCameraPosition,
             onMapCreated: _onMapCreated,
             onCameraMoveStarted: widget.onCameraMoveStarted,
             markers: _markers,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
+            mapToolbarEnabled: false,
             zoomControlsEnabled: false,
             padding: const EdgeInsets.only(top: 0),
           ),
