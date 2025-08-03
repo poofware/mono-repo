@@ -21,6 +21,7 @@ type JobDefinitionRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.JobDefinition, error)
 	ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*models.JobDefinition, error)
 	ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.JobDefinition, error)
+	ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.JobDefinition, error)
 	ListByStatus(ctx context.Context, status models.JobStatusType) ([]*models.JobDefinition, error)
 
 	Update(ctx context.Context, j *models.JobDefinition) error
@@ -112,6 +113,27 @@ func (r *jobRepo) ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*
 
 func (r *jobRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.JobDefinition, error) {
 	rows, err := r.db.Query(ctx, baseSelectJob()+" WHERE property_id=$1 ORDER BY created_at", propertyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.JobDefinition
+	for rows.Next() {
+		j, err := r.scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
+}
+
+func (r *jobRepo) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.JobDefinition, error) {
+	if len(ids) == 0 {
+		return []*models.JobDefinition{}, nil
+	}
+	rows, err := r.db.Query(ctx, baseSelectJob()+" WHERE id = ANY($1)", ids)
 	if err != nil {
 		return nil, err
 	}

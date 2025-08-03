@@ -17,6 +17,7 @@ type PropertyRepository interface {
 
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Property, error)
 	ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*models.Property, error)
+	ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Property, error)
 
 	Update(ctx context.Context, p *models.Property) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -81,6 +82,27 @@ func (r *propertyRepo) ListByManagerID(ctx context.Context, managerID uuid.UUID)
 	return out, rows.Err()
 }
 
+func (r *propertyRepo) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Property, error) {
+	if len(ids) == 0 {
+		return []*models.Property{}, nil
+	}
+	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE id = ANY($1)", ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.Property
+	for rows.Next() {
+		p, err := scanProperty(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 func (r *propertyRepo) Update(ctx context.Context, p *models.Property) error {
 	_, err := r.db.Exec(ctx, `
         UPDATE properties SET
@@ -125,7 +147,7 @@ func (r *propertyRepo) ListAllProperties(ctx context.Context) ([]*models.Propert
 }
 
 func baseSelectProperty() string {
-    return `
+	return `
         SELECT
             id, manager_id, property_name,
             address, city, state, zip_code, time_zone,
@@ -158,4 +180,3 @@ func scanProperty(row pgx.Row) (*models.Property, error) {
 	}
 	return &p, nil
 }
-

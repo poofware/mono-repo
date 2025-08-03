@@ -568,15 +568,15 @@ func createDailyDefinition(
 			AssignedUnitsByBuilding: groups,
 			DumpsterIDs:             []uuid.UUID{dumpsterID},
 			Frequency:               models.JobFreqDaily,
-                       // Set StartDate to "yesterday" in UTC to avoid time-zone
-                       // off-by-one issues when seeding job instances. This ensures
-                       // today's instance is eligible even if seeding occurs after
-                       // a job's local cutoff time.
-                       StartDate:               time.Now().UTC().AddDate(0, 0, -1),
-			EarliestStartTime:       earliest,
-			LatestStartTime:         latest,
-			SkipHolidays:            false,
-			DailyPayEstimates:       dailyEstimates,
+			// Set StartDate to "yesterday" in UTC to avoid time-zone
+			// off-by-one issues when seeding job instances. This ensures
+			// today's instance is eligible even if seeding occurs after
+			// a job's local cutoff time.
+			StartDate:         time.Now().UTC().AddDate(0, 0, -1),
+			EarliestStartTime: earliest,
+			LatestStartTime:   latest,
+			SkipHolidays:      false,
+			DailyPayEstimates: dailyEstimates,
 			CompletionRules: &models.JobCompletionRules{
 				ProofPhotosRequired: true,
 			},
@@ -660,14 +660,14 @@ func createRealisticTimeWindowDefinition(
 			AssignedUnitsByBuilding: groups,
 			DumpsterIDs:             []uuid.UUID{dumpsterID},
 			Frequency:               models.JobFreqDaily,
-                       // Use "yesterday" in UTC to guarantee the seeding logic
-                       // creates a full 7-day window of instances regardless of
-                       // when the backend boots relative to local cutoff times.
-                       StartDate:               time.Now().UTC().AddDate(0, 0, -1),
-			EarliestStartTime:       earliest,
-			LatestStartTime:         latest,
-			SkipHolidays:            false,
-			DailyPayEstimates:       dailyEstimates,
+			// Use "yesterday" in UTC to guarantee the seeding logic
+			// creates a full 7-day window of instances regardless of
+			// when the backend boots relative to local cutoff times.
+			StartDate:         time.Now().UTC().AddDate(0, 0, -1),
+			EarliestStartTime: earliest,
+			LatestStartTime:   latest,
+			SkipHolidays:      false,
+			DailyPayEstimates: dailyEstimates,
 			CompletionRules: &models.JobCompletionRules{
 				ProofPhotosRequired: true,
 			},
@@ -930,64 +930,62 @@ func seedCliftFarmPropertyIfNeeded(
 		return fmt.Errorf("list clift farm buildings: %w", err)
 	}
 
-	var allBldgIDs []uuid.UUID
-	if len(existingBldgs) == 0 {
-		type bldgConf struct {
-			num int
-			lat float64
-			lng float64
-		}
-		bldgList := []bldgConf{
-			{1, 34.753499865723214, -86.76060923898977},
-			{2, 34.7538260179232, -86.75883898104533},
-			{3, 34.75301788853227, -86.75992709822535},
-			{4, 34.75337268653752, -86.75804126871314},
-		}
+	type bldgConf struct {
+		num int
+		lat float64
+		lng float64
+	}
+	bldgList := []bldgConf{
+		{1, 34.753499865723214, -86.76060923898977},
+		{2, 34.7538260179232, -86.75883898104533},
+		{3, 34.75301788853227, -86.75992709822535},
+		{4, 34.75337268653752, -86.75804126871314},
+	}
 
-		var newBldgs []*models.PropertyBuilding
-		for _, bc := range bldgList {
-			bID := uuid.New()
-			newBldgs = append(newBldgs, &models.PropertyBuilding{
-				ID:           bID,
+	existingMap := make(map[int]*models.PropertyBuilding)
+	for _, b := range existingBldgs {
+		var num int
+		fmt.Sscanf(b.BuildingName, "Building %d", &num)
+		existingMap[num] = b
+	}
+
+	var allBldgIDs []uuid.UUID
+	for _, bc := range bldgList {
+		b, ok := existingMap[bc.num]
+		if !ok {
+			b = &models.PropertyBuilding{
+				ID:           uuid.New(),
 				PropertyID:   propID,
 				BuildingName: fmt.Sprintf("Building %d", bc.num),
 				Latitude:     bc.lat,
 				Longitude:    bc.lng,
-			})
+			}
+			if err := bldgRepo.Create(ctx, b); err != nil {
+				return fmt.Errorf("create building %d for clift farm: %w", bc.num, err)
+			}
+			utils.Logger.Infof("jobs-service: Created building %s for Clift Farm property (id=%s).", b.BuildingName, propID)
 		}
-		// convert to non-pointer slice for repo
-		var flat []models.PropertyBuilding
-		for _, nb := range newBldgs {
-			flat = append(flat, *nb)
-		}
-		if err := bldgRepo.CreateMany(ctx, flat); err != nil {
-			return fmt.Errorf("failed to create buildings for Clift Farm prop=%s: %w", propID, err)
-		}
-		utils.Logger.Infof("jobs-service: Created %d buildings for Clift Farm property (id=%s).", len(newBldgs), propID)
-		existingBldgs = newBldgs
-	}
-
-	for _, b := range existingBldgs {
 		allBldgIDs = append(allBldgIDs, b.ID)
+
 		units, err := unitRepo.ListByBuildingID(ctx, b.ID)
 		if err != nil {
 			return fmt.Errorf("list units for bldg %s: %w", b.ID, err)
 		}
-		if len(units) == 0 {
-			for u := 1; u <= 30; u++ {
-				unitNum := fmt.Sprintf("%d%02d", len(allBldgIDs), u)
-				un := &models.Unit{
-					ID:          uuid.New(),
-					PropertyID:  propID,
-					BuildingID:  b.ID,
-					UnitNumber:  unitNum,
-					TenantToken: uuid.NewString(),
-				}
-				if cErr := unitRepo.Create(ctx, un); cErr != nil {
-					return fmt.Errorf("create unit %s for Clift Farm prop=%s: %w", unitNum, propID, cErr)
-				}
+		for u := len(units) + 1; u <= 30; u++ {
+			unitNum := fmt.Sprintf("%d%02d", bc.num, u)
+			un := &models.Unit{
+				ID:          uuid.New(),
+				PropertyID:  propID,
+				BuildingID:  b.ID,
+				UnitNumber:  unitNum,
+				TenantToken: uuid.NewString(),
 			}
-			utils.Logger.Infof("jobs-service: Created 30 units for building %s at Clift Farm", b.BuildingName)
+			if cErr := unitRepo.Create(ctx, un); cErr != nil {
+				return fmt.Errorf("create unit %s for Clift Farm prop=%s: %w", unitNum, propID, cErr)
+			}
+		}
+		if len(units) < 30 {
+			utils.Logger.Infof("jobs-service: Created %d units for building %s at Clift Farm", 30-len(units), b.BuildingName)
 		}
 	}
 
