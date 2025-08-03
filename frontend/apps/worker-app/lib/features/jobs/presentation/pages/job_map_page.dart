@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,25 +62,29 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
     final Set<Marker> markers = {};
     for (final building in widget.job.buildings) {
       final markerId = MarkerId('building_${building.buildingId}');
-      markers.add(Marker(
-        markerId: markerId,
-        position: LatLng(building.latitude, building.longitude),
-        infoWindow: InfoWindow(title: building.name),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueViolet,
+      markers.add(
+        Marker(
+          markerId: markerId,
+          position: LatLng(building.latitude, building.longitude),
+          infoWindow: InfoWindow(title: building.name),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueViolet,
+          ),
         ),
-      ));
+      );
     }
     for (final dumpster in widget.job.dumpsters) {
       final markerId = MarkerId('dumpster_${dumpster.dumpsterId}');
-      markers.add(Marker(
-        markerId: markerId,
-        position: LatLng(dumpster.latitude, dumpster.longitude),
-        infoWindow: InfoWindow(title: 'Dumpster ${dumpster.number}'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueAzure,
+      markers.add(
+        Marker(
+          markerId: markerId,
+          position: LatLng(dumpster.latitude, dumpster.longitude),
+          infoWindow: InfoWindow(title: 'Dumpster ${dumpster.number}'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
         ),
-      ));
+      );
     }
     setState(() => _markers = markers);
   }
@@ -88,8 +93,14 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
     // This logic is unchanged
     if (_markers.isEmpty) {
       return LatLngBounds(
-        southwest: LatLng(widget.job.property.latitude, widget.job.property.longitude),
-        northeast: LatLng(widget.job.property.latitude, widget.job.property.longitude),
+        southwest: LatLng(
+          widget.job.property.latitude,
+          widget.job.property.longitude,
+        ),
+        northeast: LatLng(
+          widget.job.property.latitude,
+          widget.job.property.longitude,
+        ),
       );
     }
     double minLat = _markers.first.position.latitude;
@@ -99,10 +110,15 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
     for (final marker in _markers) {
       if (marker.position.latitude < minLat) minLat = marker.position.latitude;
       if (marker.position.latitude > maxLat) maxLat = marker.position.latitude;
-      if (marker.position.longitude < minLng) minLng = marker.position.longitude;
-      if (marker.position.longitude > maxLng) maxLng = marker.position.longitude;
+      if (marker.position.longitude < minLng)
+        minLng = marker.position.longitude;
+      if (marker.position.longitude > maxLng)
+        maxLng = marker.position.longitude;
     }
-    return LatLngBounds(southwest: LatLng(minLat, minLng), northeast: LatLng(maxLat, maxLng));
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
   }
 
   Future<void> _waitUntilTilesRender(GoogleMapController controller) async {
@@ -111,7 +127,9 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
     while (DateTime.now().isBefore(deadline)) {
       final bytes = await controller.takeSnapshot();
       if (bytes != null && bytes.isNotEmpty) {
-        debugPrint("JobMapPage: Tiles rendered successfully via snapshot poll.");
+        debugPrint(
+          "JobMapPage: Tiles rendered successfully via snapshot poll.",
+        );
         return;
       }
       await Future.delayed(const Duration(milliseconds: 100));
@@ -128,7 +146,9 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      final bool isAlreadyWarmed = JobMapPage._warmedJobIds.contains(widget.job.instanceId);
+      final bool isAlreadyWarmed = JobMapPage._warmedJobIds.contains(
+        widget.job.instanceId,
+      );
 
       // If the map has already been warmed, we do absolutely nothing.
       // This prevents the flicker-inducing setState call.
@@ -138,13 +158,19 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
 
       if (_markers.isNotEmpty) {
         final bounds = _calculateBounds();
-        final GoogleMapController mapController = await _internalMapController.future;
-        
+        final GoogleMapController mapController =
+            await _internalMapController.future;
+
         if (widget.isForWarmup) {
-          await mapController.moveCamera(CameraUpdate.newLatLngBounds(bounds, 60.0));
+          await mapController.moveCamera(
+            CameraUpdate.newLatLngBounds(bounds, 60.0),
+          );
           await _waitUntilTilesRender(mapController);
-        } else { // This case now only runs for a totally cold start
-          await mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60.0));
+        } else {
+          // This case now only runs for a totally cold start
+          await mapController.animateCamera(
+            CameraUpdate.newLatLngBounds(bounds, 60.0),
+          );
           await Future.delayed(const Duration(milliseconds: 250));
         }
       }
@@ -161,7 +187,10 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
   Widget _buildMapContent() {
     // This logic is unchanged
     final initialCameraPosition = CameraPosition(
-      target: LatLng(widget.job.property.latitude, widget.job.property.longitude),
+      target: LatLng(
+        widget.job.property.latitude,
+        widget.job.property.longitude,
+      ),
       zoom: 16,
     );
     return Listener(
@@ -173,12 +202,18 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
         _tapCancelled = false;
       },
       onPointerMove: (e) {
-        if (e.pointer != _tapPointerId || _tapCancelled || _tapStartPosition == null) return;
+        if (e.pointer != _tapPointerId ||
+            _tapCancelled ||
+            _tapStartPosition == null)
+          return;
         final travelled = (e.position - _tapStartPosition!).distance;
         if (travelled > kTouchSlop) _tapCancelled = true;
       },
       onPointerUp: (e) {
-        if (e.pointer != _tapPointerId || _tapCancelled || _tapStartTime == null) return;
+        if (e.pointer != _tapPointerId ||
+            _tapCancelled ||
+            _tapStartTime == null)
+          return;
         final held = DateTime.now().difference(_tapStartTime!);
         if (held <= _quickTapMax) {
           final RenderBox renderBox = context.findRenderObject() as RenderBox;
@@ -196,6 +231,11 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
             onMapCreated: _onMapCreated,
             onCameraMoveStarted: widget.onCameraMoveStarted,
             markers: _markers,
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<OneSequenceGestureRecognizer>(
+                () => EagerGestureRecognizer(),
+              ),
+            },
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             mapToolbarEnabled: false,

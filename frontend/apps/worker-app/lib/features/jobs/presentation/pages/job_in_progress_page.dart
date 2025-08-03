@@ -26,7 +26,6 @@ class JobInProgressPage extends ConsumerStatefulWidget {
     required this.job,
     required this.preWarmedMap,
   });
-
   @override
   ConsumerState<JobInProgressPage> createState() => _JobInProgressPageState();
 }
@@ -323,11 +322,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 12, 16, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.support_agent),
+              icon: const Icon(Icons.help_outline),
               tooltip: l10n.jobInProgressContactSupport,
               onPressed: _contactSupport,
             ),
@@ -361,30 +360,32 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         elevation: 4,
         shadowColor: Colors.black.withValues(alpha: 0.2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: _openFullMap,
-          child: Stack(
-            children: [
-              SizedBox(height: 180, child: widget.preWarmedMap),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.open_in_full,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+        child: Stack(
+          children: [
+            SizedBox(height: 180, child: widget.preWarmedMap),
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _openFullMap,
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.open_in_full,
+                  color: Colors.white,
+                  size: 20,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -393,55 +394,66 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   Widget _buildStatsBar(int bagsCollected, AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Card(
-        elevation: 0,
-        color: Theme.of(context).colorScheme.surfaceVariant.withValues(alpha: 0.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                Icons.shopping_bag_outlined,
-                l10n.jobInProgressBagsCollectedLabel,
-                '$bagsCollected / $_bagLimit',
-              ),
-              _buildStatItem(
-                Icons.timer_outlined,
-                l10n.jobInProgressTimeElapsed,
-                _formatDuration(_elapsedTime),
-              ),
-            ],
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatItem(
+              Icons.shopping_bag_outlined,
+              l10n.jobInProgressBagsCollectedLabel,
+              '$bagsCollected / $_bagLimit',
+            ),
           ),
-        ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildStatItem(
+              Icons.timer_outlined,
+              l10n.jobInProgressTimeElapsed,
+              _formatDuration(_elapsedTime),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildStatItem(IconData icon, String label, String value) {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Icon(icon, size: 20, color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              value,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                value,
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -468,13 +480,41 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   }
 
   Widget _buildBuildingTile(Building b, AppLocalizations l10n) {
-    return ExpansionTile(
-      title: Text(
-        b.name,
-        style: const TextStyle(fontWeight: FontWeight.bold),
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.0),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      childrenPadding: const EdgeInsets.only(bottom: 8),
-      children: b.units.map((u) => _buildUnitListItem(u, l10n)).toList(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Theme(
+          data: theme.copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            backgroundColor: theme.cardColor,
+            collapsedBackgroundColor: theme.cardColor,
+            title: Text(
+              b.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            children: b.units.map((u) => _buildUnitListItem(u, l10n)).toList(),
+          ),
+        ),
+      ),
     );
   }
 
@@ -581,12 +621,16 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, offset: Offset(0, 4), blurRadius: 8),
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          )
         ],
       ),
       child: tile,
@@ -607,10 +651,14 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
   }
 
-  Widget _buildBottomActionBar(String text, IconData icon, bool enabled,
-      Future<void> Function()? onSubmit) {
+  Widget _buildBottomActionBar(
+    String text,
+    IconData icon,
+    bool enabled,
+    Future<void> Function()? onSubmit,
+  ) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
+      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 36.0),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         boxShadow: [
@@ -654,8 +702,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final permFailed = _permanentFailedCount(job);
     final remaining = _remainingCount(job);
     final hasVerified = bagsCollected > 0;
-    final slideEnabled = hasVerified ||
-        (bagsCollected == 0 && permFailed > 0 && remaining == 0);
+    final slideEnabled =
+        hasVerified || (bagsCollected == 0 && permFailed > 0 && remaining == 0);
     final slideText = hasVerified
         ? l10n.jobInProgressDumpBagsAction
         : l10n.jobInProgressCompleteJobAction;
