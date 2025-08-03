@@ -128,6 +128,8 @@ type JobDefinition struct {
 	Description *string `json:"description,omitempty"`
 
 	AssignedUnitsByBuilding []AssignedUnitGroup `json:"assigned_units_by_building"`
+	Floors                  []int16             `json:"floors"`
+	TotalUnits              int                 `json:"total_units"`
 	DumpsterIDs             []uuid.UUID         `json:"dumpster_ids"`
 
 	Status    JobStatusType    `json:"status"`

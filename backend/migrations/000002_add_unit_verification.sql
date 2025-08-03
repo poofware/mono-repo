@@ -25,13 +25,17 @@ CREATE TABLE job_unit_verifications (
 
 ALTER TABLE job_definitions
 DROP COLUMN assigned_building_ids,
-ADD COLUMN assigned_units_by_building JSONB NOT NULL;
+ADD COLUMN assigned_units_by_building JSONB NOT NULL,
+ADD COLUMN floors SMALLINT [] NOT NULL DEFAULT '{}',
+ADD COLUMN total_units INT NOT NULL DEFAULT 0;
 
 ---- create above / drop below ----
 
 ALTER TABLE job_definitions
 ADD COLUMN assigned_building_ids UUID [] NOT NULL,
-DROP COLUMN assigned_units_by_building;
+DROP COLUMN assigned_units_by_building,
+DROP COLUMN floors,
+DROP COLUMN total_units;
 
 DROP TABLE IF EXISTS job_unit_verifications;
 DROP TYPE IF EXISTS UNIT_VERIFICATION_STATUS;

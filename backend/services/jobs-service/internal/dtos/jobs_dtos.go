@@ -30,6 +30,8 @@ type JobInstanceDTO struct {
 	Buildings         []BuildingDTO `json:"buildings,omitempty"`
 	NumberOfDumpsters int           `json:"number_of_dumpsters"`
 	Dumpsters         []DumpsterDTO `json:"dumpsters,omitempty"`
+	Floors            []int16       `json:"floors,omitempty"`
+	TotalUnits        int           `json:"total_units"`
 
 	// NEW: flattened list of units and their verification status
 	UnitVerifications []UnitVerificationDTO `json:"unit_verifications,omitempty"`
@@ -59,13 +61,13 @@ BuildingDTO and DumpsterDTO appear within JobInstanceDTO to give a
 little more context about the assigned buildings/dumpsters for the job.
 */
 type BuildingDTO struct {
-	BuildingID uuid.UUID `json:"building_id"`
-	Name       string    `json:"building_name"`
-	Latitude   float64   `json:"latitude"`
-	Longitude  float64   `json:"longitude"`
-
-	// Assigned units for this building
-	Units []UnitVerificationDTO `json:"units,omitempty"`
+	BuildingID    uuid.UUID             `json:"building_id"`
+	Name          string                `json:"building_name"`
+	Latitude      float64               `json:"latitude"`
+	Longitude     float64               `json:"longitude"`
+	Floors        []int16               `json:"floors,omitempty"`
+	NumberOfUnits int                   `json:"number_of_units"`
+	Units         []UnitVerificationDTO `json:"units,omitempty"`
 }
 
 type DumpsterDTO struct {

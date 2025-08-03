@@ -127,6 +127,13 @@ func TestListOpenJobs(t *testing.T) {
 			require.NotEmpty(t, jobDTO.Property.Address)
 			require.Greater(t, jobDTO.Pay, 0.0, "Job pay should be positive")
 			require.Greater(t, jobDTO.EstimatedTimeMinutes, 0, "Job estimated time should be positive")
+			require.GreaterOrEqual(t, jobDTO.TotalUnits, 0)
+			require.NotNil(t, jobDTO.Floors)
+			if len(jobDTO.Buildings) > 0 {
+				b := jobDTO.Buildings[0]
+				require.Equal(t, len(b.Units), b.NumberOfUnits)
+				require.NotNil(t, b.Floors)
+			}
 
 			// --- CORRECTED TEST LOGIC ---
 			// This logic now correctly reflects the service's behavior of using the property's local timezone.
@@ -185,19 +192,19 @@ func TestListOpenJobs(t *testing.T) {
 		h.T = t
 
 		// --- FIX: Create time window relative to the property's timezone ---
-               propLoc, err := time.LoadLocation(p1.TimeZone)
-               require.NoError(t, err)
+		propLoc, err := time.LoadLocation(p1.TimeZone)
+		require.NoError(t, err)
 
-               // Use deterministic evening hours to avoid crossing midnight in any timezone.
-               today := time.Now().In(propLoc)
-               latestStart := time.Date(today.Year(), today.Month(), today.Day(), 20, 0, 0, 0, propLoc)
-               earliestStart := latestStart.Add(-2 * time.Hour)
+		// Use deterministic evening hours to avoid crossing midnight in any timezone.
+		today := time.Now().In(propLoc)
+		latestStart := time.Date(today.Year(), today.Month(), today.Day(), 20, 0, 0, 0, propLoc)
+		earliestStart := latestStart.Add(-2 * time.Hour)
 
 		unacceptableDef := h.CreateTestJobDefinition(t, ctx, testPM.ID, p1.ID, "UnacceptableJobDef",
 			[]uuid.UUID{b1_p1.ID}, []uuid.UUID{d1_p1.ID}, earliestStart, latestStart, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
 		// Create the instance for today in the property's timezone to be certain about the service date.
-               todayInPropTZ := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, propLoc)
+		todayInPropTZ := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, propLoc)
 		_ = h.CreateTestJobInstance(t, ctx, unacceptableDef.ID, todayInPropTZ, models.InstanceStatusOpen, nil)
 
 		// List jobs again
@@ -398,15 +405,15 @@ func TestJobDefinitionFlow(t *testing.T) {
 
 	t.Run("CreateDefinition_WithExpiredNoShowTime_SkipsTodaysInstance", func(t *testing.T) {
 		h.T = t
-               // Create a definition where the no-show time for today is in the past.
-               now := time.Now().UTC()
-               // Use a time window anchored to the previous day to avoid crossing
-               // midnight which can violate the DB constraint that compares times
-               // without dates.
-               dayBefore := now.AddDate(0, 0, -1)
-               dayStart := time.Date(dayBefore.Year(), dayBefore.Month(), dayBefore.Day(), 0, 0, 0, 0, time.UTC)
-               earliestStart := dayStart                                 // 00:00 of previous day
-               latestStart := dayStart.Add(2 * time.Hour)                // 02:00 of previous day
+		// Create a definition where the no-show time for today is in the past.
+		now := time.Now().UTC()
+		// Use a time window anchored to the previous day to avoid crossing
+		// midnight which can violate the DB constraint that compares times
+		// without dates.
+		dayBefore := now.AddDate(0, 0, -1)
+		dayStart := time.Date(dayBefore.Year(), dayBefore.Month(), dayBefore.Day(), 0, 0, 0, 0, time.UTC)
+		earliestStart := dayStart                  // 00:00 of previous day
+		latestStart := dayStart.Add(2 * time.Hour) // 02:00 of previous day
 
 		reqDTO := dtos.CreateJobDefinitionRequest{
 			PropertyID:                 p.ID,

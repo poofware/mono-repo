@@ -12,6 +12,7 @@ import (
 	"github.com/poofware/jobs-service/internal/constants"
 	"github.com/poofware/jobs-service/internal/dtos"
 	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"sort"
 )
 
 func (s *JobService) ForceReopenNoShow(
@@ -232,6 +233,20 @@ func (s *JobService) CreateJobDefinition(
 		return uuid.Nil, internal_utils.ErrMissingPayEstimateInput
 	}
 
+	floorSet := make(map[int16]struct{})
+	totalUnits := 0
+	for _, grp := range req.AssignedUnitsByBuilding {
+		for _, f := range grp.Floors {
+			floorSet[f] = struct{}{}
+		}
+		totalUnits += len(grp.UnitIDs)
+	}
+	floors := make([]int16, 0, len(floorSet))
+	for f := range floorSet {
+		floors = append(floors, f)
+	}
+	sort.Slice(floors, func(i, j int) bool { return floors[i] < floors[j] })
+
 	newDef := &models.JobDefinition{
 		ID:                      uuid.New(),
 		ManagerID:               pmID,
@@ -239,6 +254,8 @@ func (s *JobService) CreateJobDefinition(
 		Title:                   req.Title,
 		Description:             req.Description,
 		AssignedUnitsByBuilding: req.AssignedUnitsByBuilding,
+		Floors:                  floors,
+		TotalUnits:              totalUnits,
 		DumpsterIDs:             req.DumpsterIDs,
 		Status:                  models.JobStatusType(strings.ToUpper(status)),
 		Frequency:               req.Frequency,

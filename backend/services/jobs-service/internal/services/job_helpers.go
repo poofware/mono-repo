@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,6 +72,8 @@ func (s *JobService) buildInstanceDTO(
 
 	var buildings []dtos.BuildingDTO
 	var unitDTOs []dtos.UnitVerificationDTO
+	floorSet := make(map[int16]struct{})
+	totalUnits := 0
 	if len(jdef.AssignedUnitsByBuilding) > 0 {
 		// cache buildings by ID
 		bCache := make(map[uuid.UUID]*models.PropertyBuilding)
@@ -91,11 +94,16 @@ func (s *JobService) buildInstanceDTO(
 				bCache[grp.BuildingID] = b
 			}
 
+			for _, f := range grp.Floors {
+				floorSet[f] = struct{}{}
+			}
 			// build unit set for quick lookup
 			uidSet := make(map[uuid.UUID]struct{}, len(grp.UnitIDs))
 			for _, uid := range grp.UnitIDs {
 				uidSet[uid] = struct{}{}
 			}
+			numUnits := len(grp.UnitIDs)
+			totalUnits += numUnits
 
 			units, _ := s.unitRepo.ListByBuildingID(ctx, grp.BuildingID)
 			var bUnits []dtos.UnitVerificationDTO
@@ -131,14 +139,22 @@ func (s *JobService) buildInstanceDTO(
 			}
 
 			buildings = append(buildings, dtos.BuildingDTO{
-				BuildingID: b.ID,
-				Name:       b.BuildingName,
-				Latitude:   b.Latitude,
-				Longitude:  b.Longitude,
-				Units:      bUnits,
+				BuildingID:    b.ID,
+				Name:          b.BuildingName,
+				Latitude:      b.Latitude,
+				Longitude:     b.Longitude,
+				Floors:        grp.Floors,
+				NumberOfUnits: numUnits,
+				Units:         bUnits,
 			})
 		}
 	}
+
+	floors := make([]int16, 0, len(floorSet))
+	for f := range floorSet {
+		floors = append(floors, f)
+	}
+	sort.Slice(floors, func(i, j int) bool { return floors[i] < floors[j] })
 
 	var dumpsters []dtos.DumpsterDTO
 	if len(jdef.DumpsterIDs) > 0 {
@@ -220,6 +236,8 @@ func (s *JobService) buildInstanceDTO(
 		NumberOfDumpsters:          len(dumpsters),
 		Dumpsters:                  dumpsters,
 		UnitVerifications:          unitDTOs,
+		Floors:                     floors,
+		TotalUnits:                 totalUnits,
 		StartTimeHint:              sthProp,
 		WorkerStartTimeHint:        sthWorker,
 		PropertyServiceWindowStart: pwws,

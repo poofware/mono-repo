@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sort"
 	"testing"
 	"time"
 
@@ -193,9 +194,20 @@ func (h *TestHelper) CreateTestJobDefinition(t *testing.T, ctx context.Context, 
 	hint := earliest.Add(duration / 2)
 
 	assigned := make([]models.AssignedUnitGroup, len(buildingIDs))
+	floorSet := make(map[int16]struct{})
+	totalUnits := 0
 	for i, bID := range buildingIDs {
-		assigned[i] = models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}}
+		assigned[i] = models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}, Floors: []int16{1}}
+		for _, f := range assigned[i].Floors {
+			floorSet[f] = struct{}{}
+		}
+		totalUnits += len(assigned[i].UnitIDs)
 	}
+	floors := make([]int16, 0, len(floorSet))
+	for f := range floorSet {
+		floors = append(floors, f)
+	}
+	sort.Slice(floors, func(i, j int) bool { return floors[i] < floors[j] })
 
 	def := &models.JobDefinition{
 		ID:                      uuid.New(),
@@ -203,6 +215,8 @@ func (h *TestHelper) CreateTestJobDefinition(t *testing.T, ctx context.Context, 
 		PropertyID:              propID,
 		Title:                   title,
 		AssignedUnitsByBuilding: assigned,
+		Floors:                  floors,
+		TotalUnits:              totalUnits,
 		DumpsterIDs:             dumpsterIDs,
 		Frequency:               freq,
 		Weekdays:                weekdays,
