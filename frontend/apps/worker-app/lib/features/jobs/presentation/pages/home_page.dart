@@ -52,8 +52,7 @@ final filteredDefinitionsProvider = Provider<List<DefinitionGroup>>((ref) {
     return fuzzyMatch(searchable, query);
   }
 
-  final list =
-      groupOpenJobs(jobsState.openJobs).where(matchesQuery).toList();
+  final list = groupOpenJobs(jobsState.openJobs).where(matchesQuery).toList();
 
   switch (sortBy) {
     case 'pay':
@@ -304,7 +303,8 @@ class _HomePageState extends ConsumerState<HomePage>
     final bottomInset = MediaQuery.of(ctx).padding.bottom;
     final totalScreenHeight = MediaQuery.of(ctx).size.height;
 
-    final pixels = tabBarHeight +
+    final pixels =
+        tabBarHeight +
         containerPaddingVertical +
         sortRefreshRowHeight +
         bottomInset;
@@ -366,7 +366,8 @@ class _HomePageState extends ConsumerState<HomePage>
         );
       } catch (_) {
         if (!mounted) return;
-        camToSet = storedPersistedCam ??
+        camToSet =
+            storedPersistedCam ??
             const CameraPosition(
               target: kGenericFallbackLatLng,
               zoom: kGenericFallbackZoom,
@@ -692,9 +693,10 @@ class _HomePageState extends ConsumerState<HomePage>
     final liveCameraPosition = ref.watch(currentMapCameraPositionProvider);
     final appLocalizations = AppLocalizations.of(context);
 
-    final bool openJobsListActuallyChanged =
-        _previousOpenJobsIdentity != null &&
-        !identical(_previousOpenJobsIdentity, newOpenJobs);
+    final bool openJobsListActuallyChanged = shouldRecenterOnOpenJobsChange(
+      _previousOpenJobsIdentity,
+      newOpenJobs,
+    );
     final bool isFirstTimeLoadingJobs =
         _isInitialLoad && newOpenJobs.isNotEmpty;
 
@@ -787,7 +789,8 @@ class _HomePageState extends ConsumerState<HomePage>
             onPointerMove: (PointerMoveEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartPosition == null) return;
+                  _tapStartPosition == null)
+                return;
 
               final travelled = (e.position - _tapStartPosition!).distance;
               if (travelled > kTouchSlop) {
@@ -797,7 +800,8 @@ class _HomePageState extends ConsumerState<HomePage>
             onPointerUp: (PointerUpEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartTime == null) return;
+                  _tapStartTime == null)
+                return;
 
               final held = DateTime.now().difference(_tapStartTime!);
               if (held <= _quickTapMax) {
@@ -862,7 +866,9 @@ class _HomePageState extends ConsumerState<HomePage>
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor.withValues(alpha: 0.85),
+                          color: Theme.of(
+                            context,
+                          ).cardColor.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
@@ -888,14 +894,16 @@ class _HomePageState extends ConsumerState<HomePage>
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap:
-                            _isSnappingToLocation ? null : _snapToUserLocation,
+                        onTap: _isSnappingToLocation
+                            ? null
+                            : _snapToUserLocation,
                         borderRadius: BorderRadius.circular(24),
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).cardColor.withValues(alpha: 0.85),
+                            color: Theme.of(
+                              context,
+                            ).cardColor.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
@@ -1062,3 +1070,13 @@ class MapPane extends ConsumerWidget {
   }
 }
 
+/// Returns true if the open jobs list changed in a way that warrants
+/// recentering the UI selection. Currently this happens only when the list
+/// shrinks, indicating jobs were removed.
+bool shouldRecenterOnOpenJobsChange(
+  List<JobInstance>? previous,
+  List<JobInstance> current,
+) {
+  if (previous == null) return true;
+  return current.length < previous.length;
+}
