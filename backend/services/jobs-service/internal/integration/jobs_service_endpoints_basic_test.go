@@ -398,10 +398,15 @@ func TestJobDefinitionFlow(t *testing.T) {
 
 	t.Run("CreateDefinition_WithExpiredNoShowTime_SkipsTodaysInstance", func(t *testing.T) {
 		h.T = t
-		// Create a definition where the no-show time for today is in the past.
-		now := time.Now().UTC()
-		latestStart := now.Add(-time.Hour)               // 1 hour ago
-		earliestStart := latestStart.Add(-2 * time.Hour) // 3 hours ago
+               // Create a definition where the no-show time for today is in the past.
+               now := time.Now().UTC()
+               // Use a time window anchored to the previous day to avoid crossing
+               // midnight which can violate the DB constraint that compares times
+               // without dates.
+               dayBefore := now.AddDate(0, 0, -1)
+               dayStart := time.Date(dayBefore.Year(), dayBefore.Month(), dayBefore.Day(), 0, 0, 0, 0, time.UTC)
+               earliestStart := dayStart                                 // 00:00 of previous day
+               latestStart := dayStart.Add(2 * time.Hour)                // 02:00 of previous day
 
 		reqDTO := dtos.CreateJobDefinitionRequest{
 			PropertyID:                 p.ID,

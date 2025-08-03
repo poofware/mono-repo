@@ -442,7 +442,9 @@ func TestLocationValidation(t *testing.T) {
 	earliest, latest := h.TestSameDayTimeWindow()
 
 	w := h.CreateTestWorker(ctx, "loc-validate")
-	p := h.CreateTestProperty(ctx, "LocValProp", testPM.ID, 0.0, 0.0)
+       // Use a non-zero coordinate so that sending 0,0 in location tests
+       // will be considered out-of-bounds relative to the property.
+       p := h.CreateTestProperty(ctx, "LocValProp", testPM.ID, 35.0, -86.0)
 	b := h.CreateTestBuilding(ctx, p.ID, "LocValBldg")
 	d := h.CreateTestDumpster(ctx, p.ID, "LocValDump")
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "LocValJob",

@@ -701,11 +701,15 @@ func (s *JobService) VerifyUnitPhoto(
                 if v.AttemptCount >= 3 {
                         v.PermanentFailure = true
                 }
-        } else {
-                v.AttemptCount = 0
-                v.FailureReasons = nil
-                v.PermanentFailure = false
-        }
+       } else {
+               v.AttemptCount = 0
+               // Use an empty slice to satisfy the NOT NULL constraint on
+               // job_unit_verifications.failure_reasons. Using nil would
+               // result in a NULL value being written to the database and
+               // violate the constraint.
+               v.FailureReasons = []string{}
+               v.PermanentFailure = false
+       }
 
         v.Status = status
         v.MissingTrashCan = missingTrashCan
