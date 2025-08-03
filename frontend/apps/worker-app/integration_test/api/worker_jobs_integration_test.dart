@@ -281,7 +281,24 @@ void main() {
       }
     });
 
-    testWidgets('6) verify first unit photo and dump bags', (tester) async {
+    testWidgets('6) dump bags too far from property returns specific error', (
+      tester,
+    ) async {
+      try {
+        await jobsRepo.dumpBags(
+          instanceId: happyPathJob.instanceId.toString(),
+          lat: 0,
+          lng: 0,
+          accuracy: 5.0,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        );
+        fail('Expected dumpBags to fail when far from property.');
+      } on ApiException catch (e) {
+        expect(e.errorCode, 'dump_location_out_of_bounds');
+      }
+    });
+
+    testWidgets('7) verify first unit photo and dump bags', (tester) async {
       final jobAfterStart = (await jobsRepo.listMyJobs(lat: 0, lng: 0)).results
           .firstWhereOrNull((j) => j.instanceId == happyPathJob.instanceId);
       if (jobAfterStart?.status != JobInstanceStatus.inProgress) {

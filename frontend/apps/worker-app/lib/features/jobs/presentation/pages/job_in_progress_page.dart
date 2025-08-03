@@ -258,10 +258,27 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   int _verifiedCount(JobInstance job) {
     return job.buildings
         .expand((b) => b.units)
+        .where((u) => u.status == UnitVerificationStatus.verified)
+        .length;
+  }
+
+  int _permanentFailedCount(JobInstance job) {
+    return job.buildings
+        .expand((b) => b.units)
         .where(
           (u) =>
-              u.status == UnitVerificationStatus.verified ||
-              (u.status == UnitVerificationStatus.failed && u.permanentFailure),
+              u.status == UnitVerificationStatus.failed && u.permanentFailure,
+        )
+        .length;
+  }
+
+  int _remainingCount(JobInstance job) {
+    return job.buildings
+        .expand((b) => b.units)
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.pending ||
+              (u.status == UnitVerificationStatus.failed && !u.permanentFailure),
         )
         .length;
   }
@@ -326,9 +343,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         label = l10n.jobInProgressUnitStatusDumped;
         break;
       case UnitVerificationStatus.failed:
-        icon = Icons.error;
+        icon = u.permanentFailure ? Icons.block : Icons.error;
         color = Colors.red;
-        label = l10n.jobInProgressUnitStatusFailed;
+        label = u.permanentFailure
+            ? l10n.jobInProgressUnitStatusFailedPermanent
+            : l10n.jobInProgressUnitStatusFailed;
         break;
       default:
         icon = Icons.hourglass_bottom;
@@ -413,6 +432,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     }
 
     final tile = ListTile(
+      leading: Icon(icon, color: color),
       title: Row(
         children: [
           Text('Unit ${u.unitNumber}'),
@@ -424,12 +444,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, offset: Offset(0, 2), blurRadius: 4),
+          BoxShadow(color: Colors.black12, offset: Offset(0, 4), blurRadius: 8),
         ],
       ),
       child: tile,
@@ -443,7 +463,15 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final job = state.inProgressJob ?? widget.job;
 
     final verified = _verifiedCount(job);
-    final slideEnabled = verified > 0;
+    final permFailed = _permanentFailedCount(job);
+    final remaining = _remainingCount(job);
+    final completed = verified + permFailed;
+    final hasVerified = verified > 0;
+    final slideEnabled = hasVerified || (verified == 0 && permFailed > 0 && remaining == 0);
+    final slideText = hasVerified
+        ? l10n.jobInProgressDumpBagsAction
+        : l10n.jobInProgressCompleteJobAction;
+    final slideIcon = hasVerified ? Icons.delete : Icons.check;
 
     return PopScope(
       canPop: false,
@@ -517,7 +545,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(l10n.jobInProgressBagsCollected(verified, _bagLimit)),
+                  Text(l10n.jobInProgressBagsCollected(completed, _bagLimit)),
                   Text(_formatDuration(_elapsedTime)),
                 ],
               ),
@@ -527,17 +555,22 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 horizontal: 16.0,
                 vertical: 8.0,
               ),
-              child: Card(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                shape: RoundedRectangleBorder(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.lightbulb_outline,
-                    color: AppColors.poofColor,
-                  ),
-                  title: Text(l10n.jobInProgressPhotoInstructions),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.lightbulb_outline,
+                      color: AppColors.poofColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(l10n.jobInProgressPhotoInstructions)),
+                  ],
                 ),
               ),
             ),
@@ -553,10 +586,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               child: SizedBox(
                 width: double.infinity,
                 child: SlideAction(
-                  text: l10n.jobInProgressDumpBagsAction,
-                  outerColor: slideEnabled
-                      ? AppColors.poofColor
-                      : Colors.grey.shade400,
+                  text: slideText,
+                  outerColor:
+                      slideEnabled ? AppColors.poofColor : Colors.grey.shade400,
                   innerColor: Colors.white,
                   textStyle: const TextStyle(
                     fontSize: 16,
@@ -564,7 +596,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                     color: Colors.white,
                   ),
                   sliderButtonIcon: Icon(
-                    Icons.delete,
+                    slideIcon,
                     color: slideEnabled ? AppColors.poofColor : Colors.grey,
                   ),
                   sliderRotate: false,

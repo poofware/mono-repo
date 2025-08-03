@@ -459,20 +459,9 @@ func seedJobDefinitionsIfNeeded(
 		return uuid.Nil, err
 	}
 
-	// Prepare maps to track existence and hold one defID to return
-	titlesToFind := map[string]bool{
-		"Service Buildings 0,2,3":    false,
-		"Service Buildings 4,5,6":    false,
-		"Service Buildings 7,8,9,10": false,
-	}
-	var defID uuid.UUID
+	titles := map[string]uuid.UUID{}
 	for _, d := range existingDefs {
-		if _, exists := titlesToFind[d.Title]; exists {
-			titlesToFind[d.Title] = true
-			if defID == uuid.Nil {
-				defID = d.ID
-			}
-		}
+		titles[d.Title] = d.ID
 	}
 
 	allBldgs, err := bldgRepo.ListByPropertyID(ctx, propID)
@@ -480,101 +469,30 @@ func seedJobDefinitionsIfNeeded(
 		return uuid.Nil, err
 	}
 
-	// Group building IDs based on their number parsed from the name
-	var bldgIDs_0_2_3 []uuid.UUID
-	var bldgIDs_4_5_6 []uuid.UUID
-	var bldgIDs_7_8_9_10 []uuid.UUID
-
+	var defID uuid.UUID
 	for _, bldg := range allBldgs {
-		var num int
-		// Parse building number from name "Building X"
-		if n, err := strconv.Atoi(strings.TrimPrefix(bldg.BuildingName, "Building ")); err == nil {
-			num = n
-		} else {
+		num, err := strconv.Atoi(strings.TrimPrefix(bldg.BuildingName, "Building "))
+		if err != nil {
 			utils.Logger.Warnf("Could not parse building number from name: %s", bldg.BuildingName)
 			continue
 		}
 
-		switch {
-		case num == 0 || num == 2 || num == 3:
-			bldgIDs_0_2_3 = append(bldgIDs_0_2_3, bldg.ID)
-		case num >= 4 && num <= 6:
-			bldgIDs_4_5_6 = append(bldgIDs_4_5_6, bldg.ID)
-		case num >= 7 && num <= 10:
-			bldgIDs_7_8_9_10 = append(bldgIDs_7_8_9_10, bldg.ID)
-		}
-	}
-
-	// Create the three job definitions if they don't exist
-	if !titlesToFind["Service Buildings 0,2,3"] && len(bldgIDs_0_2_3) > 0 {
-		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 0,2,3", bldgIDs_0_2_3, timeZone, dumpsterID, unitRepo, 0)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		if defID == uuid.Nil {
-			defID = createdID
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 0,2,3' already exists; skipping.")
-	}
-
-	if !titlesToFind["Service Buildings 4,5,6"] && len(bldgIDs_4_5_6) > 0 {
-		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 4,5,6", bldgIDs_4_5_6, timeZone, dumpsterID, unitRepo, 0)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		if defID == uuid.Nil {
-			defID = createdID
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 4,5,6' already exists; skipping.")
-	}
-
-	if !titlesToFind["Service Buildings 7,8,9,10"] && len(bldgIDs_7_8_9_10) > 0 {
-		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 7,8,9,10", bldgIDs_7_8_9_10, timeZone, dumpsterID, unitRepo, 0)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		if defID == uuid.Nil {
-			defID = createdID
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 7,8,9,10' already exists; skipping.")
-	}
-
-	// Seed the "all buildings" definition for Demo Property 1 for other purposes.
-	var hasAllBuildings bool
-	for _, d := range existingDefs {
-		if d.Title == "Service All Buildings (Demo Property 1)" {
-			hasAllBuildings = true
-			break
-		}
-	}
-
-	if !hasAllBuildings {
-		var allBldgIDs []uuid.UUID
-		for _, b := range allBldgs {
-			allBldgIDs = append(allBldgIDs, b.ID)
-		}
-		_, err = createRealisticTimeWindowDefinition(ctx, jobSvc, propID, "Service All Buildings (Demo Property 1)", allBldgIDs, 6, 9, timeZone, dumpsterID, unitRepo, 0)
-		if err != nil {
-			return uuid.Nil, err
-		}
-
-		// Also create single-floor demo jobs for floors 1-3
-		for f := 1; f <= 3; f++ {
-			title := fmt.Sprintf("Demo Property Floor %d", f)
-			exists := false
-			for _, d := range existingDefs {
-				if d.Title == title {
-					exists = true
-					break
+		for floor := 1; floor <= 3; floor++ {
+			title := fmt.Sprintf("Service Building %d Floor %d", num, floor)
+			if existingID, ok := titles[title]; ok {
+				utils.Logger.Infof("jobs-service: JobDefinition '%s' already exists; skipping.", title)
+				if defID == uuid.Nil {
+					defID = existingID
 				}
+				continue
 			}
-			if !exists {
-				if _, ferr := createDailyDefinition(ctx, jobSvc, propID, title, allBldgIDs, timeZone, dumpsterID, unitRepo, f); ferr != nil {
-					return uuid.Nil, ferr
-				}
+
+			createdID, err := createDailyDefinition(ctx, jobSvc, propID, title, []uuid.UUID{bldg.ID}, timeZone, dumpsterID, unitRepo, floor)
+			if err != nil {
+				return uuid.Nil, err
+			}
+			if defID == uuid.Nil {
+				defID = createdID
 			}
 		}
 	}
@@ -650,7 +568,7 @@ func createDailyDefinition(
 			AssignedUnitsByBuilding: groups,
 			DumpsterIDs:             []uuid.UUID{dumpsterID},
 			Frequency:               models.JobFreqDaily,
-			StartDate:               time.Now().UTC().AddDate(0, 0, -1),
+			StartDate:               time.Now().In(loc),
 			EarliestStartTime:       earliest,
 			LatestStartTime:         latest,
 			SkipHolidays:            false,
@@ -738,7 +656,7 @@ func createRealisticTimeWindowDefinition(
 			AssignedUnitsByBuilding: groups,
 			DumpsterIDs:             []uuid.UUID{dumpsterID},
 			Frequency:               models.JobFreqDaily,
-			StartDate:               time.Now().UTC().AddDate(0, 0, -1),
+			StartDate:               time.Now().In(loc),
 			EarliestStartTime:       earliest,
 			LatestStartTime:         latest,
 			SkipHolidays:            false,

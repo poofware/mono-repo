@@ -1,6 +1,7 @@
 {
   "@@locale": "en",
   "apiErrorLocationOutOfBounds": "You are too far from the job location to start.",
+  "apiErrorDumpLocationOutOfBounds": "You are too far from the dumpster to dump bags.",
   "apiErrorNotWithinTimeWindow": "This job cannot be started outside of its scheduled service window.",
   "apiErrorNoPhotosProvided": "Proof photos are required to complete this job.",
   "apiErrorLocationInaccurate": "Your GPS signal is too weak. Please move to an area with a clearer view of the sky and try again.",
@@ -341,6 +342,7 @@
   "jobInProgressMessageSnackbar": "Messaging... (placeholder)",
   "jobInProgressDumpBagsButton": "Dump Bags",
   "jobInProgressDumpBagsAction": "Slide to Dump Bags",
+  "jobInProgressCompleteJobAction": "Slide to Complete Job",
   "jobInProgressBagsCollected": "Bags Collected: {count} / {max}",
   "@jobInProgressBagsCollected": {
     "placeholders": {"count": {"type": "int"}, "max": {"type": "int"}}
@@ -348,6 +350,7 @@
   "jobInProgressUnitStatusPending": "Pending",
   "jobInProgressUnitStatusVerified": "Verified",
   "jobInProgressUnitStatusFailed": "Failed",
+  "jobInProgressUnitStatusFailedPermanent": "Permanently Failed",
   "jobInProgressUnitStatusDumped": "Dumped",
   "settingsPageTitle": "Settings",
   "settingsPageEnableNotifications": "Enable Notifications",

@@ -33,19 +33,19 @@ func NewJobUnitVerificationRepository(db DB) JobUnitVerificationRepository {
 func (r *jobUnitVerificationRepo) Create(ctx context.Context, v *models.JobUnitVerification) error {
 	_, err := r.db.Exec(ctx, `
         INSERT INTO job_unit_verifications (
-            id, job_instance_id, unit_id, status, attempt_count, failure_reasons, permanent_failure, missing_trash_can,
+            id, job_instance_id, unit_id, status, attempt_count, failure_reasons, failure_reason_history, permanent_failure, missing_trash_can,
             created_at, updated_at, row_version
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW(),1)
-    `, v.ID, v.JobInstanceID, v.UnitID, v.Status, v.AttemptCount, v.FailureReasons, v.PermanentFailure, v.MissingTrashCan)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW(),1)
+    `, v.ID, v.JobInstanceID, v.UnitID, v.Status, v.AttemptCount, v.FailureReasons, v.FailureReasonHistory, v.PermanentFailure, v.MissingTrashCan)
 	return err
 }
 
 func (r *jobUnitVerificationRepo) UpdateIfVersion(ctx context.Context, v *models.JobUnitVerification, expected int64) (pgconn.CommandTag, error) {
 	return r.db.Exec(ctx, `
         UPDATE job_unit_verifications
-        SET status=$1, attempt_count=$2, failure_reasons=$3, permanent_failure=$4, missing_trash_can=$5, row_version=row_version+1, updated_at=NOW()
-        WHERE id=$6 AND row_version=$7
-    `, v.Status, v.AttemptCount, v.FailureReasons, v.PermanentFailure, v.MissingTrashCan, v.ID, expected)
+        SET status=$1, attempt_count=$2, failure_reasons=$3, failure_reason_history=$4, permanent_failure=$5, missing_trash_can=$6, row_version=row_version+1, updated_at=NOW()
+        WHERE id=$7 AND row_version=$8
+    `, v.Status, v.AttemptCount, v.FailureReasons, v.FailureReasonHistory, v.PermanentFailure, v.MissingTrashCan, v.ID, expected)
 }
 
 func (r *jobUnitVerificationRepo) GetByInstanceAndUnit(ctx context.Context, instanceID, unitID uuid.UUID) (*models.JobUnitVerification, error) {
@@ -74,7 +74,7 @@ func (r *jobUnitVerificationRepo) ListByInstanceID(ctx context.Context, instance
 func baseSelectJobUnitVerification() string {
 	return `
         SELECT
-            id, job_instance_id, unit_id, status, attempt_count, failure_reasons, permanent_failure, missing_trash_can,
+            id, job_instance_id, unit_id, status, attempt_count, failure_reasons, failure_reason_history, permanent_failure, missing_trash_can,
             row_version, created_at, updated_at
         FROM job_unit_verifications`
 }
@@ -82,8 +82,8 @@ func baseSelectJobUnitVerification() string {
 func (r *jobUnitVerificationRepo) scanVerification(row pgx.Row) (*models.JobUnitVerification, error) {
 	var v models.JobUnitVerification
 	err := row.Scan(
-		&v.ID, &v.JobInstanceID, &v.UnitID, &v.Status, &v.AttemptCount, &v.FailureReasons, &v.PermanentFailure, &v.MissingTrashCan,
-		&v.RowVersion, &v.CreatedAt, &v.UpdatedAt,
+                &v.ID, &v.JobInstanceID, &v.UnitID, &v.Status, &v.AttemptCount, &v.FailureReasons, &v.FailureReasonHistory, &v.PermanentFailure, &v.MissingTrashCan,
+                &v.RowVersion, &v.CreatedAt, &v.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

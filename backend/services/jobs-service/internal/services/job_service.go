@@ -680,33 +680,35 @@ func (s *JobService) VerifyUnitPhoto(
 		dto, _ := s.buildInstanceDTO(ctx, inst, nil, nil)
 		return dto, nil
 	}
-	if v == nil {
-		v = &models.JobUnitVerification{
-			ID:               uuid.New(),
-			JobInstanceID:    instanceID,
-			UnitID:           unitID,
-			Status:           status,
-			AttemptCount:     0,
-			FailureReasons:   []string{},
-			PermanentFailure: false,
-			MissingTrashCan:  missingTrashCan,
-		}
-	}
+        if v == nil {
+                v = &models.JobUnitVerification{
+                        ID:                    uuid.New(),
+                        JobInstanceID:         instanceID,
+                        UnitID:                unitID,
+                        Status:                status,
+                        AttemptCount:          0,
+                        FailureReasons:        []string{},
+                        FailureReasonHistory:  []string{},
+                        PermanentFailure:      false,
+                        MissingTrashCan:       missingTrashCan,
+                }
+        }
 
-	if status == models.UnitVerificationFailed {
-		v.AttemptCount++
-		v.FailureReasons = append(v.FailureReasons, reasonCodes...)
-		if v.AttemptCount >= 3 {
-			v.PermanentFailure = true
-		}
-	} else {
-		v.AttemptCount = 0
-		v.FailureReasons = nil
-		v.PermanentFailure = false
-	}
+        if status == models.UnitVerificationFailed {
+                v.AttemptCount++
+                v.FailureReasons = reasonCodes
+                v.FailureReasonHistory = append(v.FailureReasonHistory, reasonCodes...)
+                if v.AttemptCount >= 3 {
+                        v.PermanentFailure = true
+                }
+        } else {
+                v.AttemptCount = 0
+                v.FailureReasons = nil
+                v.PermanentFailure = false
+        }
 
-	v.Status = status
-	v.MissingTrashCan = missingTrashCan
+        v.Status = status
+        v.MissingTrashCan = missingTrashCan
 
 	if v.RowVersion == 0 {
 		if err := s.juvRepo.Create(ctx, v); err != nil {
@@ -746,40 +748,51 @@ func (s *JobService) ProcessDumpTrip(
 	if err != nil || defn == nil {
 		return nil, fmt.Errorf("job definition not found")
 	}
-	prop, err := s.propRepo.GetByID(ctx, defn.PropertyID)
-	if err != nil || prop == nil {
-		return nil, fmt.Errorf("property not found")
-	}
+        prop, err := s.propRepo.GetByID(ctx, defn.PropertyID)
+        if err != nil || prop == nil {
+                return nil, fmt.Errorf("property not found")
+        }
 
-	// Verify location is near one of the dumpsters
-	dumps, err := s.dumpRepo.ListByPropertyID(ctx, prop.ID)
-	if err != nil {
-		return nil, err
-	}
-	within := false
-	for _, d := range dumps {
-		if ContainsUUID(defn.DumpsterIDs, d.ID) {
-			dist := internal_utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
-			if dist <= float64(constants.LocationRadiusMeters) {
-				within = true
-				break
-			}
-		}
-	}
-	if !within {
-		return nil, internal_utils.ErrLocationOutOfBounds
-	}
+        verifs, err := s.juvRepo.ListByInstanceID(ctx, inst.ID)
+        if err != nil {
+                return nil, err
+        }
 
-	verifs, err := s.juvRepo.ListByInstanceID(ctx, inst.ID)
-	if err != nil {
-		return nil, err
-	}
-	for _, v := range verifs {
-		if v.Status == models.UnitVerificationVerified || (v.Status == models.UnitVerificationFailed && v.PermanentFailure) {
-			v.Status = models.UnitVerificationDumped
-			_, _ = s.juvRepo.UpdateIfVersion(ctx, v, v.RowVersion)
-		}
-	}
+        hasVerified := false
+        for _, v := range verifs {
+                if v.Status == models.UnitVerificationVerified {
+                        hasVerified = true
+                        break
+                }
+        }
+
+        if hasVerified {
+                // Verify location is near one of the dumpsters
+                dumps, err := s.dumpRepo.ListByPropertyID(ctx, prop.ID)
+                if err != nil {
+                        return nil, err
+                }
+                within := false
+                for _, d := range dumps {
+                        if ContainsUUID(defn.DumpsterIDs, d.ID) {
+                                dist := internal_utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
+                                if dist <= float64(constants.LocationRadiusMeters) {
+                                        within = true
+                                        break
+                                }
+                        }
+                }
+                if !within {
+                        return nil, internal_utils.ErrDumpLocationOutOfBounds
+                }
+        }
+
+        for _, v := range verifs {
+                if v.Status == models.UnitVerificationVerified || (v.Status == models.UnitVerificationFailed && v.PermanentFailure) {
+                        v.Status = models.UnitVerificationDumped
+                        _, _ = s.juvRepo.UpdateIfVersion(ctx, v, v.RowVersion)
+                }
+        }
 
 	// check if all units dumped
 	total := 0

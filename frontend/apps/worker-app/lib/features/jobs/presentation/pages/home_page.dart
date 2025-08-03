@@ -44,10 +44,16 @@ final filteredDefinitionsProvider = Provider<List<DefinitionGroup>>((ref) {
   final sortBy = ref.watch(jobsSortByProvider);
   final query = ref.watch(jobsSearchQueryProvider).trim().toLowerCase();
 
-  final list = groupOpenJobs(jobsState.openJobs).where((d) {
-    return d.propertyName.toLowerCase().contains(query) ||
-        d.propertyAddress.toLowerCase().contains(query);
-  }).toList();
+  bool matchesQuery(DefinitionGroup d) {
+    if (query.isEmpty) return true;
+
+    final searchable = buildSearchableDefinitionText(d);
+
+    return fuzzyMatch(searchable, query);
+  }
+
+  final list =
+      groupOpenJobs(jobsState.openJobs).where(matchesQuery).toList();
 
   switch (sortBy) {
     case 'pay':
@@ -58,6 +64,28 @@ final filteredDefinitionsProvider = Provider<List<DefinitionGroup>>((ref) {
   }
   return list;
 });
+
+bool fuzzyMatch(String text, String query) {
+  if (query.isEmpty) return true;
+  int tIndex = 0;
+  int qIndex = 0;
+  while (tIndex < text.length && qIndex < query.length) {
+    if (text[tIndex] == query[qIndex]) {
+      qIndex++;
+    }
+    tIndex++;
+  }
+  return qIndex == query.length;
+}
+
+String buildSearchableDefinitionText(DefinitionGroup d) {
+  return <String>[
+    d.propertyName,
+    d.propertyAddress,
+    d.buildingSubtitle,
+    ...d.instances.expand((i) => i.buildings.map((b) => b.name)),
+  ].join(' ').toLowerCase();
+}
 
 /// ─────────────────────────────────────────────────────────────────────────
 ///  H O M E  P A G E  C O N S T A N T S

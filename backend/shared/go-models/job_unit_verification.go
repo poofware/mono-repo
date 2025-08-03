@@ -30,10 +30,11 @@ type JobUnitVerification struct {
 	JobInstanceID    uuid.UUID              `json:"job_instance_id"`
 	UnitID           uuid.UUID              `json:"unit_id"`
 	Status           UnitVerificationStatus `json:"status"`
-	AttemptCount     int16                  `json:"attempt_count"`
-	FailureReasons   []string               `json:"failure_reasons,omitempty"`
-	PermanentFailure bool                   `json:"permanent_failure"`
-	MissingTrashCan  bool                   `json:"missing_trash_can"`
+        AttemptCount         int16                  `json:"attempt_count"`
+        FailureReasons       []string               `json:"failure_reasons,omitempty"`
+        FailureReasonHistory []string               `json:"failure_reason_history,omitempty"`
+        PermanentFailure     bool                   `json:"permanent_failure"`
+        MissingTrashCan      bool                   `json:"missing_trash_can"`
 	CreatedAt        time.Time              `json:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at"`
 }

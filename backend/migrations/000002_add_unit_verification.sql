@@ -14,6 +14,7 @@ CREATE TABLE job_unit_verifications (
     status UNIT_VERIFICATION_STATUS NOT NULL DEFAULT 'PENDING',
     attempt_count SMALLINT NOT NULL DEFAULT 0,
     failure_reasons TEXT[] NOT NULL DEFAULT '{}',
+    failure_reason_history TEXT[] NOT NULL DEFAULT '{}',
     permanent_failure BOOLEAN NOT NULL DEFAULT FALSE,
     missing_trash_can BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

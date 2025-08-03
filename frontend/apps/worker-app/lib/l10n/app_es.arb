@@ -1,6 +1,7 @@
 {
   "@@locale": "es",
   "apiErrorLocationOutOfBounds": "Estás demasiado lejos para iniciar este trabajo.",
+  "apiErrorDumpLocationOutOfBounds": "Estás demasiado lejos del contenedor para tirar las bolsas.",
   "apiErrorNotWithinTimeWindow": "Este trabajo no se puede iniciar fuera de su horario de servicio.",
   "apiErrorNoPhotosProvided": "Se requieren fotos de prueba para completar este trabajo.",
   "apiErrorLocationInaccurate": "Tu señal de GPS es demasiado débil. Por favor, muévete a un área con una vista más clara del cielo e inténtalo de nuevo.",
@@ -338,6 +339,7 @@
   "jobInProgressMessageSnackbar": "Enviando mensaje... (marcador de posición)",
   "jobInProgressDumpBagsButton": "Desechar Bolsas",
   "jobInProgressDumpBagsAction": "Deslizar para Desechar Bolsas",
+  "jobInProgressCompleteJobAction": "Deslizar para Completar el Trabajo",
   "jobInProgressBagsCollected": "Bolsas Recogidas: {count} / {max}",
   "@jobInProgressBagsCollected": {
     "placeholders": {"count": {"type": "int"}, "max": {"type": "int"}}
@@ -345,6 +347,7 @@
   "jobInProgressUnitStatusPending": "Pendiente",
   "jobInProgressUnitStatusVerified": "Verificado",
   "jobInProgressUnitStatusFailed": "Fallido",
+  "jobInProgressUnitStatusFailedPermanent": "Fallo permanente",
   "jobInProgressUnitStatusDumped": "Desechado",
   "settingsPageTitle": "Configuración",
   "settingsPageEnableNotifications": "Habilitar Notificaciones",

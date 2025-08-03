@@ -13,13 +13,15 @@ import (
    The controller can do: if errors.Is(err, ErrXYZ) { ... }
 */
 var (
-	ErrNotAssignedWorker     = errors.New("not_assigned_worker")
-	ErrWrongStatus           = errors.New("wrong_status")
-	ErrLocationOutOfBounds   = errors.New("location_out_of_bounds")
-	ErrLocationInaccurate    = errors.New("location_inaccurate")
-	ErrNoPhotosProvided      = errors.New("no_photos_provided")
-	ErrExcludedWorker        = errors.New("excluded_worker")
-	ErrNoRowsUpdated         = errors.New("no_rows_updated") // Can be used by repos
+        ErrNotAssignedWorker     = errors.New("not_assigned_worker")
+        ErrWrongStatus           = errors.New("wrong_status")
+        ErrLocationOutOfBounds   = errors.New("location_out_of_bounds")
+        ErrLocationInaccurate    = errors.New("location_inaccurate")
+        ErrNoPhotosProvided      = errors.New("no_photos_provided")
+        ErrExcludedWorker        = errors.New("excluded_worker")
+        ErrNoRowsUpdated         = errors.New("no_rows_updated") // Can be used by repos
+
+       ErrDumpLocationOutOfBounds = errors.New("dump_location_out_of_bounds")
 
 	ErrNotWithinTimeWindow = errors.New("not_within_time_window")
 
