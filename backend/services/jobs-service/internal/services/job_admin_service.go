@@ -1,6 +1,7 @@
 package services
 
 import (
+	"slices"
 	"context"
 	"fmt"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"github.com/poofware/jobs-service/internal/constants"
 	"github.com/poofware/jobs-service/internal/dtos"
 	internal_utils "github.com/poofware/jobs-service/internal/utils"
-	"sort"
 )
 
 func (s *JobService) ForceReopenNoShow(
@@ -245,7 +245,7 @@ func (s *JobService) CreateJobDefinition(
 	for f := range floorSet {
 		floors = append(floors, f)
 	}
-	sort.Slice(floors, func(i, j int) bool { return floors[i] < floors[j] })
+	slices.Sort(floors)
 
 	newDef := &models.JobDefinition{
 		ID:                      uuid.New(),
@@ -444,7 +444,7 @@ func (s *JobService) CancelJobInstance(
 			_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, penaltyDelta, "CANCEL_IN_PROGRESS_REVERT")
 		}
 
-		dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil, nil, nil, nil, nil, nil)
+		dto, _ := s.buildInstanceDTO(ctx, rev, nil, nil, nil, nil, nil, nil, nil)
 		return dto, nil
 	}
 
