@@ -255,13 +255,6 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
   }
 
-  int _verifiedCount(JobInstance job) {
-    return job.buildings
-        .expand((b) => b.units)
-        .where((u) => u.status == UnitVerificationStatus.verified)
-        .length;
-  }
-
   int _permanentFailedCount(JobInstance job) {
     return job.buildings
         .expand((b) => b.units)
@@ -462,12 +455,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final state = ref.watch(jobsNotifierProvider);
     final job = state.inProgressJob ?? widget.job;
 
-    final verified = _verifiedCount(job);
+    final bagsCollected = bagCount(job);
     final permFailed = _permanentFailedCount(job);
     final remaining = _remainingCount(job);
-    final completed = verified + permFailed;
-    final hasVerified = verified > 0;
-    final slideEnabled = hasVerified || (verified == 0 && permFailed > 0 && remaining == 0);
+    final hasVerified = bagsCollected > 0;
+    final slideEnabled =
+        hasVerified || (bagsCollected == 0 && permFailed > 0 && remaining == 0);
     final slideText = hasVerified
         ? l10n.jobInProgressDumpBagsAction
         : l10n.jobInProgressCompleteJobAction;
@@ -545,7 +538,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(l10n.jobInProgressBagsCollected(completed, _bagLimit)),
+                  Text(l10n.jobInProgressBagsCollected(bagsCollected, _bagLimit)),
                   Text(_formatDuration(_elapsedTime)),
                 ],
               ),
@@ -610,4 +603,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       ),
     );
   }
+}
+
+/// Counts the number of units that have been successfully verified.
+int bagCount(JobInstance job) {
+  return job.buildings
+      .expand((b) => b.units)
+      .where((u) => u.status == UnitVerificationStatus.verified)
+      .length;
 }

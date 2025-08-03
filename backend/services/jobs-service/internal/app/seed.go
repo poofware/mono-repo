@@ -996,11 +996,12 @@ func seedCliftFarmPropertyIfNeeded(
 	if err := dumpRepo.Create(ctx, d); err != nil {
 		if isUniqueViolation(err) {
 			utils.Logger.Infof("jobs-service: Clift Farm dumpster (id=%s) for property (id=%s) already exists; skipping creation.", dumpsterID, propID)
-			return nil
+		} else {
+			return fmt.Errorf("create dumpster id=%s for Clift Farm prop=%s: %w", dumpsterID, propID, err)
 		}
-		return fmt.Errorf("create dumpster id=%s for Clift Farm prop=%s: %w", dumpsterID, propID, err)
+	} else {
+		utils.Logger.Infof("jobs-service: Created dumpster (id=%s) for Clift Farm property (id=%s).", dumpsterID, propID)
 	}
-	utils.Logger.Infof("jobs-service: Created dumpster (id=%s) for Clift Farm property (id=%s).", dumpsterID, propID)
 
 	// -- Seed Job Definitions for Clift Farm --
 	defTitleAM := "Service The Station at Clift Farm (AM)"
