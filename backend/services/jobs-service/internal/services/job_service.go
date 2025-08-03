@@ -729,6 +729,8 @@ func (s *JobService) VerifyUnitPhoto(
 }
 
 // ProcessDumpTrip marks verified units as dumped and completes the job if all are dumped.
+// It enforces that a worker must be near a dumpster if they have verified units.
+// The location check is bypassed only if the job is being completed solely due to all units having permanently failed.
 func (s *JobService) ProcessDumpTrip(
 	ctx context.Context,
 	workerID string,
@@ -752,66 +754,88 @@ func (s *JobService) ProcessDumpTrip(
 	if err != nil || defn == nil {
 		return nil, fmt.Errorf("job definition not found")
 	}
-        prop, err := s.propRepo.GetByID(ctx, defn.PropertyID)
-        if err != nil || prop == nil {
-                return nil, fmt.Errorf("property not found")
-        }
+	prop, err := s.propRepo.GetByID(ctx, defn.PropertyID)
+	if err != nil || prop == nil {
+		return nil, fmt.Errorf("property not found")
+	}
 
-        verifs, err := s.juvRepo.ListByInstanceID(ctx, inst.ID)
-        if err != nil {
-                return nil, err
-        }
+	verifs, err := s.juvRepo.ListByInstanceID(ctx, inst.ID)
+	if err != nil {
+		return nil, err
+	}
 
-        hasVerified := false
-        for _, v := range verifs {
-                if v.Status == models.UnitVerificationVerified {
-                        hasVerified = true
-                        break
-                }
-        }
+	// --- START: Enhanced Validation Logic ---
 
-        if hasVerified {
-                // Verify location is near one of the dumpsters
-                dumps, err := s.dumpRepo.ListByPropertyID(ctx, prop.ID)
-                if err != nil {
-                        return nil, err
-                }
-                within := false
-                for _, d := range dumps {
-                        if ContainsUUID(defn.DumpsterIDs, d.ID) {
-                                dist := internal_utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
-                                if dist <= float64(constants.LocationRadiusMeters) {
-                                        within = true
-                                        break
-                                }
-                        }
-                }
-                if !within {
-                        return nil, internal_utils.ErrDumpLocationOutOfBounds
-                }
-        }
+	// Count the number of verified and permanently failed units.
+	verifiedCount := 0
+	permFailedCount := 0
+	for _, v := range verifs {
+		if v.Status == models.UnitVerificationVerified {
+			verifiedCount++
+		} else if v.Status == models.UnitVerificationFailed && v.PermanentFailure {
+			permFailedCount++
+		}
+	}
 
-        for _, v := range verifs {
-                if v.Status == models.UnitVerificationVerified || (v.Status == models.UnitVerificationFailed && v.PermanentFailure) {
-                        v.Status = models.UnitVerificationDumped
-                        _, _ = s.juvRepo.UpdateIfVersion(ctx, v, v.RowVersion)
-                }
-        }
+	// Count the total number of units assigned to this job definition.
+	totalUnits := 0
+	for _, grp := range defn.AssignedUnitsByBuilding {
+		totalUnits += len(grp.UnitIDs)
+	}
 
-	// check if all units dumped
+	// This is the specific condition where a job can be completed without any verified bags.
+	// It requires that all assigned units are accounted for as permanent failures.
+	isCompletableViaFailure := verifiedCount == 0 && permFailedCount > 0 && permFailedCount >= totalUnits
+
+	if verifiedCount > 0 {
+		// Standard flow: Bags were collected, so location must be verified at a dumpster.
+		dumps, err := s.dumpRepo.ListByPropertyID(ctx, prop.ID)
+		if err != nil {
+			return nil, err
+		}
+		within := false
+		for _, d := range dumps {
+			if ContainsUUID(defn.DumpsterIDs, d.ID) {
+				dist := internal_utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
+				if dist <= float64(constants.LocationRadiusMeters) {
+					within = true
+					break
+				}
+			}
+		}
+		if !within {
+			return nil, internal_utils.ErrDumpLocationOutOfBounds
+		}
+	} else if !isCompletableViaFailure {
+		// Edge case: No bags were collected, AND the job is not completable due to permanent failures.
+		// This is an invalid API call, as there is nothing to dump and the job is not finished.
+		return nil, internal_utils.ErrDumpLocationOutOfBounds
+	}
+	// --- END: Enhanced Validation Logic ---
+
+	for _, v := range verifs {
+		if v.Status == models.UnitVerificationVerified {
+			v.Status = models.UnitVerificationDumped
+			_, _ = s.juvRepo.UpdateIfVersion(ctx, v, v.RowVersion)
+		}
+	}
+
+	// check if all units are in a final state (dumped or permanently failed)
 	total := 0
-	dumped := 0
+	completedUnits := 0
 	for _, grp := range defn.AssignedUnitsByBuilding {
 		total += len(grp.UnitIDs)
 	}
-	for _, v := range verifs {
-		if v.Status == models.UnitVerificationDumped {
-			dumped++
+	// Re-fetch verifications to get the latest status after updates
+	verifsAfterUpdate, _ := s.juvRepo.ListByInstanceID(ctx, inst.ID)
+	for _, v := range verifsAfterUpdate {
+		if v.Status == models.UnitVerificationDumped || (v.Status == models.UnitVerificationFailed && v.PermanentFailure) {
+			completedUnits++
 		}
 	}
 
 	var updated *models.JobInstance
-	if dumped >= total {
+	if completedUnits >= total {
 		rv := inst.RowVersion
 		updated, err = s.instRepo.UpdateStatusToCompleted(ctx, inst.ID, rv)
 		if err != nil {
@@ -831,7 +855,12 @@ func (s *JobService) ProcessDumpTrip(
 	}
 
 	if updated == nil {
-		updated = inst
+		// If not completed, we need to re-fetch the instance to get the latest row_version
+		// and updated unit statuses for the DTO.
+		updated, _ = s.instRepo.GetByID(ctx, inst.ID)
+		if updated == nil {
+			updated = inst // fallback to original instance if re-fetch fails
+		}
 	}
 
 	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil)

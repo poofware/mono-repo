@@ -568,7 +568,11 @@ func createDailyDefinition(
 			AssignedUnitsByBuilding: groups,
 			DumpsterIDs:             []uuid.UUID{dumpsterID},
 			Frequency:               models.JobFreqDaily,
-			StartDate:               time.Now().In(loc),
+                       // Set StartDate to "yesterday" in UTC to avoid time-zone
+                       // off-by-one issues when seeding job instances. This ensures
+                       // today's instance is eligible even if seeding occurs after
+                       // a job's local cutoff time.
+                       StartDate:               time.Now().UTC().AddDate(0, 0, -1),
 			EarliestStartTime:       earliest,
 			LatestStartTime:         latest,
 			SkipHolidays:            false,
@@ -656,7 +660,10 @@ func createRealisticTimeWindowDefinition(
 			AssignedUnitsByBuilding: groups,
 			DumpsterIDs:             []uuid.UUID{dumpsterID},
 			Frequency:               models.JobFreqDaily,
-			StartDate:               time.Now().In(loc),
+                       // Use "yesterday" in UTC to guarantee the seeding logic
+                       // creates a full 7-day window of instances regardless of
+                       // when the backend boots relative to local cutoff times.
+                       StartDate:               time.Now().UTC().AddDate(0, 0, -1),
 			EarliestStartTime:       earliest,
 			LatestStartTime:         latest,
 			SkipHolidays:            false,

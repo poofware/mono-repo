@@ -15,11 +15,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-        "github.com/poofware/go-models"
-        "github.com/poofware/jobs-service/internal/dtos"
-        "github.com/poofware/jobs-service/internal/routes"
-       "github.com/poofware/jobs-service/internal/services"
-       internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/poofware/go-models"
+	"github.com/poofware/jobs-service/internal/dtos"
+	"github.com/poofware/jobs-service/internal/routes"
+	"github.com/poofware/jobs-service/internal/services"
+	internal_utils "github.com/poofware/jobs-service/internal/utils"
 )
 
 /*
@@ -442,11 +442,19 @@ func TestLocationValidation(t *testing.T) {
 	earliest, latest := h.TestSameDayTimeWindow()
 
 	w := h.CreateTestWorker(ctx, "loc-validate")
-       // Use a non-zero coordinate so that sending 0,0 in location tests
-       // will be considered out-of-bounds relative to the property.
-       p := h.CreateTestProperty(ctx, "LocValProp", testPM.ID, 35.0, -86.0)
+	// Use a non-zero coordinate so that sending 0,0 in location tests
+	// will be considered out-of-bounds relative to the property.
+	p := h.CreateTestProperty(ctx, "LocValProp", testPM.ID, 35.0, -86.0)
 	b := h.CreateTestBuilding(ctx, p.ID, "LocValBldg")
 	d := h.CreateTestDumpster(ctx, p.ID, "LocValDump")
+	
+	// --- FIX START ---
+	// Set non-zero coordinates for the dumpster to make location checks meaningful.
+	d.Latitude = p.Latitude + 0.001
+	d.Longitude = p.Longitude + 0.001
+	require.NoError(t, h.DumpsterRepo.Update(ctx, d))
+	// --- FIX END ---
+
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "LocValJob",
 		[]uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 	unit := &models.Unit{ID: uuid.New(), PropertyID: p.ID, BuildingID: b.ID, UnitNumber: "100", TenantToken: uuid.NewString()}
@@ -458,15 +466,43 @@ func TestLocationValidation(t *testing.T) {
 	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
 	jwt := h.CreateMobileJWT(w.ID, "locval-dev", "FAKE-PLAY")
 
-	loc := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 5, Timestamp: time.Now().UnixMilli(), IsMock: false}
-	body, _ := json.Marshal(loc)
+	badLoc := dtos.JobLocationActionRequest{
+		InstanceID: inst.ID,
+		Lat:        0,
+		Lng:        0,
+		Accuracy:   5,
+		Timestamp:  time.Now().UnixMilli(),
+		IsMock:     false,
+	}
+	body, _ := json.Marshal(badLoc)
 	acceptReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsAccept, jwt, body, "android", "locval-dev")
 	acceptResp := h.DoRequest(acceptReq, h.NewHTTPClient())
 	defer acceptResp.Body.Close()
+	require.Equal(t, http.StatusBadRequest, acceptResp.StatusCode)
+
+	goodLoc := dtos.JobLocationActionRequest{
+		InstanceID: inst.ID,
+		Lat:        p.Latitude,
+		Lng:        p.Longitude,
+		Accuracy:   5,
+		Timestamp:  time.Now().UnixMilli(),
+		IsMock:     false,
+	}
+	body, _ = json.Marshal(goodLoc)
+	acceptReq = h.BuildAuthRequest("POST", h.BaseURL+routes.JobsAccept, jwt, body, "android", "locval-dev")
+	acceptResp = h.DoRequest(acceptReq, h.NewHTTPClient())
+	defer acceptResp.Body.Close()
 	require.Equal(t, http.StatusOK, acceptResp.StatusCode)
 
+	body, _ = json.Marshal(badLoc)
 	startReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsStart, jwt, body, "android", "locval-dev")
 	startResp := h.DoRequest(startReq, h.NewHTTPClient())
+	defer startResp.Body.Close()
+	require.Equal(t, http.StatusBadRequest, startResp.StatusCode)
+
+	body, _ = json.Marshal(goodLoc)
+	startReq = h.BuildAuthRequest("POST", h.BaseURL+routes.JobsStart, jwt, body, "android", "locval-dev")
+	startResp = h.DoRequest(startReq, h.NewHTTPClient())
 	defer startResp.Body.Close()
 	require.Equal(t, http.StatusOK, startResp.StatusCode)
 
@@ -515,25 +551,25 @@ func TestLocationValidation(t *testing.T) {
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
-        t.Run("DumpBags_Inaccurate", func(t *testing.T) {
-                h.T = t
-                badLoc := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 50, Timestamp: time.Now().UnixMilli(), IsMock: false}
-                b, _ := json.Marshal(badLoc)
-                req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, jwt, b, "android", "locval-dev")
-                resp := h.DoRequest(req, h.NewHTTPClient())
-                defer resp.Body.Close()
-                require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-        })
+	t.Run("DumpBags_Inaccurate", func(t *testing.T) {
+		h.T = t
+		badLoc := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 50, Timestamp: time.Now().UnixMilli(), IsMock: false}
+		b, _ := json.Marshal(badLoc)
+		req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, jwt, b, "android", "locval-dev")
+		resp := h.DoRequest(req, h.NewHTTPClient())
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	})
 
-       t.Run("DumpBags_OutOfBounds", func(t *testing.T) {
-               h.T = t
-               badLoc := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 5, Timestamp: time.Now().UnixMilli(), IsMock: false}
-               b, _ := json.Marshal(badLoc)
-               req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, jwt, b, "android", "locval-dev")
-               resp := h.DoRequest(req, h.NewHTTPClient())
-               defer resp.Body.Close()
-               require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-               body, _ := io.ReadAll(resp.Body)
-               require.Contains(t, string(body), internal_utils.ErrCodeDumpLocationOutOfBounds)
-       })
+	t.Run("DumpBags_OutOfBounds", func(t *testing.T) {
+		h.T = t
+		badLoc := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 5, Timestamp: time.Now().UnixMilli(), IsMock: false}
+		b, _ := json.Marshal(badLoc)
+		req := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsDumpBags, jwt, b, "android", "locval-dev")
+		resp := h.DoRequest(req, h.NewHTTPClient())
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		require.Contains(t, string(body), internal_utils.ErrCodeDumpLocationOutOfBounds)
+	})
 }
