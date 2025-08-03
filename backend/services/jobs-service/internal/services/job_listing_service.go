@@ -95,15 +95,18 @@ func (s *JobService) ListOpenJobs(
 		instancesByPropID[defn.PropertyID] = append(instancesByPropID[defn.PropertyID], inst)
 	}
 
-	// 2. Calculate routes once per property.
+	// 2. Precompute routes and preload property data once per property.
 	routeCache := make(map[uuid.UUID]*routeInfo)
-	if q.Lat != 0 || q.Lng != 0 {
-		for propID := range instancesByPropID {
-			prop := propsCache[propID]
-			if prop == nil {
-				continue
-			}
+	bldgCache := make(map[uuid.UUID]map[uuid.UUID]*models.PropertyBuilding)
+	unitCache := make(map[uuid.UUID]map[uuid.UUID][]*models.Unit)
+	dumpCache := make(map[uuid.UUID][]*models.Dumpster)
+	for propID := range instancesByPropID {
+		prop := propsCache[propID]
+		if prop == nil {
+			continue
+		}
 
+		if q.Lat != 0 || q.Lng != 0 {
 			var distMiles float64
 			var travelMins *int
 			if s.cfg.LDFlag_UseGMapsRoutesAPI && s.cfg.GMapsRoutesAPIKey != "" {
@@ -113,31 +116,49 @@ func (s *JobService) ListOpenJobs(
 					travelMins = &dMins
 				}
 			}
-
-			// Fallback if GMaps is disabled or failed
 			if travelMins == nil {
 				distMiles = internal_utils.DistanceMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude)
 				estMins := int(distMiles * constants.CrowFliesDriveTimeMultiplier)
 				travelMins = &estMins
 			}
+			routeCache[propID] = &routeInfo{DistanceMiles: distMiles, TravelMinutes: travelMins}
+		}
 
-			routeCache[propID] = &routeInfo{
-				DistanceMiles: distMiles,
-				TravelMinutes: travelMins,
+		bldgs, _ := s.bldgRepo.ListByPropertyID(ctx, propID)
+		bMap := make(map[uuid.UUID]*models.PropertyBuilding, len(bldgs))
+		for _, b := range bldgs {
+			bMap[b.ID] = b
+		}
+		bldgCache[propID] = bMap
+
+		units, _ := s.unitRepo.ListByPropertyID(ctx, propID)
+		uMap := make(map[uuid.UUID][]*models.Unit)
+		for _, u := range units {
+			if u.BuildingID != uuid.Nil {
+				uMap[u.BuildingID] = append(uMap[u.BuildingID], u)
 			}
 		}
+		unitCache[propID] = uMap
+
+		dumps, _ := s.dumpRepo.ListByPropertyID(ctx, propID)
+		dumpCache[propID] = dumps
 	}
 
-	// 3. Build DTOs using the cached route info.
+	// 3. Build DTOs using the cached data.
 	var dtosList []dtos.JobInstanceDTO
 	for propID, instancesInGroup := range instancesByPropID {
 		route := routeCache[propID]
 		if route != nil && route.DistanceMiles > float64(constants.RadiusMiles) {
 			continue
 		}
+		bMap := bldgCache[propID]
+		uMap := unitCache[propID]
+		dumps := dumpCache[propID]
+		prop := propsCache[propID]
 
 		for _, inst := range instancesInGroup {
-			dto, err := s.buildInstanceDTO(ctx, inst, route, workerLoc)
+			defn := propDefs[inst.DefinitionID]
+			dto, err := s.buildInstanceDTO(ctx, inst, route, workerLoc, defn, prop, bMap, uMap, dumps)
 			if err == nil && dto != nil {
 				dtosList = append(dtosList, *dto)
 			}
@@ -234,12 +255,15 @@ func (s *JobService) ListMyJobs(
 	}
 
 	routeCache := make(map[uuid.UUID]*routeInfo)
-	if q.Lat != 0 || q.Lng != 0 {
-		for propID := range instancesByPropID {
-			prop := propsCache[propID]
-			if prop == nil {
-				continue
-			}
+	bldgCache := make(map[uuid.UUID]map[uuid.UUID]*models.PropertyBuilding)
+	unitCache := make(map[uuid.UUID]map[uuid.UUID][]*models.Unit)
+	dumpCache := make(map[uuid.UUID][]*models.Dumpster)
+	for propID := range instancesByPropID {
+		prop := propsCache[propID]
+		if prop == nil {
+			continue
+		}
+		if q.Lat != 0 || q.Lng != 0 {
 			var distMiles float64
 			var travelMins *int
 			if s.cfg.LDFlag_UseGMapsRoutesAPI && s.cfg.GMapsRoutesAPIKey != "" {
@@ -254,18 +278,39 @@ func (s *JobService) ListMyJobs(
 				estMins := int(distMiles * constants.CrowFliesDriveTimeMultiplier)
 				travelMins = &estMins
 			}
-			routeCache[propID] = &routeInfo{
-				DistanceMiles: distMiles,
-				TravelMinutes: travelMins,
+			routeCache[propID] = &routeInfo{DistanceMiles: distMiles, TravelMinutes: travelMins}
+		}
+
+		bldgs, _ := s.bldgRepo.ListByPropertyID(ctx, propID)
+		bMap := make(map[uuid.UUID]*models.PropertyBuilding, len(bldgs))
+		for _, b := range bldgs {
+			bMap[b.ID] = b
+		}
+		bldgCache[propID] = bMap
+
+		units, _ := s.unitRepo.ListByPropertyID(ctx, propID)
+		uMap := make(map[uuid.UUID][]*models.Unit)
+		for _, u := range units {
+			if u.BuildingID != uuid.Nil {
+				uMap[u.BuildingID] = append(uMap[u.BuildingID], u)
 			}
 		}
+		unitCache[propID] = uMap
+
+		dumps, _ := s.dumpRepo.ListByPropertyID(ctx, propID)
+		dumpCache[propID] = dumps
 	}
 
 	var dtosList []dtos.JobInstanceDTO
 	for propID, instancesInGroup := range instancesByPropID {
 		route := routeCache[propID]
+		bMap := bldgCache[propID]
+		uMap := unitCache[propID]
+		dumps := dumpCache[propID]
+		prop := propsCache[propID]
 		for _, inst := range instancesInGroup {
-			dto, err := s.buildInstanceDTO(ctx, inst, route, workerLoc)
+			defn := propDefs[inst.DefinitionID]
+			dto, err := s.buildInstanceDTO(ctx, inst, route, workerLoc, defn, prop, bMap, uMap, dumps)
 			if err == nil && dto != nil {
 				dtosList = append(dtosList, *dto)
 			}

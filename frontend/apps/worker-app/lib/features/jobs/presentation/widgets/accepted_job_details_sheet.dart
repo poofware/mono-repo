@@ -386,6 +386,16 @@ class _AcceptedJobDetailsSheetState
               '${widget.job.numberOfBuildings} bldg${widget.job.numberOfBuildings == 1 ? "" : "s"}',
         ),
         _detailRow(
+          icon: Icons.stairs_outlined,
+          label: appLocalizations.jobAcceptSheetFloors,
+          value: widget.job.floorsLabel,
+        ),
+        _detailRow(
+          icon: Icons.home_outlined,
+          label: appLocalizations.jobAcceptSheetUnits,
+          value: widget.job.totalUnitsLabel,
+        ),
+        _detailRow(
           icon: Icons.access_time_outlined,
           label: appLocalizations.jobAcceptSheetRecommendedStart,
           value: formattedStartTime,

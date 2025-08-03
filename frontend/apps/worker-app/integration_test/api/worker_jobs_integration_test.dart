@@ -94,6 +94,7 @@ void main() {
   late BaseTokenStorage tokenStorage;
   late WorkerAuthRepository authRepo;
   late WorkerJobsRepository jobsRepo;
+  late List<JobInstance> openJobs;
 
   // Use credentials for the fully active, seeded worker
   const seededPhone = '+15552220000';
@@ -143,15 +144,16 @@ void main() {
     );
 
     // 4) Find three distinct jobs for the test flows to use.
-    final openJobs = await jobsRepo.listJobs(
+    final openJobsResp = await jobsRepo.listJobs(
       lat: propertyLat,
       lng: propertyLng,
       page: 1,
-      size:
-          50, // Fetch a large batch to increase chances of finding suitable jobs.
+      size: 50,
     );
 
-    final suitableJobs = openJobs.results.where((job) {
+    openJobs = openJobsResp.results;
+
+    final suitableJobs = openJobs.where((job) {
       final isNearby =
           job.distanceMiles < 5.0; // Widen radius slightly to be safe.
       final isStartable = _isJobStartableNow(job);
@@ -174,6 +176,16 @@ void main() {
     print('Chosen Job for Happy Path: ${happyPathJob.instanceId}');
     print('Chosen Job for Unaccept Path: ${unacceptPathJob.instanceId}');
     print('Chosen Job for Cancel Path: ${cancelPathJob.instanceId}');
+  });
+
+  testWidgets('open jobs include floor and unit data', (tester) async {
+    final job = openJobs.first;
+    expect(job.floors, isNotEmpty);
+    expect(job.totalUnits, greaterThan(0));
+    if (job.buildings.isNotEmpty) {
+      expect(job.buildings.first.floors, isNotEmpty);
+      expect(job.buildings.first.numberOfUnits, greaterThan(0));
+    }
   });
 
   // --------------------------------------------------------------------------

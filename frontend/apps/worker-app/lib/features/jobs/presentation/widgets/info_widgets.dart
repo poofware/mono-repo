@@ -136,14 +136,35 @@ class BuildingInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (instances.isEmpty) return const SizedBox.shrink();
-    final counts = instances.map((i) => i.numberOfBuildings).where((c) => c > 0);
-    if (counts.isEmpty) return const SizedBox.shrink();
+    final buildingCounts =
+        instances.map((i) => i.numberOfBuildings).where((c) => c > 0);
+    if (buildingCounts.isEmpty) return const SizedBox.shrink();
 
-    final minCount = counts.reduce(min);
-    final maxCount = counts.reduce(max);
-    final label = minCount == maxCount
-        ? '$minCount bldg${minCount > 1 ? 's' : ''}'
-        : '$minCount-$maxCount bldgs';
+    final minBldgs = buildingCounts.reduce(min);
+    final maxBldgs = buildingCounts.reduce(max);
+    final bldgLabel = minBldgs == maxBldgs
+        ? '$minBldgs bldg${minBldgs > 1 ? 's' : ''}'
+        : '$minBldgs-$maxBldgs bldgs';
+
+    final floorSet = <int>{};
+    for (final inst in instances) {
+      floorSet.addAll(inst.floors);
+    }
+    final floorsList = floorSet.toList()..sort();
+    final floorsLabel = floorsList.isNotEmpty
+        ? 'Flrs ${floorsList.join(',')}'
+        : '';
+
+    final unitCounts =
+        instances.map((i) => i.totalUnits).where((c) => c > 0).toList();
+    final unitsLabel = unitCounts.isNotEmpty
+        ? (unitCounts.reduce(min) == unitCounts.reduce(max)
+            ? '${unitCounts.first} units'
+            : '${unitCounts.reduce(min)}-${unitCounts.reduce(max)} units')
+        : '';
+
+    final parts = [bldgLabel, if (floorsLabel.isNotEmpty) floorsLabel, if (unitsLabel.isNotEmpty) unitsLabel];
+    final label = parts.join(' • ');
 
     return Row(
       mainAxisSize: MainAxisSize.min,

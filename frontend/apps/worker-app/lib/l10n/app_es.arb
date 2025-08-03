@@ -114,6 +114,8 @@
   "jobAcceptSheetRecommendedStart": "Inicio Recomendado",
   "jobAcceptSheetServiceWindow": "Ventana de Servicio",
   "jobAcceptSheetBuildings": "Edificios",
+  "jobAcceptSheetFloors": "Pisos",
+  "jobAcceptSheetUnits": "Unidades",
   "jobAcceptSheetPropertyTimeLocal": "({time} Local)",
   "@jobAcceptSheetPropertyTimeLocal": {
     "placeholders": {
@@ -606,5 +608,7 @@
   "jobInProgressContactSupport": "Contactar Soporte",
   "jobInProgressReportMissingTrashCan": "Reportar Bote de Basura Faltante",
   "contactSupportText": "Soporte por Texto",
-  "contactSupportEmail": "Soporte por Correo"
+  "contactSupportEmail": "Soporte por Correo",
+  "jobInProgressTimeElapsed": "Tiempo transcurrido",
+  "jobInProgressBagsCollectedLabel": "Bolsas recogidas"
 }

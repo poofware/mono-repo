@@ -412,7 +412,7 @@ func (s *JobService) CancelJobInstance(
 				s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
 				s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
 			)
-			dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil)
+			dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil, nil, nil, nil, nil, nil)
 			return dto, nil
 		}
 
@@ -444,7 +444,7 @@ func (s *JobService) CancelJobInstance(
 			_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, penaltyDelta, "CANCEL_IN_PROGRESS_REVERT")
 		}
 
-		dto, _ := s.buildInstanceDTO(ctx, rev, nil, nil)
+		dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil, nil, nil, nil, nil, nil)
 		return dto, nil
 	}
 
@@ -490,7 +490,7 @@ func (s *JobService) CancelJobInstance(
 		s.cfg.LDFlag_SendgridSandboxMode,
 	)
 
-	dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil)
+	dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil, nil, nil, nil, nil, nil)
 	return dto, nil
 }
 

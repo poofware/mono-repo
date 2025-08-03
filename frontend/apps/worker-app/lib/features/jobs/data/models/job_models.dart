@@ -118,6 +118,8 @@ class Building {
   final String name;
   final double latitude;
   final double longitude;
+  final List<int> floors;
+  final int numberOfUnits;
   final List<UnitVerification> units;
 
   const Building({
@@ -125,6 +127,8 @@ class Building {
     required this.name,
     required this.latitude,
     required this.longitude,
+    this.floors = const [],
+    this.numberOfUnits = 0,
     this.units = const [],
   });
 
@@ -132,7 +136,7 @@ class Building {
     final unitsList = <UnitVerification>[];
     if (json['units'] is List) {
       for (final u in (json['units'] as List)) {
-        unitsList.add(UnitVerification.fromJson(u as Map<String, dynamic>));
+      unitsList.add(UnitVerification.fromJson(u as Map<String, dynamic>));
       }
     }
     return Building(
@@ -140,6 +144,11 @@ class Building {
       name: json['building_name'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
+      floors: (json['floors'] as List?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [],
+      numberOfUnits: json['number_of_units'] as int? ?? 0,
       units: unitsList,
     );
   }
@@ -217,6 +226,8 @@ class JobInstance {
   final List<Building> buildings;
   final int numberOfDumpsters;
   final List<Dumpster> dumpsters;
+  final List<int> floors;
+  final int totalUnits;
 
   final String startTimeHint;
   final String workerStartTimeHint;
@@ -245,6 +256,8 @@ class JobInstance {
     required this.buildings,
     required this.numberOfDumpsters,
     required this.dumpsters,
+    this.floors = const [],
+    this.totalUnits = 0,
     required this.startTimeHint,
     required this.workerStartTimeHint,
     required this.propertyServiceWindowStart,
@@ -287,6 +300,11 @@ class JobInstance {
       buildings: bList,
       numberOfDumpsters: json['number_of_dumpsters'] as int,
       dumpsters: dList,
+      floors: (json['floors'] as List?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [],
+      totalUnits: json['total_units'] as int? ?? 0,
       startTimeHint: (json['start_time_hint'] as String?) ?? '',
       workerStartTimeHint: (json['worker_start_time_hint'] as String?) ?? '',
       propertyServiceWindowStart:
@@ -333,6 +351,14 @@ class JobInstance {
     if (travelMinutes == null || travelMinutes! <= 0) return 'N/A';
     return '$travelMinutes min';
   }
+
+  String get floorsLabel {
+    if (floors.isEmpty) return 'N/A';
+    return floors.join(', ');
+  }
+
+  String get totalUnitsLabel =>
+      '$totalUnits unit${totalUnits == 1 ? '' : 's'}';
 
   /// NEW: Generates a subtitle string for building information.
   String get buildingSubtitle {

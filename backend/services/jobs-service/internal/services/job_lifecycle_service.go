@@ -123,7 +123,7 @@ func (s *JobService) AcceptJobInstanceWithLocation(
 		return nil, utils.ErrNoRowsUpdated
 	}
 
-	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil)
+	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil, nil, nil, nil, nil, nil)
 	return dto, nil
 }
 
@@ -194,7 +194,7 @@ func (s *JobService) StartJobInstanceWithLocation(
 		return nil, utils.ErrNoRowsUpdated
 	}
 
-	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil)
+	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil, nil, nil, nil, nil, nil)
 	return dto, nil
 }
 
@@ -311,7 +311,7 @@ func (s *JobService) VerifyUnitPhoto(
 		return nil, err
 	}
 	if v != nil && v.PermanentFailure {
-		dto, _ := s.buildInstanceDTO(ctx, inst, nil, nil)
+		dto, _ := s.buildInstanceDTO(ctx, inst, nil, nil, nil, nil, nil, nil, nil)
 		return dto, nil
 	}
 	if v == nil {
@@ -358,7 +358,7 @@ func (s *JobService) VerifyUnitPhoto(
 		}
 	}
 
-	dto, _ := s.buildInstanceDTO(ctx, inst, nil, nil)
+	dto, _ := s.buildInstanceDTO(ctx, inst, nil, nil, nil, nil, nil, nil, nil)
 	return dto, nil
 }
 
@@ -497,7 +497,7 @@ func (s *JobService) ProcessDumpTrip(
 		}
 	}
 
-	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil)
+	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil, nil, nil, nil, nil, nil)
 	return dto, nil
 }
 
@@ -569,7 +569,7 @@ func (s *JobService) UnacceptJobInstance(
 					s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
 				)
 
-				dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil)
+				dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil, nil, nil, nil, nil, nil)
 				return dto, nil
 			}
 
@@ -604,6 +604,6 @@ func (s *JobService) UnacceptJobInstance(
 		_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, penaltyDelta, "UNACCEPT")
 	}
 
-	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil)
+	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil, nil, nil, nil, nil, nil)
 	return dto, nil
 }

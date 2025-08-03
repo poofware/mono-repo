@@ -60,14 +60,24 @@ func (s *JobService) buildInstanceDTO(
 	inst *models.JobInstance,
 	route *routeInfo, // Route info is now passed in
 	workerLoc *time.Location,
+	jdef *models.JobDefinition,
+	prop *models.Property,
+	bCache map[uuid.UUID]*models.PropertyBuilding,
+	unitCache map[uuid.UUID][]*models.Unit,
+	dumpsters []*models.Dumpster,
 ) (*dtos.JobInstanceDTO, error) {
-	jdef, err := s.defRepo.GetByID(ctx, inst.DefinitionID)
-	if err != nil || jdef == nil {
-		return nil, fmt.Errorf("job definition not found")
+	var err error
+	if jdef == nil {
+		jdef, err = s.defRepo.GetByID(ctx, inst.DefinitionID)
+		if err != nil || jdef == nil {
+			return nil, fmt.Errorf("job definition not found")
+		}
 	}
-	prop, err := s.propRepo.GetByID(ctx, jdef.PropertyID)
-	if err != nil || prop == nil {
-		return nil, fmt.Errorf("property not found")
+	if prop == nil {
+		prop, err = s.propRepo.GetByID(ctx, jdef.PropertyID)
+		if err != nil || prop == nil {
+			return nil, fmt.Errorf("property not found")
+		}
 	}
 
 	var buildings []dtos.BuildingDTO
@@ -75,8 +85,12 @@ func (s *JobService) buildInstanceDTO(
 	floorSet := make(map[int16]struct{})
 	totalUnits := 0
 	if len(jdef.AssignedUnitsByBuilding) > 0 {
-		// cache buildings by ID
-		bCache := make(map[uuid.UUID]*models.PropertyBuilding)
+		if bCache == nil {
+			bCache = make(map[uuid.UUID]*models.PropertyBuilding)
+		}
+		if unitCache == nil {
+			unitCache = make(map[uuid.UUID][]*models.Unit)
+		}
 		// Preload existing verifications
 		verifs, _ := s.juvRepo.ListByInstanceID(ctx, inst.ID)
 		verifMap := make(map[uuid.UUID]*models.JobUnitVerification)
@@ -105,7 +119,11 @@ func (s *JobService) buildInstanceDTO(
 			numUnits := len(grp.UnitIDs)
 			totalUnits += numUnits
 
-			units, _ := s.unitRepo.ListByBuildingID(ctx, grp.BuildingID)
+			units, ok := unitCache[grp.BuildingID]
+			if !ok {
+				units, _ = s.unitRepo.ListByBuildingID(ctx, grp.BuildingID)
+				unitCache[grp.BuildingID] = units
+			}
 			var bUnits []dtos.UnitVerificationDTO
 			for _, u := range units {
 				if _, ok := uidSet[u.ID]; !ok {
@@ -156,19 +174,21 @@ func (s *JobService) buildInstanceDTO(
 	}
 	sort.Slice(floors, func(i, j int) bool { return floors[i] < floors[j] })
 
-	var dumpsters []dtos.DumpsterDTO
+	var dumpstersDTO []dtos.DumpsterDTO
 	if len(jdef.DumpsterIDs) > 0 {
-		all, err := s.dumpRepo.ListByPropertyID(ctx, prop.ID)
-		if err != nil {
-			return nil, err
+		if dumpsters == nil {
+			dumpsters, err = s.dumpRepo.ListByPropertyID(ctx, prop.ID)
+			if err != nil {
+				return nil, err
+			}
 		}
 		include := make(map[uuid.UUID]struct{}, len(jdef.DumpsterIDs))
 		for _, id := range jdef.DumpsterIDs {
 			include[id] = struct{}{}
 		}
-		for _, d := range all {
+		for _, d := range dumpsters {
 			if _, ok := include[d.ID]; ok {
-				dumpsters = append(dumpsters, dtos.DumpsterDTO{
+				dumpstersDTO = append(dumpstersDTO, dtos.DumpsterDTO{
 					DumpsterID: d.ID,
 					Number:     d.DumpsterNumber,
 					Latitude:   d.Latitude,
@@ -233,8 +253,8 @@ func (s *JobService) buildInstanceDTO(
 		},
 		NumberOfBuildings:          len(buildings),
 		Buildings:                  buildings,
-		NumberOfDumpsters:          len(dumpsters),
-		Dumpsters:                  dumpsters,
+		NumberOfDumpsters:          len(dumpstersDTO),
+		Dumpsters:                  dumpstersDTO,
 		UnitVerifications:          unitDTOs,
 		Floors:                     floors,
 		TotalUnits:                 totalUnits,

@@ -420,6 +420,8 @@ class _InstanceDetails extends StatelessWidget {
     final recommendedStartLabel = appLocalizations.jobAcceptSheetRecommendedStart;
     final serviceWindowLabel = appLocalizations.jobAcceptSheetServiceWindow;
     final buildingsLabel = appLocalizations.jobAcceptSheetBuildings;
+    final floorsLabel = appLocalizations.jobAcceptSheetFloors;
+    final unitsLabel = appLocalizations.jobAcceptSheetUnits;
 
     return Card(
       elevation: 2,
@@ -494,6 +496,29 @@ class _InstanceDetails extends StatelessWidget {
                       color: Colors.black87,
                       label: buildingsLabel),
                 ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _detailItem(
+                      icon: Icons.stairs_outlined,
+                      text: instance.floorsLabel,
+                      color: Colors.black87,
+                      label: floorsLabel),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _detailItem(
+                      icon: Icons.home_outlined,
+                      text: instance.totalUnitsLabel,
+                      color: Colors.black87,
+                      label: unitsLabel),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(child: SizedBox()),
               ],
             )
           ],

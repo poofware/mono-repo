@@ -62,12 +62,17 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                l10n.contactSupport, // Assuming this key exists
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                l10n.jobInProgressContactSupport,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.sms_outlined, color: AppColors.poofColor),
+                leading: const Icon(
+                  Icons.sms_outlined,
+                  color: AppColors.poofColor,
+                ),
                 title: Text(l10n.contactSupportText),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -76,7 +81,10 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.email_outlined, color: AppColors.poofColor),
+                leading: const Icon(
+                  Icons.email_outlined,
+                  color: AppColors.poofColor,
+                ),
                 title: Text(l10n.contactSupportEmail),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -120,15 +128,17 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       ..sort((a, b) => a.name.compareTo(b.name));
 
     for (final building in sortedBuildings) {
-        final isComplete = building.units.every((u) =>
+      final isComplete = building.units.every(
+        (u) =>
             u.status == UnitVerificationStatus.verified ||
             u.status == UnitVerificationStatus.dumped ||
-            (u.status == UnitVerificationStatus.failed && u.permanentFailure));
+            (u.status == UnitVerificationStatus.failed && u.permanentFailure),
+      );
 
-        if (!isComplete) {
-            _expansionState[building.buildingId] = true;
-            break; // Stop after finding the first incomplete building
-        }
+      if (!isComplete) {
+        _expansionState[building.buildingId] = true;
+        break; // Stop after finding the first incomplete building
+      }
     }
   }
 
@@ -164,14 +174,16 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(l10n.jobInProgressPhotoConfirmDialogTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.file(File(photo.path), fit: BoxFit.contain)
+                child: Image.file(File(photo.path), fit: BoxFit.contain),
               ),
               const SizedBox(height: 16),
               Text(l10n.jobInProgressPhotoConfirmDialogContent),
@@ -287,7 +299,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                   padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: Row(
                     children: [
-                      Icon(_failureReasonIcon(r), size: 20, color: Colors.redAccent),
+                      Icon(
+                        _failureReasonIcon(r),
+                        size: 20,
+                        color: Colors.redAccent,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(child: Text(_failureReasonLabel(r, l10n))),
                     ],
@@ -324,7 +340,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         .where(
           (u) =>
               u.status == UnitVerificationStatus.pending ||
-              (u.status == UnitVerificationStatus.failed && !u.permanentFailure),
+              (u.status == UnitVerificationStatus.failed &&
+                  !u.permanentFailure),
         )
         .length;
   }
@@ -337,7 +354,6 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final completedUnits = totalUnits - remaining;
     return completedUnits / totalUnits;
   }
-
 
   String _failureReasonLabel(String code, AppLocalizations l10n) {
     switch (code) {
@@ -383,17 +399,21 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   Widget _buildBuildingTile(Building b, AppLocalizations l10n) {
     // Calculate progress
     final totalUnits = b.units.length;
-    final completedUnits = b.units.where((u) =>
-        u.status == UnitVerificationStatus.verified ||
-        u.status == UnitVerificationStatus.dumped ||
-        (u.status == UnitVerificationStatus.failed && u.permanentFailure)).length;
+    final completedUnits = b.units
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.verified ||
+              u.status == UnitVerificationStatus.dumped ||
+              (u.status == UnitVerificationStatus.failed && u.permanentFailure),
+        )
+        .length;
     final progress = totalUnits > 0 ? completedUnits / totalUnits : 0.0;
     final isExpanded = _expansionState[b.buildingId] ?? false;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 3,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: Theme(
@@ -420,7 +440,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                   child: LinearProgressIndicator(
                     value: progress,
                     backgroundColor: Colors.grey.shade300,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.poofColor),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.poofColor,
+                    ),
                     minHeight: 8,
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -428,7 +450,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 const SizedBox(width: 16),
                 Text(
                   '$completedUnits/$totalUnits',
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 14, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -441,7 +467,10 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   }
 
   // Helper for status visualization
-  (IconData, Color, String) _getUnitStatus(UnitVerification u, AppLocalizations l10n) {
+  (IconData, Color, String) _getUnitStatus(
+    UnitVerification u,
+    AppLocalizations l10n,
+  ) {
     IconData icon;
     Color color;
     String label;
@@ -492,13 +521,20 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 child: SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.poofColor),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.poofColor,
+                  ),
                 ),
               ),
             )
           : IconButton(
               // Primary action emphasized
-              icon: const Icon(Icons.camera_alt_rounded, color: AppColors.poofColor, size: 26),
+              icon: const Icon(
+                Icons.camera_alt_rounded,
+                color: AppColors.poofColor,
+                size: 26,
+              ),
               // tooltip: l10n.jobInProgressTakePhotoTooltip, // Ensure this localization key exists if uncommenting
               onPressed: () => _takePhoto(u),
             );
@@ -536,13 +572,13 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       if (u.status == UnitVerificationStatus.failed && u.permanentFailure) {
         // Permanent failure: Show info button
         trailingWidget = IconButton(
-            icon: Icon(Icons.info_outline_rounded, color: color),
-            tooltip: l10n.jobInProgressFailureReasonTitle,
-            onPressed: () => _showFailureReason(u),
+          icon: Icon(Icons.info_outline_rounded, color: color),
+          tooltip: l10n.jobInProgressFailureReasonTitle,
+          onPressed: () => _showFailureReason(u),
         );
       } else {
         // Completed state: Just the icon
-         trailingWidget = Icon(icon, color: color.withOpacity(0.7));
+        trailingWidget = Icon(icon, color: color.withValues(alpha: 0.7));
       }
     }
 
@@ -552,9 +588,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           // Soft background with a subtle border
-          color: c.withOpacity(0.1),
+          color: c.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: c.withOpacity(0.3)),
+          border: Border.all(color: c.withValues(alpha: 0.3)),
         ),
         child: Text(
           t,
@@ -568,13 +604,18 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       // Slight internal padding for separation
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Container(
-         decoration: BoxDecoration(
+        decoration: BoxDecoration(
           // Use a very subtle background to distinguish from the parent card
-          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
         ),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
           // Leading icon helps visualize the status quickly
           leading: Icon(icon, color: color, size: 26),
           title: Text(
@@ -592,7 +633,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   }
 
   // NEW: Dashboard Stat Card Widget
-  Widget _buildStatCard({required IconData icon, required String label, required String value, required Color color}) {
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -601,7 +647,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -639,9 +685,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
             SizedBox(
               height: 150,
               // Use AbsorbPointer for the preview map to ensure the GestureDetector works reliably
-              child: AbsorbPointer(
-                child: widget.preWarmedMap,
-              ),
+              child: AbsorbPointer(child: widget.preWarmedMap),
             ),
             Positioned(
               top: 8,
@@ -649,14 +693,25 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.fullscreen_rounded, color: Colors.white, size: 20),
+                    Icon(
+                      Icons.fullscreen_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     SizedBox(width: 6),
-                    Text('Map', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Map',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -670,79 +725,89 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   // NEW: Stylized Instruction/Tip Box
   Widget _buildInstructions(AppLocalizations l10n) {
     return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              // Subtle coloring using the primary color
-              color: AppColors.poofColor.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.poofColor.withOpacity(0.2)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.lightbulb_outline_rounded,
-                  color: AppColors.poofColor,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    l10n.jobInProgressPhotoInstructions,
-                    style: const TextStyle(color: Colors.black87, fontSize: 14, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          // Subtle coloring using the primary color
+          color: AppColors.poofColor.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.poofColor.withValues(alpha: 0.2)),
         ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.lightbulb_outline_rounded,
+              color: AppColors.poofColor,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                l10n.jobInProgressPhotoInstructions,
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   // NEW: Elevated Footer for Slider
-  Widget _buildSliderAction(bool slideEnabled, String slideText, IconData slideIcon) {
+  Widget _buildSliderAction(
+    bool slideEnabled,
+    String slideText,
+    IconData slideIcon,
+  ) {
     return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 15,
-              offset: const Offset(0, -5), // Shadow at the top
-            ),
-          ],
-        ),
-        // Ensure padding respects the safe area (e.g., iPhone home bar)
-        padding: EdgeInsets.fromLTRB(
-            20.0, 16.0, 20.0, 16.0 + MediaQuery.of(context).padding.bottom),
-        child: SizedBox(
-          width: double.infinity,
-          child: SlideAction(
-            text: slideText,
-            outerColor:
-                slideEnabled ? AppColors.poofColor : Colors.grey.shade400,
-            innerColor: Colors.white,
-            textStyle: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-            sliderButtonIcon: Icon(
-              slideIcon,
-              color: slideEnabled ? AppColors.poofColor : Colors.grey,
-              size: 28,
-            ),
-            sliderRotate: false,
-            enabled: slideEnabled,
-            onSubmit: slideEnabled ? _dumpBags : null,
-            // Slightly larger height for better ergonomics
-            height: 65,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            offset: const Offset(0, -5), // Shadow at the top
           ),
+        ],
+      ),
+      // Ensure padding respects the safe area (e.g., iPhone home bar)
+      padding: EdgeInsets.fromLTRB(
+        20.0,
+        16.0,
+        20.0,
+        16.0 + MediaQuery.of(context).padding.bottom,
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: SlideAction(
+          text: slideText,
+          outerColor: slideEnabled ? AppColors.poofColor : Colors.grey.shade400,
+          innerColor: Colors.white,
+          textStyle: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          sliderButtonIcon: Icon(
+            slideIcon,
+            color: slideEnabled ? AppColors.poofColor : Colors.grey,
+            size: 28,
+          ),
+          sliderRotate: false,
+          enabled: slideEnabled,
+          onSubmit: slideEnabled ? _dumpBags : null,
+          // Slightly larger height for better ergonomics
+          height: 65,
         ),
-      );
+      ),
+    );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -760,7 +825,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final slideText = hasVerified
         ? l10n.jobInProgressDumpBagsAction
         : l10n.jobInProgressCompleteJobAction;
-    final slideIcon = hasVerified ? Icons.delete_rounded : Icons.check_circle_rounded;
+    final slideIcon = hasVerified
+        ? Icons.delete_rounded
+        : Icons.check_circle_rounded;
 
     final overallProgress = _calculateOverallProgress(job);
 
@@ -785,9 +852,13 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         // --- Modern AppBar ---
         appBar: AppBar(
           automaticallyImplyLeading: false, // Hide back button
-          title: Text(job.property.propertyName, style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(
+            job.property.propertyName,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white, // Ensures AppBar color remains white when scrolling
+          surfaceTintColor:
+              Colors.white, // Ensures AppBar color remains white when scrolling
           elevation: 0,
           actions: [
             IconButton(
@@ -809,7 +880,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
             child: LinearProgressIndicator(
               value: overallProgress,
               backgroundColor: Colors.grey.shade200,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.poofColor),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.poofColor,
+              ),
             ),
           ),
         ),
@@ -830,7 +903,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                     children: [
                       _buildStatCard(
                         icon: Icons.timer_rounded,
-                        // Note: Assuming localization keys exist for these labels
+                        // CRITICAL FIX: Added fallback ?? "Time Elapsed"
                         label: l10n.jobInProgressTimeElapsed ?? "Time Elapsed",
                         value: _formatDuration(_elapsedTime),
                         color: Colors.blue.shade600,
@@ -838,7 +911,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                       const SizedBox(width: 16),
                       _buildStatCard(
                         icon: Icons.shopping_bag_rounded,
-                        // Note: Assuming localization keys exist for these labels
+                        // CRITICAL FIX: Added fallback ?? "Bags Collected"
                         label: l10n.jobInProgressBagsCollectedLabel ?? "Bags Collected",
                         value: '$bagsCollected/$_bagLimit',
                         color: bagColor,
@@ -850,17 +923,21 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
             ),
 
             // --- Instructions/Tip ---
-             _buildInstructions(l10n),
+            _buildInstructions(l10n),
 
-             // Section Header
-             Padding(
-               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-               child: Text(
-                 "Buildings & Units", // Placeholder, should use l10n key if available
-                 style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-               ),
-             ),
-
+            // Section Header
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 4.0,
+              ),
+              child: Text(
+                "Buildings & Units", // Placeholder, should use l10n key if available
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
 
             // --- Building/Unit List ---
             Expanded(
@@ -877,7 +954,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           ],
         ),
         // --- Footer Action (Slider) ---
-        bottomNavigationBar: _buildSliderAction(slideEnabled, slideText, slideIcon),
+        bottomNavigationBar: _buildSliderAction(
+          slideEnabled,
+          slideText,
+          slideIcon,
+        ),
       ),
     );
   }

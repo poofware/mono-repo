@@ -113,6 +113,8 @@
   "jobAcceptSheetRecommendedStart": "Recommended Start",
   "jobAcceptSheetServiceWindow": "Service Window",
   "jobAcceptSheetBuildings": "Buildings",
+  "jobAcceptSheetFloors": "Floors",
+  "jobAcceptSheetUnits": "Units",
   "jobAcceptSheetPropertyTimeLocal": "({time} Local)",
   "@jobAcceptSheetPropertyTimeLocal": {
     "placeholders": {
@@ -309,6 +311,8 @@
   "jobInProgressReportMissingTrashCan": "Report Missing Trash Can",
   "contactSupportText": "Text Support",
   "contactSupportEmail": "Email Support",
+  "jobInProgressTimeElapsed": "Time Elapsed",
+  "jobInProgressBagsCollectedLabel": "Bags Collected",
   "jobStartFailedSnackbar": "Failed to start job: {error}",
   "@jobStartFailedSnackbar": {
     "placeholders": {
