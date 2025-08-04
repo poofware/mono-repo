@@ -351,6 +351,15 @@
   "jobInProgressUnitStatusFailed": "Fallido",
   "jobInProgressUnitStatusFailedPermanent": "Fallo permanente",
   "jobInProgressUnitStatusDumped": "Desechado",
+  "jobInProgressUnitPermanentlyFailedTitle": "Unidad {unitNumber} con Fallo Permanente",
+  "@jobInProgressUnitPermanentlyFailedTitle": {
+    "placeholders": {
+      "unitNumber": {
+        "type": "String"
+      }
+    }
+  },
+  "jobInProgressUnitPermanentlyFailedBody": "Esta unidad ha fallado la verificación varias veces y ya no se le puede dar servicio. Ahora será eliminada de tu lista.",
   "settingsPageTitle": "Configuración",
   "settingsPageEnableNotifications": "Habilitar Notificaciones",
   "settingsPageDarkMode": "Modo Oscuro",
@@ -610,5 +619,9 @@
   "contactSupportText": "Soporte por Texto",
   "contactSupportEmail": "Soporte por Correo",
   "jobInProgressTimeElapsed": "Tiempo transcurrido",
-  "jobInProgressBagsCollectedLabel": "Bolsas recogidas"
+  "jobInProgressBagsCollectedLabel": "Bolsas recogidas",
+  "bagsCollectedHelpTitle": "Bolsas por Viaje",
+  "bagsCollectedHelpBody": "Esto muestra cuántas bolsas has recogido en tu viaje actual al contenedor. Puedes llevar un máximo de 8 bolsas a la vez.\n\nUna vez que hayas recogido una o más bolsas (hasta 8), debes llevarlas al contenedor. Usa el deslizador en la parte inferior para marcarlas como 'Desechadas' y comenzar tu próximo viaje.",
+  "howToCompleteAJobTitle": "Cómo Completar un Trabajo",
+  "howToCompleteAJobBody": "1. Recoger Bolsas (Hasta 8):** Visita cada puerta de unidad en tu ruta. Toca el ícono de la cámara y toma una foto clara que muestre el número de la puerta y el área del bote de basura vacío. Una foto exitosa marca la unidad como 'Verificada' y añade una bolsa a tu viaje actual. Puedes recoger un máximo de 8 bolsas por viaje.\n\n**2. Reportar Problemas:** Si falta un bote de basura, usa el menú (...) junto al ícono de la cámara para 'Reportar Bote de Basura Faltante' antes de tomar tu foto.\n\n**3. Ir al Contenedor:** Una vez que hayas recogido una o más bolsas (hasta el límite de 8), llévalas a la ubicación del contenedor designada en el mapa.\n\n**4. Desechar Bolsas y Repetir:** En el contenedor, desliza el deslizador 'Desechar Bolsas' en la parte inferior de la pantalla. Esto marcará todas las bolsas recogidas como 'Desechadas' y reiniciará tu conteo de viaje a 0. Repite los pasos 1-4 hasta que todas las unidades hayan sido atendidas.\n\n**6. Completar el Trabajo:** Después de tu último viaje al contenedor, el deslizador cambiará a 'Deslizar para Completar el Trabajo'. Deslizarlo completará el trabajo y registrará tus ganancias."
 }

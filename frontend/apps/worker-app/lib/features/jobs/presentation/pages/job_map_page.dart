@@ -67,6 +67,12 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
           markerId: markerId,
           position: LatLng(building.latitude, building.longitude),
           infoWindow: InfoWindow(title: building.name),
+          consumeTapEvents: true,
+          onTap: () {
+            _internalMapController.future.then(
+              (c) => c.showMarkerInfoWindow(markerId),
+            );
+          },
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueViolet,
           ),
@@ -80,6 +86,12 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
           markerId: markerId,
           position: LatLng(dumpster.latitude, dumpster.longitude),
           infoWindow: InfoWindow(title: 'Dumpster ${dumpster.number}'),
+          consumeTapEvents: true,
+          onTap: () {
+            _internalMapController.future.then(
+              (c) => c.showMarkerInfoWindow(markerId),
+            );
+          },
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
           ),
@@ -108,12 +120,18 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
     double minLng = _markers.first.position.longitude;
     double maxLng = _markers.first.position.longitude;
     for (final marker in _markers) {
-      if (marker.position.latitude < minLat) minLat = marker.position.latitude;
-      if (marker.position.latitude > maxLat) maxLat = marker.position.latitude;
-      if (marker.position.longitude < minLng)
+      if (marker.position.latitude < minLat) {
+        minLat = marker.position.latitude;
+      }
+      if (marker.position.latitude > maxLat) {
+        maxLat = marker.position.latitude;
+      }
+      if (marker.position.longitude < minLng) {
         minLng = marker.position.longitude;
-      if (marker.position.longitude > maxLng)
+      }
+      if (marker.position.longitude > maxLng) {
         maxLng = marker.position.longitude;
+      }
     }
     return LatLngBounds(
       southwest: LatLng(minLat, minLng),
@@ -204,16 +222,20 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
       onPointerMove: (e) {
         if (e.pointer != _tapPointerId ||
             _tapCancelled ||
-            _tapStartPosition == null)
+            _tapStartPosition == null) {
           return;
+        }
         final travelled = (e.position - _tapStartPosition!).distance;
-        if (travelled > kTouchSlop) _tapCancelled = true;
+        if (travelled > kTouchSlop) {
+          _tapCancelled = true;
+        }
       },
       onPointerUp: (e) {
         if (e.pointer != _tapPointerId ||
             _tapCancelled ||
-            _tapStartTime == null)
+            _tapStartTime == null) {
           return;
+        }
         final held = DateTime.now().difference(_tapStartTime!);
         if (held <= _quickTapMax) {
           final RenderBox renderBox = context.findRenderObject() as RenderBox;
@@ -225,7 +247,7 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
       child: Stack(
         children: [
           GoogleMap(
-            mapType: MapType.hybrid,
+            mapType: MapType.satellite,
             style: _mapStyle.isEmpty ? null : _mapStyle,
             initialCameraPosition: initialCameraPosition,
             onMapCreated: _onMapCreated,

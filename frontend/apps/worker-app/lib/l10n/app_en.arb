@@ -312,7 +312,7 @@
   "contactSupportText": "Text Support",
   "contactSupportEmail": "Email Support",
   "jobInProgressTimeElapsed": "Time Elapsed",
-  "jobInProgressBagsCollectedLabel": "Bags Collected",
+  "jobInProgressBagsCollectedLabel": "Bags This Trip",
   "jobStartFailedSnackbar": "Failed to start job: {error}",
   "@jobStartFailedSnackbar": {
     "placeholders": {
@@ -356,6 +356,15 @@
   "jobInProgressUnitStatusFailed": "Failed",
   "jobInProgressUnitStatusFailedPermanent": "Permanently Failed",
   "jobInProgressUnitStatusDumped": "Dumped",
+  "jobInProgressUnitPermanentlyFailedTitle": "Unit {unitNumber} Permanently Failed",
+  "@jobInProgressUnitPermanentlyFailedTitle": {
+    "placeholders": {
+      "unitNumber": {
+        "type": "String"
+      }
+    }
+  },
+  "jobInProgressUnitPermanentlyFailedBody": "This unit has failed verification multiple times and can no longer be serviced. It will now be removed from your list.",
   "settingsPageTitle": "Settings",
   "settingsPageEnableNotifications": "Enable Notifications",
   "settingsPageDarkMode": "Dark Mode",
@@ -609,5 +618,9 @@
   "cancelJobAsNoShowTitle": "Cancel Job? This Will Be a No-Show.",
   "cancelJobAsNoShowBody": "This job is now past its no-show cutoff time. Canceling at this point is considered a no-show and will significantly impact your reliability score and access to future jobs. Are you sure you want to cancel?",
   "cancelJobConfirmButton": "Confirm Cancel",
-  "cancelJobBackButton": "Go Back"
+  "cancelJobBackButton": "Go Back",
+  "bagsCollectedHelpTitle": "Bags Collected",
+  "bagsCollectedHelpBody": "This shows how many bags you've collected on your current trip to the dumpster. You can carry a maximum of 8 bags at a time.\n\nOnce you have collected one or more bags (up to 8), you must take them to the dumpster. Use the slider at the bottom to mark them as 'Dumped' and begin your next trip.",
+  "howToCompleteAJobTitle": "How to Complete a Job",
+  "howToCompleteAJobBody": "1. Collect Bags (Up to 8):** Visit each unit on your route. Tap the camera icon and take a clear photo showing the door number and empty trash can area. A successful photo marks the unit as 'Verified' and adds a bag to your current trip. You can collect a maximum of 8 bags per trip.\n\n**2. Report Issues:** If a trash can is missing, use the menu (...) next to the camera icon to 'Report Missing Trash Can' before taking your photo.\n\n**3. Go to the Dumpster:** Once you have collected one or more bags (up to the 8-bag limit), take them to the designated dumpster location shown on the map.\n\n**4. Dump Bags & Repeat:** At the dumpster, slide the 'Dump Bags' slider at the bottom of the screen. This marks all collected bags as 'Dumped' and resets your trip count to 0. Repeat steps 1-4 until all units are serviced.\n\n**6. Complete the Job:** After your final trip to the dumpster, the slider will change to 'Slide to Complete Job'. Sliding it will complete the job and record your earnings."
 }

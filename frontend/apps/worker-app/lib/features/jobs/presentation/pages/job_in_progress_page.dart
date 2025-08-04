@@ -3,20 +3,21 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
-
+import 'package:image_picker/image_picker.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
-import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/job_map_page.dart';
 import 'package:poof_worker/features/jobs/presentation/widgets/slide_button_widget.dart';
+import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
+import 'package:poof_worker/features/jobs/state/jobs_state.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
-import 'package:poof_worker/core/routing/router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class JobInProgressPage extends ConsumerStatefulWidget {
   final JobInstance job;
@@ -64,28 +65,62 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     const supportPhone = '2564683659';
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.sms_outlined),
-              title: Text(l10n.contactSupportText),
-              onTap: () {
-                launchUrl(Uri.parse('sms:$supportPhone'));
-              },
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    l10n.workerDrawerHelpSupport,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ExpansionTile(
+                  title: Text(
+                    l10n.howToCompleteAJobTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  leading: const Icon(Icons.checklist_rtl_outlined),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        l10n.howToCompleteAJobBody.replaceAll('**', ''),
+                        style: TextStyle(
+                          height: 1.6,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                ListTile(
+                  leading: const Icon(Icons.sms_outlined),
+                  title: Text(l10n.contactSupportText),
+                  onTap: () {
+                    launchUrl(Uri.parse('sms:$supportPhone'));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.email_outlined),
+                  title: Text(l10n.contactSupportEmail),
+                  onTap: () {
+                    final subject = Uri.encodeComponent(
+                      l10n.emailSubjectGeneralHelp,
+                    );
+                    launchUrl(
+                        Uri.parse('mailto:$supportEmail?subject=$subject'));
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.email_outlined),
-              title: Text(l10n.contactSupportEmail),
-              onTap: () {
-                final subject = Uri.encodeComponent(
-                  l10n.emailSubjectGeneralHelp,
-                );
-                launchUrl(Uri.parse('mailto:$supportEmail?subject=$subject'));
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -204,6 +239,23 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     }
   }
 
+  void _showBagsCollectedHelp() {
+    final l10n = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(l10n.bagsCollectedHelpTitle),
+        content: Text(l10n.bagsCollectedHelpBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showFailureReason(UnitVerification unit) {
     final l10n = AppLocalizations.of(context);
     showDialog<void>(
@@ -241,6 +293,24 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
   }
 
+  void _showPermanentFailureDialog(UnitVerification unit) {
+    final l10n = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        icon: const Icon(Icons.block, color: Colors.red, size: 48),
+        title: Text(l10n.jobInProgressUnitPermanentlyFailedTitle(unit.unitNumber)),
+        content: Text(l10n.jobInProgressUnitPermanentlyFailedBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _dumpBags() async {
     final success = await ref.read(jobsNotifierProvider.notifier).dumpBags();
     if (success && mounted) {
@@ -253,28 +323,6 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         }
       }
     }
-  }
-
-  int _permanentFailedCount(JobInstance job) {
-    return job.buildings
-        .expand((b) => b.units)
-        .where(
-          (u) =>
-              u.status == UnitVerificationStatus.failed && u.permanentFailure,
-        )
-        .length;
-  }
-
-  int _remainingCount(JobInstance job) {
-    return job.buildings
-        .expand((b) => b.units)
-        .where(
-          (u) =>
-              u.status == UnitVerificationStatus.pending ||
-              (u.status == UnitVerificationStatus.failed &&
-                  !u.permanentFailure),
-        )
-        .length;
   }
 
   String _formatDuration(Duration d) {
@@ -334,10 +382,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               child: Text(
                 job.property.propertyName,
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -367,21 +414,28 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _openFullMap,
+                child: const SizedBox.expand(),
               ),
             ),
             Positioned(
               top: 8,
               right: 8,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.open_in_full,
-                  color: Colors.white,
-                  size: 20,
+              child: GestureDetector(
+                onTap:
+                    _openFullMap, // Add tap handler specifically for the button
+                child: Container(
+                  padding: const EdgeInsets.all(
+                    4,
+                  ), // Increased padding for a better tap target
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.open_in_full,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -397,10 +451,13 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       child: Row(
         children: [
           Expanded(
-            child: _buildStatItem(
-              Icons.shopping_bag_outlined,
-              l10n.jobInProgressBagsCollectedLabel,
-              '$bagsCollected / $_bagLimit',
+            child: GestureDetector(
+              onTap: _showBagsCollectedHelp,
+              child: _buildStatItem(
+                Icons.shopping_bag_outlined,
+                l10n.jobInProgressBagsCollectedLabel,
+                '$bagsCollected / $_bagLimit',
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -428,7 +485,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
             color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 6,
             offset: const Offset(0, 2),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -447,8 +504,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               const SizedBox(width: 8),
               Text(
                 value,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -464,7 +522,10 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.transparent,
-          border: Border.all(color: AppColors.poofColor.withValues(alpha: 0.8), width: 1.5),
+          border: Border.all(
+            color: AppColors.poofColor.withValues(alpha: 0.8),
+            width: 1.5,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -481,6 +542,16 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
   Widget _buildBuildingTile(Building b, AppLocalizations l10n) {
     final theme = Theme.of(context);
+    final unprocessedUnits = b.units
+        .where((u) =>
+            u.status != UnitVerificationStatus.dumped &&
+            !(u.status == UnitVerificationStatus.failed && u.permanentFailure))
+        .toList();
+
+    if (unprocessedUnits.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.0),
       decoration: BoxDecoration(
@@ -502,7 +573,11 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Theme(
-          data: theme.copyWith(dividerColor: Colors.transparent),
+          data: theme.copyWith(
+            dividerColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+          ),
           child: ExpansionTile(
             backgroundColor: theme.cardColor,
             collapsedBackgroundColor: theme.cardColor,
@@ -511,7 +586,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            children: b.units.map((u) => _buildUnitListItem(u, l10n)).toList(),
+            children:
+                unprocessedUnits.map((u) => _buildUnitListItem(u, l10n)).toList(),
           ),
         ),
       ),
@@ -563,6 +639,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               onPressed: () => _takePhoto(u),
             );
       final menuBtn = PopupMenuButton<String>(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
         icon: const Icon(Icons.more_vert),
         tooltip: l10n.jobInProgressMoreOptionsTooltip,
         onSelected: (val) {
@@ -591,6 +668,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     } else {
       if (u.status == UnitVerificationStatus.failed) {
         trailing = PopupMenuButton<String>(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
           icon: const Icon(Icons.more_vert),
           tooltip: l10n.jobInProgressMoreOptionsTooltip,
           onSelected: (val) {
@@ -630,7 +708,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
             color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
-          )
+          ),
         ],
       ),
       child: tile,
@@ -698,16 +776,75 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final state = ref.watch(jobsNotifierProvider);
     final job = state.inProgressJob ?? widget.job;
 
-    final bagsCollected = bagCount(job);
-    final permFailed = _permanentFailedCount(job);
-    final remaining = _remainingCount(job);
-    final hasVerified = bagsCollected > 0;
-    final slideEnabled =
-        hasVerified || (bagsCollected == 0 && permFailed > 0 && remaining == 0);
-    final slideText = hasVerified
-        ? l10n.jobInProgressDumpBagsAction
-        : l10n.jobInProgressCompleteJobAction;
-    final slideIcon = hasVerified ? Icons.delete : Icons.check;
+    // Listen for units that become permanently failed and show a dialog.
+    ref.listen<JobsState>(jobsNotifierProvider, (previous, next) {
+      final prevJob = previous?.inProgressJob;
+      final nextJob = next.inProgressJob;
+
+      if (prevJob != null && nextJob != null) {
+        final prevUnits = prevJob.buildings.expand((b) => b.units);
+        final nextUnits = nextJob.buildings.expand((b) => b.units);
+
+        for (final nextUnit in nextUnits) {
+          final prevUnit =
+              prevUnits.firstWhereOrNull((u) => u.unitId == nextUnit.unitId);
+          if (prevUnit != null) {
+            final wasPermanentFailure = prevUnit.permanentFailure;
+            final isPermanentFailure = nextUnit.permanentFailure;
+
+            if (!wasPermanentFailure && isPermanentFailure) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _showPermanentFailureDialog(nextUnit);
+                }
+              });
+            }
+          }
+        }
+      }
+    });
+
+    final allUnits = job.buildings.expand((b) => b.units);
+    final verifiedCount = allUnits
+        .where((u) => u.status == UnitVerificationStatus.verified)
+        .length;
+    final dumpedCount = allUnits
+        .where((u) => u.status == UnitVerificationStatus.dumped)
+        .length;
+    final permFailedCount =
+        allUnits.where((u) => u.permanentFailure).length;
+    final totalUnits = allUnits.length;
+
+    final pendingAndTempFailedCount = allUnits
+        .where((u) =>
+            u.status == UnitVerificationStatus.pending ||
+            (u.status == UnitVerificationStatus.failed && !u.permanentFailure))
+        .length;
+
+    final allUnitsAccountedFor = (dumpedCount + permFailedCount) >= totalUnits;
+    final hasBagsToDump = verifiedCount > 0;
+
+    String slideText;
+    IconData slideIcon;
+    bool slideEnabled;
+    Future<void> Function()? slideAction;
+
+    if (allUnitsAccountedFor && !hasBagsToDump) {
+      slideText = l10n.jobInProgressCompleteJobAction;
+      slideIcon = Icons.check;
+      slideEnabled = true;
+      slideAction = _dumpBags;
+    } else if (pendingAndTempFailedCount == 0 && hasBagsToDump) {
+      slideText = l10n.jobInProgressCompleteJobAction;
+      slideIcon = Icons.check;
+      slideEnabled = true;
+      slideAction = _dumpBags;
+    } else {
+      slideText = l10n.jobInProgressDumpBagsAction;
+      slideIcon = Icons.delete;
+      slideEnabled = hasBagsToDump;
+      slideAction = hasBagsToDump ? _dumpBags : null;
+    }
 
     return PopScope(
       canPop: false,
@@ -721,7 +858,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                 padding: const EdgeInsets.only(bottom: 16),
                 children: [
                   _buildMapPreview(),
-                  _buildStatsBar(bagsCollected, l10n),
+                  _buildStatsBar(verifiedCount, l10n),
                   _buildInstructionsPanel(l10n),
                   ...job.buildings.map((b) => _buildBuildingTile(b, l10n)),
                 ],
@@ -731,7 +868,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               slideText,
               slideIcon,
               slideEnabled,
-              slideEnabled ? _dumpBags : null,
+              slideAction,
             ),
           ],
         ),
