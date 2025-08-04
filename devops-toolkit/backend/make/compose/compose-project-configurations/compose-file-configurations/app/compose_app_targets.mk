@@ -40,6 +40,7 @@ up:: _export-target-platform
 integration-test:: _export-target-platform
 up-app-post-check:: _export-target-platform
 help:: _export-target-platform
+migrate:: _export-target-platform
 
 ifneq (,$(filter $(ENV),$(DEV_TEST_ENV) $(DEV_ENV)))
 

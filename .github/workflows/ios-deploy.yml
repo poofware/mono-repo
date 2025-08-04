@@ -87,6 +87,11 @@ jobs:
           echo "bash -> $(which bash)"
           echo "ls   -> $(which ls) ($(ls --version | head -n1))"
 
+      - name: Install BWS
+        run: |
+          # Bitwarden BWS CLI
+          curl -sSfL https://bws.bitwarden.com/install | sudo bash
+
       - name: Install All Dependencies via Makefile
         working-directory: frontend/apps/worker-app
         run: make dependencies-ios
