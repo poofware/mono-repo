@@ -43,16 +43,15 @@ class _TotpVerifyPageState extends ConsumerState<TotpVerifyPage> {
 
     try {
       await widget.args.onSuccess(_sixDigitCode);
-      // Allow any navigation triggered by the success callback to take effect
-      // before potentially resetting the loading state.
-      await Future<void>.delayed(Duration.zero);
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     } catch (_) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // Errors are handled in the callback; just fall through so the
+      // post-frame callback below can reset the loading state.
+    } finally {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      });
     }
   }
 

@@ -134,8 +134,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
       }
 
       if (shouldCloseSheet) {
-        logger.d('Accepted the last instance, closing sheet.');
-        navigator.pop();
+        if (mounted) {
+          logger.d('Accepted the last instance, closing sheet.');
+          navigator.pop();
+        }
       } else {
         // If the group still exists but the specific accepted instance is gone, clear selection
         final liveDefinitionAfterAccept = currentDefinitionGroupsAfterAccept
@@ -154,9 +156,11 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
         if (!liveDefinitionAfterAccept.instances.any(
           (inst) => inst.instanceId == _selectedInstance?.instanceId,
         )) {
-          setState(() {
-            _selectedInstance = null;
-          });
+          if (mounted) {
+            setState(() {
+              _selectedInstance = null;
+            });
+          }
         }
       }
     }
