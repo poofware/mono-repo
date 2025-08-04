@@ -18,6 +18,7 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/config/flavors.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 import 'checkr_outcome_page.dart';
 import 'saving_overlay.dart';
@@ -73,7 +74,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   }
 
   void _validateForm() {
-    final isValid = _firstNameController.text.trim().isNotEmpty &&
+    final isValid =
+        _firstNameController.text.trim().isNotEmpty &&
         _lastNameController.text.trim().isNotEmpty &&
         _emailController.text.trim().isNotEmpty &&
         _phoneController.text.trim().isNotEmpty &&
@@ -101,10 +103,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
           position: Tween(
             begin: const Offset(0, 1),
             end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: anim1,
-            curve: Curves.easeOutCubic,
-          )),
+          ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)),
           child: child,
         );
       },
@@ -112,31 +111,32 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   }
 
   Worker get _dummyWorker => Worker(
-        id: 'dummy-worker-id',
-        email: 'jane.doe@example.com',
-        phoneNumber: '+1 555-555-1234',
-        firstName: 'Jane',
-        lastName: 'Doe',
-        streetAddress: '123 Mockingbird Ln',
-        aptSuite: 'Apt 4B',
-        city: 'Springfield',
-        state: 'IL',
-        zipCode: '62704',
-        vehicleYear: 2020,
-        vehicleMake: 'Tesla',
-        vehicleModel: 'Model Y',
-        accountStatus: AccountStatusType.active,
-        setupProgress: SetupProgressType.done,
-        checkrReportOutcome: CheckrReportOutcome.approved,
-      );
+    id: 'dummy-worker-id',
+    email: 'jane.doe@example.com',
+    phoneNumber: '+1 555-555-1234',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    streetAddress: '123 Mockingbird Ln',
+    aptSuite: 'Apt 4B',
+    city: 'Springfield',
+    state: 'IL',
+    zipCode: '62704',
+    vehicleYear: 2020,
+    vehicleMake: 'Tesla',
+    vehicleModel: 'Model Y',
+    accountStatus: AccountStatusType.active,
+    setupProgress: SetupProgressType.done,
+    checkrReportOutcome: CheckrReportOutcome.approved,
+  );
 
   @override
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
-    final Worker? worker =
-        isTestMode ? _dummyWorker : ref.watch(workerStateNotifierProvider).worker;
+    final Worker? worker = isTestMode
+        ? _dummyWorker
+        : ref.watch(workerStateNotifierProvider).worker;
 
     if (!isTestMode && worker == null) {
       return _LoadingScaffold(appLocalizations: appLocalizations);
@@ -147,8 +147,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       _hasInitializedFields = true;
     }
 
-    final fullName =
-        '${worker?.firstName ?? ''} ${worker?.lastName ?? ''}'.trim();
+    final fullName = '${worker?.firstName ?? ''} ${worker?.lastName ?? ''}'
+        .trim();
 
     final accountManagementTiles = <Widget>[
       if (worker?.accountStatus == AccountStatusType.backgroundCheckPending)
@@ -187,8 +187,9 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                   ),
                   Text(
                     appLocalizations.myProfilePageTitle,
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   SizedBox(
                     width: 80,
@@ -198,11 +199,16 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                           ? TextButton(
                               onPressed: () => _cancelEdit(worker!),
                               child: Text(
-                                  appLocalizations.myProfilePageCancelButton))
+                                appLocalizations.myProfilePageCancelButton,
+                              ),
+                            )
                           : TextButton(
-                              onPressed: () => setState(() => _isEditing = true),
+                              onPressed: () =>
+                                  setState(() => _isEditing = true),
                               child: Text(
-                                  appLocalizations.myProfilePageEditButton)),
+                                appLocalizations.myProfilePageEditButton,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -213,7 +219,12 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
-                    _buildProfileHeader(theme, worker!, fullName, appLocalizations),
+                    _buildProfileHeader(
+                      theme,
+                      worker!,
+                      fullName,
+                      appLocalizations,
+                    ),
                     _buildSection(
                       title: appLocalizations.myProfilePageContactSection,
                       children: [
@@ -257,7 +268,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                               _validateForm();
                             });
                           },
-                        )
+                        ),
                       ],
                     ),
                     _buildSection(
@@ -276,12 +287,12 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                               _validateForm();
                             });
                           },
-                        )
+                        ),
                       ],
                     ),
                     _buildSection(
-                      title:
-                          appLocalizations.myProfilePageAccountManagementSection,
+                      title: appLocalizations
+                          .myProfilePageAccountManagementSection,
                       children: accountManagementTiles,
                     ),
                   ],
@@ -306,14 +317,16 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     );
 
     return Stack(
-      children: [
-        profileScaffold,
-        if (_isSaving) const SavingOverlay(),
-      ],
+      children: [profileScaffold, if (_isSaving) const SavingOverlay()],
     );
   }
 
-  Widget _buildProfileHeader(ThemeData theme, Worker worker, String fullName, AppLocalizations appLocalizations) {
+  Widget _buildProfileHeader(
+    ThemeData theme,
+    Worker worker,
+    String fullName,
+    AppLocalizations appLocalizations,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
@@ -323,7 +336,10 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [AppColors.poofColor.withAlpha(128), AppColors.poofColor],
+                colors: [
+                  AppColors.poofColor.withAlpha(128),
+                  AppColors.poofColor,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -341,15 +357,22 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            fullName.isEmpty ? appLocalizations.myProfilePageYourNameFallback : fullName,
-            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            fullName.isEmpty
+                ? appLocalizations.myProfilePageYourNameFallback
+                : fullName,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSection({required String title, required List<Widget> children}) {
+  Widget _buildSection({
+    required String title,
+    required List<Widget> children,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -357,7 +380,9 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
           padding: const EdgeInsets.only(top: 16, bottom: 8, left: 8),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
         Container(
@@ -391,7 +416,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       curve: Curves.easeInOut,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
         child: isEditing
             ? TextField(
                 key: ValueKey('${label}_edit'),
@@ -447,7 +473,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _populateControllers(worker);
     setState(() {
       _isEditing = false;
-      _isFormValid = true; 
+      _isFormValid = true;
     });
   }
 
@@ -455,24 +481,22 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     final success = await tryLaunchUrl(url);
     if (!mounted) return;
     if (!success) {
-        final appLocalizations = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(appLocalizations.urlLauncherCannotLaunch)),
-        );
+      final appLocalizations = AppLocalizations.of(context);
+      showAppSnackBar(context, Text(appLocalizations.urlLauncherCannotLaunch));
     }
-}
+  }
 
   Future<void> _handleManagePayouts() async {
     final BuildContext capturedContext = context;
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       final repo = ref.read(workerAccountRepositoryProvider);
       final loginLinkUrl = await repo.getStripeExpressLoginLink();
       final success = await tryLaunchUrl(loginLinkUrl);
       if (!success && capturedContext.mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch)),
+        showAppSnackBar(
+          capturedContext,
+          Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch),
         );
       }
     } catch (e) {
@@ -487,40 +511,61 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     final BuildContext capturedContext = context;
 
     final patchFields = <String, dynamic>{};
-    if (_firstNameController.text.trim() != worker.firstName) patchFields['first_name'] = _firstNameController.text.trim();
-    if (_lastNameController.text.trim() != worker.lastName) patchFields['last_name'] = _lastNameController.text.trim();
-    if (_emailController.text.trim() != worker.email) patchFields['email'] = _emailController.text.trim();
-    if (_phoneController.text.trim() != worker.phoneNumber) patchFields['phone_number'] = _phoneController.text.trim();
-    
+    if (_firstNameController.text.trim() != worker.firstName)
+      patchFields['first_name'] = _firstNameController.text.trim();
+    if (_lastNameController.text.trim() != worker.lastName)
+      patchFields['last_name'] = _lastNameController.text.trim();
+    if (_emailController.text.trim() != worker.email)
+      patchFields['email'] = _emailController.text.trim();
+    if (_phoneController.text.trim() != worker.phoneNumber)
+      patchFields['phone_number'] = _phoneController.text.trim();
+
     if (_addressState != null) {
-      if (_addressState!.street != worker.streetAddress) patchFields['street_address'] = _addressState!.street;
-      if (_addressState!.city != worker.city) patchFields['city'] = _addressState!.city;
-      if (_addressState!.state != worker.state) patchFields['state'] = _addressState!.state;
-      if (_addressState!.postalCode != worker.zipCode) patchFields['zip_code'] = _addressState!.postalCode;
+      if (_addressState!.street != worker.streetAddress)
+        patchFields['street_address'] = _addressState!.street;
+      if (_addressState!.city != worker.city)
+        patchFields['city'] = _addressState!.city;
+      if (_addressState!.state != worker.state)
+        patchFields['state'] = _addressState!.state;
+      if (_addressState!.postalCode != worker.zipCode)
+        patchFields['zip_code'] = _addressState!.postalCode;
     }
 
-    if (_aptSuite != (worker.aptSuite ?? '')) patchFields['apt_suite'] = _aptSuite;
-    
-    if (_vehicleYear != worker.vehicleYear) patchFields['vehicle_year'] = _vehicleYear;
-    if (_vehicleMake != worker.vehicleMake) patchFields['vehicle_make'] = _vehicleMake;
-    if (_vehicleModel != worker.vehicleModel) patchFields['vehicle_model'] = _vehicleModel;
+    if (_aptSuite != (worker.aptSuite ?? ''))
+      patchFields['apt_suite'] = _aptSuite;
+
+    if (_vehicleYear != worker.vehicleYear)
+      patchFields['vehicle_year'] = _vehicleYear;
+    if (_vehicleMake != worker.vehicleMake)
+      patchFields['vehicle_make'] = _vehicleMake;
+    if (_vehicleModel != worker.vehicleModel)
+      patchFields['vehicle_model'] = _vehicleModel;
 
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
     if (isTestMode) {
       await Future.delayed(const Duration(seconds: 1));
-      if (mounted) setState(() { _isSaving = false; _isEditing = false; });
+      if (mounted)
+        setState(() {
+          _isSaving = false;
+          _isEditing = false;
+        });
       return;
     }
 
     if (patchFields.isEmpty) {
-      setState(() { _isSaving = false; _isEditing = false; });
+      setState(() {
+        _isSaving = false;
+        _isEditing = false;
+      });
       return;
     }
 
     final workerAuthRepo = ref.read(workerAuthRepositoryProvider);
     try {
-      if (patchFields.containsKey('phone_number')) await workerAuthRepo.checkPhoneValid(patchFields['phone_number']);
-      if (patchFields.containsKey('email')) await workerAuthRepo.checkEmailValid(patchFields['email']);
+      if (patchFields.containsKey('phone_number'))
+        await workerAuthRepo.checkPhoneValid(patchFields['phone_number']);
+      if (patchFields.containsKey('email'))
+        await workerAuthRepo.checkEmailValid(patchFields['email']);
       if (!capturedContext.mounted) return;
       await _attemptPatch(patchFields, capturedContext);
     } on Exception catch (e) {
@@ -530,9 +575,11 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     }
   }
 
-  Future<void> _attemptPatch(Map<String, dynamic> changedFields, BuildContext context) async {
+  Future<void> _attemptPatch(
+    Map<String, dynamic> changedFields,
+    BuildContext context,
+  ) async {
     final repo = ref.read(workerAccountRepositoryProvider);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final appLocalizations = AppLocalizations.of(context);
 
     final patchRequest = WorkerPatchRequest(
@@ -552,8 +599,15 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
     try {
       await repo.patchWorker(patchRequest);
-      scaffoldMessenger.showSnackBar(SnackBar(content: Text(appLocalizations.myProfilePageProfileUpdatedSnackbar)));
-      if (mounted) setState(() { _isSaving = false; _isEditing = false; });
+      showAppSnackBar(
+        context,
+        Text(appLocalizations.myProfilePageProfileUpdatedSnackbar),
+      );
+      if (mounted)
+        setState(() {
+          _isSaving = false;
+          _isEditing = false;
+        });
     } on ApiException catch (e) {
       if (e.errorCode == 'phone_not_verified') {
         final newPhone = changedFields['phone_number'] as String?;
@@ -593,9 +647,9 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     if (e is ApiException) {
       message = userFacingMessage(context, e);
     } else {
-       message = AppLocalizations.of(context).loginUnexpectedError(e.toString());
+      message = AppLocalizations.of(context).loginUnexpectedError(e.toString());
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    showAppSnackBar(context, Text(message));
   }
 
   String _initialsFromWorker(Worker w) {
@@ -683,10 +737,20 @@ class _StatefulLinkTileState extends State<_StatefulLinkTile> {
       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       leading: Icon(widget.icon, size: 32, color: theme.colorScheme.primary),
-      title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(widget.subtitle, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+      title: Text(
+        widget.title,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text(
+        widget.subtitle,
+        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+      ),
       trailing: _isLoading
-          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            )
           : const Icon(Icons.chevron_right),
       onTap: _isLoading ? null : _handleTap,
     );

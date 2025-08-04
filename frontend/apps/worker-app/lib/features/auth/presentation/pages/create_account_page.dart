@@ -14,6 +14,7 @@ import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/auth/presentation/pages/phone_verification_info_page.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 import '../widgets/phone_number_field.dart';
 
@@ -41,18 +42,21 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
   void initState() {
     super.initState();
     // Initialize empty controllers first. They will be populated in build().
-    _firstNameController = TextEditingController()..addListener(_updateFormValidity);
-    _lastNameController = TextEditingController()..addListener(_updateFormValidity);
-    _emailController = TextEditingController()..addListener(_updateFormValidity);
+    _firstNameController = TextEditingController()
+      ..addListener(_updateFormValidity);
+    _lastNameController = TextEditingController()
+      ..addListener(_updateFormValidity);
+    _emailController = TextEditingController()
+      ..addListener(_updateFormValidity);
   }
-  
+
   void _initializeFieldsFromState() {
     final signUpState = ref.read(signUpProvider);
     _firstNameController.text = signUpState.firstName;
     _lastNameController.text = signUpState.lastName;
     _emailController.text = signUpState.email;
     _combinedPhone = signUpState.phoneNumber;
-  
+
     // Simple parser for phone number parts
     if (signUpState.phoneNumber.startsWith('+44')) {
       _initialDialCode = '+44';
@@ -81,7 +85,8 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
     final lastName = _lastNameController.text.trim();
     final email = _emailController.text.trim();
 
-    final isValid = firstName.isNotEmpty &&
+    final isValid =
+        firstName.isNotEmpty &&
         lastName.isNotEmpty &&
         email.isNotEmpty &&
         _isPhoneValid;
@@ -100,7 +105,6 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
     final phone = _combinedPhone.trim();
 
     // Capture context before async gaps
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
     final appLocalizations = AppLocalizations.of(capturedContext);
@@ -109,8 +113,9 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
         lastName.isEmpty ||
         email.isEmpty ||
         phone.isEmpty) {
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(appLocalizations.createAccountAllFieldsRequired)),
+      showAppSnackBar(
+        context,
+        Text(appLocalizations.createAccountAllFieldsRequired),
       );
       return;
     }
@@ -154,14 +159,15 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
       );
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(appLocalizations.loginUnexpectedError(e.toString()))),
+      showAppSnackBar(
+        capturedContext,
+        Text(appLocalizations.loginUnexpectedError(e.toString())),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -218,17 +224,17 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
                           } else {
                             context.goNamed(AppRouteNames.home);
                           }
-                        }
+                        },
                       ),
                       const SizedBox(height: 16),
                       // Icon
                       const Center(
-                        child: Icon(
-                          Icons.person_add_alt_1_outlined,
-                          size: 64,
-                          color: AppColors.poofColor,
-                        ),
-                      )
+                            child: Icon(
+                              Icons.person_add_alt_1_outlined,
+                              size: 64,
+                              color: AppColors.poofColor,
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 200.ms, duration: 400.ms)
                           .scale(
@@ -239,32 +245,35 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
                       const SizedBox(height: 24),
                       // Title
                       Text(
-                        appLocalizations.createAccountTitle,
-                        style: theme.textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
+                            appLocalizations.createAccountTitle,
+                            style: theme.textTheme.headlineLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 300.ms)
                           .slideX(
-                              begin: -0.1,
-                              duration: 400.ms,
-                              curve: Curves.easeOutCubic),
+                            begin: -0.1,
+                            duration: 400.ms,
+                            curve: Curves.easeOutCubic,
+                          ),
                       // Subtitle
                       Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          appLocalizations.createAccountSubtitle,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      )
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              appLocalizations.createAccountSubtitle,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 400.ms)
                           .slideX(
-                              begin: -0.1,
-                              duration: 400.ms,
-                              curve: Curves.easeOutCubic),
+                            begin: -0.1,
+                            duration: 400.ms,
+                            curve: Curves.easeOutCubic,
+                          ),
                       const SizedBox(height: 32),
                       // First Name and Last Name in a Row
                       Row(
@@ -274,13 +283,14 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
                               controller: _firstNameController,
                               autofocus: false,
                               decoration: customInputDecoration(
-                                labelText:
-                                    appLocalizations.createAccountFirstNameLabel,
+                                labelText: appLocalizations
+                                    .createAccountFirstNameLabel,
                               ),
                             ),
                           ),
                           const SizedBox(
-                              width: AppConstants.kDefaultVerticalSpacing),
+                            width: AppConstants.kDefaultVerticalSpacing,
+                          ),
                           Expanded(
                             child: TextField(
                               controller: _lastNameController,

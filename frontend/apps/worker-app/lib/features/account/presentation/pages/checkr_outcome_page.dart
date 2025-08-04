@@ -18,6 +18,7 @@ import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/providers/app_providers.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
@@ -112,7 +113,8 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
     final platformEnum = getCurrentPlatform();
     final deviceId = await DeviceIdManager.getDeviceId();
     final keyId = await attestation.getCachedKeyId(
-        isAndroid: platformEnum == FlutterPlatform.android);
+      isAndroid: platformEnum == FlutterPlatform.android,
+    );
     if (!mounted) return;
 
     setState(() {
@@ -251,7 +253,6 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
 
   Future<void> _showDetailsSheet() async {
     final appLocalizations = AppLocalizations.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     if (!_webViewReady || _webViewAuthFailed) {
       await _prepareWebView();
@@ -295,12 +296,9 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
                           'https://candidate.checkr.com/',
                         );
                         if (!success && mounted) {
-                          scaffoldMessenger.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                appLocalizations.urlLauncherCannotLaunch,
-                              ),
-                            ),
+                          showAppSnackBar(
+                            context,
+                            Text(appLocalizations.urlLauncherCannotLaunch),
                           );
                         }
                       },

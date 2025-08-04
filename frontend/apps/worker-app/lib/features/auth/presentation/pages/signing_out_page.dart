@@ -7,6 +7,7 @@ import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import Ap
 import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 /// A simple page that displays a "Signing out..." message with
 /// a loading spinner. It ensures the user sees this for at least
@@ -29,9 +30,8 @@ class _SigningOutPageState extends ConsumerState<SigningOutPage> {
 
   Future<void> _performSignOut() async {
     final startTime = DateTime.now();
-    
+
     // Capture context before async gap
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
 
@@ -39,7 +39,7 @@ class _SigningOutPageState extends ConsumerState<SigningOutPage> {
       // 1) Perform sign-out logic
       final config = PoofWorkerFlavorConfig.instance;
       await ref.read(authControllerProvider).signOut(config.testMode);
-    } catch(e) {
+    } catch (e) {
       // Even if logout fails, we still want to redirect the user.
       // We can show a quick, non-blocking error message.
       String errorMessage;
@@ -48,11 +48,11 @@ class _SigningOutPageState extends ConsumerState<SigningOutPage> {
         errorMessage = userFacingMessage(capturedContext, e);
       } else {
         if (!capturedContext.mounted) return;
-        errorMessage = AppLocalizations.of(capturedContext).loginUnexpectedError(e.toString());
+        errorMessage = AppLocalizations.of(
+          capturedContext,
+        ).loginUnexpectedError(e.toString());
       }
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      showAppSnackBar(capturedContext, Text(errorMessage));
     }
 
     // 2) Ensure at least 1 second on this page for a better user experience

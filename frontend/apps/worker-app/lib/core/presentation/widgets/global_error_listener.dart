@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/features/earnings/state/earnings_state.dart';
 import 'package:poof_worker/features/earnings/providers/providers.dart';
@@ -16,23 +17,18 @@ import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 class GlobalErrorListener extends ConsumerWidget {
   final Widget child;
 
-  const GlobalErrorListener({
-    super.key,
-    required this.child,
-  });
+  const GlobalErrorListener({super.key, required this.child});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Listener for Jobs-related errors (e.g., fetching open/accepted jobs)
     ref.listen<JobsState>(jobsNotifierProvider, (previous, next) {
       if (previous?.error == null && next.error != null) {
-        final scaffoldMessenger = ScaffoldMessenger.of(context);
         final message = userFacingMessageFromObject(context, next.error!);
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(message),
-            duration: const Duration(seconds: 5),
-          ),
+        showAppSnackBar(
+          context,
+          Text(message),
+          displayDuration: const Duration(seconds: 5),
         );
         // Important: Clear the error after displaying it.
         ref.read(jobsNotifierProvider.notifier).clearError();
@@ -42,13 +38,11 @@ class GlobalErrorListener extends ConsumerWidget {
     // Listener for Earnings-related errors
     ref.listen<EarningsState>(earningsNotifierProvider, (previous, next) {
       if (previous?.error == null && next.error != null) {
-        final scaffoldMessenger = ScaffoldMessenger.of(context);
         final message = userFacingMessageFromObject(context, next.error!);
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(message),
-            duration: const Duration(seconds: 5),
-          ),
+        showAppSnackBar(
+          context,
+          Text(message),
+          displayDuration: const Duration(seconds: 5),
         );
         // Important: Clear the error after displaying it.
         ref.read(earningsNotifierProvider.notifier).clearError();

@@ -15,6 +15,7 @@ import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 import 'verify_number_page.dart' show VerifyNumberArgs;
 
@@ -25,10 +26,7 @@ class PhoneVerificationInfoArgs {
   final String phoneNumber;
   final Future<void> Function()? onSuccess;
 
-  const PhoneVerificationInfoArgs({
-    required this.phoneNumber,
-    this.onSuccess,
-  });
+  const PhoneVerificationInfoArgs({required this.phoneNumber, this.onSuccess});
 }
 
 /// A page that explains why we’re verifying the phone number,
@@ -36,10 +34,7 @@ class PhoneVerificationInfoArgs {
 class PhoneVerificationInfoPage extends ConsumerStatefulWidget {
   final PhoneVerificationInfoArgs args;
 
-  const PhoneVerificationInfoPage({
-    super.key,
-    required this.args,
-  });
+  const PhoneVerificationInfoPage({super.key, required this.args});
 
   @override
   ConsumerState<PhoneVerificationInfoPage> createState() =>
@@ -57,7 +52,6 @@ class _PhoneVerificationInfoPageState
   ///    callback or pops the navigator with a `true` result.
   Future<void> _onSendCodeAndVerify() async {
     // Capture context before async gaps
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final navigator = Navigator.of(context);
     final BuildContext capturedContext = context;
@@ -78,8 +72,10 @@ class _PhoneVerificationInfoPageState
       // THE FIX: We now pass the onSuccess callback down to VerifyNumberPage.
       final result = await router.pushNamed<bool>(
         AppRouteNames.verifyNumberPage,
-        extra:
-            VerifyNumberArgs(phoneNumber: phone, onSuccess: widget.args.onSuccess),
+        extra: VerifyNumberArgs(
+          phoneNumber: phone,
+          onSuccess: widget.args.onSuccess,
+        ),
       );
 
       // Step 3: If verification was not successful, stop here.
@@ -101,15 +97,19 @@ class _PhoneVerificationInfoPageState
       }
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(AppLocalizations.of(capturedContext)
-                .loginUnexpectedError(e.toString()))),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).loginUnexpectedError(e.toString()),
+        ),
       );
     } finally {
       // The loading state will naturally resolve when this page is popped
@@ -156,66 +156,84 @@ class _PhoneVerificationInfoPageState
 
               // Title
               Text(
-                appLocalizations.phoneVerificationInfoTitle,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ).animate().fadeIn(delay: 300.ms, duration: 400.ms).slideY(begin: 0.2),
+                    appLocalizations.phoneVerificationInfoTitle,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 300.ms, duration: 400.ms)
+                  .slideY(begin: 0.2),
 
               const SizedBox(height: 16),
 
               // Message
               Text(
-                appLocalizations.phoneVerificationInfoMessage,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 16,
-                ),
-              ).animate().fadeIn(delay: 400.ms, duration: 400.ms).slideY(begin: 0.2),
+                    appLocalizations.phoneVerificationInfoMessage,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 16,
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 400.ms, duration: 400.ms)
+                  .slideY(begin: 0.2),
 
               const SizedBox(height: 16),
 
               // Phone Number Display
               Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    phone.isEmpty
-                        ? appLocalizations.phoneVerificationInfoNoNumber
-                        : phone,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        phone.isEmpty
+                            ? appLocalizations.phoneVerificationInfoNoNumber
+                            : phone,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ).animate().fadeIn(delay: 500.ms, duration: 400.ms).slideY(begin: 0.2),
+                  )
+                  .animate()
+                  .fadeIn(delay: 500.ms, duration: 400.ms)
+                  .slideY(begin: 0.2),
 
               const SizedBox(height: 24),
 
               // Explanation
               Text(
-                appLocalizations.phoneVerificationInfoExplanation,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  height: 1.5, // Better line spacing for readability
-                ),
-              ).animate().fadeIn(delay: 600.ms, duration: 400.ms).slideY(begin: 0.2),
+                    appLocalizations.phoneVerificationInfoExplanation,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      height: 1.5, // Better line spacing for readability
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 600.ms, duration: 400.ms)
+                  .slideY(begin: 0.2),
 
               const Spacer(flex: 2),
 
               // Action Button
               WelcomeButton(
-                text: appLocalizations.phoneVerificationInfoSendCodeButton,
-                isLoading: _isLoading,
-                onPressed: _isLoading ? null : _onSendCodeAndVerify,
-              ).animate().fadeIn(delay: 700.ms, duration: 400.ms).slideY(begin: 0.5),
+                    text: appLocalizations.phoneVerificationInfoSendCodeButton,
+                    isLoading: _isLoading,
+                    onPressed: _isLoading ? null : _onSendCodeAndVerify,
+                  )
+                  .animate()
+                  .fadeIn(delay: 700.ms, duration: 400.ms)
+                  .slideY(begin: 0.5),
             ],
           ),
         ),

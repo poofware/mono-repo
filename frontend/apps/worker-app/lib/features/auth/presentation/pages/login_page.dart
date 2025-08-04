@@ -11,6 +11,7 @@ import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/providers/app_providers.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 import '../widgets/phone_number_field.dart';
 import 'totp_verify_page.dart';
@@ -42,7 +43,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _onVerifyAndLogin(String totpCode) async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final logger = ref.read(appLoggerProvider);
     final config = PoofWorkerFlavorConfig.instance;
@@ -55,20 +55,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         return;
       }
 
-      final creds = LoginWorkerRequest(phoneNumber: _combinedPhone, totpCode: totpCode);
+      final creds = LoginWorkerRequest(
+        phoneNumber: _combinedPhone,
+        totpCode: totpCode,
+      );
       await ref.read(authControllerProvider).signIn(creds, router);
     } on ApiException catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(userFacingMessage(context, e))),
-        );
+        showAppSnackBar(context, Text(userFacingMessage(context, e)));
       }
     } catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context).loginUnexpectedError(e.toString())),
-          ),
+        showAppSnackBar(
+          context,
+          Text(AppLocalizations.of(context).loginUnexpectedError(e.toString())),
         );
       }
     }
@@ -123,52 +123,56 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       const SizedBox(height: 16),
                       // Icon
                       const Center(
-                        child: Icon(
-                          Icons.login,
-                          size: 64,
-                          color: AppColors.poofColor,
-                        ),
-                      )
+                            child: Icon(
+                              Icons.login,
+                              size: 64,
+                              color: AppColors.poofColor,
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 200.ms, duration: 400.ms)
                           .scale(
-                              begin: const Offset(0.8, 0.8),
-                              end: const Offset(1, 1),
-                              curve: Curves.easeOutBack),
+                            begin: const Offset(0.8, 0.8),
+                            end: const Offset(1, 1),
+                            curve: Curves.easeOutBack,
+                          ),
                       const SizedBox(height: 24),
                       // Title
                       Text(
-                        appLocalizations.loginTitle,
-                        style: theme.textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
+                            appLocalizations.loginTitle,
+                            style: theme.textTheme.headlineLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 300.ms)
                           .slideX(
-                              begin: -0.1,
-                              duration: 400.ms,
-                              curve: Curves.easeOutCubic),
+                            begin: -0.1,
+                            duration: 400.ms,
+                            curve: Curves.easeOutCubic,
+                          ),
                       // Subtitle
                       Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          appLocalizations.loginSubtitle,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      )
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              appLocalizations.loginSubtitle,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 400.ms)
                           .slideX(
-                              begin: -0.1,
-                              duration: 400.ms,
-                              curve: Curves.easeOutCubic),
+                            begin: -0.1,
+                            duration: 400.ms,
+                            curve: Curves.easeOutCubic,
+                          ),
                       const SizedBox(height: 32),
                       PhoneNumberField(
                         autofocus: false,
-                        labelText:
-                            appLocalizations.phoneNumberFieldLabel, // Localized label
+                        labelText: appLocalizations
+                            .phoneNumberFieldLabel, // Localized label
                         onChanged: (fullNumber, isValid) {
                           _combinedPhone = fullNumber;
                           if (isValid != _isPhoneValid) {

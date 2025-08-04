@@ -10,6 +10,7 @@ import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 import '../../data/models/worker.dart';
 import '../../providers/providers.dart';
@@ -36,7 +37,6 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
   Future<void> _startCheckrFlow() async {
     if (_isLoading) return;
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
     final config = PoofWorkerFlavorConfig.instance;
@@ -64,15 +64,19 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
       );
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(AppLocalizations.of(capturedContext)
-                .loginUnexpectedError(e.toString()))),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).loginUnexpectedError(e.toString()),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -87,9 +91,7 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
     final theme = Theme.of(context);
 
     if (!config.testMode && worker == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (!_hasInitFields && worker != null) {
@@ -116,12 +118,12 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
                       children: [
                         const SizedBox(height: 16),
                         const Center(
-                          child: Icon(
-                            Icons.policy_outlined,
-                            size: 64,
-                            color: AppColors.poofColor,
-                          ),
-                        )
+                              child: Icon(
+                                Icons.policy_outlined,
+                                size: 64,
+                                color: AppColors.poofColor,
+                              ),
+                            )
                             .animate()
                             .fadeIn(delay: 200.ms, duration: 400.ms)
                             .scale(
@@ -131,36 +133,41 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
                             ),
                         const SizedBox(height: 24),
                         Text(
-                          appLocalizations.checkrPageAuthTitle,
-                          style: theme.textTheme.headlineLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        )
+                              appLocalizations.checkrPageAuthTitle,
+                              style: theme.textTheme.headlineLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
                             .animate()
                             .fadeIn(delay: 300.ms)
                             .slideX(
-                                begin: -0.1,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic),
+                              begin: -0.1,
+                              duration: 400.ms,
+                              curve: Curves.easeOutCubic,
+                            ),
                         Padding(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          child: Text(
-                            appLocalizations.checkrPageExplanation,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                                height: 1.5,
-                                color: theme.colorScheme.onSurfaceVariant),
-                          ),
-                        )
+                              padding: const EdgeInsets.only(top: 16.0),
+                              child: Text(
+                                appLocalizations.checkrPageExplanation,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  height: 1.5,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            )
                             .animate()
                             .fadeIn(delay: 400.ms)
                             .slideX(
-                                begin: -0.1,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic),
+                              begin: -0.1,
+                              duration: 400.ms,
+                              curve: Curves.easeOutCubic,
+                            ),
                         const SizedBox(height: 32),
                         Text(
                           appLocalizations.checkrPageConfirmEmailLabel,
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ).animate().fadeIn(delay: 500.ms, duration: 500.ms),
                         const SizedBox(height: 8),
                         Text(
@@ -179,12 +186,16 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
-                                  color: AppColors.poofColor, width: 2),
+                                color: AppColors.poofColor,
+                                width: 2,
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
-                                  color: AppColors.poofColor, width: 2),
+                                color: AppColors.poofColor,
+                                width: 2,
+                              ),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -203,8 +214,10 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
                       Center(
                         child: Text(
                           appLocalizations.checkrPageSecureWindowNote,
-                          style:
-                              const TextStyle(fontSize: 14, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -224,4 +237,3 @@ class _BackgroundCheckPageState extends ConsumerState<BackgroundCheckPage> {
     );
   }
 }
-

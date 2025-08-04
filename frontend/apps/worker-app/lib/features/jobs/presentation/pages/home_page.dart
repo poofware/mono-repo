@@ -18,6 +18,7 @@ import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
 import 'package:poof_worker/features/account/presentation/pages/worker_drawer_page.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart'
     show DefinitionGroup, JobInstance, groupOpenJobs;
 import 'package:poof_worker/features/jobs/presentation/widgets/job_definition_carousel_widget.dart';
@@ -434,7 +435,6 @@ class _HomePageState extends ConsumerState<HomePage>
     setState(() => _isSnappingToLocation = true);
 
     // Capture context before async gap
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final BuildContext capturedContext = context;
 
     try {
@@ -454,13 +454,12 @@ class _HomePageState extends ConsumerState<HomePage>
       _moveOrAnimateMapToPosition(cam, animate: true);
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            AppLocalizations.of(
-              capturedContext,
-            ).homePageCouldNotGetLocation(e.toString()),
-          ),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).homePageCouldNotGetLocation(e.toString()),
         ),
       );
     } finally {
@@ -655,14 +654,12 @@ class _HomePageState extends ConsumerState<HomePage>
       if (next.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            final scaffoldMessenger = ScaffoldMessenger.of(context);
             for (final error in next) {
               final message = userFacingMessageFromObject(context, error);
-              scaffoldMessenger.showSnackBar(
-                SnackBar(
-                  content: Text(message),
-                  duration: const Duration(seconds: 5),
-                ),
+              showAppSnackBar(
+                context,
+                Text(message),
+                displayDuration: const Duration(seconds: 5),
               );
             }
             ref.read(postBootErrorProvider.notifier).state = [];

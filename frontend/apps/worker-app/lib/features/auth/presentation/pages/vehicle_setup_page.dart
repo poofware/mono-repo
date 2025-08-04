@@ -15,6 +15,7 @@ import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/account/presentation/widgets/profile_form_fields.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 class VehicleSetupPage extends ConsumerStatefulWidget {
   const VehicleSetupPage({super.key});
@@ -74,13 +75,15 @@ class _VehicleSetupPageState extends ConsumerState<VehicleSetupPage> {
       if (mounted) context.pushNamed(AppRouteNames.stripeIdvPage);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
+        showAppSnackBar(
+          context,
+          Text(
             e is ApiException
                 ? userFacingMessage(context, e)
-                : AppLocalizations.of(context).loginUnexpectedError(e.toString()),
-          )),
+                : AppLocalizations.of(
+                    context,
+                  ).loginUnexpectedError(e.toString()),
+          ),
         );
       }
     } finally {
@@ -104,84 +107,102 @@ class _VehicleSetupPageState extends ConsumerState<VehicleSetupPage> {
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Align(
-                          alignment: Alignment.topLeft,
-                          child: IconButton(
-                            icon: const Icon(Icons.arrow_back),
-                            onPressed: () => context.pop(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const Center(
-                          child: Icon(Icons.directions_car_outlined,
-                              size: 64, color: AppColors.poofColor),
-                        )
-                            .animate()
-                            .fadeIn(delay: 200.ms, duration: 400.ms)
-                            .scale(
-                                begin: const Offset(0.8, 0.8),
-                                end: const Offset(1, 1),
-                                curve: Curves.easeOutBack),
-                        const SizedBox(height: 24),
-                        Text(
-                          app.vehicleSetupPageTitle,
-                          style: theme.textTheme.headlineLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        )
-                            .animate()
-                            .fadeIn(delay: 300.ms)
-                            .slideX(
-                                begin: -0.1,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Text(
-                            app.vehicleSetupPageSubtitle,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant),
-                          ),
-                        )
-                            .animate()
-                            .fadeIn(delay: 400.ms)
-                            .slideX(
-                                begin: -0.1,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic),
-                        const SizedBox(height: 32),
-                        VehicleFormField(
-                          initialYear: signUpState.vehicleYear,
-                          initialMake: signUpState.vehicleMake,
-                          initialModel: signUpState.vehicleModel,
-                          isEditing: true, // Always editing on this page
-                          onChanged: (year, make, model) {
-                            setState(() {
-                              _vehicleYear = year;
-                              _vehicleMake = make;
-                              _vehicleModel = model;
-                            });
-                             ref.read(signUpProvider.notifier).setVehicleInfo(
-                                  vehicleYear: year,
-                                  vehicleMake: make,
-                                  vehicleModel: model,
-                                );
-                          },
-                        ),
-                      ]
-                          .animate(interval: 80.ms)
-                          .fadeIn(duration: 500.ms, delay: 500.ms)
-                          .slideY(begin: 0.1)),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children:
+                        [
+                              Align(
+                                alignment: Alignment.topLeft,
+                                child: IconButton(
+                                  icon: const Icon(Icons.arrow_back),
+                                  onPressed: () => context.pop(),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Center(
+                                    child: Icon(
+                                      Icons.directions_car_outlined,
+                                      size: 64,
+                                      color: AppColors.poofColor,
+                                    ),
+                                  )
+                                  .animate()
+                                  .fadeIn(delay: 200.ms, duration: 400.ms)
+                                  .scale(
+                                    begin: const Offset(0.8, 0.8),
+                                    end: const Offset(1, 1),
+                                    curve: Curves.easeOutBack,
+                                  ),
+                              const SizedBox(height: 24),
+                              Text(
+                                    app.vehicleSetupPageTitle,
+                                    style: theme.textTheme.headlineLarge
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  )
+                                  .animate()
+                                  .fadeIn(delay: 300.ms)
+                                  .slideX(
+                                    begin: -0.1,
+                                    duration: 400.ms,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                              Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      app.vehicleSetupPageSubtitle,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  )
+                                  .animate()
+                                  .fadeIn(delay: 400.ms)
+                                  .slideX(
+                                    begin: -0.1,
+                                    duration: 400.ms,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                              const SizedBox(height: 32),
+                              VehicleFormField(
+                                initialYear: signUpState.vehicleYear,
+                                initialMake: signUpState.vehicleMake,
+                                initialModel: signUpState.vehicleModel,
+                                isEditing: true, // Always editing on this page
+                                onChanged: (year, make, model) {
+                                  setState(() {
+                                    _vehicleYear = year;
+                                    _vehicleMake = make;
+                                    _vehicleModel = model;
+                                  });
+                                  ref
+                                      .read(signUpProvider.notifier)
+                                      .setVehicleInfo(
+                                        vehicleYear: year,
+                                        vehicleMake: make,
+                                        vehicleModel: model,
+                                      );
+                                },
+                              ),
+                            ]
+                            .animate(interval: 80.ms)
+                            .fadeIn(duration: 500.ms, delay: 500.ms)
+                            .slideY(begin: 0.1),
+                  ),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 16.0),
-                child: WelcomeButton(
-                  text: app.vehicleSetupPageContinueButton,
-                  isLoading: _isLoading,
-                  onPressed: _canContinue ? _onContinue : null,
-                ).animate().fadeIn(delay: 600.ms, duration: 400.ms).slideY(begin: 0.5),
+                child:
+                    WelcomeButton(
+                          text: app.vehicleSetupPageContinueButton,
+                          isLoading: _isLoading,
+                          onPressed: _canContinue ? _onContinue : null,
+                        )
+                        .animate()
+                        .fadeIn(delay: 600.ms, duration: 400.ms)
+                        .slideY(begin: 0.5),
               ),
             ],
           ),
@@ -190,4 +211,3 @@ class _VehicleSetupPageState extends ConsumerState<VehicleSetupPage> {
     );
   }
 }
-

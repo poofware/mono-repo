@@ -22,6 +22,7 @@ import 'package:poof_worker/features/jobs/presentation/widgets/date_carousel_wid
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'info_widgets.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 class JobAcceptSheet extends ConsumerStatefulWidget {
   final DefinitionGroup definition;
@@ -45,8 +46,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
   }
 
   void _updateSelectedInstance(DateTime day) {
-    final match = widget.definition.instances
-        .where((inst) => _isSameDate(parseYmd(inst.serviceDate), day));
+    final match = widget.definition.instances.where(
+      (inst) => _isSameDate(parseYmd(inst.serviceDate), day),
+    );
     _selectedInstance = match.isEmpty ? null : match.first;
   }
 
@@ -61,26 +63,31 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     if (_selectedInstance == null || _isAccepting) return;
 
     // --- Capture context-sensitive objects BEFORE async gaps ---
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final appLocalizations = AppLocalizations.of(context);
     final logger = ref.read(appLoggerProvider);
 
     // --- Check if this is the last instance in the current group ---
     final currentOpenJobsBeforeAccept = ref.read(jobsNotifierProvider).openJobs;
-    final currentDefinitionGroupsBeforeAccept =
-        groupOpenJobs(currentOpenJobsBeforeAccept);
-    final liveDefinitionBeforeAccept = currentDefinitionGroupsBeforeAccept.firstWhere(
-        (dg) => dg.definitionId == widget.definition.definitionId,
-        orElse: () => widget.definition // Fallback, though should ideally always find it
+    final currentDefinitionGroupsBeforeAccept = groupOpenJobs(
+      currentOpenJobsBeforeAccept,
+    );
+    final liveDefinitionBeforeAccept = currentDefinitionGroupsBeforeAccept
+        .firstWhere(
+          (dg) => dg.definitionId == widget.definition.definitionId,
+          orElse: () => widget
+              .definition, // Fallback, though should ideally always find it
         );
-    final bool wasLastInstanceInGroup = liveDefinitionBeforeAccept.instances.length == 1 &&
+    final bool wasLastInstanceInGroup =
+        liveDefinitionBeforeAccept.instances.length == 1 &&
         liveDefinitionBeforeAccept.instances.first.instanceId ==
             _selectedInstance!.instanceId;
     // ---
 
     setState(() => _isAccepting = true);
-    logger.d('User initiated accept for instance: ${_selectedInstance!.instanceId}');
+    logger.d(
+      'User initiated accept for instance: ${_selectedInstance!.instanceId}',
+    );
 
     // The notifier now returns a boolean. The GlobalErrorListener handles failure snackbars.
     final bool wasSuccess = await ref
@@ -96,23 +103,31 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     }
 
     if (wasSuccess) {
-      logger.i('Instance ${_selectedInstance!.instanceId} accepted successfully via notifier.');
-      
+      logger.i(
+        'Instance ${_selectedInstance!.instanceId} accepted successfully via notifier.',
+      );
+
       // We are still mounted, so we can use captured context objects.
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(appLocalizations
-              .jobAcceptSheetSnackBarAccepted(_selectedInstance!.property.propertyName)),
+      showAppSnackBar(
+        context,
+        Text(
+          appLocalizations.jobAcceptSheetSnackBarAccepted(
+            _selectedInstance!.property.propertyName,
+          ),
         ),
       );
 
       // Check state *after* acceptance
-      final currentOpenJobsAfterAccept = ref.read(jobsNotifierProvider).openJobs;
-      final currentDefinitionGroupsAfterAccept =
-          groupOpenJobs(currentOpenJobsAfterAccept);
+      final currentOpenJobsAfterAccept = ref
+          .read(jobsNotifierProvider)
+          .openJobs;
+      final currentDefinitionGroupsAfterAccept = groupOpenJobs(
+        currentOpenJobsAfterAccept,
+      );
 
-      final definitionGroupStillExists = currentDefinitionGroupsAfterAccept
-          .any((group) => group.definitionId == widget.definition.definitionId);
+      final definitionGroupStillExists = currentDefinitionGroupsAfterAccept.any(
+        (group) => group.definitionId == widget.definition.definitionId,
+      );
 
       bool shouldCloseSheet = false;
       if (wasLastInstanceInGroup) {
@@ -122,7 +137,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
         } else {
           // Check if the group still exists but its instances list is now empty
           final updatedGroup = currentDefinitionGroupsAfterAccept.firstWhere(
-              (group) => group.definitionId == widget.definition.definitionId);
+            (group) => group.definitionId == widget.definition.definitionId,
+          );
           if (updatedGroup.instances.isEmpty) {
             shouldCloseSheet = true;
           }
@@ -134,19 +150,22 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
         navigator.pop();
       } else {
         // If the group still exists but the specific accepted instance is gone, clear selection
-        final liveDefinitionAfterAccept = currentDefinitionGroupsAfterAccept.firstWhere(
-            (dg) => dg.definitionId == widget.definition.definitionId,
-            orElse: () => DefinitionGroup(
+        final liveDefinitionAfterAccept = currentDefinitionGroupsAfterAccept
+            .firstWhere(
+              (dg) => dg.definitionId == widget.definition.definitionId,
+              orElse: () => DefinitionGroup(
                 definitionId: '',
                 propertyName: '',
                 propertyAddress: '',
                 distanceMiles: 0,
                 pay: 0,
                 transportMode: TransportMode.walk,
-                instances: []) // Dummy if group disappeared unexpectedly
+                instances: [],
+              ), // Dummy if group disappeared unexpectedly
             );
-        if (!liveDefinitionAfterAccept.instances
-            .any((inst) => inst.instanceId == _selectedInstance?.instanceId)) {
+        if (!liveDefinitionAfterAccept.instances.any(
+          (inst) => inst.instanceId == _selectedInstance?.instanceId,
+        )) {
           setState(() {
             _selectedInstance = null;
           });
@@ -164,27 +183,32 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     final appLocalizations = AppLocalizations.of(context);
     final mediaQueryPadding = MediaQuery.of(context).padding;
 
-    final currentOpenJobs = ref.watch(jobsNotifierProvider.select((s) => s.openJobs));
+    final currentOpenJobs = ref.watch(
+      jobsNotifierProvider.select((s) => s.openJobs),
+    );
     final currentDefinitionGroups = groupOpenJobs(currentOpenJobs);
     final liveDefinition = currentDefinitionGroups.firstWhere(
-        (dg) => dg.definitionId == widget.definition.definitionId,
-        orElse: () => widget.definition 
+      (dg) => dg.definitionId == widget.definition.definitionId,
+      orElse: () => widget.definition,
     );
 
-    final isCarouselDateActuallySelected = _selectedInstance != null && 
-                                          liveDefinition.instances.any((inst) => 
-                                            inst.instanceId == _selectedInstance!.instanceId &&
-                                            _isSameDate(parseYmd(inst.serviceDate), _carouselInitialDate)
-                                          );
-    
+    final isCarouselDateActuallySelected =
+        _selectedInstance != null &&
+        liveDefinition.instances.any(
+          (inst) =>
+              inst.instanceId == _selectedInstance!.instanceId &&
+              _isSameDate(parseYmd(inst.serviceDate), _carouselInitialDate),
+        );
+
     // Determine dates for carousel.
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.add(const Duration(days: -1));
 
     // Check if any job in this definition group is for yesterday.
-    final bool hasJobYesterday = liveDefinition.instances
-        .any((inst) => _isSameDate(parseYmd(inst.serviceDate), yesterday));
+    final bool hasJobYesterday = liveDefinition.instances.any(
+      (inst) => _isSameDate(parseYmd(inst.serviceDate), yesterday),
+    );
 
     // The carousel starts from yesterday if there's a job on that day, otherwise today.
     final DateTime carouselStartDate = hasJobYesterday ? yesterday : today;
@@ -205,14 +229,13 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
 
     // Calculate total days from the dynamic start date to the calculated end date.
     final dayCount = carouselEndDate.difference(carouselStartDate).inDays + 1;
-    final carouselDates =
-        List.generate(dayCount, (i) => carouselStartDate.add(Duration(days: i)));
-
+    final carouselDates = List.generate(
+      dayCount,
+      (i) => carouselStartDate.add(Duration(days: i)),
+    );
 
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: screenHeight * 0.9, 
-      ),
+      constraints: BoxConstraints(maxHeight: screenHeight * 0.9),
       child: Container(
         decoration: BoxDecoration(
           color: cardColor,
@@ -226,7 +249,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // This is key: column shrinks to fit children
+          mainAxisSize:
+              MainAxisSize.min, // This is key: column shrinks to fit children
           children: [
             // Header / Drag Handle
             Padding(
@@ -241,7 +265,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // This flexible + scroll view holds all content EXCEPT the bottom button.
             // It will only scroll if the content inside exceeds the space given to it
             // by the parent Column, which is constrained by the ConstrainedBox.
@@ -258,53 +282,71 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                         color: cardColor,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 16),
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(liveDefinition.propertyName,
-                                  style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold)),
+                              Text(
+                                liveDefinition.propertyName,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               const SizedBox(height: 4),
-                              Text(liveDefinition.propertyAddress,
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.grey.shade700)),
+                              Text(
+                                liveDefinition.propertyAddress,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
                               const Divider(height: 24),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
                                 children: [
                                   Expanded(
-                                      child: _statTile(
-                                          icon: Icons.attach_money,
-                                          label: appLocalizations
-                                              .jobAcceptSheetHeaderAvgPay,
-                                          value:
-                                              '${liveDefinition.pay.toStringAsFixed(0)} USD')),
+                                    child: _statTile(
+                                      icon: Icons.attach_money,
+                                      label: appLocalizations
+                                          .jobAcceptSheetHeaderAvgPay,
+                                      value:
+                                          '${liveDefinition.pay.toStringAsFixed(0)} USD',
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: _statTile(
-                                          icon: Icons.timer_outlined,
-                                          label: appLocalizations
-                                              .jobAcceptSheetHeaderAvgTime,
-                                          value: liveDefinition.displayAvgTime)),
+                                    child: _statTile(
+                                      icon: Icons.timer_outlined,
+                                      label: appLocalizations
+                                          .jobAcceptSheetHeaderAvgTime,
+                                      value: liveDefinition.displayAvgTime,
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: _statTile(
-                                          icon: Icons.directions_car_outlined,
-                                          label: appLocalizations
-                                              .jobAcceptSheetHeaderDriveTime,
-                                          value: liveDefinition.displayAvgTravelTime,
-                                  )),
+                                    child: _statTile(
+                                      icon: Icons.directions_car_outlined,
+                                      label: appLocalizations
+                                          .jobAcceptSheetHeaderDriveTime,
+                                      value:
+                                          liveDefinition.displayAvgTravelTime,
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: _statTile(
-                                          icon: Icons.location_on_outlined,
-                                          label: appLocalizations
-                                              .jobAcceptSheetHeaderDistance,
-                                          value:
-                                              '${liveDefinition.distanceMiles.toStringAsFixed(1)} mi')),
+                                    child: _statTile(
+                                      icon: Icons.location_on_outlined,
+                                      label: appLocalizations
+                                          .jobAcceptSheetHeaderDistance,
+                                      value:
+                                          '${liveDefinition.distanceMiles.toStringAsFixed(1)} mi',
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
@@ -319,30 +361,42 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                             : DateTime(0),
                         onDateSelected: _handleDateSelected,
                         isDayEnabled: (day) => liveDefinition.instances.any(
-                            (inst) =>
-                                _isSameDate(parseYmd(inst.serviceDate), day)),
+                          (inst) =>
+                              _isSameDate(parseYmd(inst.serviceDate), day),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 200),
                         transitionBuilder:
                             (Widget child, Animation<double> animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          );
-                        },
-                        child: (_selectedInstance == null || !liveDefinition.instances.any((i) => i.instanceId == _selectedInstance!.instanceId))
+                              return FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              );
+                            },
+                        child:
+                            (_selectedInstance == null ||
+                                !liveDefinition.instances.any(
+                                  (i) =>
+                                      i.instanceId ==
+                                      _selectedInstance!.instanceId,
+                                ))
                             ? Container(
                                 key: const ValueKey(
-                                    'no_instance_selected_or_accepted'),
+                                  'no_instance_selected_or_accepted',
+                                ),
                                 alignment: Alignment.center,
-                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 20,
+                                ),
                                 child: Text(
-                                  appLocalizations.jobAcceptSheetSelectDayPrompt,
+                                  appLocalizations
+                                      .jobAcceptSheetSelectDayPrompt,
                                   style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 15),
+                                    color: Colors.grey.shade600,
+                                    fontSize: 15,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               )
@@ -357,19 +411,25 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                 ),
               ),
             ),
-            
+
             // Sticky button at the bottom
             Padding(
               padding: EdgeInsets.fromLTRB(
-                16, 
-                8,  
-                16, 
-                mediaQueryPadding.bottom + 16.0 
-              ), 
+                16,
+                8,
+                16,
+                mediaQueryPadding.bottom + 16.0,
+              ),
               child: WelcomeButton(
-                text: _isAccepting ? appLocalizations.jobAcceptSheetAcceptingButton : appLocalizations.jobAcceptSheetAcceptButton,
+                text: _isAccepting
+                    ? appLocalizations.jobAcceptSheetAcceptingButton
+                    : appLocalizations.jobAcceptSheetAcceptButton,
                 isLoading: _isAccepting,
-                onPressed: (_selectedInstance == null || !liveDefinition.instances.any((i) => i.instanceId == _selectedInstance!.instanceId))
+                onPressed:
+                    (_selectedInstance == null ||
+                        !liveDefinition.instances.any(
+                          (i) => i.instanceId == _selectedInstance!.instanceId,
+                        ))
                     ? null
                     : _acceptSelectedInstance,
               ),
@@ -380,20 +440,24 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     );
   }
 
-  Widget _statTile(
-      {IconData? icon, required String label, required String value}) {
+  Widget _statTile({
+    IconData? icon,
+    required String label,
+    required String value,
+  }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (icon != null) 
+        if (icon != null)
           Icon(icon, size: 26, color: Colors.black87.withAlpha(178))
-        else 
-          const SizedBox(height: 26, width: 26), 
+        else
+          const SizedBox(height: 26, width: 26),
         const SizedBox(height: 4),
-        Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            textAlign: TextAlign.center, 
-            ),
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 2),
         Text(value, style: const TextStyle(fontSize: 13)),
       ],
@@ -416,7 +480,8 @@ class _InstanceDetails extends StatelessWidget {
     final payLabel = appLocalizations.jobAcceptSheetHeaderAvgPay;
     final estTimeLabel = appLocalizations.jobAcceptSheetHeaderAvgTime;
     final driveTimeLabel = appLocalizations.jobAcceptSheetHeaderDriveTime;
-    final recommendedStartLabel = appLocalizations.jobAcceptSheetRecommendedStart;
+    final recommendedStartLabel =
+        appLocalizations.jobAcceptSheetRecommendedStart;
     final serviceWindowLabel = appLocalizations.jobAcceptSheetServiceWindow;
     final buildingsLabel = appLocalizations.jobAcceptSheetBuildings;
     final floorsLabel = appLocalizations.jobAcceptSheetFloors;
@@ -437,26 +502,29 @@ class _InstanceDetails extends StatelessWidget {
               children: [
                 Expanded(
                   child: _detailItem(
-                      icon: Icons.attach_money,
-                      text: '${instance.pay.toStringAsFixed(0)} USD',
-                      color: Colors.green,
-                      label: payLabel),
+                    icon: Icons.attach_money,
+                    text: '${instance.pay.toStringAsFixed(0)} USD',
+                    color: Colors.green,
+                    label: payLabel,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _detailItem(
-                      icon: Icons.timer_outlined,
-                      text: instance.displayTime,
-                      color: Colors.black87,
-                      label: estTimeLabel),
+                    icon: Icons.timer_outlined,
+                    text: instance.displayTime,
+                    color: Colors.black87,
+                    label: estTimeLabel,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _detailItem(
-                      icon: Icons.directions_car_outlined,
-                      text: instance.displayTravelTime,
-                      color: Colors.black87,
-                      label: driveTimeLabel),
+                    icon: Icons.directions_car_outlined,
+                    text: instance.displayTravelTime,
+                    color: Colors.black87,
+                    label: driveTimeLabel,
+                  ),
                 ),
               ],
             ),
@@ -489,11 +557,12 @@ class _InstanceDetails extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _detailItem(
-                      icon: Icons.apartment_outlined,
-                      text:
-                          '${instance.numberOfBuildings} bldg${instance.numberOfBuildings == 1 ? "" : "s"}',
-                      color: Colors.black87,
-                      label: buildingsLabel),
+                    icon: Icons.apartment_outlined,
+                    text:
+                        '${instance.numberOfBuildings} bldg${instance.numberOfBuildings == 1 ? "" : "s"}',
+                    color: Colors.black87,
+                    label: buildingsLabel,
+                  ),
                 ),
               ],
             ),
@@ -503,34 +572,37 @@ class _InstanceDetails extends StatelessWidget {
               children: [
                 Expanded(
                   child: _detailItem(
-                      icon: Icons.stairs_outlined,
-                      text: instance.floorsLabel,
-                      color: Colors.black87,
-                      label: floorsLabel),
+                    icon: Icons.stairs_outlined,
+                    text: instance.floorsLabel,
+                    color: Colors.black87,
+                    label: floorsLabel,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _detailItem(
-                      icon: Icons.home_outlined,
-                      text: instance.totalUnitsLabel,
-                      color: Colors.black87,
-                      label: unitsLabel),
+                    icon: Icons.home_outlined,
+                    text: instance.totalUnitsLabel,
+                    color: Colors.black87,
+                    label: unitsLabel,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 const Expanded(child: SizedBox()),
               ],
-            )
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _detailItem(
-      {IconData? icon,
-      required String text,
-      required Color color,
-      required String label}) {
+  Widget _detailItem({
+    IconData? icon,
+    required String text,
+    required Color color,
+    required String label,
+  }) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -538,9 +610,10 @@ class _InstanceDetails extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w500),
+            fontSize: 11,
+            color: Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
+          ),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -553,7 +626,11 @@ class _InstanceDetails extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           text,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -586,14 +663,23 @@ class _TimeInfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formattedWorkerStart = formatTime(context, workerTime);
-    final formattedWorkerEnd = workerEndTime != null ? formatTime(context, workerEndTime!) : null;
-    final workerDisplay = formattedWorkerEnd != null ? '$formattedWorkerStart - $formattedWorkerEnd' : formattedWorkerStart;
+    final formattedWorkerEnd = workerEndTime != null
+        ? formatTime(context, workerEndTime!)
+        : null;
+    final workerDisplay = formattedWorkerEnd != null
+        ? '$formattedWorkerStart - $formattedWorkerEnd'
+        : formattedWorkerStart;
 
     final formattedPropertyStart = formatTime(context, propertyTime);
-    final formattedPropertyEnd = propertyEndTime != null ? formatTime(context, propertyEndTime!) : null;
-    final propertyDisplay = formattedPropertyEnd != null ? '$formattedPropertyStart - $formattedPropertyEnd' : formattedPropertyStart;
+    final formattedPropertyEnd = propertyEndTime != null
+        ? formatTime(context, propertyEndTime!)
+        : null;
+    final propertyDisplay = formattedPropertyEnd != null
+        ? '$formattedPropertyStart - $formattedPropertyEnd'
+        : formattedPropertyStart;
 
-    final showPropertyTime = propertyTime.isNotEmpty && workerDisplay != propertyDisplay;
+    final showPropertyTime =
+        propertyTime.isNotEmpty && workerDisplay != propertyDisplay;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
@@ -601,7 +687,11 @@ class _TimeInfoTile extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
+          ),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -611,7 +701,11 @@ class _TimeInfoTile extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           workerDisplay,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -623,7 +717,7 @@ class _TimeInfoTile extends StatelessWidget {
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             textAlign: TextAlign.center,
           ),
-        ]
+        ],
       ],
     );
   }
@@ -632,7 +726,10 @@ class _TimeInfoTile extends StatelessWidget {
 DateTime parseYmd(String ymd) {
   final parts = ymd.split('-');
   return DateTime(
-      int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    int.parse(parts[0]),
+    int.parse(parts[1]),
+    int.parse(parts[2]),
+  );
 }
 
 bool _isSameDate(DateTime a, DateTime b) =>

@@ -7,6 +7,7 @@ import 'package:poof_worker/features/account/utils/stripe_utils.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 /// A page that briefly informs the user that they did NOT finish Stripe Connect
 /// and that we will automatically re-launch the connect flow now.
@@ -35,7 +36,6 @@ class _StripeConnectNotCompletePageState
 
     // Capture the context-dependent objects BEFORE the async gap.
     final router = GoRouter.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final BuildContext capturedContext = context;
     final repo = ref.read(workerAccountRepositoryProvider);
 
@@ -48,23 +48,26 @@ class _StripeConnectNotCompletePageState
       final success = await startStripeConnectFlow(router: router, repo: repo);
       if (!success) {
         if (!capturedContext.mounted) return;
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-              content: Text(AppLocalizations.of(capturedContext)
-                  .urlLauncherCannotLaunch)),
+        showAppSnackBar(
+          capturedContext,
+          Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch),
         );
       }
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(AppLocalizations.of(capturedContext)
-                .loginUnexpectedError(e.toString()))),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).loginUnexpectedError(e.toString()),
+        ),
       );
     }
   }
@@ -87,18 +90,19 @@ class _StripeConnectNotCompletePageState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.sync_problem_outlined,
-                    size: 80,
-                    color: Colors.orange.shade700,
-                  )
+                        Icons.sync_problem_outlined,
+                        size: 80,
+                        color: Colors.orange.shade700,
+                      )
                       .animate()
                       .fadeIn(duration: 400.ms)
                       .scale(delay: 200.ms, curve: Curves.easeOutBack),
                   const SizedBox(height: 24),
                   Text(
                     appLocalizations.stripeConnectNotCompletePageTitle,
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -120,4 +124,3 @@ class _StripeConnectNotCompletePageState
     );
   }
 }
-

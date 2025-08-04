@@ -8,14 +8,12 @@ import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/job_map_page.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/job_in_progress_page.dart'; // Import the page
 import 'info_widgets.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 class AcceptedJobDetailsSheet extends ConsumerStatefulWidget {
   final JobInstance job;
 
-  const AcceptedJobDetailsSheet({
-    super.key,
-    required this.job,
-  });
+  const AcceptedJobDetailsSheet({super.key, required this.job});
 
   // ─── Manual static caches ────────────────────────────────────────────
   static final mapPages = <String, JobMapPage>{};
@@ -165,7 +163,7 @@ class _AcceptedJobDetailsSheetState
         dialogContent = appLocalizations.unacceptJobLowImpactBody;
       }
     }
-    
+
     if (!proceed) {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -250,9 +248,7 @@ class _AcceptedJobDetailsSheetState
       }
 
       final completer = Completer<void>();
-      final entry = OverlayEntry(
-        builder: (_) => Offstage(child: pageToPush),
-      );
+      final entry = OverlayEntry(builder: (_) => Offstage(child: pageToPush));
       Overlay.of(context).insert(entry);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -294,11 +290,10 @@ class _AcceptedJobDetailsSheetState
         canPop: !_isProcessing,
         onPopInvokedWithResult: (didPop, result) {
           if (!didPop && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Please wait for the operation to complete."),
-                duration: Duration(seconds: 2),
-              ),
+            showAppSnackBar(
+              context,
+              const Text("Please wait for the operation to complete."),
+              displayDuration: const Duration(seconds: 2),
             );
           }
         },
@@ -309,8 +304,12 @@ class _AcceptedJobDetailsSheetState
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Padding(
-            padding:
-                EdgeInsets.fromLTRB(24, 0, 24, mediaQueryPadding.bottom + 16),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              0,
+              24,
+              mediaQueryPadding.bottom + 16,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -326,7 +325,9 @@ class _AcceptedJobDetailsSheetState
                 Text(
                   widget.job.property.propertyName,
                   style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.bold),
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -362,25 +363,35 @@ class _AcceptedJobDetailsSheetState
                 TextButton.icon(
                   onPressed: () => setState(() => _isExpanded = !_isExpanded),
                   icon: Icon(
-                      _isExpanded ? Icons.expand_less : Icons.expand_more,
-                      size: 28),
-                  label: Text(_isExpanded
-                      ? appLocalizations.acceptedJobsBottomSheetHideDetails
-                      : appLocalizations.acceptedJobsBottomSheetViewDetails),
-                  style: TextButton.styleFrom(
-                    foregroundColor: theme.primaryColor,
-                    textStyle: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15),
-                    splashFactory: NoSplash.splashFactory,
-                  ).copyWith(
-                    overlayColor: WidgetStateProperty.all(Colors.transparent),
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 28,
                   ),
+                  label: Text(
+                    _isExpanded
+                        ? appLocalizations.acceptedJobsBottomSheetHideDetails
+                        : appLocalizations.acceptedJobsBottomSheetViewDetails,
+                  ),
+                  style:
+                      TextButton.styleFrom(
+                        foregroundColor: theme.primaryColor,
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                        splashFactory: NoSplash.splashFactory,
+                      ).copyWith(
+                        overlayColor: WidgetStateProperty.all(
+                          Colors.transparent,
+                        ),
+                      ),
                 ),
                 AnimatedCrossFade(
-                  firstChild:
-                      const SizedBox(width: double.infinity, height: 0),
-                  secondChild:
-                      _buildExpandedDetails(context, appLocalizations, theme),
+                  firstChild: const SizedBox(width: double.infinity, height: 0),
+                  secondChild: _buildExpandedDetails(
+                    context,
+                    appLocalizations,
+                    theme,
+                  ),
                   crossFadeState: _isExpanded
                       ? CrossFadeState.showSecond
                       : CrossFadeState.showFirst,
@@ -396,13 +407,20 @@ class _AcceptedJobDetailsSheetState
     );
   }
 
-  Widget _buildExpandedDetails(BuildContext context,
-      AppLocalizations appLocalizations, ThemeData theme) {
+  Widget _buildExpandedDetails(
+    BuildContext context,
+    AppLocalizations appLocalizations,
+    ThemeData theme,
+  ) {
     final formattedStartTime = formatTime(context, widget.job.startTimeHint);
-    final formattedWindowStart =
-        formatTime(context, widget.job.workerServiceWindowStart);
-    final formattedWindowEnd =
-        formatTime(context, widget.job.workerServiceWindowEnd);
+    final formattedWindowStart = formatTime(
+      context,
+      widget.job.workerServiceWindowStart,
+    );
+    final formattedWindowEnd = formatTime(
+      context,
+      widget.job.workerServiceWindowEnd,
+    );
 
     return Column(
       children: [
@@ -440,9 +458,11 @@ class _AcceptedJobDetailsSheetState
           child: OutlinedButton.icon(
             onPressed: _isWarming ? null : _handleViewJobMap,
             icon: const Icon(Icons.map_outlined),
-            label: Text(_isWarming
-                ? 'Preparing map…'
-                : appLocalizations.acceptedJobsBottomSheetViewJobMap),
+            label: Text(
+              _isWarming
+                  ? 'Preparing map…'
+                  : appLocalizations.acceptedJobsBottomSheetViewJobMap,
+            ),
             style: OutlinedButton.styleFrom(
               foregroundColor: theme.primaryColor,
               side: BorderSide(color: theme.primaryColor.withAlpha(127)),
@@ -476,7 +496,10 @@ class _AcceptedJobDetailsSheetState
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Icon(Icons.play_arrow),
             label: Text(appLocalizations.acceptedJobsBottomSheetStartJobButton),
           ),
@@ -499,7 +522,10 @@ class _AcceptedJobDetailsSheetState
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.black54))
+                      strokeWidth: 2,
+                      color: Colors.black54,
+                    ),
+                  )
                 : const Icon(Icons.delete_outline),
             label: Text(
               _isUnaccepting
@@ -512,34 +538,45 @@ class _AcceptedJobDetailsSheetState
     );
   }
 
-  Widget _infoItem(
-      {required IconData icon, required String label, required String value}) {
+  Widget _infoItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Column(
       children: [
         Icon(icon, size: 28, color: Colors.black87),
         const SizedBox(height: 4),
-        Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
         const SizedBox(height: 2),
         Text(value, style: const TextStyle(fontSize: 14)),
       ],
     );
   }
 
-  Widget _detailRow(
-      {required IconData icon, required String label, required String value}) {
+  Widget _detailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
           Icon(icon, color: Colors.grey.shade600, size: 20),
           const SizedBox(width: 16),
-          Text(label,
-              style:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          ),
           const Spacer(),
-          Text(value,
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade800)),
+          Text(
+            value,
+            style: TextStyle(fontSize: 15, color: Colors.grey.shade800),
+          ),
         ],
       ),
     );
@@ -564,8 +601,11 @@ class CachedMapPopupRoute extends PopupRoute<void> {
   @override
   Duration get reverseTransitionDuration => const Duration(milliseconds: 250);
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     // MODIFIED: Wrap the map page in a Stack to add our own back button.
     return Material(
       type: MaterialType.transparency,
@@ -573,7 +613,7 @@ class CachedMapPopupRoute extends PopupRoute<void> {
         children: [
           ValueListenableBuilder<bool>(
             valueListenable: _inRoute,
-            builder: (_, show,_) => show ? mapPage : const SizedBox.shrink(),
+            builder: (_, show, _) => show ? mapPage : const SizedBox.shrink(),
           ),
           SafeArea(
             child: Align(
@@ -596,8 +636,12 @@ class CachedMapPopupRoute extends PopupRoute<void> {
   }
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     animation.addStatusListener((status) {
       if (status == AnimationStatus.dismissed && !_reparented) {
         _inRoute.value = false;
@@ -611,9 +655,10 @@ class CachedMapPopupRoute extends PopupRoute<void> {
       }
     });
     final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic);
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
     final tween = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero);
     return SlideTransition(position: tween.animate(curved), child: child);
   }
@@ -659,9 +704,6 @@ class JobInProgressSlideRoute extends PopupRoute<void> {
       reverseCurve: Curves.easeInCubic,
     );
     final tween = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero);
-    return SlideTransition(
-      position: tween.animate(curved),
-      child: child,
-    );
+    return SlideTransition(position: tween.animate(curved), child: child);
   }
 }
