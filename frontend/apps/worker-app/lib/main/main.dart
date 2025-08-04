@@ -201,11 +201,11 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       }
 
       final inProgressJob = ref.read(jobsNotifierProvider).inProgressJob;
+      await _determineInitialCameraPositionAndPermission();
       if (inProgressJob != null) {
         _router.goNamed(AppRouteNames.jobInProgressPage, extra: inProgressJob);
       } else {
         await initAppLinks(ref, _router);
-        await _determineInitialCameraPositionAndPermission();
       }
 
       if (!_welcomeVideoController.value.isInitialized) {

@@ -36,6 +36,9 @@ class _AcceptedJobDetailsSheetState
   bool _isWarming = false;
   bool _isStartingJob = false;
 
+  /// A getter to simplify checking if any async operation is in progress.
+  bool get _isProcessing => _isStartingJob || _isUnaccepting;
+
   @override
   void initState() {
     super.initState();
@@ -281,87 +284,113 @@ class _AcceptedJobDetailsSheetState
     final theme = Theme.of(context);
     final mediaQueryPadding = MediaQuery.of(context).padding;
 
-    return Container(
-      padding: const EdgeInsets.only(top: 12.0),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, mediaQueryPadding.bottom + 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 50,
-              height: 5,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(4),
+    return GestureDetector(
+      // Conditionally capture vertical drags to prevent sheet dismissal while processing.
+      onVerticalDragStart: _isProcessing ? (_) {} : null,
+      onVerticalDragUpdate: _isProcessing ? (_) {} : null,
+      onVerticalDragEnd: _isProcessing ? (_) {} : null,
+      child: PopScope(
+        // Prevent dismissal via back button/gesture while processing.
+        canPop: !_isProcessing,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Please wait for the operation to complete."),
+                duration: Duration(seconds: 2),
               ),
-            ),
-            Text(
-              widget.job.property.propertyName,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.job.property.address,
-              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-              textAlign: TextAlign.center,
-            ),
-            const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            );
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.only(top: 12.0),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Padding(
+            padding:
+                EdgeInsets.fromLTRB(24, 0, 24, mediaQueryPadding.bottom + 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _infoItem(
-                  icon: Icons.attach_money,
-                  label: appLocalizations.acceptedJobsBottomSheetPayLabel,
-                  value: '\$${widget.job.pay.toStringAsFixed(0)}',
+                Container(
+                  width: 50,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-                _infoItem(
-                  icon: Icons.location_on,
-                  label: appLocalizations.acceptedJobsBottomSheetDistanceLabel,
-                  value: widget.job.distanceLabel,
+                Text(
+                  widget.job.property.propertyName,
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
                 ),
-                _infoItem(
-                  icon: Icons.timer,
-                  label: appLocalizations.acceptedJobsBottomSheetEstTimeLabel,
-                  value: widget.job.displayTime,
+                const SizedBox(height: 8),
+                Text(
+                  widget.job.property.address,
+                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                  textAlign: TextAlign.center,
                 ),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _infoItem(
+                      icon: Icons.attach_money,
+                      label: appLocalizations.acceptedJobsBottomSheetPayLabel,
+                      value: '\$${widget.job.pay.toStringAsFixed(0)}',
+                    ),
+                    _infoItem(
+                      icon: Icons.location_on,
+                      label:
+                          appLocalizations.acceptedJobsBottomSheetDistanceLabel,
+                      value: widget.job.distanceLabel,
+                    ),
+                    _infoItem(
+                      icon: Icons.timer,
+                      label:
+                          appLocalizations.acceptedJobsBottomSheetEstTimeLabel,
+                      value: widget.job.displayTime,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => setState(() => _isExpanded = !_isExpanded),
+                  icon: Icon(
+                      _isExpanded ? Icons.expand_less : Icons.expand_more,
+                      size: 28),
+                  label: Text(_isExpanded
+                      ? appLocalizations.acceptedJobsBottomSheetHideDetails
+                      : appLocalizations.acceptedJobsBottomSheetViewDetails),
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.primaryColor,
+                    textStyle: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
+                    splashFactory: NoSplash.splashFactory,
+                  ).copyWith(
+                    overlayColor: WidgetStateProperty.all(Colors.transparent),
+                  ),
+                ),
+                AnimatedCrossFade(
+                  firstChild:
+                      const SizedBox(width: double.infinity, height: 0),
+                  secondChild:
+                      _buildExpandedDetails(context, appLocalizations, theme),
+                  crossFadeState: _isExpanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 200),
+                ),
+                const SizedBox(height: 12),
+                _buildActionButtons(appLocalizations),
               ],
             ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => setState(() => _isExpanded = !_isExpanded),
-              icon: Icon(_isExpanded ? Icons.expand_less : Icons.expand_more,
-                  size: 28),
-              label: Text(_isExpanded
-                  ? appLocalizations.acceptedJobsBottomSheetHideDetails
-                  : appLocalizations.acceptedJobsBottomSheetViewDetails),
-              style: TextButton.styleFrom(
-                foregroundColor: theme.primaryColor,
-                textStyle:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                splashFactory: NoSplash.splashFactory,
-              ).copyWith(
-                overlayColor: WidgetStateProperty.all(Colors.transparent),
-              ),
-            ),
-            AnimatedCrossFade(
-              firstChild: const SizedBox(width: double.infinity, height: 0),
-              secondChild:
-                  _buildExpandedDetails(context, appLocalizations, theme),
-              crossFadeState: _isExpanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 200),
-            ),
-            const SizedBox(height: 12),
-            _buildActionButtons(appLocalizations),
-          ],
+          ),
         ),
       ),
     );
@@ -433,7 +462,7 @@ class _AcceptedJobDetailsSheetState
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: _isStartingJob ? null : _handleStartJob,
+            onPressed: _isProcessing ? null : _handleStartJob,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.black87,
               foregroundColor: Colors.white,
@@ -455,7 +484,7 @@ class _AcceptedJobDetailsSheetState
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: _isUnaccepting ? null : _handleUnaccept,
+            onPressed: _isProcessing ? null : _handleUnaccept,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.grey.shade200,
               foregroundColor: Colors.black87,
