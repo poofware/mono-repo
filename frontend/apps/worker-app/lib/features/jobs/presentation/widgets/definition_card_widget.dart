@@ -56,6 +56,8 @@ class DefinitionCard extends StatelessWidget {
           },
         );
       },
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
       child: Card(
         color: color,
         elevation: 5,

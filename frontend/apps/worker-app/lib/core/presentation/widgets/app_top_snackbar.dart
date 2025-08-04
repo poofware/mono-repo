@@ -35,13 +35,13 @@ void showAppSnackBar(
     displayDuration: displayDuration,
     animationDuration: const Duration(milliseconds: 800),
     reverseAnimationDuration: const Duration(milliseconds: 400),
-    curve: Curves.elasticOut,            // playful bounce-in
-    dismissType: DismissType.onTap,      // tap anywhere to dismiss
+    curve: Curves.elasticOut, // playful bounce-in
+    dismissType: DismissType.onTap, // tap anywhere to dismiss
     onTap: onTap,
     // ── layout adjustments ─────────────────────────────────────────────
     padding: const EdgeInsets.symmetric(
       horizontal: 12,
-      vertical: 8,                       // slimmer than default SnackBar
+      vertical: 8, // slimmer than default SnackBar
     ),
   );
 }
@@ -64,13 +64,14 @@ class _AppSnackBar extends StatelessWidget {
     final theme = Theme.of(context).snackBarTheme;
 
     return SafeArea(
-      top: true,                      // keeps clear of the notch/status bar
+      top: true, // keeps clear of the notch/status bar
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Material(
           color: theme.backgroundColor ?? Colors.grey[800],
           elevation: theme.elevation ?? 4,
-          shape: theme.shape ??
+          shape:
+              theme.shape ??
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -78,10 +79,15 @@ class _AppSnackBar extends StatelessWidget {
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    vertical: 10,      // tighter vertical space
+                    vertical: 10, // tighter vertical space
                     horizontal: 16,
                   ),
-                  child: content,      // whatever widget you pass in
+                  child: DefaultTextStyle(
+                    style:
+                        theme.contentTextStyle ??
+                        const TextStyle(color: Colors.white70),
+                    child: content,
+                  ),
                 ),
               ),
               if (onAction != null)
