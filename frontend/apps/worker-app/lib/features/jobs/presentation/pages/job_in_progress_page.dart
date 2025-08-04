@@ -36,7 +36,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   Duration _elapsedTime = Duration.zero;
 
   bool _isTakingPhoto = false;
-  String? _verifyingUnitId;
+  final Set<String> _verifyingUnitIds = {};
 
   static const int _bagLimit = 8;
 
@@ -114,8 +114,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                     final subject = Uri.encodeComponent(
                       l10n.emailSubjectGeneralHelp,
                     );
-                    launchUrl(
-                        Uri.parse('mailto:$supportEmail?subject=$subject'));
+                    launchUrl(Uri.parse('mailto:$supportEmail?subject=$subject'));
                   },
                 ),
               ],
@@ -148,15 +147,28 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
 
     if (confirmed != true) return;
+    if (!context.mounted) return;
+    showDialog<void>(
+      context: context, // ignore: use_build_context_synchronously
+      barrierDismissible: false,
+      builder: (_) => const _CancelingDialogWidget(),
+    );
 
     final wasSuccess = await ref
         .read(jobsNotifierProvider.notifier)
         .cancelJob(widget.job.instanceId);
-    if (mounted && wasSuccess) {
-      if (context.canPop()) {
-        context.pop();
+
+    if (!context.mounted) return;
+    final navigator =
+        Navigator.of(context); // ignore: use_build_context_synchronously
+    final router =
+        GoRouter.of(context); // ignore: use_build_context_synchronously
+    navigator.pop(); // close the loading dialog
+    if (wasSuccess) {
+      if (navigator.canPop()) {
+        navigator.pop();
       } else {
-        context.goNamed(AppRouteNames.mainTab);
+        router.goNamed(AppRouteNames.mainTab);
       }
     }
   }
@@ -176,7 +188,6 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     if (_isTakingPhoto) return;
     setState(() {
       _isTakingPhoto = true;
-      _verifyingUnitId = unit.unitId;
     });
 
     final picker = ImagePicker();
@@ -185,7 +196,6 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       if (!mounted || photo == null) {
         setState(() {
           _isTakingPhoto = false;
-          _verifyingUnitId = null;
         });
         return;
       }
@@ -223,17 +233,28 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
       if (confirmed == true) {
         await ensureLocationGranted();
-        await ref.read(jobsNotifierProvider.notifier).verifyUnitPhoto(
-              unit.unitId,
-              photo,
-              missingTrashCan: missingTrashCan,
-            );
+        setState(() {
+          _verifyingUnitIds.add(unit.unitId);
+        });
+        unawaited(
+          ref.read(jobsNotifierProvider.notifier).verifyUnitPhoto(
+                unit.unitId,
+                photo,
+                missingTrashCan: missingTrashCan,
+              )
+              .whenComplete(() {
+            if (mounted) {
+              setState(() {
+                _verifyingUnitIds.remove(unit.unitId);
+              });
+            }
+          }),
+        );
       }
     } finally {
       if (mounted) {
         setState(() {
           _isTakingPhoto = false;
-          _verifyingUnitId = null;
         });
       }
     }
@@ -405,7 +426,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       child: Card(
         clipBehavior: Clip.antiAlias,
         elevation: 4,
-        shadowColor: Colors.black.withValues(alpha: 0.2),
+        shadowColor: Colors.black.withAlpha(51),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Stack(
           children: [
@@ -482,7 +503,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withAlpha(26),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -523,7 +544,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         decoration: BoxDecoration(
           color: Colors.transparent,
           border: Border.all(
-            color: AppColors.poofColor.withValues(alpha: 0.8),
+            color: AppColors.poofColor.withAlpha(204),
             width: 1.5,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -559,12 +580,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withAlpha(20),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: Colors.black.withAlpha(31),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -622,7 +643,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         label = l10n.jobInProgressUnitStatusPending;
     }
 
-    final waiting = _verifyingUnitId == u.unitId;
+    final waiting = _verifyingUnitIds.contains(u.unitId);
     final canTakePhoto = u.status == UnitVerificationStatus.pending ||
         (u.status == UnitVerificationStatus.failed && !u.permanentFailure);
 
@@ -705,7 +726,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -719,7 +740,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.15),
+        color: c.withAlpha(38),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -741,7 +762,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         color: Theme.of(context).scaffoldBackgroundColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withAlpha(26),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -872,6 +893,26 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CancelingDialogWidget extends StatelessWidget {
+  const _CancelingDialogWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(l10n.cancelJobCancellingMessage,
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          const CircularProgressIndicator(),
+        ],
       ),
     );
   }

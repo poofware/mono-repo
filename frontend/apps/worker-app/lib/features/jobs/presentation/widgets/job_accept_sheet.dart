@@ -19,7 +19,7 @@ import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/features/jobs/presentation/widgets/date_carousel_widget.dart';
-import 'package:poof_worker/l10n/generated/app_localizations.dart'; 
+import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'info_widgets.dart';
 
@@ -33,8 +33,8 @@ class JobAcceptSheet extends ConsumerStatefulWidget {
 }
 
 class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
-  late DateTime _carouselInitialDate; 
-  JobInstance? _selectedInstance; 
+  late DateTime _carouselInitialDate;
+  JobInstance? _selectedInstance;
   bool _isAccepting = false;
 
   @override
@@ -52,8 +52,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
 
   void _handleDateSelected(DateTime day) {
     setState(() {
-      _carouselInitialDate = day; 
-      _updateSelectedInstance(day); 
+      _carouselInitialDate = day;
+      _updateSelectedInstance(day);
     });
   }
 
@@ -103,7 +103,6 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
         SnackBar(
           content: Text(appLocalizations
               .jobAcceptSheetSnackBarAccepted(_selectedInstance!.property.propertyName)),
-          behavior: SnackBarBehavior.floating,
         ),
       );
 
@@ -294,10 +293,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                                           value: liveDefinition.displayAvgTime)),
                                   Expanded(
                                       child: _statTile(
-                                    icon: Icons.directions_car_outlined,
-                                    label: appLocalizations
-                                        .jobAcceptSheetHeaderDriveTime,
-                                    value: liveDefinition.displayAvgTravelTime,
+                                          icon: Icons.directions_car_outlined,
+                                          label: appLocalizations
+                                              .jobAcceptSheetHeaderDriveTime,
+                                          value: liveDefinition.displayAvgTravelTime,
                                   )),
                                   Expanded(
                                       child: _statTile(
@@ -382,7 +381,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
   }
 
   Widget _statTile(
-      {IconData? icon, required String label, required String value}) { 
+      {IconData? icon, required String label, required String value}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

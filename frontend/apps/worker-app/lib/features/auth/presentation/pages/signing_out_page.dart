@@ -55,9 +55,9 @@ class _SigningOutPageState extends ConsumerState<SigningOutPage> {
       );
     }
 
-    // 2) Ensure at least 2 seconds on this page for a better user experience
+    // 2) Ensure at least 1 second on this page for a better user experience
     final elapsed = DateTime.now().difference(startTime);
-    const minDuration = Duration(seconds: 2);
+    const minDuration = Duration(seconds: 1);
     if (elapsed < minDuration) {
       await Future.delayed(minDuration - elapsed);
     }
@@ -100,4 +100,3 @@ class _SigningOutPageState extends ConsumerState<SigningOutPage> {
     );
   }
 }
-

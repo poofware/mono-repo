@@ -99,12 +99,13 @@ class _SixDigitFieldState extends State<SixDigitField>
   }
 
   void _restoreKeyboardIfNeeded() {
-    if (!mounted) return;
-    if (!_focusNode.hasFocus) return; // user left page – nothing to do
-    _focusNode.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
-    // Re-focus on the next frame so we don't race the engine
+    if (!mounted || !_focusNode.hasFocus) return;
+    // Re-request focus and explicitly show the keyboard without toggling,
+    // which avoids a visible flicker when returning from background.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
+      if (!mounted) return;
+      _focusNode.requestFocus();
+      SystemChannels.textInput.invokeMethod('TextInput.show');
     });
   }
 

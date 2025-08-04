@@ -614,6 +614,7 @@
   "cancelJobAsNoShowBody": "Este trabajo ya ha pasado su hora límite de ausencia. Cancelar en este punto se considera una ausencia e impactará significativamente tu puntuación de fiabilidad y el acceso a futuros trabajos. ¿Estás seguro de que quieres cancelar?",
   "cancelJobConfirmButton": "Confirmar Cancelación",
   "cancelJobBackButton": "Regresar",
+  "cancelJobCancellingMessage": "Cancelando...",
   "jobInProgressContactSupport": "Contactar Soporte",
   "jobInProgressReportMissingTrashCan": "Reportar Bote de Basura Faltante",
   "contactSupportText": "Soporte por Texto",
