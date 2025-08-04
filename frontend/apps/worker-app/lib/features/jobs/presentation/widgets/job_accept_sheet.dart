@@ -22,7 +22,6 @@ import 'package:poof_worker/features/jobs/presentation/widgets/date_carousel_wid
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'info_widgets.dart';
-import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 class JobAcceptSheet extends ConsumerStatefulWidget {
   final DefinitionGroup definition;
@@ -64,7 +63,6 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
 
     // --- Capture context-sensitive objects BEFORE async gaps ---
     final navigator = Navigator.of(context);
-    final appLocalizations = AppLocalizations.of(context);
     final logger = ref.read(appLoggerProvider);
 
     // --- Check if this is the last instance in the current group ---
@@ -105,16 +103,6 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     if (wasSuccess) {
       logger.i(
         'Instance ${_selectedInstance!.instanceId} accepted successfully via notifier.',
-      );
-
-      // We are still mounted, so we can use captured context objects.
-      showAppSnackBar(
-        context,
-        Text(
-          appLocalizations.jobAcceptSheetSnackBarAccepted(
-            _selectedInstance!.property.propertyName,
-          ),
-        ),
       );
 
       // Check state *after* acceptance
