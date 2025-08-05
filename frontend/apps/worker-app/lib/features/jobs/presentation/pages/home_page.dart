@@ -966,6 +966,9 @@ class _HomePageState extends ConsumerState<HomePage>
                   isOnline: isOnline,
                   isTestMode: isTest,
                   isLoadingJobs: isLoadingOpenJobs,
+                  hasLoadedInitialJobs: ref
+                      .watch(jobsNotifierProvider)
+                      .hasLoadedInitialJobs,
                   sortBy: ref.watch(jobsSortByProvider),
                   onSortChanged: (val) {
                     if (mounted) {

@@ -23,6 +23,7 @@ class JobsSheet extends ConsumerStatefulWidget {
   final bool isOnline;
   final bool isTestMode;
   final bool isLoadingJobs; // Global loading state from JobsNotifier.
+  final bool hasLoadedInitialJobs;
 
   final String sortBy;
   final ValueChanged<String> onSortChanged;
@@ -48,6 +49,7 @@ class JobsSheet extends ConsumerStatefulWidget {
     required this.isOnline,
     required this.isTestMode,
     required this.isLoadingJobs,
+    required this.hasLoadedInitialJobs,
     required this.sortBy,
     required this.onSortChanged,
     required this.showSearchBar,
@@ -81,8 +83,10 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     if (!widget.sheetController.isAttached) return;
 
     final delta = -d.delta.dy / widget.screenHeight;
-    final newSize = (widget.sheetController.size + delta)
-        .clamp(widget.minChildSize, widget.maxChildSize);
+    final newSize = (widget.sheetController.size + delta).clamp(
+      widget.minChildSize,
+      widget.maxChildSize,
+    );
     widget.sheetController.jumpTo(newSize);
   }
 
@@ -93,11 +97,11 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     double target;
 
     if (v < _hardFlickUp) {
-      target = widget.maxChildSize;      // Hard flick up → 85 %
+      target = widget.maxChildSize; // Hard flick up → 85 %
     } else if (v < _softFlickUp) {
-      target = 0.40;                     // Soft flick up → 40 %
+      target = 0.40; // Soft flick up → 40 %
     } else if (v > _flickDown) {
-      target = widget.minChildSize;      // Flick down     → 15 %
+      target = widget.minChildSize; // Flick down     → 15 %
     } else {
       // Snap to the nearest preset size.
       final now = widget.sheetController.size;
@@ -139,8 +143,9 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
 
       if (justStartedLoading) {
         final currentSize = widget.sheetController.size;
-        final isAtSnapPoint =
-            widget.snapSizes.any((snap) => (currentSize - snap).abs() < 0.01);
+        final isAtSnapPoint = widget.snapSizes.any(
+          (snap) => (currentSize - snap).abs() < 0.01,
+        );
 
         if (!isAtSnapPoint) {
           widget.sheetController.animateTo(
@@ -163,8 +168,9 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     });
 
     final bool isOffline = !widget.isOnline;
-    final double initialSize =
-        isOffline ? _messageSnapHeight : widget.minChildSize;
+    final double initialSize = isOffline
+        ? _messageSnapHeight
+        : widget.minChildSize;
 
     return DraggableScrollableSheet(
       controller: widget.sheetController,
@@ -269,7 +275,9 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                         /* ── Sort / search / refresh row ── */
                         Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -293,9 +301,9 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                       focusColor: Colors.transparent,
                                       style: TextStyle(
                                         color: widget.isOnline
-                                            ? Theme.of(context)
-                                                .colorScheme
-                                                .onSurface
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface
                                             : Colors.grey.shade400,
                                         fontSize: 15,
                                       ),
@@ -316,15 +324,15 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                       ],
                                       onChanged: widget.isOnline
                                           ? (v) => v != null
-                                              ? widget.onSortChanged(v)
-                                              : null
+                                                ? widget.onSortChanged(v)
+                                                : null
                                           : null,
                                       disabledHint: Text(
                                         widget.sortBy == 'distance'
                                             ? appLocalizations
-                                                .homePageSortByDistance
+                                                  .homePageSortByDistance
                                             : appLocalizations
-                                                .homePageSortByPay,
+                                                  .homePageSortByPay,
                                         style: TextStyle(
                                           color: Colors.grey.shade400,
                                           fontSize: 15,
@@ -348,9 +356,9 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                     ),
                                     tooltip: widget.showSearchBar
                                         ? appLocalizations
-                                            .homePageSearchCloseTooltip
+                                              .homePageSearchCloseTooltip
                                         : appLocalizations
-                                            .homePageSearchOpenTooltip,
+                                              .homePageSearchOpenTooltip,
                                     onPressed: widget.isOnline
                                         ? widget.toggleSearchBar
                                         : null,
@@ -364,11 +372,14 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                               strokeWidth: 2.5,
                                               valueColor:
                                                   AlwaysStoppedAnimation<Color>(
-                                                widget.isOnline
-                                                    ? Theme.of(context)
-                                                        .primaryColor
-                                                    : Colors.grey.shade400,
-                                              ),
+                                                    widget.isOnline &&
+                                                            widget
+                                                                .hasLoadedInitialJobs
+                                                        ? Theme.of(
+                                                            context,
+                                                          ).primaryColor
+                                                        : Colors.grey.shade400,
+                                                  ),
                                             ),
                                           )
                                         : Icon(
@@ -379,14 +390,17 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                           ),
                                     tooltip: appLocalizations
                                         .homePageJobsSheetRefreshTooltip,
-                                    onPressed: (widget.isOnline &&
+                                    onPressed:
+                                        (widget.isOnline &&
                                             !widget.isLoadingJobs)
                                         ? () {
                                             logger.d(
-                                                'JobsSheet: Manual refresh triggered.');
+                                              'JobsSheet: Manual refresh triggered.',
+                                            );
                                             ref
-                                                .read(jobsNotifierProvider
-                                                    .notifier)
+                                                .read(
+                                                  jobsNotifierProvider.notifier,
+                                                )
                                                 .refreshOnlineJobsIfActive();
                                           }
                                         : null,
@@ -402,8 +416,12 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                           curve: Curves.fastOutSlowIn,
                           child: widget.showSearchBar
                               ? Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    12,
+                                  ),
                                   child: TextField(
                                     controller: widget.searchController,
                                     focusNode: widget.searchFocusNode,
@@ -413,26 +431,30 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                         borderSide: BorderSide(
-                                            color: Colors.grey.shade300),
+                                          color: Colors.grey.shade300,
+                                        ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                         borderSide: BorderSide(
-                                            color:
-                                                Theme.of(context).primaryColor),
+                                          color: Theme.of(context).primaryColor,
+                                        ),
                                       ),
                                       isDense: true,
                                       contentPadding:
                                           const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 10),
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
                                       suffixIcon: widget.searchQuery.isNotEmpty
                                           ? IconButton(
-                                              icon: const Icon(Icons.clear,
-                                                  size: 20),
+                                              icon: const Icon(
+                                                Icons.clear,
+                                                size: 20,
+                                              ),
                                               onPressed: () {
                                                 widget.searchController.clear();
-                                                widget
-                                                    .onSearchChanged('');
+                                                widget.onSearchChanged('');
                                               },
                                             )
                                           : null,
@@ -461,4 +483,3 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     );
   }
 }
-

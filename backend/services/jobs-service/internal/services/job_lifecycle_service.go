@@ -283,11 +283,12 @@ func (s *JobService) VerifyUnitPhoto(
 			"no_trash_bag_visible": result.NoTrashBagVisible,
 			"door_number_matches":  result.DoorNumberMatches,
 			"door_number_detected": result.DoorNumberDetected,
+			"door_fully_visible":   result.DoorFullyVisible,
 		}).Debug("openai verification result")
 
 		pass := false
 		if missingTrashCan {
-			pass = result.DoorNumberMatches
+			pass = result.DoorNumberMatches && result.DoorFullyVisible
 			if !result.DoorNumberMatches {
 				if result.DoorNumberDetected != "" {
 					reasonCodes = append(reasonCodes, "DOOR_NUMBER_MISMATCH")
@@ -295,8 +296,11 @@ func (s *JobService) VerifyUnitPhoto(
 					reasonCodes = append(reasonCodes, "DOOR_NUMBER_MISSING")
 				}
 			}
+			if !result.DoorFullyVisible {
+				reasonCodes = append(reasonCodes, "DOOR_NOT_FULLY_VISIBLE")
+			}
 		} else {
-			pass = result.TrashCanPresent && result.NoTrashBagVisible && result.DoorNumberMatches
+			pass = result.TrashCanPresent && result.NoTrashBagVisible && result.DoorNumberMatches && result.DoorFullyVisible
 			if !result.TrashCanPresent {
 				reasonCodes = append(reasonCodes, "TRASH_CAN_NOT_VISIBLE")
 			}
@@ -309,6 +313,9 @@ func (s *JobService) VerifyUnitPhoto(
 				} else {
 					reasonCodes = append(reasonCodes, "DOOR_NUMBER_MISSING")
 				}
+			}
+			if !result.DoorFullyVisible {
+				reasonCodes = append(reasonCodes, "DOOR_NOT_FULLY_VISIBLE")
 			}
 		}
 		if !pass {

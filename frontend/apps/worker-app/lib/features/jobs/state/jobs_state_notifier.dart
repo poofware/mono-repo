@@ -48,6 +48,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
     state = state.copyWith(
       isLoadingOpenJobs: true,
       isLoadingAcceptedJobs: true,
+      hasLoadedInitialJobs: false,
       clearError: true,
     );
 
@@ -62,6 +63,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
         isLoadingAcceptedJobs: false,
         openJobs: open,
         acceptedJobs: accepted,
+        hasLoadedInitialJobs: true,
       );
       return;
     }
@@ -102,17 +104,21 @@ class JobsNotifier extends StateNotifier<JobsState> {
           .where((j) => j.status == JobInstanceStatus.assigned)
           .toList();
 
+      final hasMoreOpen = openJobs.length < openResp.total;
+      final hasMoreMy = myJobs.length < myResp.total;
+
       state = state.copyWith(
         isOnline: true,
-        isLoadingOpenJobs: false,
-        isLoadingAcceptedJobs: false,
+        isLoadingOpenJobs: hasMoreOpen,
+        isLoadingAcceptedJobs: hasMoreMy,
         openJobs: openJobs,
         acceptedJobs: acceptedJobs,
         inProgressJob: inProgressJob,
         clearInProgressJob: inProgressJob == null,
+        hasLoadedInitialJobs: !(hasMoreOpen || hasMoreMy),
       );
 
-      if (openJobs.length < openResp.total) {
+      if (hasMoreOpen) {
         unawaited(
           fetchJobPages(
             (page, size) => _repository.listJobs(
@@ -128,11 +134,16 @@ class JobsNotifier extends StateNotifier<JobsState> {
               openJobs.addAll(results);
               state = state.copyWith(openJobs: [...openJobs]);
             },
-          ),
+          ).whenComplete(() {
+            state = state.copyWith(
+              isLoadingOpenJobs: false,
+              hasLoadedInitialJobs: !state.isLoadingAcceptedJobs,
+            );
+          }),
         );
       }
 
-      if (myJobs.length < myResp.total) {
+      if (hasMoreMy) {
         unawaited(
           fetchJobPages(
             (page, size) => _repository.listMyJobs(
@@ -158,7 +169,12 @@ class JobsNotifier extends StateNotifier<JobsState> {
                 clearInProgressJob: inProg == null,
               );
             },
-          ),
+          ).whenComplete(() {
+            state = state.copyWith(
+              isLoadingAcceptedJobs: false,
+              hasLoadedInitialJobs: !state.isLoadingOpenJobs,
+            );
+          }),
         );
       }
     } catch (e) {
@@ -187,6 +203,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
         isLoadingAcceptedJobs: false,
         openJobs: [],
         clearError: true,
+        hasLoadedInitialJobs: false,
       );
       logger.d('Successfully went offline. Job lists updated.');
     } catch (e) {
@@ -274,9 +291,12 @@ class JobsNotifier extends StateNotifier<JobsState> {
           .where((j) => j.status == JobInstanceStatus.assigned)
           .toList();
 
+      final hasMoreOpen = openJobs.length < openResp.total;
+      final hasMoreMy = myJobs.length < myResp.total;
+
       state = state.copyWith(
-        isLoadingOpenJobs: false,
-        isLoadingAcceptedJobs: false,
+        isLoadingOpenJobs: hasMoreOpen,
+        isLoadingAcceptedJobs: hasMoreMy,
         openJobs: openJobs,
         acceptedJobs: acceptedJobs,
         inProgressJob: inProgressJob,
@@ -287,7 +307,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
         'Successfully refreshed jobs. Open: ${openJobs.length}, Accepted: ${acceptedJobs.length}, InProgress: ${inProgressJob != null}',
       );
 
-      if (openJobs.length < openResp.total) {
+      if (hasMoreOpen) {
         unawaited(
           fetchJobPages(
             (page, size) => _repository.listJobs(
@@ -303,11 +323,13 @@ class JobsNotifier extends StateNotifier<JobsState> {
               openJobs.addAll(results);
               state = state.copyWith(openJobs: [...openJobs]);
             },
-          ),
+          ).whenComplete(() {
+            state = state.copyWith(isLoadingOpenJobs: false);
+          }),
         );
       }
 
-      if (myJobs.length < myResp.total) {
+      if (hasMoreMy) {
         unawaited(
           fetchJobPages(
             (page, size) => _repository.listMyJobs(
@@ -333,7 +355,9 @@ class JobsNotifier extends StateNotifier<JobsState> {
                 clearInProgressJob: inProg == null,
               );
             },
-          ),
+          ).whenComplete(() {
+            state = state.copyWith(isLoadingAcceptedJobs: false);
+          }),
         );
       }
     } catch (e) {
@@ -393,15 +417,17 @@ class JobsNotifier extends StateNotifier<JobsState> {
           .where((j) => j.status == JobInstanceStatus.assigned)
           .toList();
 
+      final hasMore = myJobs.length < firstResp.total;
+
       state = state.copyWith(
-        isLoadingAcceptedJobs: false,
+        isLoadingAcceptedJobs: hasMore,
         acceptedJobs: acceptedJobs,
         inProgressJob: inProgressJob,
         clearInProgressJob: inProgressJob == null,
         clearError: true,
       );
 
-      if (myJobs.length < firstResp.total) {
+      if (hasMore) {
         unawaited(
           fetchJobPages(
             (page, size) => _repository.listMyJobs(
@@ -427,7 +453,9 @@ class JobsNotifier extends StateNotifier<JobsState> {
                 clearInProgressJob: inProgressJob == null,
               );
             },
-          ),
+          ).whenComplete(() {
+            state = state.copyWith(isLoadingAcceptedJobs: false);
+          }),
         );
       }
 

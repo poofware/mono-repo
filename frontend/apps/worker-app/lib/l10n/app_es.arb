@@ -297,13 +297,14 @@
   "jobInProgressPhotoConfirmDialogContent": "¿Estás seguro de que quieres usar esta foto? No podrás volver a tomarla.",
   "jobInProgressPhotoConfirmDialogConfirm": "Confirmar",
   "jobInProgressPhotoConfirmDialogRetake": "Volver a tomar",
-  "jobInProgressPhotoInstructions": "Asegúrate de que la foto muestre claramente el número de la puerta, el bote de basura y que no haya bolsas.",
+  "jobInProgressPhotoInstructions": "Asegúrate de que la foto muestre claramente la puerta completa de arriba a abajo, el número de la puerta, el bote de basura y que no haya bolsas.",
   "jobInProgressFailureReasonTitle": "¿Por qué falló?",
   "jobInProgressFailureReasonUnknown": "Razón desconocida",
   "failureReasonTrashCanNotVisible": "Bote de basura no visible",
   "failureReasonTrashBagVisible": "Bolsa de basura visible",
   "failureReasonDoorMismatch": "Número de puerta no coincide",
   "failureReasonDoorMissing": "Número de puerta ausente",
+  "failureReasonDoorNotFullyVisible": "Puerta no completamente visible",
   "okButtonLabel": "OK",
   "jobInProgressNoPhotos": "Aún no se han tomado fotos.",
   "jobInProgressPhotosTakenHeader": "Fotos Tomadas",
@@ -626,5 +627,5 @@
   "bagsCollectedHelpTitle": "Bolsas por Viaje",
   "bagsCollectedHelpBody": "Esto muestra cuántas bolsas has recogido en tu viaje actual al contenedor. Puedes llevar un máximo de 8 bolsas a la vez.\n\nUna vez que hayas recogido una o más bolsas (hasta 8), debes llevarlas al contenedor. Usa el deslizador en la parte inferior para marcarlas como 'Desechadas' y comenzar tu próximo viaje.",
   "howToCompleteAJobTitle": "Cómo Completar un Trabajo",
-  "howToCompleteAJobBody": "1. Recoger Bolsas (Hasta 8):** Visita cada puerta de unidad en tu ruta. Toca el ícono de la cámara y toma una foto clara que muestre el número de la puerta y el área del bote de basura vacío. Una foto exitosa marca la unidad como 'Verificada' y añade una bolsa a tu viaje actual. Puedes recoger un máximo de 8 bolsas por viaje.\n\n**2. Reportar Problemas:** Si falta un bote de basura, usa el menú (...) junto al ícono de la cámara para 'Reportar Bote de Basura Faltante' antes de tomar tu foto.\n\n**3. Ir al Contenedor:** Una vez que hayas recogido una o más bolsas (hasta el límite de 8), llévalas a la ubicación del contenedor designada en el mapa.\n\n**4. Desechar Bolsas y Repetir:** En el contenedor, desliza el deslizador 'Desechar Bolsas' en la parte inferior de la pantalla. Esto marcará todas las bolsas recogidas como 'Desechadas' y reiniciará tu conteo de viaje a 0. Repite los pasos 1-4 hasta que todas las unidades hayan sido atendidas.\n\n**6. Completar el Trabajo:** Después de tu último viaje al contenedor, el deslizador cambiará a 'Deslizar para Completar el Trabajo'. Deslizarlo completará el trabajo y registrará tus ganancias."
+  "howToCompleteAJobBody": "1. Recoger Bolsas (Hasta 8):** Visita cada puerta de unidad en tu ruta. Toca el ícono de la cámara y toma una foto clara que muestre la puerta completa de arriba a abajo, el número de la puerta y el área del bote de basura vacío. Una foto exitosa marca la unidad como 'Verificada' y añade una bolsa a tu viaje actual. Puedes recoger un máximo de 8 bolsas por viaje.\n\n**2. Reportar Problemas:** Si falta un bote de basura, usa el menú (...) junto al ícono de la cámara para 'Reportar Bote de Basura Faltante' antes de tomar tu foto.\n\n**3. Ir al Contenedor:** Una vez que hayas recogido una o más bolsas (hasta el límite de 8), llévalas a la ubicación del contenedor designada en el mapa.\n\n**4. Desechar Bolsas y Repetir:** En el contenedor, desliza el deslizador 'Desechar Bolsas' en la parte inferior de la pantalla. Esto marcará todas las bolsas recogidas como 'Desechadas' y reiniciará tu conteo de viaje a 0. Repite los pasos 1-4 hasta que todas las unidades hayan sido atendidas.\n\n**6. Completar el Trabajo:** Después de tu último viaje al contenedor, el deslizador cambiará a 'Deslizar para Completar el Trabajo'. Deslizarlo completará el trabajo y registrará tus ganancias."
 }

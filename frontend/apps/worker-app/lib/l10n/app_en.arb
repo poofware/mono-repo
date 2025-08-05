@@ -296,13 +296,14 @@
   "jobInProgressPhotoConfirmDialogContent": "Are you sure you want to use this photo? You will not be able to retake it.",
   "jobInProgressPhotoConfirmDialogConfirm": "Confirm",
   "jobInProgressPhotoConfirmDialogRetake": "Retake",
-  "jobInProgressPhotoInstructions": "Make sure the photo clearly shows the door number, the trash can, and no trash bags left behind.",
+  "jobInProgressPhotoInstructions": "Make sure the photo clearly shows the entire door from top to bottom, the door number, the trash can, and no trash bags left behind.",
   "jobInProgressFailureReasonTitle": "Why Did This Fail?",
   "jobInProgressFailureReasonUnknown": "Unknown reason",
   "failureReasonTrashCanNotVisible": "Trash can not visible",
   "failureReasonTrashBagVisible": "Trash bag visible",
   "failureReasonDoorMismatch": "Door number mismatch",
   "failureReasonDoorMissing": "Door number missing",
+  "failureReasonDoorNotFullyVisible": "Door not fully visible",
   "okButtonLabel": "OK",
   "jobInProgressNoPhotos": "No photos taken yet.",
   "jobInProgressPhotosTakenHeader": "Photos Taken",
@@ -625,5 +626,5 @@
   "bagsCollectedHelpTitle": "Bags Collected",
   "bagsCollectedHelpBody": "This shows how many bags you've collected on your current trip to the dumpster. You can carry a maximum of 8 bags at a time.\n\nOnce you have collected one or more bags (up to 8), you must take them to the dumpster. Use the slider at the bottom to mark them as 'Dumped' and begin your next trip.",
   "howToCompleteAJobTitle": "How to Complete a Job",
-  "howToCompleteAJobBody": "1. Collect Bags (Up to 8):** Visit each unit on your route. Tap the camera icon and take a clear photo showing the door number and empty trash can area. A successful photo marks the unit as 'Verified' and adds a bag to your current trip. You can collect a maximum of 8 bags per trip.\n\n**2. Report Issues:** If a trash can is missing, use the menu (...) next to the camera icon to 'Report Missing Trash Can' before taking your photo.\n\n**3. Go to the Dumpster:** Once you have collected one or more bags (up to the 8-bag limit), take them to the designated dumpster location shown on the map.\n\n**4. Dump Bags & Repeat:** At the dumpster, slide the 'Dump Bags' slider at the bottom of the screen. This marks all collected bags as 'Dumped' and resets your trip count to 0. Repeat steps 1-4 until all units are serviced.\n\n**6. Complete the Job:** After your final trip to the dumpster, the slider will change to 'Slide to Complete Job'. Sliding it will complete the job and record your earnings."
+  "howToCompleteAJobBody": "1. Collect Bags (Up to 8):** Visit each unit on your route. Tap the camera icon and take a clear photo showing the entire door from top to bottom, the door number, and empty trash can area. A successful photo marks the unit as 'Verified' and adds a bag to your current trip. You can collect a maximum of 8 bags per trip.\n\n**2. Report Issues:** If a trash can is missing, use the menu (...) next to the camera icon to 'Report Missing Trash Can' before taking your photo.\n\n**3. Go to the Dumpster:** Once you have collected one or more bags (up to the 8-bag limit), take them to the designated dumpster location shown on the map.\n\n**4. Dump Bags & Repeat:** At the dumpster, slide the 'Dump Bags' slider at the bottom of the screen. This marks all collected bags as 'Dumped' and resets your trip count to 0. Repeat steps 1-4 until all units are serviced.\n\n**6. Complete the Job:** After your final trip to the dumpster, the slider will change to 'Slide to Complete Job'. Sliding it will complete the job and record your earnings."
 }
