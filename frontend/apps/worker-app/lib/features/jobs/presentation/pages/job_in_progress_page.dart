@@ -185,6 +185,19 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     UnitVerification unit, {
     bool missingTrashCan = false,
   }) async {
+    // START of MODIFICATION
+    final job = ref.read(jobsNotifierProvider).inProgressJob ?? widget.job;
+    final bagsCollected = job.buildings
+        .expand((b) => b.units)
+        .where((u) => u.status == UnitVerificationStatus.verified && !u.missingTrashCan)
+        .length;
+
+    if (bagsCollected >= _bagLimit && !missingTrashCan) {
+      _showBagLimitDialog();
+      return;
+    }
+    // END of MODIFICATION
+
     if (_isTakingPhoto) return;
     setState(() {
       _isTakingPhoto = true;
@@ -192,7 +205,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
     final picker = ImagePicker();
     try {
-      final photo = await picker.pickImage(source: ImageSource.camera);
+      final photo = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 512,
+        imageQuality: 80,
+      );
+
       if (!mounted || photo == null) {
         setState(() {
           _isTakingPhoto = false;
@@ -258,6 +276,24 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         });
       }
     }
+  }
+
+  void _showBagLimitDialog() {
+    final l10n = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        icon: const Icon(Icons.info_outline, size: 48),
+        title: Text(l10n.bagLimitDialogTitle),
+        content: Text(l10n.bagLimitDialogBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.okButtonLabel),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showBagsCollectedHelp() {
@@ -650,10 +686,13 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     Widget trailing;
     if (canTakePhoto) {
       final cameraBtn = waiting
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+          ? const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             )
           : IconButton(
               icon: const Icon(Icons.camera_alt),
@@ -827,7 +866,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
     final allUnits = job.buildings.expand((b) => b.units);
     final verifiedCount = allUnits
-        .where((u) => u.status == UnitVerificationStatus.verified)
+        .where((u) => u.status == UnitVerificationStatus.verified && !u.missingTrashCan)
         .length;
     final dumpedCount = allUnits
         .where((u) => u.status == UnitVerificationStatus.dumped)
@@ -918,10 +957,11 @@ class _CancelingDialogWidget extends StatelessWidget {
   }
 }
 
-/// Counts the number of units that have been successfully verified.
+/// Counts the number of units that have been successfully verified AND do not have
+/// the missing trash can flag set.
 int bagCount(JobInstance job) {
   return job.buildings
       .expand((b) => b.units)
-      .where((u) => u.status == UnitVerificationStatus.verified)
+      .where((u) => u.status == UnitVerificationStatus.verified && !u.missingTrashCan)
       .length;
 }

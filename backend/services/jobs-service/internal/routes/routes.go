@@ -8,8 +8,8 @@ const (
 	JobsBase     = "/api/v1/jobs"
 	JobsOpen     = "/api/v1/jobs/open"
 	JobsMy       = "/api/v1/jobs/my"
-       JobsAccept   = "/api/v1/jobs/accept"
-       JobsUnaccept = "/api/v1/jobs/unaccept"
+	JobsAccept   = "/api/v1/jobs/accept"
+	JobsUnaccept = "/api/v1/jobs/unaccept"
 
 	// NEW endpoints for unit verification workflow
 	JobsVerifyUnitPhoto = "/api/v1/jobs/verify-unit-photo"

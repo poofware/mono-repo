@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:async';
 import 'package:poof_worker/core/app_state/app_state_notifier.dart';
 import 'package:poof_worker/core/app_state/app_state.dart';
+import 'package:poof_worker/core/utils/navigation_keys.dart';
 
 // Pages
 import 'package:poof_worker/features/auth/presentation/pages/login_page.dart';
@@ -364,6 +365,7 @@ class AuthLostRefresh extends ChangeNotifier {
 GoRouter createRouter(AppStateNotifier appStateNotifier) {
   final router = GoRouter(
       debugLogDiagnostics: true,
+      navigatorKey: rootNavigatorKey,
       refreshListenable: AuthLostRefresh(appStateNotifier.stream),
       redirect: (context, state) {
         final loggedIn = appStateNotifier.isLoggedIn;

@@ -621,6 +621,8 @@
   "contactSupportEmail": "Soporte por Correo",
   "jobInProgressTimeElapsed": "Tiempo transcurrido",
   "jobInProgressBagsCollectedLabel": "Bolsas recogidas",
+  "bagLimitDialogTitle": "¡Hora de Descargar!",
+  "bagLimitDialogBody": "Has recogido el número máximo de bolsas para este viaje. Por favor, llévalas al contenedor antes de dar servicio a más unidades.",
   "bagsCollectedHelpTitle": "Bolsas por Viaje",
   "bagsCollectedHelpBody": "Esto muestra cuántas bolsas has recogido en tu viaje actual al contenedor. Puedes llevar un máximo de 8 bolsas a la vez.\n\nUna vez que hayas recogido una o más bolsas (hasta 8), debes llevarlas al contenedor. Usa el deslizador en la parte inferior para marcarlas como 'Desechadas' y comenzar tu próximo viaje.",
   "howToCompleteAJobTitle": "Cómo Completar un Trabajo",

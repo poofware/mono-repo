@@ -24,8 +24,10 @@ void showAppSnackBar(
   String actionLabel = 'OK',
   VoidCallback? onTap, // fires before the bar animates off
 }) {
+  final overlay = Navigator.of(context, rootNavigator: true).overlay!;
+
   showTopSnackBar(
-    Overlay.of(context),
+    overlay,
     _AppSnackBar(
       content: content,
       onAction: onAction,

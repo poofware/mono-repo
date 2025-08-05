@@ -457,13 +457,19 @@ class JobsNotifier extends StateNotifier<JobsState> {
         ),
       );
 
+      late final JobInstance acceptedJobInstance;
+
       if (_flavor.testMode) {
         logger.d('Accepting job $instanceId in test mode.');
         await Future.delayed(const Duration(milliseconds: 300));
+        acceptedJobInstance = openJob.copyWith(
+          status: JobInstanceStatus.assigned,
+        );
       } else {
         logger.d('Accepting job $instanceId in real mode.');
         final position = await _getHighAccuracyFix();
-        await _repository.acceptJob(
+        // **FIX:** Capture the complete JobInstance returned by the repository.
+        acceptedJobInstance = await _repository.acceptJob(
           instanceId: instanceId,
           lat: position.latitude,
           lng: position.longitude,
@@ -473,9 +479,6 @@ class JobsNotifier extends StateNotifier<JobsState> {
         );
       }
 
-      final acceptedJobInstance = openJob.copyWith(
-        status: JobInstanceStatus.assigned,
-      );
       final newOpenJobs = List<JobInstance>.from(state.openJobs)
         ..removeWhere((j) => j.instanceId == instanceId);
       final newAcceptedJobs = List<JobInstance>.from(state.acceptedJobs)
@@ -567,7 +570,6 @@ class JobsNotifier extends StateNotifier<JobsState> {
         inProgressJob: updatedJob,
         clearError: true,
       );
-
       logger.d('Job $instanceId started successfully.');
       return updatedJob;
     } catch (e) {

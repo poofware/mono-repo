@@ -620,6 +620,8 @@
   "cancelJobConfirmButton": "Confirm Cancel",
   "cancelJobBackButton": "Go Back",
   "cancelJobCancellingMessage": "Canceling...",
+  "bagLimitDialogTitle": "Time for a Dump!",
+  "bagLimitDialogBody": "You have collected the maximum number of bags for this trip. Please take them to the dumpster before servicing more units.",
   "bagsCollectedHelpTitle": "Bags Collected",
   "bagsCollectedHelpBody": "This shows how many bags you've collected on your current trip to the dumpster. You can carry a maximum of 8 bags at a time.\n\nOnce you have collected one or more bags (up to 8), you must take them to the dumpster. Use the slider at the bottom to mark them as 'Dumped' and begin your next trip.",
   "howToCompleteAJobTitle": "How to Complete a Job",

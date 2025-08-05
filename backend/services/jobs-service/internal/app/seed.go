@@ -91,7 +91,12 @@ func SeedAllTestData(
 		return fmt.Errorf("seed job definitions if needed: %w", err)
 	}
 
-	// Seed the new "The Station at Clift Farm" property and its associated data.
+	// NEW: Seed the small 3-unit demo job for Demo Property 1.
+	if err := seedSmallDemoJobIfNeeded(ctx, defRepo, bldgRepo, unitRepo, jobService, propRepo, propID); err != nil {
+		return fmt.Errorf("seed small demo job if needed: %w", err)
+	}
+
+	// Seed the new "The Station at Clift Farm" property and its associated data. [cite: 1929]
 	if err := seedCliftFarmPropertyIfNeeded(ctx, propRepo, bldgRepo, dumpRepo, unitRepo, jobService, defRepo); err != nil {
 		return fmt.Errorf("seed clift farm property if needed: %w", err)
 	}
@@ -517,6 +522,132 @@ func seedJobDefinitionsIfNeeded(
 	}
 
 	return defID, nil
+}
+
+/*
+------------------------------------------------------------------
+  NEW) seedSmallDemoJobIfNeeded
+------------------------------------------------------------------
+*/
+// seedSmallDemoJobIfNeeded creates a small, specific job for demonstration purposes.
+func seedSmallDemoJobIfNeeded(
+	ctx context.Context,
+	defRepo repositories.JobDefinitionRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	unitRepo repositories.UnitRepository,
+	jobSvc *services.JobService,
+	propRepo repositories.PropertyRepository,
+	propID uuid.UUID,
+) error {
+	title := "Small Demo Job (Bldg 0, Fl 2)"
+
+	// 1. Check if it already exists to make seeding idempotent.
+	existingDefs, err := defRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return fmt.Errorf("listing definitions for prop %s: %w", propID, err)
+	}
+	for _, d := range existingDefs {
+		if d.Title == title {
+			utils.Logger.Infof("jobs-service: Small demo job definition '%s' already exists; skipping.", title)
+			return nil
+		}
+	}
+
+	// 2. Find Building 0.
+	allBldgs, err := bldgRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return fmt.Errorf("listing buildings for prop %s: %w", propID, err)
+	}
+
+	var bldg0 *models.PropertyBuilding
+	for _, b := range allBldgs {
+		if b.BuildingName == "Building 0" {
+			bldg0 = b
+			break
+		}
+	}
+	if bldg0 == nil {
+		utils.Logger.Warnf("jobs-service: Could not find 'Building 0' for prop %s to seed small demo job. Skipping.", propID)
+		return nil // Not an error, just can't proceed.
+	}
+
+	// 3. Find units 115, 116, 117 within that building.
+	bldgUnits, err := unitRepo.ListByBuildingID(ctx, bldg0.ID)
+	if err != nil {
+		return fmt.Errorf("listing units for building %s: %w", bldg0.ID, err)
+	}
+
+	var targetUnitIDs []uuid.UUID
+	targetUnitNumbers := map[string]bool{"115": true, "116": true, "117": true}
+	for _, u := range bldgUnits {
+		if _, ok := targetUnitNumbers[u.UnitNumber]; ok {
+			targetUnitIDs = append(targetUnitIDs, u.ID)
+		}
+	}
+
+	if len(targetUnitIDs) != 3 {
+		utils.Logger.Warnf("jobs-service: Did not find all required units (115, 116, 117) for 'Building 0' on prop %s. Found %d. Skipping small demo job.", propID, len(targetUnitIDs))
+		return nil
+	}
+
+	// 4. Construct the job definition request.
+	assignedGroup := []models.AssignedUnitGroup{
+		{
+			BuildingID: bldg0.ID,
+			UnitIDs:    targetUnitIDs,
+			Floors:     []int16{2},
+		},
+	}
+
+	prop, err := propRepo.GetByID(ctx, propID)
+	if err != nil || prop == nil {
+		return fmt.Errorf("could not fetch property %s for timezone info: %w", propID, err)
+	}
+	timeZone := prop.TimeZone
+	dumpsterID := uuid.MustParse("44444444-4444-4444-4444-444444444444") // Dumpster for Demo Property 1
+	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+	loc, err := time.LoadLocation(timeZone)
+	if err != nil {
+		loc = time.UTC
+	}
+	earliest := time.Date(0, 1, 1, 0, 0, 0, 0, loc)
+	latest := earliest.Add(23*time.Hour + 59*time.Minute)
+
+	dailyEstimates := make([]dtos.DailyPayEstimateRequest, 7)
+	for i := range 7 {
+		dailyEstimates[i] = dtos.DailyPayEstimateRequest{
+			DayOfWeek:            i,
+			BasePay:              5.00, // smaller job, smaller pay
+			EstimatedTimeMinutes: 10,
+		}
+	}
+
+	req := dtos.CreateJobDefinitionRequest{
+		PropertyID:              propID,
+		Title:                   title,
+		Description:             utils.Ptr("A small, specific demo job with only 3 units."),
+		AssignedUnitsByBuilding: assignedGroup,
+		DumpsterIDs:             []uuid.UUID{dumpsterID},
+		Frequency:               models.JobFreqDaily,
+		StartDate:               time.Now().UTC().AddDate(0, 0, -1),
+		EarliestStartTime:       earliest,
+		LatestStartTime:         latest,
+		SkipHolidays:            false,
+		DailyPayEstimates:       dailyEstimates,
+		CompletionRules: &models.JobCompletionRules{
+			ProofPhotosRequired: true,
+		},
+	}
+
+	// 5. Create the job definition.
+	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+	if err != nil {
+		return fmt.Errorf("failed to create small demo job definition '%s' for prop=%s: %w", title, propID, err)
+	}
+
+	utils.Logger.Infof("jobs-service: Created small demo job definition '%s' (id=%s).", title, defID)
+	return nil
 }
 
 // createDailyDefinition now seeds earliest_start_time=00:00, latest=23:59 => "all day long"

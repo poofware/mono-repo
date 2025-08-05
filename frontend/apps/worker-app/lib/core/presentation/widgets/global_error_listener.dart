@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_worker/core/utils/navigation_keys.dart';
 import 'package:poof_worker/features/earnings/state/earnings_state.dart';
 import 'package:poof_worker/features/earnings/providers/providers.dart';
 import 'package:poof_worker/features/jobs/state/jobs_state.dart';
@@ -25,11 +26,14 @@ class GlobalErrorListener extends ConsumerWidget {
     ref.listen<JobsState>(jobsNotifierProvider, (previous, next) {
       if (previous?.error == null && next.error != null) {
         final message = userFacingMessageFromObject(context, next.error!);
-        showAppSnackBar(
-          context,
-          Text(message),
-          displayDuration: const Duration(seconds: 5),
-        );
+        final snackbarContext = rootNavigatorKey.currentContext;
+        if (snackbarContext != null) {
+          showAppSnackBar(
+            snackbarContext,
+            Text(message),
+            displayDuration: const Duration(seconds: 5),
+          );
+        }
         // Important: Clear the error after displaying it.
         ref.read(jobsNotifierProvider.notifier).clearError();
       }
@@ -39,11 +43,14 @@ class GlobalErrorListener extends ConsumerWidget {
     ref.listen<EarningsState>(earningsNotifierProvider, (previous, next) {
       if (previous?.error == null && next.error != null) {
         final message = userFacingMessageFromObject(context, next.error!);
-        showAppSnackBar(
-          context,
-          Text(message),
-          displayDuration: const Duration(seconds: 5),
-        );
+        final snackbarContext = rootNavigatorKey.currentContext;
+        if (snackbarContext != null) {
+          showAppSnackBar(
+            snackbarContext,
+            Text(message),
+            displayDuration: const Duration(seconds: 5),
+          );
+        }
         // Important: Clear the error after displaying it.
         ref.read(earningsNotifierProvider.notifier).clearError();
       }
