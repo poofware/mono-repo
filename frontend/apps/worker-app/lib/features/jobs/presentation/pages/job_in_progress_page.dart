@@ -686,10 +686,13 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     Widget trailing;
     if (canTakePhoto) {
       final cameraBtn = waiting
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+          ? const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             )
           : IconButton(
               icon: const Icon(Icons.camera_alt),

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bradfitz/latlong"
 	"github.com/google/uuid"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-utils"
@@ -123,7 +124,16 @@ func (s *JobService) AcceptJobInstanceWithLocation(
 		return nil, utils.ErrNoRowsUpdated
 	}
 
-	dto, _ := s.buildInstanceDTO(ctx, updated, nil, nil, nil, nil, nil, nil, nil)
+	tzName := latlong.LookupZoneName(locReq.Lat, locReq.Lng)
+	if tzName == "" {
+		tzName = "UTC" // Fallback
+	}
+	workerLoc, locErr := time.LoadLocation(tzName)
+	if locErr != nil {
+		workerLoc = time.UTC // Fallback on error
+	}
+
+	dto, _ := s.buildInstanceDTO(ctx, updated, nil, workerLoc, nil, nil, nil, nil, nil)
 	return dto, nil
 }
 
