@@ -56,6 +56,7 @@ func main() {
 	sgClient := sendgrid.NewSendClient(cfg.SendgridAPIKey) // Instantiate SendGrid client
 	pmService := services.NewPMService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo)
 	workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo)
+	waitlistService := services.NewWaitlistService(cfg, workerRepo)
 	// MODIFIED: Inject SendGrid client and Config into WorkerStripeService
 	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo, sgClient)
 	stripeWebhookCheckService := services.NewStripeWebhookCheckService()
@@ -75,6 +76,16 @@ func main() {
 
 	checkrWebhookController := controllers.NewCheckrWebhookController(checkrService)
 	workerCheckrController := controllers.NewWorkerCheckrController(checkrService)
+
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := waitlistService.ProcessWaitlist(context.Background()); err != nil {
+				utils.Logger.WithError(err).Error("failed to process waitlist")
+			}
+		}
+	}()
 
 	workerUnversalLinksStripeController := controllers.NewWorkerUniversalLinksController(cfg.AppUrl)
 	wellKnownController := controllers.NewWellKnownController()

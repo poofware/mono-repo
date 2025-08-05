@@ -8,24 +8,25 @@ import (
 
 // Existing Worker DTO for GET endpoints
 type Worker struct {
-	ID                        string                       `json:"id"`
-	Email                     string                       `json:"email"`
-	PhoneNumber               string                       `json:"phone_number"`
-	FirstName                 string                       `json:"first_name"`
-	LastName                  string                       `json:"last_name"`
-	StreetAddress             string                       `json:"street_address"`
-	AptSuite                  *string                      `json:"apt_suite,omitempty"`
-	City                      string                       `json:"city"`
-	State                     string                       `json:"state"`
-	ZipCode                   string                       `json:"zip_code"`
-	VehicleYear               int                          `json:"vehicle_year"`
-	VehicleMake               string                       `json:"vehicle_make"`
-	VehicleModel              string                       `json:"vehicle_model"`
-	AccountStatus             models.AccountStatusType     `json:"account_status"`
-	SetupProgress             models.SetupProgressType     `json:"setup_progress"`
-	CheckrCandidateID         *string                      `json:"checkr_candidate_id,omitempty"`
-	CheckrReportOutcome       models.ReportOutcomeType     `json:"checkr_report_outcome,omitempty"`
-	CheckrReportETA           *time.Time                   `json:"checkr_report_eta,omitempty"`
+	ID                  string                   `json:"id"`
+	Email               string                   `json:"email"`
+	PhoneNumber         string                   `json:"phone_number"`
+	FirstName           string                   `json:"first_name"`
+	LastName            string                   `json:"last_name"`
+	StreetAddress       string                   `json:"street_address"`
+	AptSuite            *string                  `json:"apt_suite,omitempty"`
+	City                string                   `json:"city"`
+	State               string                   `json:"state"`
+	ZipCode             string                   `json:"zip_code"`
+	VehicleYear         int                      `json:"vehicle_year"`
+	VehicleMake         string                   `json:"vehicle_make"`
+	VehicleModel        string                   `json:"vehicle_model"`
+	AccountStatus       models.AccountStatusType `json:"account_status"`
+	SetupProgress       models.SetupProgressType `json:"setup_progress"`
+	CheckrCandidateID   *string                  `json:"checkr_candidate_id,omitempty"`
+	CheckrReportOutcome models.ReportOutcomeType `json:"checkr_report_outcome,omitempty"`
+	CheckrReportETA     *time.Time               `json:"checkr_report_eta,omitempty"`
+	OnWaitlist          bool                     `json:"on_waitlist"`
 }
 
 func NewWorkerFromModel(worker models.Worker) Worker {
@@ -48,12 +49,14 @@ func NewWorkerFromModel(worker models.Worker) Worker {
 		CheckrCandidateID:   worker.CheckrCandidateID,
 		CheckrReportOutcome: worker.CheckrReportOutcome,
 		CheckrReportETA:     worker.CheckrReportETA,
+		OnWaitlist:          worker.OnWaitlist,
 	}
 }
 
 // ----------------------------------------------------------------------
 // WorkerPatchRequest
 //   - All fields as pointers, so that "null" or omission => no update
+//
 // ----------------------------------------------------------------------
 type WorkerPatchRequest struct {
 	Email         *string `json:"email,omitempty"`

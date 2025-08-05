@@ -31,6 +31,7 @@ type Config struct {
 	SendgridAPIKey                       string
 	RSAPrivateKey                        *rsa.PrivateKey
 	RSAPublicKey                         *rsa.PublicKey
+	LDSDKKey                             string
 	LDFlag_PrefillStripeExpressKYC       bool
 	LDFlag_AllowOOSSetupFlow             bool
 	LDFlag_SeedDbWithTestAccounts        bool
@@ -359,6 +360,7 @@ func LoadConfig() *Config {
 		SendgridAPIKey:                       sendgridAPIKey,
 		RSAPrivateKey:                        privateKey,
 		RSAPublicKey:                         publicKey,
+		LDSDKKey:                             ldSDKKey,
 		LDFlag_PrefillStripeExpressKYC:       prefillStripeExpressKyc,
 		LDFlag_AllowOOSSetupFlow:             allowOOSSetupFlow,
 		LDFlag_SeedDbWithTestAccounts:        seedTestAccounts,

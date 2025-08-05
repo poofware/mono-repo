@@ -56,6 +56,9 @@ func TestIntegrationStripe(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, models.SetupProgressAwaitingPersonalInfo, w.SetupProgress)
 
+		_, err = h.DB.Exec(ctx, `UPDATE workers SET on_waitlist=false WHERE id=$1`, worker.ID)
+		require.NoError(t, err)
+
 		// 2) Post with address and vehicle information.
 		postPayload := dtos.SubmitPersonalInfoRequest{
 			StreetAddress: "123 Main St",

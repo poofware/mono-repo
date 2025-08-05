@@ -29,6 +29,10 @@ ADD COLUMN assigned_units_by_building JSONB NOT NULL,
 ADD COLUMN floors SMALLINT [] NOT NULL DEFAULT '{}',
 ADD COLUMN total_units INT NOT NULL DEFAULT 0;
 
+ALTER TABLE workers
+ADD COLUMN on_waitlist BOOLEAN NOT NULL DEFAULT TRUE,
+ADD COLUMN waitlisted_at TIMESTAMPTZ NULL;
+
 ---- create above / drop below ----
 
 ALTER TABLE job_definitions
@@ -36,6 +40,10 @@ ADD COLUMN assigned_building_ids UUID [] NOT NULL,
 DROP COLUMN assigned_units_by_building,
 DROP COLUMN floors,
 DROP COLUMN total_units;
+
+ALTER TABLE workers
+DROP COLUMN on_waitlist,
+DROP COLUMN waitlisted_at;
 
 DROP TABLE IF EXISTS job_unit_verifications;
 DROP TYPE IF EXISTS UNIT_VERIFICATION_STATUS;

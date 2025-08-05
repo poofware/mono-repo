@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
@@ -47,8 +48,9 @@ func (s *WorkerService) GetWorkerByID(ctx context.Context, userID string) (*mode
 	return worker, nil
 }
 
-// SubmitPersonalInfo updates the worker with their address and vehicle data,
-// and transitions their state from AWAITING_PERSONAL_INFO to ID_VERIFY.
+// SubmitPersonalInfo updates the worker with their address and vehicle data.
+// It sets the waitlisted_at timestamp if not already set and only advances
+// setup_progress to ID_VERIFY if the worker is not on the waitlist.
 func (s *WorkerService) SubmitPersonalInfo(
 	ctx context.Context,
 	userID string,
@@ -77,8 +79,13 @@ func (s *WorkerService) SubmitPersonalInfo(
 		stored.VehicleMake = req.VehicleMake
 		stored.VehicleModel = req.VehicleModel
 
-		// Transition the state.
-		stored.SetupProgress = models.SetupProgressIDVerify
+		if stored.WaitlistedAt == nil {
+			now := time.Now().UTC()
+			stored.WaitlistedAt = &now
+		}
+		if !stored.OnWaitlist {
+			stored.SetupProgress = models.SetupProgressIDVerify
+		}
 
 		finalWorker = stored
 		return nil
