@@ -3,31 +3,32 @@
 package integration
 
 import (
-	"encoding/json"
-	"net/http"
-	"testing"
-	"time"
+        "encoding/json"
+        "net/http"
+        "testing"
+        "time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
+        "github.com/google/uuid"
+        "github.com/stretchr/testify/require"
 
-	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/go-models"
+        internal_dtos "github.com/poofware/account-service/internal/dtos"
+        "github.com/poofware/account-service/internal/routes"
+        "github.com/poofware/go-models"
+        testhelpers "github.com/poofware/go-testhelpers"
 )
 
 func TestSubmitPersonalInfo_Waitlist(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
 
-	worker := &models.Worker{
-		ID:          uuid.New(),
-		Email:       "waitlist+" + uuid.NewString() + "@thepoofapp.com",
-		PhoneNumber: "+15551110000",
-		TOTPSecret:  "test-secret",
-		FirstName:   "Wait",
-		LastName:    "Lister",
-	}
+        worker := &models.Worker{
+                ID:          uuid.New(),
+                Email:       "waitlist+" + uuid.NewString() + "@thepoofapp.com",
+                PhoneNumber: testhelpers.UniquePhone(),
+                TOTPSecret:  "test-secret",
+                FirstName:   "Wait",
+                LastName:    "Lister",
+        }
 	require.NoError(t, h.WorkerRepo.Create(ctx, worker))
 	defer h.DB.Exec(ctx, `DELETE FROM workers WHERE id=$1`, worker.ID)
 

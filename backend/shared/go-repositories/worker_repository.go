@@ -193,7 +193,7 @@ func (r *workerRepo) GetActiveWorkerCount(ctx context.Context) (int, error) {
 }
 
 func (r *workerRepo) ListOldestWaitlistedWorkers(ctx context.Context, limit int) ([]*models.Worker, error) {
-	rows, err := r.db.Query(ctx, baseSelectWorker()+" WHERE on_waitlist = TRUE ORDER BY waitlisted_at ASC NULLS FIRST LIMIT $1", limit)
+        rows, err := r.db.Query(ctx, baseSelectWorker()+" WHERE on_waitlist = TRUE AND waitlisted_at IS NOT NULL ORDER BY waitlisted_at ASC LIMIT $1", limit)
 	if err != nil {
 		return nil, err
 	}
