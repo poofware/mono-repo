@@ -70,9 +70,17 @@ class _VehicleSetupPageState extends ConsumerState<VehicleSetupPage> {
           vehicleMake: _vehicleMake,
           vehicleModel: _vehicleModel,
         );
-        await repo.submitPersonalInfo(req);
+        final worker = await repo.submitPersonalInfo(req);
+        if (mounted) {
+          if (worker.onWaitlist) {
+            context.pushNamed(AppRouteNames.waitlistPage);
+          } else {
+            context.pushNamed(AppRouteNames.stripeIdvPage);
+          }
+        }
+      } else {
+        if (mounted) context.pushNamed(AppRouteNames.stripeIdvPage);
       }
-      if (mounted) context.pushNamed(AppRouteNames.stripeIdvPage);
     } catch (e) {
       if (mounted) {
         showAppSnackBar(

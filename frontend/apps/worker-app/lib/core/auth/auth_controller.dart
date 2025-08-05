@@ -51,6 +51,10 @@ class AuthController {
     final worker = _ref.read(workerStateNotifierProvider).worker;
     if (worker == null) return; // Should not happen if called correctly
 
+    final logger = _ref.read(appLoggerProvider);
+    logger.d(
+      'Navigating to next step based on worker state: ${worker.accountStatus}, ${worker.setupProgress}',
+    );
     switch (worker.accountStatus) {
       case AccountStatusType.incomplete:
         switch (worker.setupProgress) {
@@ -58,6 +62,10 @@ class AuthController {
             router.goNamed(AppRouteNames.addressInfoPage);
             break;
           case SetupProgressType.idVerify:
+            if (worker.onWaitlist) {
+              router.goNamed(AppRouteNames.waitlistPage);
+              return;
+            }
             router.goNamed(AppRouteNames.stripeIdvPage);
             break;
           case SetupProgressType.achPaymentAccountSetup:
@@ -85,7 +93,10 @@ class AuthController {
   // ─────────────────────────────────────────────────────────────────────
 
   /// Signs the user in, fetches necessary data, and navigates to the correct screen.
-  Future<void> signIn<T extends JsonSerializable>(T creds, GoRouter router) async {
+  Future<void> signIn<T extends JsonSerializable>(
+    T creds,
+    GoRouter router,
+  ) async {
     await _sessionManager.signIn(creds);
 
     final worker = _ref.read(workerStateNotifierProvider).worker;
@@ -105,7 +116,7 @@ class AuthController {
         _ref.read(postBootErrorProvider.notifier).state = postLoginErrors;
       }
     }
-    
+
     // After all data is settled, navigate.
     _navigateToNextStep(router);
   }
@@ -115,10 +126,12 @@ class AuthController {
     final logger = _ref.read(appLoggerProvider);
     try {
       await _sessionManager.init();
-      
+
       if (_sessionManager.isLoggedIn) {
-        final worker = await _ref.read(workerAccountRepositoryProvider).getWorker();
-        
+        final worker = await _ref
+            .read(workerAccountRepositoryProvider)
+            .getWorker();
+
         if (worker.accountStatus == AccountStatusType.active) {
           await Future.wait([
             _ref.read(jobsNotifierProvider.notifier).fetchAllMyJobs(),
@@ -141,7 +154,11 @@ class AuthController {
     } catch (e, s) {
       // Catch any exception during init, log it, and allow the app to proceed
       // to the welcome screen gracefully.
-      logger.e('Failed to initialize session during boot.', error: e, stackTrace: s);
+      logger.e(
+        'Failed to initialize session during boot.',
+        error: e,
+        stackTrace: s,
+      );
       // The app state will remain `isLoggedIn: false`, so no navigation is needed.
     }
   }

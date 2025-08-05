@@ -17,6 +17,7 @@ require (
 	github.com/poofware/go-repositories v0.0.0-20250630182314-3b41c01a1492
 	github.com/poofware/go-testhelpers v0.0.0-20250623155146-c502e35b0d10
 	github.com/poofware/go-utils v0.0.0-20250630000146-7d946433b1f0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.11.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/stretchr/testify v1.10.0

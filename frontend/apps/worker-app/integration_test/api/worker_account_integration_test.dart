@@ -142,7 +142,7 @@ void main() {
     );
 
     // 8) Submit personal info to complete setup
-    await accountRepo.submitPersonalInfo(
+    final submittedWorker = await accountRepo.submitPersonalInfo(
       const SubmitPersonalInfoRequest(
         streetAddress: '987 Worker Lane',
         city: 'AccountCity',
@@ -153,6 +153,7 @@ void main() {
         vehicleModel: 'ModelY',
       ),
     );
+    expect(submittedWorker.onWaitlist, isA<bool>());
   });
 
   // ─────────────────────────────────────────────────────────────────────
@@ -164,6 +165,7 @@ void main() {
       final worker = await accountRepo.getWorker();
       expect(worker.state, isNotEmpty);
       expect(worker.email, testEmail);
+      expect(worker.onWaitlist, isA<bool>());
     });
 
     // -------------------------------------------------------------------------

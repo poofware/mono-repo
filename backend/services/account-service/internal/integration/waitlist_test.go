@@ -53,7 +53,7 @@ func TestSubmitPersonalInfo_Waitlist(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, wUpdated.OnWaitlist)
 	require.NotNil(t, wUpdated.WaitlistedAt)
-	require.Equal(t, models.SetupProgressAwaitingPersonalInfo, wUpdated.SetupProgress)
+	require.Equal(t, models.SetupProgressIDVerify, wUpdated.SetupProgress)
 }
 
 func TestWorkerRepository_WaitlistQueries(t *testing.T) {

@@ -19,6 +19,7 @@ import 'package:poof_worker/features/auth/presentation/pages/totp_signup_page.da
 import 'package:poof_worker/features/auth/presentation/pages/phone_verification_info_page.dart';
 import 'package:poof_worker/features/auth/presentation/pages/signup_success_page.dart';
 import 'package:poof_worker/features/auth/presentation/pages/signup_expired_page.dart';
+import 'package:poof_worker/features/auth/presentation/pages/waitlist_page.dart';
 
 // Checkr / Stripe / Account
 import 'package:poof_worker/features/account/presentation/pages/checkr_page.dart';
@@ -65,6 +66,7 @@ class AppRouteNames {
   static const String totpSignUpPage = 'TotpSignUpPage';
   static const String signupSuccessPage = 'SignupSuccessPage';
   static const String signupExpiredPage = 'SignupExpiredPage';
+  static const String waitlistPage = 'WaitlistPage';
   static const String totpVerifyPage = 'TotpVerifyPage';
   static const String checkrPage = 'CheckrPage';
   static const String checkrInProgressPage = 'CheckrInProgressPage';
@@ -151,11 +153,18 @@ final List<AppRoute> _appRoutes = [
       name: AppRouteNames.addressInfoPage,
       builder: (_, _) => const AddressInfoPage()),
   AppRoute(
-    access: RouteAccess.protected,
-    path: '/vehicle_setup',
-    name: AppRouteNames.vehicleSetupPage,
-    pageBuilder: (context, state) =>
+      access: RouteAccess.protected,
+      path: '/vehicle_setup',
+      name: AppRouteNames.vehicleSetupPage,
+      pageBuilder: (context, state) =>
         const CupertinoPage(child: VehicleSetupPage()),
+  ),
+  AppRoute(
+    access: RouteAccess.protected,
+    path: '/waitlist',
+    name: AppRouteNames.waitlistPage,
+    pageBuilder: (context, state) =>
+        const CupertinoPage(child: WaitlistPage()),
   ),
   AppRoute(
       access: RouteAccess.unrestricted,

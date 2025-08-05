@@ -127,6 +127,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     accountStatus: AccountStatusType.active,
     setupProgress: SetupProgressType.done,
     checkrReportOutcome: CheckrReportOutcome.approved,
+    onWaitlist: false,
   );
 
   @override

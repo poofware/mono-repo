@@ -8,7 +8,6 @@ import (
 	ld "github.com/launchdarkly/go-server-sdk/v7"
 
 	"github.com/poofware/account-service/internal/config"
-	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 )
 
@@ -52,7 +51,6 @@ func (s *WaitlistService) ProcessWaitlist(ctx context.Context) error {
 	}
 	for _, w := range workers {
 		w.OnWaitlist = false
-		w.SetupProgress = models.SetupProgressIDVerify
 		if err := s.repo.Update(ctx, w); err != nil {
 			return err
 		}

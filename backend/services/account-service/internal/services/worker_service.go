@@ -50,7 +50,7 @@ func (s *WorkerService) GetWorkerByID(ctx context.Context, userID string) (*mode
 
 // SubmitPersonalInfo updates the worker with their address and vehicle data.
 // It sets the waitlisted_at timestamp if not already set and only advances
-// setup_progress to ID_VERIFY if the worker is not on the waitlist.
+// setup_progress to ID_VERIFY
 func (s *WorkerService) SubmitPersonalInfo(
 	ctx context.Context,
 	userID string,
@@ -83,9 +83,7 @@ func (s *WorkerService) SubmitPersonalInfo(
 			now := time.Now().UTC()
 			stored.WaitlistedAt = &now
 		}
-		if !stored.OnWaitlist {
-			stored.SetupProgress = models.SetupProgressIDVerify
-		}
+		stored.SetupProgress = models.SetupProgressIDVerify
 
 		finalWorker = stored
 		return nil

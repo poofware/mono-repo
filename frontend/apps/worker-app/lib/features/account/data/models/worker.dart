@@ -43,6 +43,7 @@ class Worker {
 
   // Checkr status info
   final CheckrReportOutcome checkrReportOutcome;
+  final bool onWaitlist;
 
   const Worker({
     required this.id,
@@ -62,6 +63,7 @@ class Worker {
     required this.accountStatus,
     required this.setupProgress,
     required this.checkrReportOutcome,
+    required this.onWaitlist,
   });
 
   // -------------------------------------------------------------------------
@@ -120,6 +122,7 @@ class Worker {
       setupProgress: _setupProgressFrom(json['setup_progress'] as String),
       checkrReportOutcome:
           checkrOutcomeFromString(json['checkr_report_outcome'] as String),
+      onWaitlist: json['on_waitlist'] as bool,
     );
   }
 }

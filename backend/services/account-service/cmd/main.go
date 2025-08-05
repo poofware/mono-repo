@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	_ "time/tzdata" // Load timezone data
+	cron "github.com/robfig/cron/v3"
 
 	"github.com/poofware/account-service/internal/app"
 	"github.com/poofware/account-service/internal/config"
@@ -77,15 +78,17 @@ func main() {
 	checkrWebhookController := controllers.NewCheckrWebhookController(checkrService)
 	workerCheckrController := controllers.NewWorkerCheckrController(checkrService)
 
-	go func() {
-		ticker := time.NewTicker(15 * time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
-			if err := waitlistService.ProcessWaitlist(context.Background()); err != nil {
-				utils.Logger.WithError(err).Error("failed to process waitlist")
-			}
+	// Setup waitlist processing via cron (every 15 minutes)
+	c := cron.New()
+	_, schErr := c.AddFunc("*/15 * * * *", func() {
+		if err := waitlistService.ProcessWaitlist(context.Background()); err != nil {
+			utils.Logger.WithError(err).Error("Scheduled waitlist processing failed")
 		}
-	}()
+	})
+	if schErr != nil {
+		utils.Logger.WithError(schErr).Fatal("Failed to schedule waitlist processing job")
+	}
+	c.Start()
 
 	workerUnversalLinksStripeController := controllers.NewWorkerUniversalLinksController(cfg.AppUrl)
 	wellKnownController := controllers.NewWellKnownController()
@@ -174,7 +177,7 @@ func main() {
 	}
 
 	// CORS config
-	c := cors.New(cors.Options{
+	co := cors.New(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Platform", "X-Device-ID", "X-Device-Integrity", "X-Key-Id", "ngrok-skip-browser-warning"},
@@ -182,7 +185,7 @@ func main() {
 	})
 
 	utils.Logger.Infof("Starting %s on port: %s", cfg.AppName, cfg.AppPort)
-	if err := http.ListenAndServe(":"+cfg.AppPort, c.Handler(router)); err != nil {
+	if err := http.ListenAndServe(":"+cfg.AppPort, co.Handler(router)); err != nil {
 		utils.Logger.Fatal("Failed to start server:", err)
 	}
 }
