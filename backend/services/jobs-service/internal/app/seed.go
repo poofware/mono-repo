@@ -1,5 +1,3 @@
-// meta-service/services/jobs-service/internal/app/seed.go
-
 package app
 
 import (
@@ -15,6 +13,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
+	seeding "github.com/poofware/go-seeding"
 	"github.com/poofware/go-utils"
 	"github.com/poofware/jobs-service/internal/dtos"
 	"github.com/poofware/jobs-service/internal/services"
@@ -71,17 +70,14 @@ func SeedAllTestData(
 	}
 
 	pmRepo := repositories.NewPropertyManagerRepository(db, encryptionKey)
-	workerRepo := repositories.NewWorkerRepository(db, encryptionKey) // NEW: Worker Repo
+	workerRepo := repositories.NewWorkerRepository(db, encryptionKey)
 	unitRepo := repositories.NewUnitRepository(db)
-	// instRepo := repositories.NewJobInstanceRepository(db) // For manual seeding -- no longer needed here
 
-	if err := seedDefaultPMIfNeeded(ctx, pmRepo); err != nil {
-		return fmt.Errorf("seed default PM if needed: %w", err)
+	if err := seeding.SeedDefaultPropertyManager(pmRepo); err != nil {
+		return fmt.Errorf("seed default PM: %w", err)
 	}
-
-	// NEW: Seed workers before properties and jobs
-	if err := seedDefaultWorkersIfNeeded(ctx, workerRepo); err != nil {
-		return fmt.Errorf("seed default workers if needed: %w", err)
+	if err := seeding.SeedDefaultWorkers(workerRepo); err != nil {
+		return fmt.Errorf("seed default workers: %w", err)
 	}
 
 	propID, err := seedPropertyDataIfNeeded(ctx, propRepo, bldgRepo, dumpRepo, unitRepo)
@@ -99,7 +95,7 @@ func SeedAllTestData(
 		return fmt.Errorf("seed job definitions if needed: %w", err)
 	}
 
-	// NEW: Seed the small 3-unit demo job for Demo Property 1.
+	// Seed the small 3-unit demo job for Demo Property 1.
 	if err := seedSmallDemoJobIfNeeded(ctx, defRepo, bldgRepo, unitRepo, jobService, propRepo, propID); err != nil {
 		return fmt.Errorf("seed small demo job if needed: %w", err)
 	}
@@ -124,123 +120,6 @@ func SeedAllTestData(
 	}
 
 	utils.Logger.Info("jobs-service: seeding completed successfully (some or all items).")
-	return nil
-}
-
-/*
-------------------------------------------------------------------
- 1. seedDefaultPMIfNeeded
-
-------------------------------------------------------------------
-*/
-func seedDefaultPMIfNeeded(
-	ctx context.Context,
-	pmRepo repositories.PropertyManagerRepository,
-) error {
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-
-	pm := &models.PropertyManager{
-		ID:              pmID,
-		Email:           "team@thepoofapp.com",
-		PhoneNumber:     utils.Ptr("+12565550000"),
-		TOTPSecret:      "defaultpmstatusactivestotpsecret",
-		BusinessName:    "Demo Property Management",
-		BusinessAddress: "30 Gates Mill St NW",
-		City:            "Huntsville",
-		State:           "AL",
-		ZipCode:         "35806",
-	}
-	if err := pmRepo.Create(ctx, pm); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: PM (id=%s) already exists; skipping creation.", pmID)
-			return nil
-		}
-		return fmt.Errorf("could not create PM (id=%s): %w", pmID, err)
-	}
-
-	utils.Logger.Infof("jobs-service: Created default PM (id=%s).", pmID)
-	return nil
-}
-
-/*
-------------------------------------------------------------------
-
-	1.5) seedDefaultWorkersIfNeeded (NEW)
-
-------------------------------------------------------------------
-*/
-func seedDefaultWorkersIfNeeded(
-	ctx context.Context,
-	workerRepo repositories.WorkerRepository,
-) error {
-	defaultWorkerStatusIncompleteID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa1111")
-	defaultWorkerStatusActiveID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
-
-	// --- Worker 1: INCOMPLETE, at BACKGROUND_CHECK step ---
-	wIncomplete := &models.Worker{
-		ID:          defaultWorkerStatusIncompleteID,
-		Email:       "jlmoors001@gmail.com",
-		PhoneNumber: "+15551110000",
-		TOTPSecret:  "defaultworkerstatusincompletestotpsecret",
-		FirstName:   "DefaultWorker",
-		LastName:    "SetupIncomplete",
-	}
-	if err := workerRepo.Create(ctx, wIncomplete); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: Default Worker (incomplete) already present (id=%s); skipping.", wIncomplete.ID)
-		} else {
-			return fmt.Errorf("insert default worker (incomplete): %w", err)
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: Created default Worker (incomplete) id=%s, now updating status.", wIncomplete.ID)
-		if err := workerRepo.UpdateWithRetry(ctx, wIncomplete.ID, func(stored *models.Worker) error {
-			stored.StreetAddress = "123 Default Status Incomplete St"
-			stored.City = "SeedCity"
-			stored.State = "AL"
-			stored.ZipCode = "90000"
-			stored.VehicleYear = 2022
-			stored.VehicleMake = "Toyota"
-			stored.VehicleModel = "Corolla"
-			stored.SetupProgress = models.SetupProgressBackgroundCheck
-			return nil
-		}); err != nil {
-			return fmt.Errorf("update default worker (incomplete) status: %w", err)
-		}
-	}
-
-	// --- Worker 2: ACTIVE, setup DONE ---
-	wActive := &models.Worker{
-		ID:          defaultWorkerStatusActiveID,
-		Email:       "team@thepoofapp.com",
-		PhoneNumber: "+15552220000",
-		TOTPSecret:  "defaultworkerstatusactivestotpsecretokay",
-		FirstName:   "DefaultWorker",
-		LastName:    "SetupActive",
-	}
-	if err := workerRepo.Create(ctx, wActive); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: Default Worker (active) already present (id=%s); skipping.", wActive.ID)
-		} else {
-			return fmt.Errorf("insert default worker (active): %w", err)
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: Created default Worker (active) id=%s, now updating status.", wActive.ID)
-		if err := workerRepo.UpdateWithRetry(ctx, wActive.ID, func(stored *models.Worker) error {
-			stored.StreetAddress = "123 Default Status Active St"
-			stored.City = "SeedCity"
-			stored.State = "AL"
-			stored.ZipCode = "90000"
-			stored.VehicleYear = 2022
-			stored.VehicleMake = "Toyota"
-			stored.VehicleModel = "Camry"
-			stored.AccountStatus = models.AccountStatusActive
-			stored.SetupProgress = models.SetupProgressDone
-			stored.StripeConnectAccountID = utils.Ptr("acct_1RZHahCLd3ZjFFWN") // Happy Path Connect ID
-			return nil
-		}); err != nil {
-			return fmt.Errorf("update default worker (active) status: %w", err)
-		}
-	}
 	return nil
 }
 
@@ -1004,7 +883,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		todayJob,
 	)
 
-	// This is the default active worker ID seeded in seedDefaultWorkersIfNeeded
+	// This is the default active worker ID seeded in go-seeding
 	workerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
 
 	for _, job := range allJobsToSeed {
