@@ -243,7 +243,11 @@ func (s *WorkerService) PatchWorker(
 			stored.City = *patchReq.City
 		}
 		if patchReq.State != nil {
-			stored.State = *patchReq.State
+			normalizedState, err := utils.NormalizeUSState(*patchReq.State) // Validation added
+			if err != nil {
+				return err
+			}
+			stored.State = normalizedState
 		}
 		if patchReq.ZipCode != nil {
 			stored.ZipCode = *patchReq.ZipCode
