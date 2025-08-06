@@ -8,6 +8,7 @@ import (
 	ld "github.com/launchdarkly/go-server-sdk/v7"
 
 	"github.com/poofware/account-service/internal/config"
+	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 )
 
@@ -45,12 +46,13 @@ func (s *WaitlistService) ProcessWaitlist(ctx context.Context) error {
 		return nil
 	}
 
-	workers, err := s.repo.ListOldestWaitlistedWorkers(ctx, slots)
+	workers, err := s.repo.ListOldestWaitlistedWorkers(ctx, slots, models.WaitlistReasonCapacity)
 	if err != nil {
 		return err
 	}
 	for _, w := range workers {
 		w.OnWaitlist = false
+		w.WaitlistReason = nil
 		if err := s.repo.Update(ctx, w); err != nil {
 			return err
 		}

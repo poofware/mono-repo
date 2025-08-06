@@ -54,6 +54,8 @@ func TestSubmitPersonalInfo_Waitlist(t *testing.T) {
 	require.True(t, wUpdated.OnWaitlist)
 	require.NotNil(t, wUpdated.WaitlistedAt)
 	require.Equal(t, models.SetupProgressIDVerify, wUpdated.SetupProgress)
+	require.NotNil(t, wUpdated.WaitlistReason)
+	require.Equal(t, models.WaitlistReasonGeographic, *wUpdated.WaitlistReason)
 }
 
 func TestWorkerRepository_WaitlistQueries(t *testing.T) {
@@ -73,14 +75,14 @@ func TestWorkerRepository_WaitlistQueries(t *testing.T) {
 
 	_, err = h.DB.Exec(ctx, `UPDATE workers SET on_waitlist=false WHERE id IN ($1,$2)`, w1.ID, w2.ID)
 	require.NoError(t, err)
-	_, err = h.DB.Exec(ctx, `UPDATE workers SET waitlisted_at=$2 WHERE id=$1`, w3.ID, time.Unix(0, 0).UTC())
+	_, err = h.DB.Exec(ctx, `UPDATE workers SET on_waitlist=true, waitlisted_at=$2, waitlist_reason='CAPACITY' WHERE id=$1`, w3.ID, time.Unix(0, 0).UTC())
 	require.NoError(t, err)
 
 	count, err := h.WorkerRepo.GetActiveWorkerCount(ctx)
 	require.NoError(t, err)
 	require.Equal(t, initialActive+2, count)
 
-	list, err := h.WorkerRepo.ListOldestWaitlistedWorkers(ctx, 1)
+	list, err := h.WorkerRepo.ListOldestWaitlistedWorkers(ctx, 1, models.WaitlistReasonCapacity)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	require.Equal(t, w3.ID, list[0].ID)

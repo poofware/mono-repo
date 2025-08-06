@@ -16,6 +16,8 @@ enum SetupProgressType {
   done,
 }
 
+enum WaitlistReason { geographic, capacity, none }
+
 /// ---------------------------------------------------------------------------
 /// Worker model (matches backend DTO)
 /// ---------------------------------------------------------------------------
@@ -44,6 +46,7 @@ class Worker {
   // Checkr status info
   final CheckrReportOutcome checkrReportOutcome;
   final bool onWaitlist;
+  final WaitlistReason waitlistReason;
 
   const Worker({
     required this.id,
@@ -64,6 +67,7 @@ class Worker {
     required this.setupProgress,
     required this.checkrReportOutcome,
     required this.onWaitlist,
+    required this.waitlistReason,
   });
 
   // -------------------------------------------------------------------------
@@ -99,6 +103,17 @@ class Worker {
     }
   }
 
+  static WaitlistReason _waitlistReasonFrom(String? raw) {
+    switch (raw) {
+      case 'GEOGRAPHIC':
+        return WaitlistReason.geographic;
+      case 'CAPACITY':
+        return WaitlistReason.capacity;
+      default:
+        return WaitlistReason.none;
+    }
+  }
+
   // -------------------------------------------------------------------------
   // JSON factory
   // -------------------------------------------------------------------------
@@ -120,9 +135,11 @@ class Worker {
       checkrCandidateId: json['checkr_candidate_id'] as String?,
       accountStatus: _accountStatusFrom(json['account_status'] as String),
       setupProgress: _setupProgressFrom(json['setup_progress'] as String),
-      checkrReportOutcome:
-          checkrOutcomeFromString(json['checkr_report_outcome'] as String),
+      checkrReportOutcome: checkrOutcomeFromString(
+        json['checkr_report_outcome'] as String,
+      ),
       onWaitlist: json['on_waitlist'] as bool,
+      waitlistReason: _waitlistReasonFrom(json['waitlist_reason'] as String?),
     );
   }
 }

@@ -602,6 +602,8 @@
   "waitlistPageMessage": "Gracias por registrarte. Te notificaremos cuando sea tu turno. Puedes revisar tu estado en cualquier momento.",
   "waitlistPageCheckStatusButton": "Revisar mi estado",
   "waitlistStillWaitingMessage": "Aún estás en la lista de espera. Te avisaremos cuando sea tu turno.",
+  "geographicWaitlistPageTitle": "Poof aún no está disponible en tu área",
+  "geographicWaitlistPageMessage": "Te avisaremos cuando lancemos en tu zona.",
   "helpAndSupportTitle": "Ayuda y Soporte",
   "emailSupportLabel": "Soporte por Correo",
   "helpPageIntro": "Para obtener el soporte más rápido, envía un correo electrónico a nuestro equipo. Asegúrate de incluir el correo electrónico de tu cuenta y una descripción detallada de tu problema para que podamos ayudarte lo más rápido posible.",

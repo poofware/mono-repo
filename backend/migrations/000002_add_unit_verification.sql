@@ -23,6 +23,11 @@ CREATE TABLE job_unit_verifications (
     UNIQUE (job_instance_id, unit_id)
 );
 
+CREATE TYPE waitlist_reason_type AS ENUM (
+    'GEOGRAPHIC',
+    'CAPACITY'
+);
+
 ALTER TABLE job_definitions
 DROP COLUMN assigned_building_ids,
 ADD COLUMN assigned_units_by_building JSONB NOT NULL,
@@ -30,8 +35,9 @@ ADD COLUMN floors SMALLINT [] NOT NULL DEFAULT '{}',
 ADD COLUMN total_units INT NOT NULL DEFAULT 0;
 
 ALTER TABLE workers
-ADD COLUMN on_waitlist BOOLEAN NOT NULL DEFAULT TRUE,
-ADD COLUMN waitlisted_at TIMESTAMPTZ NULL;
+ADD COLUMN on_waitlist BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN waitlisted_at TIMESTAMPTZ NULL,
+ADD COLUMN waitlist_reason waitlist_reason_type NULL;
 
 ---- create above / drop below ----
 
@@ -43,7 +49,9 @@ DROP COLUMN total_units;
 
 ALTER TABLE workers
 DROP COLUMN on_waitlist,
-DROP COLUMN waitlisted_at;
+DROP COLUMN waitlisted_at,
+DROP COLUMN waitlist_reason;
 
 DROP TABLE IF EXISTS job_unit_verifications;
 DROP TYPE IF EXISTS UNIT_VERIFICATION_STATUS;
+DROP TYPE IF EXISTS waitlist_reason_type;

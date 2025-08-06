@@ -607,6 +607,8 @@
   "waitlistPageMessage": "Thanks for signing up! We'll notify you as soon as it's your turn. You can check your status anytime.",
   "waitlistPageCheckStatusButton": "Check My Status",
   "waitlistStillWaitingMessage": "You're still on the waitlist. We'll notify you when it's your turn.",
+  "geographicWaitlistPageTitle": "Poof isn't in your area yet",
+  "geographicWaitlistPageMessage": "We'll let you know once we launch near you.",
   "helpAndSupportTitle": "Help & Support",
   "emailSupportLabel": "Email Support",
   "helpPageIntro": "For the fastest support, please email our team. Be sure to include your account email and a detailed description of your issue so we can help you as quickly as possible.",

@@ -42,34 +42,42 @@ const (
 	ReportOutcomeUnknownStatus                      ReportOutcomeType = "UNKNOWN"
 )
 
+type WaitlistReasonType string
+
+const (
+	WaitlistReasonGeographic WaitlistReasonType = "GEOGRAPHIC"
+	WaitlistReasonCapacity   WaitlistReasonType = "CAPACITY"
+)
+
 type Worker struct {
 	Versioned
 
-	ID                        uuid.UUID         `json:"id"`
-	Email                     string            `json:"email"`
-	PhoneNumber               string            `json:"phone_number"`
-	TOTPSecret                string            `json:"totp_secret,omitempty"`
-	FirstName                 string            `json:"first_name"`
-	LastName                  string            `json:"last_name"`
-	StreetAddress             string            `json:"street_address"`
-	AptSuite                  *string           `json:"apt_suite,omitempty"`
-	City                      string            `json:"city"`
-	State                     string            `json:"state"`
-	ZipCode                   string            `json:"zip_code"`
-	VehicleYear               int               `json:"vehicle_year"`
-	VehicleMake               string            `json:"vehicle_make"`
-	VehicleModel              string            `json:"vehicle_model"`
-	AccountStatus             AccountStatusType `json:"account_status"`
-	SetupProgress             SetupProgressType `json:"setup_progress"`
-	OnWaitlist                bool              `json:"on_waitlist"`
-	WaitlistedAt              *time.Time        `json:"waitlisted_at,omitempty"`
-	StripeConnectAccountID    *string           `json:"stripe_connect_account_id,omitempty"`
-	CurrentStripeIdvSessionID *string           `json:"current_stripe_idv_session_id,omitempty"`
-	CheckrCandidateID         *string           `json:"checkr_candidate_id,omitempty"`
-	CheckrInvitationID        *string           `json:"checkr_invitation_id,omitempty"`
-	CheckrReportID            *string           `json:"checkr_report_id,omitempty"`
-	CheckrReportOutcome       ReportOutcomeType `json:"checkr_report_outcome,omitempty"`
-	CheckrReportETA           *time.Time        `json:"checkr_report_eta,omitempty"`
+	ID                        uuid.UUID           `json:"id"`
+	Email                     string              `json:"email"`
+	PhoneNumber               string              `json:"phone_number"`
+	TOTPSecret                string              `json:"totp_secret,omitempty"`
+	FirstName                 string              `json:"first_name"`
+	LastName                  string              `json:"last_name"`
+	StreetAddress             string              `json:"street_address"`
+	AptSuite                  *string             `json:"apt_suite,omitempty"`
+	City                      string              `json:"city"`
+	State                     string              `json:"state"`
+	ZipCode                   string              `json:"zip_code"`
+	VehicleYear               int                 `json:"vehicle_year"`
+	VehicleMake               string              `json:"vehicle_make"`
+	VehicleModel              string              `json:"vehicle_model"`
+	AccountStatus             AccountStatusType   `json:"account_status"`
+	SetupProgress             SetupProgressType   `json:"setup_progress"`
+	OnWaitlist                bool                `json:"on_waitlist"`
+	WaitlistedAt              *time.Time          `json:"waitlisted_at,omitempty"`
+	WaitlistReason            *WaitlistReasonType `json:"waitlist_reason,omitempty"`
+	StripeConnectAccountID    *string             `json:"stripe_connect_account_id,omitempty"`
+	CurrentStripeIdvSessionID *string             `json:"current_stripe_idv_session_id,omitempty"`
+	CheckrCandidateID         *string             `json:"checkr_candidate_id,omitempty"`
+	CheckrInvitationID        *string             `json:"checkr_invitation_id,omitempty"`
+	CheckrReportID            *string             `json:"checkr_report_id,omitempty"`
+	CheckrReportOutcome       ReportOutcomeType   `json:"checkr_report_outcome,omitempty"`
+	CheckrReportETA           *time.Time          `json:"checkr_report_eta,omitempty"`
 
 	ReliabilityScore int        `json:"reliability_score"`
 	IsBanned         bool       `json:"is_banned"`

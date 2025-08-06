@@ -30,7 +30,7 @@ type WorkerRepository interface {
 
 	AdjustWorkerScoreAtomic(ctx context.Context, workerID uuid.UUID, delta int, eventType string) error
 	GetActiveWorkerCount(ctx context.Context) (int, error)
-	ListOldestWaitlistedWorkers(ctx context.Context, limit int) ([]*models.Worker, error)
+	ListOldestWaitlistedWorkers(ctx context.Context, limit int, reason models.WaitlistReasonType) ([]*models.Worker, error)
 }
 
 type workerRepo struct {
@@ -192,8 +192,8 @@ func (r *workerRepo) GetActiveWorkerCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
-func (r *workerRepo) ListOldestWaitlistedWorkers(ctx context.Context, limit int) ([]*models.Worker, error) {
-        rows, err := r.db.Query(ctx, baseSelectWorker()+" WHERE on_waitlist = TRUE AND waitlisted_at IS NOT NULL ORDER BY waitlisted_at ASC LIMIT $1", limit)
+func (r *workerRepo) ListOldestWaitlistedWorkers(ctx context.Context, limit int, reason models.WaitlistReasonType) ([]*models.Worker, error) {
+	rows, err := r.db.Query(ctx, baseSelectWorker()+" WHERE on_waitlist = TRUE AND waitlisted_at IS NOT NULL AND waitlist_reason=$2 ORDER BY waitlisted_at ASC LIMIT $1", limit, reason)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (r *workerRepo) update(ctx context.Context, w *models.Worker, check bool, e
             checkr_candidate_id=$18,checkr_invitation_id=$19,checkr_report_id=$20,
             checkr_report_outcome=$21,checkr_report_eta=$22,
             reliability_score=$23,is_banned=$24,suspended_until=$25,tenant_token=$26,
-            on_waitlist=$27,waitlisted_at=$28,
+            on_waitlist=$27,waitlisted_at=$28,waitlist_reason=$29,
             updated_at=NOW()
     `
 	args := []any{
@@ -245,14 +245,14 @@ func (r *workerRepo) update(ctx context.Context, w *models.Worker, check bool, e
 		w.CheckrCandidateID, w.CheckrInvitationID, w.CheckrReportID,
 		w.CheckrReportOutcome, w.CheckrReportETA,
 		w.ReliabilityScore, w.IsBanned, w.SuspendedUntil, w.TenantToken,
-		w.OnWaitlist, w.WaitlistedAt,
+		w.OnWaitlist, w.WaitlistedAt, w.WaitlistReason,
 	}
 
 	if check {
-		sql += `, row_version=row_version+1 WHERE id=$29 AND row_version=$30`
+		sql += `, row_version=row_version+1 WHERE id=$30 AND row_version=$31`
 		args = append(args, w.ID, expected)
 	} else {
-		sql += ` WHERE id=$29`
+		sql += ` WHERE id=$30`
 		args = append(args, w.ID)
 	}
 	return r.db.Exec(ctx, sql, args...)
@@ -269,7 +269,7 @@ func baseSelectWorker() string {
         checkr_candidate_id,checkr_invitation_id,checkr_report_id,
         checkr_report_outcome,checkr_report_eta,
         reliability_score,is_banned,suspended_until,tenant_token,
-        on_waitlist,waitlisted_at,
+        on_waitlist,waitlisted_at,waitlist_reason,
         row_version,created_at,updated_at
     FROM workers`
 }
@@ -281,6 +281,7 @@ func (r *workerRepo) scanWorker(row pgx.Row) (*models.Worker, error) {
 	var eta *time.Time
 	var suspendedUntil *time.Time
 	var tenantToken *string
+	var waitlistReason *string
 
 	err := row.Scan(
 		&w.ID, &w.Email, &w.PhoneNumber, &enc,
@@ -291,7 +292,7 @@ func (r *workerRepo) scanWorker(row pgx.Row) (*models.Worker, error) {
 		&w.CheckrCandidateID, &w.CheckrInvitationID, &w.CheckrReportID,
 		&outcome, &eta,
 		&w.ReliabilityScore, &w.IsBanned, &suspendedUntil, &tenantToken,
-		&w.OnWaitlist, &w.WaitlistedAt,
+		&w.OnWaitlist, &w.WaitlistedAt, &waitlistReason,
 		&w.RowVersion, &w.CreatedAt, &w.UpdatedAt,
 	)
 	if err != nil {
@@ -307,6 +308,10 @@ func (r *workerRepo) scanWorker(row pgx.Row) (*models.Worker, error) {
 	w.CheckrReportETA = eta
 	w.SuspendedUntil = suspendedUntil
 	w.TenantToken = tenantToken
+	if waitlistReason != nil {
+		wr := models.WaitlistReasonType(*waitlistReason)
+		w.WaitlistReason = &wr
+	}
 
 	if enc != nil && *enc != "" {
 		dec, decErr := utils.Decrypt(r.encKey, *enc)

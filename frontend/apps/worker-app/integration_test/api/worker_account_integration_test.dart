@@ -86,10 +86,7 @@ void main() {
 
     // 2) Instantiate the WorkerAccountApi/Repository, also providing the same workerNotifier
     final workerAccountApi = WorkerAccountApi(tokenStorage: tokenStorage);
-    accountRepo = WorkerAccountRepository(
-      workerAccountApi,
-      workerNotifier,
-    );
+    accountRepo = WorkerAccountRepository(workerAccountApi, workerNotifier);
 
     // --- PHONE FIRST ---
     // 3) Request SMS code => negative => positive
@@ -135,10 +132,7 @@ void main() {
     // 7) Login with TOTP code
     final loginTOTP = generateTOTPCode(totpSecret!);
     await authRepo.doLogin(
-      LoginWorkerRequest(
-        phoneNumber: testPhone,
-        totpCode: loginTOTP,
-      ),
+      LoginWorkerRequest(phoneNumber: testPhone, totpCode: loginTOTP),
     );
 
     // 8) Submit personal info to complete setup
@@ -154,6 +148,7 @@ void main() {
       ),
     );
     expect(submittedWorker.onWaitlist, isA<bool>());
+    expect(submittedWorker.waitlistReason, isA<WaitlistReason>());
   });
 
   // ─────────────────────────────────────────────────────────────────────
@@ -166,6 +161,7 @@ void main() {
       expect(worker.state, isNotEmpty);
       expect(worker.email, testEmail);
       expect(worker.onWaitlist, isA<bool>());
+      expect(worker.waitlistReason, isA<WaitlistReason>());
     });
 
     // -------------------------------------------------------------------------
@@ -210,7 +206,10 @@ void main() {
 
     testWidgets('Create Checkr invitation', (tester) async {
       invitation = await accountRepo.createCheckrInvitation();
-      expect(invitation.invitationUrl, allOf([isNotEmpty, startsWith('https://')]));
+      expect(
+        invitation.invitationUrl,
+        allOf([isNotEmpty, startsWith('https://')]),
+      );
       expect(invitation.message.toLowerCase(), contains('checkr'));
     });
 

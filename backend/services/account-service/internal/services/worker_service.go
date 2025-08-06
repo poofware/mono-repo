@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	ld "github.com/launchdarkly/go-server-sdk/v7"
 	"github.com/poofware/account-service/internal/config"
 	internal_dtos "github.com/poofware/account-service/internal/dtos"
 	"github.com/poofware/go-dtos"
@@ -21,6 +25,17 @@ type WorkerService struct {
 	smsVerificationRepo repositories.WorkerSMSVerificationRepository
 	cfg                 *config.Config
 }
+
+type zipRange struct {
+	start int
+	end   int
+}
+
+var (
+	allowedStates = map[string]struct{}{utils.StateAL: {}}
+	allowedZips   = []zipRange{{35739, 35775}, {35801, 35899}}
+	nonDigits     = regexp.MustCompile(`[^0-9]`)
+)
 
 // NewWorkerService creates a WorkerService.
 func NewWorkerService(
@@ -62,29 +77,93 @@ func (s *WorkerService) SubmitPersonalInfo(
 		return nil, fmt.Errorf("invalid userID format: %w", err)
 	}
 
+	normalizedState, err := utils.NormalizeUSState(req.State)
+	if err != nil {
+		return nil, err
+	}
+
+	zipDigits := nonDigits.ReplaceAllString(req.ZipCode, "")
+	if len(zipDigits) < 5 {
+		return nil, fmt.Errorf("invalid zip code")
+	}
+	zipInt, _ := strconv.Atoi(zipDigits[:5])
+
+	inState := false
+	if _, ok := allowedStates[normalizedState]; ok {
+		inState = true
+	}
+
+	inZip := false
+	if inState {
+		for _, r := range allowedZips {
+			if zipInt >= r.start && zipInt <= r.end {
+				inZip = true
+				break
+			}
+		}
+	}
+
+	shouldWaitlist := false
+	var reason *models.WaitlistReasonType
+	if !inState || !inZip {
+		shouldWaitlist = true
+		r := models.WaitlistReasonGeographic
+		reason = &r
+	} else {
+		ldClient, err := ld.MakeClient(s.cfg.LDSDKKey, config.LDConnectionTimeout)
+		if err != nil {
+			return nil, err
+		}
+		if !ldClient.Initialized() {
+			ldClient.Close()
+			return nil, errors.New("launchdarkly client failed to initialize")
+		}
+		ldCtx := ldcontext.NewWithKind(ldcontext.Kind(config.LDServerContextKind), config.LDServerContextKey)
+		capacity, err := ldClient.IntVariation("worker_capacity_limit", ldCtx, 0)
+		ldClient.Close()
+		if err != nil {
+			return nil, err
+		}
+		activeCount, err := s.repo.GetActiveWorkerCount(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if activeCount >= int(capacity) {
+			shouldWaitlist = true
+			r := models.WaitlistReasonCapacity
+			reason = &r
+		}
+	}
+
 	var finalWorker *models.Worker
 	updateErr := s.repo.UpdateWithRetry(ctx, wID, func(stored *models.Worker) error {
-		// This action is only valid if the worker is in the AWAITING_PERSONAL_INFO state.
 		if stored.SetupProgress != models.SetupProgressAwaitingPersonalInfo {
 			return errors.New("worker not in AWAITING_PERSONAL_INFO state")
 		}
 
-		// Apply all updates from the request DTO.
 		stored.StreetAddress = req.StreetAddress
 		stored.AptSuite = req.AptSuite
 		stored.City = req.City
-		stored.State = req.State
+		stored.State = normalizedState
 		stored.ZipCode = req.ZipCode
 		stored.VehicleYear = req.VehicleYear
 		stored.VehicleMake = req.VehicleMake
 		stored.VehicleModel = req.VehicleModel
 
-		if stored.WaitlistedAt == nil {
-			now := time.Now().UTC()
-			stored.WaitlistedAt = &now
+		if shouldWaitlist {
+			stored.OnWaitlist = true
+			stored.WaitlistReason = reason
+			if stored.WaitlistedAt == nil {
+				now := time.Now().UTC()
+				stored.WaitlistedAt = &now
+			}
+		} else {
+			stored.OnWaitlist = false
+			stored.WaitlistReason = nil
+			stored.WaitlistedAt = nil
 		}
-		stored.SetupProgress = models.SetupProgressIDVerify
 
+		stored.SetupProgress = models.SetupProgressIDVerify
 		finalWorker = stored
 		return nil
 	})
@@ -92,7 +171,7 @@ func (s *WorkerService) SubmitPersonalInfo(
 	if updateErr != nil {
 		if updateErr == pgx.ErrNoRows {
 			utils.Logger.Errorf("Worker with ID %s not found for personal info submission", userID)
-			return nil, nil // Let controller return 404
+			return nil, nil
 		}
 		return nil, updateErr
 	}

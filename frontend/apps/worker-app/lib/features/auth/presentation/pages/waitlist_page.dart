@@ -10,6 +10,7 @@ import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/account/providers/providers.dart';
+import 'package:poof_worker/features/account/data/models/worker.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
 class WaitlistPage extends ConsumerStatefulWidget {
@@ -34,10 +35,7 @@ class _WaitlistPageState extends ConsumerState<WaitlistPage> {
         }
       } else {
         if (mounted) {
-          showAppSnackBar(
-            context,
-            Text(app.waitlistStillWaitingMessage),
-          );
+          showAppSnackBar(context, Text(app.waitlistStillWaitingMessage));
         }
       }
     } catch (e) {
@@ -45,9 +43,7 @@ class _WaitlistPageState extends ConsumerState<WaitlistPage> {
         showAppSnackBar(
           context,
           Text(
-            e is ApiException
-                ? userFacingMessage(context, e)
-                : e.toString(),
+            e is ApiException ? userFacingMessage(context, e) : e.toString(),
           ),
         );
       }
@@ -60,6 +56,8 @@ class _WaitlistPageState extends ConsumerState<WaitlistPage> {
   Widget build(BuildContext context) {
     final app = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final worker = ref.watch(workerStateNotifierProvider).worker;
+    final isGeo = worker?.waitlistReason == WaitlistReason.geographic;
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -71,15 +69,20 @@ class _WaitlistPageState extends ConsumerState<WaitlistPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.hourglass_empty,
-                        size: 80, color: theme.colorScheme.primary),
-                  )
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.15,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.hourglass_empty,
+                          size: 80,
+                          color: theme.colorScheme.primary,
+                        ),
+                      )
                       .animate()
                       .scale(
                         begin: Offset.zero,
@@ -90,23 +93,30 @@ class _WaitlistPageState extends ConsumerState<WaitlistPage> {
                       .fadeIn(duration: 600.ms),
                   const SizedBox(height: 32),
                   Text(
-                    app.waitlistPageTitle,
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    isGeo
+                        ? app.geographicWaitlistPageTitle
+                        : app.waitlistPageTitle,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    app.waitlistPageMessage,
+                    isGeo
+                        ? app.geographicWaitlistPageMessage
+                        : app.waitlistPageMessage,
                     style: theme.textTheme.titleMedium,
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 48),
-                  WelcomeButton(
-                    text: app.waitlistPageCheckStatusButton,
-                    isLoading: _checking,
-                    onPressed: _checking ? null : _checkStatus,
-                  ),
+                  if (!isGeo) ...[
+                    const SizedBox(height: 48),
+                    WelcomeButton(
+                      text: app.waitlistPageCheckStatusButton,
+                      isLoading: _checking,
+                      onPressed: _checking ? null : _checkStatus,
+                    ),
+                  ],
                 ],
               ),
             ),
