@@ -141,7 +141,7 @@ func SeedDefaultWorker(workerRepo repositories.WorkerRepository) error {
 	wActive := &models.Worker{
 		ID:          defaultWorkerStatusActiveID,
 		Email:       "team@thepoofapp.com",
-		PhoneNumber: "+12567013403",
+		PhoneNumber: "+15552220000",
 		TOTPSecret:  "defaultworkerstatusactivestotpsecretokay",
 		FirstName:   "DefaultWorker",
 		LastName:    "SetupActive",
@@ -188,7 +188,7 @@ func SeedDefaultPropertyManagerAccountOnly(pmRepo repositories.PropertyManagerRe
 	pm := &models.PropertyManager{
 		ID:              pmID,
 		Email:           "team@thepoofapp.com",
-		PhoneNumber:     utils.Ptr("+12567013403"),
+		PhoneNumber:     utils.Ptr("+12565550000"),
 		TOTPSecret:      "defaultpmstatusactivestotpsecret",
 		BusinessName:    "Demo Property Management",
 		BusinessAddress: "30 Gates Mill St NW",
