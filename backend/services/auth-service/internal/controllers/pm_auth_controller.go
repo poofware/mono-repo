@@ -1,4 +1,4 @@
-// meta-service/services/auth-service/internal/controllers/pm_auth_controller.go
+// backend/services/auth-service/internal/controllers/pm_auth_controller.go
 package controllers
 
 import (
@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4"
 
 	"github.com/poofware/auth-service/internal/config"
 	auth_dtos "github.com/poofware/auth-service/internal/dtos"
@@ -86,15 +87,20 @@ func (c *PMAuthController) RequestPMEmailCode(w http.ResponseWriter, r *http.Req
 	clientID := utils.GetClientIdentifier(r, platform).Value
 
 	if err := c.pmAuthService.RequestEmailCode(r.Context(), req.Email, pmID, clientID); err != nil {
-		if errors.Is(err, utils.ErrRateLimitExceeded) {
+		switch {
+		case errors.Is(err, utils.ErrRateLimitExceeded):
 			utils.RespondErrorWithCode(
 				w, http.StatusTooManyRequests, utils.ErrCodeRateLimitExceeded, "Too many requests. Please try again later.", nil,
 			)
-			return
+		case errors.Is(err, utils.ErrExternalServiceFailure):
+			utils.RespondErrorWithCode(
+				w, http.StatusFailedDependency, utils.ErrCodeExternalServiceFailure, "Failed to send email due to an external service issue.", err,
+			)
+		default:
+			utils.RespondErrorWithCode(
+				w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Failed to send email code", err,
+			)
 		}
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Failed to send email code", err,
-		)
 		return
 	}
 
@@ -165,15 +171,20 @@ func (c *PMAuthController) RequestPMSMSCode(w http.ResponseWriter, r *http.Reque
 	clientID := utils.GetClientIdentifier(r, platform).Value
 
 	if err := c.pmAuthService.RequestSMSCode(r.Context(), req.PhoneNumber, pmID, clientID); err != nil {
-		if errors.Is(err, utils.ErrRateLimitExceeded) {
+		switch {
+		case errors.Is(err, utils.ErrRateLimitExceeded):
 			utils.RespondErrorWithCode(
 				w, http.StatusTooManyRequests, utils.ErrCodeRateLimitExceeded, "Too many requests. Please try again later.", nil,
 			)
-			return
+		case errors.Is(err, utils.ErrExternalServiceFailure):
+			utils.RespondErrorWithCode(
+				w, http.StatusFailedDependency, utils.ErrCodeExternalServiceFailure, "Failed to send SMS due to an external service issue.", err,
+			)
+		default:
+			utils.RespondErrorWithCode(
+				w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Failed to send SMS code", err,
+			)
 		}
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Failed to send SMS code", err,
-		)
 		return
 	}
 
@@ -523,3 +534,59 @@ func (c *PMAuthController) LogoutPM(w http.ResponseWriter, r *http.Request) {
 	utils.RespondWithJSON(w, http.StatusOK, auth_dtos.LogoutResponse{Message: "Logged out successfully"})
 }
 
+// ------------------------------------------------------------
+// PM Account Deletion
+// ------------------------------------------------------------
+
+func (c *PMAuthController) InitiateDeletion(w http.ResponseWriter, r *http.Request) {
+	var req auth_dtos.InitiateDeletionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid payload", err)
+		return
+	}
+	if err := pmValidate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Invalid email format", err)
+		return
+	}
+
+	platform := utils.GetClientPlatform(r)
+	clientID := utils.GetClientIdentifier(r, platform).Value
+
+	token, err := c.pmAuthService.InitiateDeletion(r.Context(), req.Email, clientID)
+	if err != nil {
+		switch {
+		case errors.Is(err, utils.ErrRateLimitExceeded):
+			utils.RespondErrorWithCode(
+				w, http.StatusTooManyRequests, utils.ErrCodeRateLimitExceeded, "Too many requests. Please try again later.", nil,
+			)
+		case errors.Is(err, pgx.ErrNoRows):
+			utils.RespondErrorWithCode(w, http.StatusNotFound, utils.ErrCodeNotFound, "Property Manager not found", err)
+		case errors.Is(err, utils.ErrExternalServiceFailure):
+			utils.RespondErrorWithCode(w, http.StatusFailedDependency, utils.ErrCodeExternalServiceFailure, "A required service is temporarily unavailable. Please try again later.", err)
+		default:
+			utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to initiate deletion", err)
+		}
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, auth_dtos.InitiateDeletionResponse{PendingToken: token})
+}
+
+func (c *PMAuthController) ConfirmDeletion(w http.ResponseWriter, r *http.Request) {
+	var req auth_dtos.ConfirmDeletionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid payload", err)
+		return
+	}
+	if err := pmValidate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	if err := c.pmAuthService.ConfirmDeletion(r.Context(), req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusUnauthorized, utils.ErrCodeUnauthorized, "Verification failed", err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, auth_dtos.ConfirmDeletionResponse{Message: "Your account deletion request has been successfully submitted for processing."})
+}

@@ -57,7 +57,8 @@ func main() {
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	workerLoginRepo := auth_repositories.NewWorkerLoginAttemptsRepository(application.DB)
 	workerTokenRepo := auth_repositories.NewWorkerTokenRepository(application.DB)
-	pendingDeletionRepo := auth_repositories.NewPendingDeletionRepository(application.DB)
+	pendingWorkerDeletionRepo := auth_repositories.NewPendingWorkerDeletionRepository(application.DB)
+	pendingPMDeletionRepo := auth_repositories.NewPendingPMDeletionRepository(application.DB)
 
 	pmEmailRepo := repositories.NewPMEmailVerificationRepository(application.DB)
 	pmSMSRepo := repositories.NewPMSMSVerificationRepository(application.DB)
@@ -77,6 +78,7 @@ func main() {
 		pmTokenRepo,
 		pmEmailRepo,
 		pmSMSRepo,
+		pendingPMDeletionRepo,
 		rateLimiterService,
 		cfg,
 	)
@@ -87,7 +89,7 @@ func main() {
 		workerTokenRepo,
 		workerEmailRepo,
 		workerSMSRepo,
-		pendingDeletionRepo,
+		pendingWorkerDeletionRepo,
 		rateLimiterService,
 		challengeRepo,
 		cfg,
@@ -137,6 +139,8 @@ func main() {
 	v1Router.HandleFunc("/pm/email/valid", pmController.ValidatePMEmail).Methods("POST")
 	v1Router.HandleFunc("/pm/phone/valid", pmController.ValidatePMPhone).Methods("POST")
 	v1Router.HandleFunc("/pm/refresh_token", pmController.RefreshTokenPM).Methods("POST")
+	v1Router.HandleFunc("/pm/initiate-deletion", pmController.InitiateDeletion).Methods("POST")   // New
+	v1Router.HandleFunc("/pm/confirm-deletion", pmController.ConfirmDeletion).Methods("POST")
 
 	// Worker endpoints that do NOT require the new mobile attestation middleware
 	v1Router.HandleFunc("/worker/register", workerController.RegisterWorker).Methods("POST")

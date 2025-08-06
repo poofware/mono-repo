@@ -35,7 +35,7 @@ func SeedAllTestData(
 	wActive := &models.Worker{
 		ID:            defaultActiveWorkerID,
 		Email:         "team@thepoofapp.com",
-		PhoneNumber:   "+15552220000",
+		PhoneNumber:   "+12567013403",
 		TOTPSecret:    "defaultworkerstatusactivestotpsecretokay",
 		FirstName:     "DefaultWorker",
 		LastName:      "SetupActive",

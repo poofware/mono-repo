@@ -142,7 +142,7 @@ func seedDefaultPMIfNeeded(
 	pm := &models.PropertyManager{
 		ID:              pmID,
 		Email:           "team@thepoofapp.com",
-		PhoneNumber:     utils.Ptr("+12565550000"),
+		PhoneNumber:     utils.Ptr("+12567013403"),
 		TOTPSecret:      "defaultpmstatusactivestotpsecret",
 		BusinessName:    "Demo Property Management",
 		BusinessAddress: "30 Gates Mill St NW",
@@ -212,7 +212,7 @@ func seedDefaultWorkersIfNeeded(
 	wActive := &models.Worker{
 		ID:          defaultWorkerStatusActiveID,
 		Email:       "team@thepoofapp.com",
-		PhoneNumber: "+15552220000",
+		PhoneNumber: "+12567013403",
 		TOTPSecret:  "defaultworkerstatusactivestotpsecretokay",
 		FirstName:   "DefaultWorker",
 		LastName:    "SetupActive",

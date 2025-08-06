@@ -1,3 +1,4 @@
+// backend/shared/go-utils/response.go
 package utils
 
 import (
@@ -25,6 +26,7 @@ const (
 	ErrCodeRateLimitExceeded         = "rate_limit_exceeded"
 	ErrCodeLocationInaccurate        = "location_inaccurate"
 	ErrCodeKeyNotFoundForAssertion = "key_not_found_for_assertion"
+	ErrCodeExternalServiceFailure    = "external_service_failure" // NEW
 )
 
 // ErrorResponse is now extended with an optional `Details` field

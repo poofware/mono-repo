@@ -1,3 +1,4 @@
+// backend/services/auth-service/internal/controllers/worker_auth_controller.go
 package controllers
 
 import (
@@ -455,13 +456,25 @@ func (c *WorkerAuthController) InitiateDeletion(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	token, err := c.workerAuthService.InitiateDeletion(r.Context(), req.Email)
+	platform := utils.GetClientPlatform(r)
+	clientID := utils.GetClientIdentifier(r, platform).Value
+
+	token, err := c.workerAuthService.InitiateDeletion(r.Context(), req.Email, clientID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		switch {
+		case errors.Is(err, utils.ErrRateLimitExceeded):
+			utils.RespondErrorWithCode(
+				w, http.StatusTooManyRequests, utils.ErrCodeRateLimitExceeded, "Too many requests. Please try again later.", nil,
+			)
+		case errors.Is(err, pgx.ErrNoRows):
 			utils.RespondErrorWithCode(w, http.StatusNotFound, utils.ErrCodeNotFound, "Worker not found", err)
-			return
+		case errors.Is(err, utils.ErrExternalServiceFailure):
+			// NEW: Handle external service failures with a more specific status code
+			utils.RespondErrorWithCode(w, http.StatusFailedDependency, utils.ErrCodeExternalServiceFailure, "A required service is temporarily unavailable. Please try again later.", err)
+		default:
+			// This was the original generic 500 error
+			utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to initiate deletion", err)
 		}
-		utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to initiate deletion", err)
 		return
 	}
 

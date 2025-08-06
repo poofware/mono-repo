@@ -39,9 +39,15 @@ ADD COLUMN on_waitlist BOOLEAN NOT NULL DEFAULT FALSE,
 ADD COLUMN waitlisted_at TIMESTAMPTZ NULL,
 ADD COLUMN waitlist_reason WAITLIST_REASON_TYPE NULL;
 
-CREATE TABLE pending_deletions (
+CREATE TABLE pending_worker_deletions (
     token TEXT PRIMARY KEY,
     worker_id UUID NOT NULL REFERENCES workers (id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE pending_pm_deletions (
+    token TEXT PRIMARY KEY,
+    pm_id UUID NOT NULL REFERENCES property_managers (id) ON DELETE CASCADE,
     expires_at TIMESTAMPTZ NOT NULL
 );
 
@@ -61,4 +67,5 @@ DROP COLUMN waitlist_reason;
 DROP TABLE IF EXISTS job_unit_verifications;
 DROP TYPE IF EXISTS UNIT_VERIFICATION_STATUS;
 DROP TYPE IF EXISTS WAITLIST_REASON_TYPE;
-DROP TABLE IF EXISTS pending_deletions;
+DROP TABLE IF EXISTS pending_worker_deletions;
+DROP TABLE IF EXISTS pending_pm_deletions;
