@@ -20,9 +20,12 @@ func isUniqueViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
-/* ------------------------------------------------------------------
-   Seed a permanent Worker account for Google Play Store reviewers
------------------------------------------------------------------- */
+/*
+	------------------------------------------------------------------
+	  Seed a permanent Worker account for Google Play Store reviewers
+
+------------------------------------------------------------------
+*/
 func SeedGooglePlayReviewerAccount(workerRepo repositories.WorkerRepository) error {
 	ctx := context.Background()
 	googlePlayReviewerWorkerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa3333")
@@ -63,13 +66,25 @@ func SeedGooglePlayReviewerAccount(workerRepo repositories.WorkerRepository) err
 	return nil
 }
 
-/* ------------------------------------------------------------------
-   SeedAllAccounts – unconditionally seeds permanent accounts (e.g. for reviewers).
------------------------------------------------------------------- */
+/*
+	------------------------------------------------------------------
+	  SeedAllAccounts – unconditionally seeds permanent accounts (e.g. for reviewers).
+
+------------------------------------------------------------------
+*/
 func SeedAllAccounts(
 	workerRepo repositories.WorkerRepository,
 	pmRepo repositories.PropertyManagerRepository,
 ) error {
+	ctx := context.Background()
+	sentinelID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa3333")
+	if w, err := workerRepo.GetByID(ctx, sentinelID); err != nil {
+		return fmt.Errorf("check existing reviewer account: %w", err)
+	} else if w != nil {
+		utils.Logger.Info("account-service: permanent accounts already seeded; skipping")
+		return nil
+	}
+
 	if err := SeedGooglePlayReviewerAccount(workerRepo); err != nil {
 		return fmt.Errorf("seed google play reviewer account: %w", err)
 	}
@@ -77,9 +92,12 @@ func SeedAllAccounts(
 	return nil
 }
 
-/* ------------------------------------------------------------------
-   Seed a default Worker (test/demo purposes only)
------------------------------------------------------------------- */
+/*
+	------------------------------------------------------------------
+	  Seed a default Worker (test/demo purposes only)
+
+------------------------------------------------------------------
+*/
 func SeedDefaultWorker(workerRepo repositories.WorkerRepository) error {
 	ctx := context.Background()
 	defaultWorkerStatusIncompleteID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa1111")
@@ -156,14 +174,17 @@ func SeedDefaultWorker(workerRepo repositories.WorkerRepository) error {
 	return nil
 }
 
-/* ------------------------------------------------------------------
-   Seed a minimal PropertyManager record (just the manager account). 
------------------------------------------------------------------- */
+/*
+	------------------------------------------------------------------
+	  Seed a minimal PropertyManager record (just the manager account).
+
+------------------------------------------------------------------
+*/
 func SeedDefaultPropertyManagerAccountOnly(pmRepo repositories.PropertyManagerRepository) error {
 	ctx := context.Background()
 	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 
-	// Create a minimal property manager record (no properties). 
+	// Create a minimal property manager record (no properties).
 	pm := &models.PropertyManager{
 		ID:              pmID,
 		Email:           "team@thepoofapp.com",
@@ -197,13 +218,24 @@ func SeedDefaultPropertyManagerAccountOnly(pmRepo repositories.PropertyManagerRe
 	return nil
 }
 
-/* ------------------------------------------------------------------
-   SeedAllTestAccounts – convenience called from main() or app init. 
------------------------------------------------------------------- */
+/*
+	------------------------------------------------------------------
+	  SeedAllTestAccounts – convenience called from main() or app init.
+
+------------------------------------------------------------------
+*/
 func SeedAllTestAccounts(
 	workerRepo repositories.WorkerRepository,
 	pmRepo repositories.PropertyManagerRepository,
 ) error {
+	ctx := context.Background()
+	sentinelID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa1111")
+	if w, err := workerRepo.GetByID(ctx, sentinelID); err != nil {
+		return fmt.Errorf("check existing default worker: %w", err)
+	} else if w != nil {
+		utils.Logger.Info("account-service: test accounts already seeded; skipping")
+		return nil
+	}
 	if err := SeedDefaultWorker(workerRepo); err != nil {
 		return fmt.Errorf("seed default worker: %w", err)
 	}

@@ -251,24 +251,20 @@ func (s *EarningsService) _buildCurrentPeriodDTO(
 	var periodTotal float64
 	var periodJobCount int
 
-	// --- FIX START: Always calculate the date range based on the standard weekly pay period. ---
 	// This ensures the UI always shows a full 7-day week for the "This Week" section,
 	// regardless of whether the pay cycle is daily or weekly.
 	currentPeriodStart := internal_utils.GetPayPeriodStartForDate(nowForLogic)
 	currentPeriodEnd := currentPeriodStart.AddDate(0, 0, 6)
-	// --- FIX END ---
 
 	for _, job := range allCompletedJobs {
 		if processedJobIDs[job.ID] {
 			continue // Skip jobs already part of a past payout
 		}
 
-		// --- FIX START: Add a check to ensure the job's service date is within the current period. ---
 		serviceDateOnly := job.ServiceDate.Truncate(24 * time.Hour)
 		if serviceDateOnly.Before(currentPeriodStart) || serviceDateOnly.After(currentPeriodEnd) {
 			continue // This job is from a past, unpaid week. Ignore it for the "current" total.
 		}
-		// --- FIX END ---
 
 		// All remaining jobs are part of the "current" period's earnings.
 		periodTotal += job.EffectivePay

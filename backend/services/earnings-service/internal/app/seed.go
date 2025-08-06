@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v4"
 	internal_models "github.com/poofware/earnings-service/internal/models"
 	internal_repositories "github.com/poofware/earnings-service/internal/repositories"
-	internal_utils "github.com/poofware/earnings-service/internal/utils"
 	"github.com/poofware/go-models"
 	"github.com/poofware/go-repositories"
 	"github.com/poofware/go-utils"
@@ -77,10 +76,18 @@ func SeedAllTestData(
 		utils.Logger.Info("Successfully seeded local replica for default active worker.")
 	}
 
-	now := time.Now().UTC()
-	thisWeekStart := internal_utils.GetPayPeriodStartForDate(now)
-	lastWeekStart := thisWeekStart.AddDate(0, 0, -7)
-	weekBeforeLastStart := lastWeekStart.AddDate(0, 0, -7)
+	sentinelStart := time.Date(2025, 7, 14, 0, 0, 0, 0, time.UTC)
+	existing, err := payoutRepo.GetByWorkerAndWeek(ctx, defaultActiveWorkerID, sentinelStart)
+	if err != nil {
+		return fmt.Errorf("check existing payout: %w", err)
+	}
+	if existing != nil {
+		utils.Logger.Info("earnings-service: seed data already present; skipping seeding")
+		return nil
+	}
+
+	weekBeforeLastStart := sentinelStart
+	lastWeekStart := weekBeforeLastStart.AddDate(0, 0, 7)
 
 	// Define the hardcoded UUIDs for the jobs seeded by the jobs-service.
 	jobIDsWeekBeforeLast := []uuid.UUID{
@@ -94,14 +101,12 @@ func SeedAllTestData(
 	}
 
 	// Seed Payout 1 (Week before last) - Total: $67.00
-	err := seedPayoutIfNeeded(ctx, payoutRepo, defaultActiveWorkerID, weekBeforeLastStart, 6700, jobIDsWeekBeforeLast)
-	if err != nil {
+	if err := seedPayoutIfNeeded(ctx, payoutRepo, defaultActiveWorkerID, weekBeforeLastStart, 6700, jobIDsWeekBeforeLast); err != nil {
 		return err
 	}
 
 	// Seed Payout 2 (Last week) - Total: $58.00
-	err = seedPayoutIfNeeded(ctx, payoutRepo, defaultActiveWorkerID, lastWeekStart, 5800, jobIDsLastWeek)
-	if err != nil {
+	if err := seedPayoutIfNeeded(ctx, payoutRepo, defaultActiveWorkerID, lastWeekStart, 5800, jobIDsLastWeek); err != nil {
 		return err
 	}
 

@@ -448,12 +448,10 @@ func TestLocationValidation(t *testing.T) {
 	b := h.CreateTestBuilding(ctx, p.ID, "LocValBldg")
 	d := h.CreateTestDumpster(ctx, p.ID, "LocValDump")
 	
-	// --- FIX START ---
 	// Set non-zero coordinates for the dumpster to make location checks meaningful.
 	d.Latitude = p.Latitude + 0.001
 	d.Longitude = p.Longitude + 0.001
 	require.NoError(t, h.DumpsterRepo.Update(ctx, d))
-	// --- FIX END ---
 
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "LocValJob",
 		[]uuid.UUID{b.ID}, []uuid.UUID{d.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)

@@ -74,7 +74,6 @@ func NewCheckrService(cfg *config.Config, repo repositories.WorkerRepository, sg
 	}, nil
 }
 
-// **FIX START**: Add the missing sendWebhookMissAlert method
 // sendWebhookMissAlert sends an internal notification about a potential webhook failure.
 func (s *CheckrService) sendWebhookMissAlert(objectType string, objectID string, workerID uuid.UUID) {
 	from := mail.NewEmail(s.cfg.OrganizationName, s.cfg.LDFlag_SendgridFromEmail)
@@ -97,8 +96,6 @@ func (s *CheckrService) sendWebhookMissAlert(objectType string, objectID string,
 		utils.Logger.Infof("Sent webhook miss alert for %s ID %s.", objectType, objectID)
 	}
 }
-
-// **FIX END**
 
 // Start registers a dynamic Checkr webhook if the feature flag is enabled.
 func (s *CheckrService) Start(ctx context.Context) error {
@@ -799,7 +796,6 @@ func (s *CheckrService) GetCheckrStatus(ctx context.Context, workerID uuid.UUID)
 		} else if report.Status == checkr.ReportStatusComplete {
 			utils.Logger.Infof("Polling found Checkr report %s is 'complete'. Triggering self-healing.", report.ID)
 
-			// **FIX START**: Manually construct the ReportWebhookObj from the full Report object.
 			reportWebhookObj := checkr.ReportWebhookObj{
 				ID:                      report.ID,
 				Object:                  report.Object,
@@ -820,7 +816,6 @@ func (s *CheckrService) GetCheckrStatus(ctx context.Context, workerID uuid.UUID)
 				return dtos.CheckrFlowStatusIncomplete, nil
 			}
 			s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
-			// **FIX END**
 
 			// The worker's state should now be updated.
 			return dtos.CheckrFlowStatusComplete, nil

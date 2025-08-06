@@ -950,7 +950,7 @@ func (s *PayoutService) HandleCapabilityUpdatedEvent(ctx context.Context, cap *s
 
 		dummyPayout := &internal_models.WorkerPayout{
 			WorkerID:          worker.ID,
-			LastFailureReason: utils.Ptr(fmt.Sprintf("Your account's ability to receive transfers was disabled by Stripe. Please visit the Stripe Express dashboard to resolve any outstanding issues.")),
+			LastFailureReason: utils.Ptr("Your account's ability to receive transfers was disabled by Stripe. Please visit the Stripe Express dashboard to resolve any outstanding issues."),
 		}
 		s.sendFailureNotification(ctx, dummyPayout, true)
 	}
@@ -978,9 +978,7 @@ func (s *PayoutService) HandleTransferEvent(ctx context.Context, t *stripe.Trans
 
 	parsedID, err := uuid.Parse(payoutIDStr)
 	if err != nil {
-		// **FIX START**: Use t.ID instead of transfer.ID
 		utils.Logger.WithError(err).Errorf("Invalid UUID in transfer metadata for transfer %s: %s", t.ID, payoutIDStr)
-		// **FIX END**
 		return nil
 	}
 

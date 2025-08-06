@@ -62,6 +62,14 @@ func SeedAllTestData(
 	defRepo repositories.JobDefinitionRepository,
 	jobService *services.JobService,
 ) error {
+	sentinelPropID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	if existing, err := propRepo.GetByID(ctx, sentinelPropID); err != nil {
+		return fmt.Errorf("check existing seed property: %w", err)
+	} else if existing != nil {
+		utils.Logger.Info("jobs-service: seed data already present; skipping seeding")
+		return nil
+	}
+
 	pmRepo := repositories.NewPropertyManagerRepository(db, encryptionKey)
 	workerRepo := repositories.NewWorkerRepository(db, encryptionKey) // NEW: Worker Repo
 	unitRepo := repositories.NewUnitRepository(db)

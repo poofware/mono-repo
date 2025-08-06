@@ -3,32 +3,32 @@
 package integration
 
 import (
-        "encoding/json"
-        "net/http"
-        "testing"
-        "time"
+	"encoding/json"
+	"net/http"
+	"testing"
+	"time"
 
-        "github.com/google/uuid"
-        "github.com/stretchr/testify/require"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
-        internal_dtos "github.com/poofware/account-service/internal/dtos"
-        "github.com/poofware/account-service/internal/routes"
-        "github.com/poofware/go-models"
-        testhelpers "github.com/poofware/go-testhelpers"
+	internal_dtos "github.com/poofware/account-service/internal/dtos"
+	"github.com/poofware/account-service/internal/routes"
+	"github.com/poofware/go-models"
+	testhelpers "github.com/poofware/go-testhelpers"
 )
 
 func TestSubmitPersonalInfo_Waitlist(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
 
-        worker := &models.Worker{
-                ID:          uuid.New(),
-                Email:       "waitlist+" + uuid.NewString() + "@thepoofapp.com",
-                PhoneNumber: testhelpers.UniquePhone(),
-                TOTPSecret:  "test-secret",
-                FirstName:   "Wait",
-                LastName:    "Lister",
-        }
+	worker := &models.Worker{
+		ID:          uuid.New(),
+		Email:       "waitlist+" + uuid.NewString() + "@thepoofapp.com",
+		PhoneNumber: testhelpers.UniquePhone(),
+		TOTPSecret:  "test-secret",
+		FirstName:   "Wait",
+		LastName:    "Lister",
+	}
 	require.NoError(t, h.WorkerRepo.Create(ctx, worker))
 	defer h.DB.Exec(ctx, `DELETE FROM workers WHERE id=$1`, worker.ID)
 
@@ -60,6 +60,9 @@ func TestWorkerRepository_WaitlistQueries(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
 
+	initialActive, err := h.WorkerRepo.GetActiveWorkerCount(ctx)
+	require.NoError(t, err)
+
 	w1 := &models.Worker{ID: uuid.New(), Email: "a1@wait.test", PhoneNumber: "+15552220001", TOTPSecret: "s1", FirstName: "A", LastName: "One"}
 	w2 := &models.Worker{ID: uuid.New(), Email: "a2@wait.test", PhoneNumber: "+15552220002", TOTPSecret: "s2", FirstName: "B", LastName: "Two"}
 	w3 := &models.Worker{ID: uuid.New(), Email: "a3@wait.test", PhoneNumber: "+15552220003", TOTPSecret: "s3", FirstName: "C", LastName: "Three"}
@@ -68,14 +71,14 @@ func TestWorkerRepository_WaitlistQueries(t *testing.T) {
 	require.NoError(t, h.WorkerRepo.Create(ctx, w3))
 	defer h.DB.Exec(ctx, `DELETE FROM workers WHERE id IN ($1,$2,$3)`, w1.ID, w2.ID, w3.ID)
 
-	_, err := h.DB.Exec(ctx, `UPDATE workers SET on_waitlist=false WHERE id IN ($1,$2)`, w1.ID, w2.ID)
+	_, err = h.DB.Exec(ctx, `UPDATE workers SET on_waitlist=false WHERE id IN ($1,$2)`, w1.ID, w2.ID)
 	require.NoError(t, err)
-	_, err = h.DB.Exec(ctx, `UPDATE workers SET waitlisted_at=$2 WHERE id=$1`, w3.ID, time.Now().Add(-time.Minute))
+	_, err = h.DB.Exec(ctx, `UPDATE workers SET waitlisted_at=$2 WHERE id=$1`, w3.ID, time.Unix(0, 0).UTC())
 	require.NoError(t, err)
 
 	count, err := h.WorkerRepo.GetActiveWorkerCount(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 2, count)
+	require.Equal(t, initialActive+2, count)
 
 	list, err := h.WorkerRepo.ListOldestWaitlistedWorkers(ctx, 1)
 	require.NoError(t, err)
