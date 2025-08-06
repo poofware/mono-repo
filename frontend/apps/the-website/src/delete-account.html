@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Poof | Request Account Deletion</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <main>
+    <h1>Request Account Deletion</h1>
+    <p>Deleting your account will remove personal data from Poof. Some anonymized information may be retained for analytics.</p>
+    <form id="delete-account-form" class="delete-form">
+      <input type="email" name="email" placeholder="Your email" required />
+      <button type="submit">Request Deletion</button>
+      <div class="response-message hidden" aria-live="polite"></div>
+    </form>
+  </main>
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

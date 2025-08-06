@@ -605,8 +605,35 @@ func doWorkerProtectedLogoutCheckCode(t *testing.T, accessToken, refreshToken, p
 	return resp.StatusCode
 }
 
+// --- Worker Deletion Helpers ---
+
+func initiateWorkerDeletion(t *testing.T, email string) string {
+	req := dtos.InitiateDeletionRequest{Email: email}
+	b, _ := json.Marshal(req)
+	url := h.BaseURL + "/auth/v1/worker/initiate-deletion"
+	resp, err := http.Post(url, "application/json", strings.NewReader(string(b)))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var body dtos.InitiateDeletionResponse
+	data, _ := io.ReadAll(resp.Body)
+	_ = json.Unmarshal(data, &body)
+	return body.PendingToken
+}
+
+func confirmWorkerDeletion(t *testing.T, token, emailCode, smsCode string) int {
+	req := dtos.ConfirmDeletionRequest{PendingToken: token, EmailCode: &emailCode, SMSCode: &smsCode}
+	b, _ := json.Marshal(req)
+	url := h.BaseURL + "/auth/v1/worker/confirm-deletion"
+	resp, err := http.Post(url, "application/json", strings.NewReader(string(b)))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	return resp.StatusCode
+}
+
 // --- Negative Path Verification Helpers ---
 
+//lint:ignore U1000 used in dev-only tests
 func sendPMEmailCodeExpectFailure(t *testing.T, email string) {
 	reqDTO := dtos.RequestEmailCodeRequest{Email: email}
 	b, err := json.Marshal(reqDTO)
@@ -623,6 +650,7 @@ func sendPMEmailCodeExpectFailure(t *testing.T, email string) {
 	)
 }
 
+//lint:ignore U1000 used in dev-only tests
 func sendWorkerEmailCodeExpectFailure(t *testing.T, email string) {
 	reqDTO := dtos.RequestEmailCodeRequest{Email: email}
 	b, err := json.Marshal(reqDTO)
@@ -644,6 +672,7 @@ func sendWorkerEmailCodeExpectFailure(t *testing.T, email string) {
 	)
 }
 
+//lint:ignore U1000 used in dev-only tests
 func sendPMSMSCodeExpectFailure(t *testing.T, phone string) {
 	reqDTO := dtos.RequestSMSCodeRequest{PhoneNumber: phone}
 	b, err := json.Marshal(reqDTO)
@@ -660,6 +689,7 @@ func sendPMSMSCodeExpectFailure(t *testing.T, phone string) {
 	)
 }
 
+//lint:ignore U1000 used in dev-only tests
 func sendWorkerSMSCodeExpectFailure(t *testing.T, phone string) {
 	reqDTO := dtos.RequestSMSCodeRequest{PhoneNumber: phone}
 	b, err := json.Marshal(reqDTO)

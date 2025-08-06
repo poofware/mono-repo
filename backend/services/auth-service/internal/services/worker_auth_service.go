@@ -60,6 +60,10 @@ type WorkerAuthService interface {
 
 	CheckPhoneVerifiedBeforeRegistration(ctx context.Context, phoneNumber, clientID string) (bool, *uuid.UUID, error)
 	DeleteSMSVerificationRow(ctx context.Context, verificationID uuid.UUID) error
+
+	InitiateDeletion(ctx context.Context, email string) (string, error)
+	ConfirmDeletion(ctx context.Context, req dtos.ConfirmDeletionRequest) error
+	SendDeletionRequestNotification(ctx context.Context, workerEmail string) error
 }
 
 // ---------------------------------------------------------------------
@@ -71,6 +75,7 @@ type workerAuthService struct {
 	workerTokenRepo             auth_repositories.WorkerTokenRepository
 	workerEmailVerificationRepo repositories.WorkerEmailVerificationRepository
 	workerSMSVerificationRepo   repositories.WorkerSMSVerificationRepository
+	pendingDeletionRepo         auth_repositories.PendingDeletionRepository
 	challengeRepo               repositories.AttestationChallengeRepository
 	rateLimiter                 RateLimiterService
 
@@ -86,6 +91,7 @@ func NewWorkerAuthService(
 	workerTokenRepo auth_repositories.WorkerTokenRepository,
 	workerEmailVerificationRepo repositories.WorkerEmailVerificationRepository,
 	workerSMSVerificationRepo repositories.WorkerSMSVerificationRepository,
+	pendingDeletionRepo auth_repositories.PendingDeletionRepository,
 	rateLimiter RateLimiterService,
 	challengeRepo repositories.AttestationChallengeRepository,
 	cfg *config.Config,
@@ -104,6 +110,7 @@ func NewWorkerAuthService(
 		workerTokenRepo:             workerTokenRepo,
 		workerEmailVerificationRepo: workerEmailVerificationRepo,
 		workerSMSVerificationRepo:   workerSMSVerificationRepo,
+		pendingDeletionRepo:         pendingDeletionRepo,
 		challengeRepo:               challengeRepo,
 		rateLimiter:                 rateLimiter,
 		cfg:                         cfg,
@@ -191,7 +198,7 @@ func (s *workerAuthService) Login(
 
 	locked, lockedUntil, err := s.workerLoginRepo.IsLocked(ctx, w.ID)
 	if err == nil && locked {
-		return nil, "", "", fmt.Errorf("Worker account locked until %s", lockedUntil.Format(time.RFC3339))
+		return nil, "", "", fmt.Errorf("worker account locked until %s", lockedUntil.Format(time.RFC3339))
 	}
 
 	// Special case for Google Play reviewer with a static code
@@ -488,4 +495,96 @@ func (s *workerAuthService) CheckPhoneVerifiedBeforeRegistration(
 
 func (s *workerAuthService) DeleteSMSVerificationRow(ctx context.Context, verificationID uuid.UUID) error {
 	return s.workerSMSVerificationRepo.DeleteCode(ctx, verificationID)
+}
+
+// ---------------------------------------------------------------------
+// Account Deletion Flow
+// ---------------------------------------------------------------------
+
+// InitiateDeletion sends verification codes and creates a pending deletion token.
+func (s *workerAuthService) InitiateDeletion(ctx context.Context, email string) (string, error) {
+	w, err := s.workerRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return "", err
+	}
+	if w == nil {
+		return "", pgx.ErrNoRows
+	}
+
+	workerID := w.ID
+	clientID := "worker-account-deletion"
+
+	if err := s.RequestEmailCode(ctx, email, &workerID, clientID); err != nil {
+		return "", err
+	}
+	if err := s.RequestSMSCode(ctx, w.PhoneNumber, &workerID, clientID); err != nil {
+		return "", err
+	}
+
+	token := uuid.NewString()
+	expires := time.Now().Add(15 * time.Minute)
+	if err := s.pendingDeletionRepo.Create(ctx, token, workerID, expires); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+// ConfirmDeletion verifies codes/TOTP and notifies operations.
+func (s *workerAuthService) ConfirmDeletion(ctx context.Context, req dtos.ConfirmDeletionRequest) error {
+	pd, err := s.pendingDeletionRepo.Get(ctx, req.PendingToken)
+	if err != nil {
+		return err
+	}
+	if time.Now().After(pd.ExpiresAt) {
+		_ = s.pendingDeletionRepo.Delete(ctx, req.PendingToken)
+		return errors.New("token expired")
+	}
+
+	worker, err := s.workerRepo.GetByID(ctx, pd.WorkerID)
+	if err != nil {
+		return err
+	}
+
+	clientID := "worker-account-deletion"
+
+	if req.TOTPCode != nil {
+		if !internal_utils.ValidateTOTPCode(worker.TOTPSecret, *req.TOTPCode) {
+			return errors.New("invalid totp")
+		}
+	} else {
+		if req.EmailCode == nil || req.SMSCode == nil {
+			return errors.New("missing verification codes")
+		}
+		ok, err := s.VerifyEmailCode(ctx, worker.Email, *req.EmailCode, &worker.ID, clientID)
+		if err != nil || !ok {
+			return errors.New("email verification failed")
+		}
+		ok, err = s.VerifySMSCode(ctx, worker.PhoneNumber, *req.SMSCode, &worker.ID, clientID)
+		if err != nil || !ok {
+			return errors.New("sms verification failed")
+		}
+	}
+
+	if err := s.SendDeletionRequestNotification(ctx, worker.Email); err != nil {
+		return err
+	}
+	return s.pendingDeletionRepo.Delete(ctx, req.PendingToken)
+}
+
+// SendDeletionRequestNotification notifies the Poof team of a verified deletion request.
+func (s *workerAuthService) SendDeletionRequestNotification(ctx context.Context, workerEmail string) error {
+	from := mail.NewEmail(s.cfg.OrganizationName, s.cfg.LDFlag_SendgridFromEmail)
+	to := mail.NewEmail("", "team@thepoofapp.com")
+	subject := fmt.Sprintf("URGENT: Account Deletion Request for %s", workerEmail)
+	ts := time.Now().Format(time.RFC1123)
+	plain := fmt.Sprintf("A verified deletion request was received for %s at %s", workerEmail, ts)
+	html := fmt.Sprintf("<p>%s</p>", plain)
+	msg := mail.NewSingleEmail(from, subject, to, plain, html)
+	if s.cfg.LDFlag_SendgridSandboxMode {
+		ms := mail.NewMailSettings()
+		ms.SetSandboxMode(mail.NewSetting(true))
+		msg.MailSettings = ms
+	}
+	_, err := s.sendgridClient.Send(msg)
+	return err
 }

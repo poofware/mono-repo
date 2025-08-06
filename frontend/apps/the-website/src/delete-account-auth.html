@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Poof | Confirm Account Deletion</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <main>
+    <h1>Confirm Account Deletion</h1>
+    <section>
+      <form id="totp-form" class="delete-form">
+        <input type="text" name="totp" placeholder="Authenticator Code" maxlength="6" />
+        <button type="submit">Confirm with Authenticator Code</button>
+        <div class="response-message hidden" aria-live="polite"></div>
+      </form>
+      <form id="codes-form" class="delete-form">
+        <input type="text" name="email_code" placeholder="Email Code" maxlength="6" />
+        <input type="text" name="sms_code" placeholder="SMS Code" maxlength="6" />
+        <button type="submit">Confirm with Verification Codes</button>
+        <div class="response-message hidden" aria-live="polite"></div>
+      </form>
+    </section>
+  </main>
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

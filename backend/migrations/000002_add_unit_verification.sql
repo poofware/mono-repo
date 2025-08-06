@@ -37,7 +37,13 @@ ADD COLUMN total_units INT NOT NULL DEFAULT 0;
 ALTER TABLE workers
 ADD COLUMN on_waitlist BOOLEAN NOT NULL DEFAULT FALSE,
 ADD COLUMN waitlisted_at TIMESTAMPTZ NULL,
-ADD COLUMN waitlist_reason waitlist_reason_type NULL;
+ADD COLUMN waitlist_reason WAITLIST_REASON_TYPE NULL;
+
+CREATE TABLE pending_deletions (
+    token TEXT PRIMARY KEY,
+    worker_id UUID NOT NULL REFERENCES workers (id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL
+);
 
 ---- create above / drop below ----
 
@@ -54,4 +60,5 @@ DROP COLUMN waitlist_reason;
 
 DROP TABLE IF EXISTS job_unit_verifications;
 DROP TYPE IF EXISTS UNIT_VERIFICATION_STATUS;
-DROP TYPE IF EXISTS waitlist_reason_type;
+DROP TYPE IF EXISTS WAITLIST_REASON_TYPE;
+DROP TABLE IF EXISTS pending_deletions;

@@ -57,6 +57,7 @@ func main() {
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	workerLoginRepo := auth_repositories.NewWorkerLoginAttemptsRepository(application.DB)
 	workerTokenRepo := auth_repositories.NewWorkerTokenRepository(application.DB)
+	pendingDeletionRepo := auth_repositories.NewPendingDeletionRepository(application.DB)
 
 	pmEmailRepo := repositories.NewPMEmailVerificationRepository(application.DB)
 	pmSMSRepo := repositories.NewPMSMSVerificationRepository(application.DB)
@@ -86,6 +87,7 @@ func main() {
 		workerTokenRepo,
 		workerEmailRepo,
 		workerSMSRepo,
+		pendingDeletionRepo,
 		rateLimiterService,
 		challengeRepo,
 		cfg,
@@ -141,6 +143,8 @@ func main() {
 	v1Router.HandleFunc("/worker/email/valid", workerController.ValidateWorkerEmail).Methods("POST")
 	v1Router.HandleFunc("/worker/phone/valid", workerController.ValidateWorkerPhone).Methods("POST")
 	v1Router.HandleFunc("/worker/challenge", workerController.IssueChallenge).Methods("POST")
+	v1Router.HandleFunc("/worker/initiate-deletion", workerController.InitiateDeletion).Methods("POST")
+	v1Router.HandleFunc("/worker/confirm-deletion", workerController.ConfirmDeletion).Methods("POST")
 
 	// Now, for worker login & refresh_token, we apply the MobileAttestationMiddleware:
 	// The parameter cfg.LDFlag_DoRealMobileDeviceAttestation indicates if we do real or dummy calls.

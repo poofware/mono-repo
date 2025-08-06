@@ -16,7 +16,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main:    resolve(__dirname, 'src/index.html'),
-        privacy: resolve(__dirname, 'src/privacy-policy.html')
+        privacy: resolve(__dirname, 'src/privacy-policy.html'),
+        deleteAccount: resolve(__dirname, 'src/delete-account.html'),
+        deleteAccountAuth: resolve(__dirname, 'src/delete-account-auth.html')
       },
       output: {
         assetFileNames: 'assets/[name].[hash][extname]'
