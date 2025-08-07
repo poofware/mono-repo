@@ -12,10 +12,14 @@ import (
 	"github.com/poofware/go-utils"
 )
 
+const (
+	DefaultPropertyManagerID = "22222222-2222-2222-2222-222222222222"
+)
+
 // SeedDefaultPropertyManager creates the demo property manager account if needed.
 func SeedDefaultPropertyManager(pmRepo repositories.PropertyManagerRepository) error {
 	ctx := context.Background()
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(DefaultPropertyManagerID)
 
 	if existing, err := pmRepo.GetByID(ctx, pmID); err != nil {
 		return fmt.Errorf("check existing property manager: %w", err)

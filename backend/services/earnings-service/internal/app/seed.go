@@ -15,19 +15,32 @@ import (
 	"github.com/poofware/go-utils"
 )
 
+// SentinelPayoutID is used to check if seeding has already occurred.
+const SentinelPayoutID = "dddddddd-dddd-4ddd-dddd-ddddddddddd1"
+
 // SeedAllTestData seeds the earnings service with sample payout data.
+// This function is idempotent and will not re-seed data if the sentinel payout is found.
 func SeedAllTestData(
 	ctx context.Context,
 	workerRepo repositories.WorkerRepository,
 	jobInstRepo repositories.JobInstanceRepository,
 	payoutRepo internal_repositories.WorkerPayoutRepository,
 ) error {
-	defaultActiveWorkerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
+	defaultActiveWorkerID := uuid.MustParse(seeding.DefaultActiveWorkerID)
+	sentinelID := uuid.MustParse(SentinelPayoutID)
 
 	// Try to create the worker. If it already exists due to a race with
 	// another service, that's okay. We just need it to exist.
 	if err := seeding.SeedDefaultWorkers(workerRepo); err != nil {
 		return fmt.Errorf("seed default workers: %w", err)
+	}
+
+	// IDEMPOTENCY CHECK: Check if the sentinel payout already exists.
+	if existing, err := payoutRepo.GetByID(ctx, sentinelID); err != nil && err != pgx.ErrNoRows {
+		return fmt.Errorf("failed to check for sentinel payout: %w", err)
+	} else if existing != nil {
+		utils.Logger.Info("earnings-service: Seed data already present; skipping seeding.")
+		return nil
 	}
 
 	now := time.Now().UTC()
@@ -36,20 +49,24 @@ func SeedAllTestData(
 	weekBeforeLastStart := lastWeekStart.AddDate(0, 0, -7)
 
 	jobIDsWeekBeforeLast := []uuid.UUID{
-		uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa1"),
-		uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa2"),
-		uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa3"),
+		uuid.MustParse(seeding.HistoricalJobWeekBeforeLast1),
+		uuid.MustParse(seeding.HistoricalJobWeekBeforeLast2),
+		uuid.MustParse(seeding.HistoricalJobWeekBeforeLast3),
 	}
 	jobIDsLastWeek := []uuid.UUID{
-		uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb1"),
-		uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb2"),
+		uuid.MustParse(seeding.HistoricalJobLastWeek1),
+		uuid.MustParse(seeding.HistoricalJobLastWeek2),
 	}
 
-	err := SeedPayoutIfNeeded(ctx, jobInstRepo, payoutRepo, defaultActiveWorkerID, weekBeforeLastStart, 6700, jobIDsWeekBeforeLast)
+	// Seed Payout 1 (Week before last) - Total: $67.00
+	// This payout uses the sentinel ID to ensure idempotency.
+	err := SeedPayoutIfNeeded(ctx, jobInstRepo, payoutRepo, defaultActiveWorkerID, weekBeforeLastStart, 6700, jobIDsWeekBeforeLast, &sentinelID)
 	if err != nil {
 		return err
 	}
-	err = SeedPayoutIfNeeded(ctx, jobInstRepo, payoutRepo, defaultActiveWorkerID, lastWeekStart, 5800, jobIDsLastWeek)
+
+	// Seed Payout 2 (Last week) - Total: $58.00
+	err = SeedPayoutIfNeeded(ctx, jobInstRepo, payoutRepo, defaultActiveWorkerID, lastWeekStart, 5800, jobIDsLastWeek, nil)
 	if err != nil {
 		return err
 	}
@@ -60,6 +77,7 @@ func SeedAllTestData(
 
 // SeedPayoutIfNeeded checks if a payout for a given worker and week exists, and creates it if not.
 // It validates that each job's service date falls within the specified payout week.
+// An optional payoutID can be provided to use a specific ID.
 func SeedPayoutIfNeeded(
 	ctx context.Context,
 	jobRepo repositories.JobInstanceRepository,
@@ -68,6 +86,7 @@ func SeedPayoutIfNeeded(
 	startDate time.Time,
 	amountCents int64,
 	jobIDs []uuid.UUID,
+	payoutID *uuid.UUID, // Optional: for using a specific ID like the sentinel
 ) error {
 	existing, err := repo.GetByWorkerAndWeek(ctx, workerID, startDate)
 	if err != nil && err != pgx.ErrNoRows {
@@ -79,39 +98,22 @@ func SeedPayoutIfNeeded(
 		return nil
 	}
 
+	// A standard pay period is 7 days, so the end date is 6 days after the start.
 	endDate := startDate.AddDate(0, 0, 6)
 
-	validJobIDs := make([]uuid.UUID, 0, len(jobIDs))
-	for _, id := range jobIDs {
-		job, err := jobRepo.GetByID(ctx, id)
-		if err != nil {
-			utils.Logger.WithError(err).Warnf("Unable to fetch job %s for payout seeding", id)
-			continue
-		}
-		if job == nil {
-			utils.Logger.Warnf("Job %s not found while seeding payout", id)
-			continue
-		}
-		if job.ServiceDate.Before(startDate) || job.ServiceDate.After(endDate) {
-			utils.Logger.Warnf("Found job %s with service date %s outside of payout week [%s - %s]; skipping", id, job.ServiceDate.Format(time.RFC3339), startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
-			continue
-		}
-		validJobIDs = append(validJobIDs, id)
-	}
-
-	if len(validJobIDs) == 0 {
-		utils.Logger.Warnf("No valid jobs for worker %s in week %s. Skipping payout seeding.", workerID, startDate.Format("2006-01-02"))
-		return nil
+	id := uuid.New()
+	if payoutID != nil {
+		id = *payoutID
 	}
 
 	payout := &internal_models.WorkerPayout{
-		ID:                uuid.New(),
+		ID:                id,
 		WorkerID:          workerID,
 		WeekStartDate:     startDate,
 		WeekEndDate:       endDate,
 		AmountCents:       amountCents,
 		Status:            internal_models.PayoutStatusPaid,
-		JobInstanceIDs:    validJobIDs,
+		JobInstanceIDs:    jobIDs,
 		StripeTransferID:  utils.Ptr(fmt.Sprintf("tr_seed_%s", uuid.NewString()[:8])),
 		StripePayoutID:    utils.Ptr(fmt.Sprintf("po_seed_%s", uuid.NewString()[:8])),
 		LastFailureReason: nil,
@@ -120,7 +122,8 @@ func SeedPayoutIfNeeded(
 		NextAttemptAt:     nil, // This is a final state
 	}
 
-	if err := repo.Create(ctx, payout); err != nil {
+	err = repo.Create(ctx, payout)
+	if err != nil {
 		return fmt.Errorf("failed to create seed payout for worker %s, week %s: %w", workerID, startDate.Format("2006-01-02"), err)
 	}
 

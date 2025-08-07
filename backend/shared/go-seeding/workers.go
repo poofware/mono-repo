@@ -12,6 +12,13 @@ import (
 	"github.com/poofware/go-utils"
 )
 
+const (
+	DefaultIncompleteWorkerID = "1d30bfa5-e42f-457e-a21c-6b7e1aaa1111"
+	DefaultActiveWorkerID     = "1d30bfa5-e42f-457e-a21c-6b7e1aaa2222"
+	GooglePlayReviewerWorkerID = "1d30bfa5-e42f-457e-a21c-6b7e1aaa3333"
+)
+
+
 // isUniqueViolation checks for a PostgreSQL unique constraint violation.
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
@@ -21,7 +28,7 @@ func isUniqueViolation(err error) bool {
 // SeedGooglePlayReviewerWorker ensures the permanent Google Play reviewer worker exists.
 func SeedGooglePlayReviewerWorker(workerRepo repositories.WorkerRepository) error {
 	ctx := context.Background()
-	workerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa3333")
+	workerID := uuid.MustParse(GooglePlayReviewerWorkerID)
 
 	if existing, err := workerRepo.GetByID(ctx, workerID); err != nil {
 		return fmt.Errorf("check existing reviewer worker: %w", err)
@@ -68,8 +75,8 @@ func SeedGooglePlayReviewerWorker(workerRepo repositories.WorkerRepository) erro
 // SeedDefaultWorkers seeds the standard demo workers (incomplete and active).
 func SeedDefaultWorkers(workerRepo repositories.WorkerRepository) error {
 	ctx := context.Background()
-	incompleteID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa1111")
-	activeID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
+	incompleteID := uuid.MustParse(DefaultIncompleteWorkerID)
+	activeID := uuid.MustParse(DefaultActiveWorkerID)
 
 	if existing, err := workerRepo.GetByID(ctx, incompleteID); err != nil {
 		return fmt.Errorf("check existing default worker: %w", err)

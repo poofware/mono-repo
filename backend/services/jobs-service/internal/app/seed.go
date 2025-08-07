@@ -140,7 +140,7 @@ func seedPropertyDataIfNeeded(
 
 	p := &models.Property{
 		ID:           propID,
-		ManagerID:    uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		ManagerID:    uuid.MustParse(seeding.DefaultPropertyManagerID),
 		PropertyName: "Demo Property 1",
 		Address:      "30 Gates Mill St NW",
 		City:         "Huntsville",
@@ -492,7 +492,7 @@ func seedSmallDemoJobIfNeeded(
 	}
 	timeZone := prop.TimeZone
 	dumpsterID := uuid.MustParse("44444444-4444-4444-4444-444444444444") // Dumpster for Demo Property 1
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 
 	loc, err := time.LoadLocation(timeZone)
 	if err != nil {
@@ -590,7 +590,7 @@ func createDailyDefinition(
 		return uuid.Nil, err
 	}
 
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 
 	var firstID uuid.UUID
 	for i, groups := range chunks {
@@ -683,7 +683,7 @@ func createRealisticTimeWindowDefinition(
 		return uuid.Nil, err
 	}
 
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 	var firstID uuid.UUID
 	for i, groups := range chunks {
 		t := title
@@ -782,7 +782,7 @@ func seedHistoricalDefinition(
 		},
 	}
 
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 
 	// Create this definition as INACTIVE so it doesn't generate future jobs.
 	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, string(models.JobStatusArchived))
@@ -823,7 +823,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 	jobsForWeekBeforeLast := []*models.JobInstance{
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa1"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast1),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 1),
 			EffectivePay: 20.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 1).Add(17 * time.Hour)),
@@ -831,7 +831,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa2"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast2),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 3),
 			EffectivePay: 25.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 3).Add(18 * time.Hour)),
@@ -839,7 +839,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa3"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast3),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 5),
 			EffectivePay: 22.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 5).Add(19 * time.Hour)),
@@ -852,7 +852,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 	jobsForLastWeek := []*models.JobInstance{
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb1"),
+			ID:           uuid.MustParse(seeding.HistoricalJobLastWeek1),
 			ServiceDate:  lastWeekStart.AddDate(0, 0, 0),
 			EffectivePay: 30.00,
 			CheckInAt:    utils.Ptr(lastWeekStart.AddDate(0, 0, 0).Add(16 * time.Hour)),
@@ -860,7 +860,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb2"),
+			ID:           uuid.MustParse(seeding.HistoricalJobLastWeek2),
 			ServiceDate:  lastWeekStart.AddDate(0, 0, 2),
 			EffectivePay: 28.00,
 			CheckInAt:    utils.Ptr(lastWeekStart.AddDate(0, 0, 2).Add(20 * time.Hour)),
@@ -884,7 +884,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 	)
 
 	// This is the default active worker ID seeded in go-seeding
-	workerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
+	workerID := uuid.MustParse(seeding.DefaultActiveWorkerID)
 
 	for _, job := range allJobsToSeed {
 		// Set common properties for all seeded historical/completed jobs
@@ -940,7 +940,7 @@ func seedCliftFarmPropertyIfNeeded(
 
 	p := &models.Property{
 		ID:           propID,
-		ManagerID:    uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		ManagerID:    uuid.MustParse(seeding.DefaultPropertyManagerID),
 		PropertyName: "The Station at Clift Farm",
 		Address:      "165 John Thomas Dr",
 		City:         "Madison",
