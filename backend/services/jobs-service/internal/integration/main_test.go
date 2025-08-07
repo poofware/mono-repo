@@ -22,11 +22,12 @@ import (
 var (
 	h      *testhelpers.TestHelper
 	testPM *models.PropertyManager
+	cfg    *config.Config
 )
 
 // TestMain sets up a single TestHelper for all integration tests in this package.
 func TestMain(m *testing.M) {
-	// Required ldflags checks
+	// Required ldflags checks (these are read by config.LoadConfig)
 	if config.AppName == "" {
 		log.Fatal("config.AppName is empty or not set (ldflags missing?)")
 	}
@@ -37,8 +38,10 @@ func TestMain(m *testing.M) {
 		log.Fatal("config.UniqueRunNumber is empty or not set")
 	}
 
+	// Load the full application config, which includes fetching LD flags.
+	cfg = config.LoadConfig()
+
 	// Use a dummy testing.T to initialize the helper.
-	// We can't use one from a real test since TestMain runs before tests.
 	t := &testing.T{}
 	h = testhelpers.NewTestHelper(t, config.AppName, config.UniqueRunnerID, config.UniqueRunNumber)
 

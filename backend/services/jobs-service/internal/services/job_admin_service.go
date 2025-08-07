@@ -406,11 +406,23 @@ func (s *JobService) CancelJobInstance(
 			"Worker canceled in-progress job before latest start time (%s). Job reopened and may need coverage.",
 			lStart.Format("15:04"),
 		)
+		// MODIFIED: Corrected the function call to match the updated signature.
 		NotifyOnCallAgents(
-			ctx, prop, defn.ID.String(), "[Escalation] Worker Canceled In-Progress Job", messageBody,
-			s.agentRepo, s.twilioClient, s.sendgridClient,
-			s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
-			s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
+			ctx,
+			s.cfg.AppUrl,
+			prop,
+			defn,
+			inst,
+			"[Escalation] Worker Canceled In-Progress Job",
+			messageBody,
+			s.agentRepo,
+			s.agentJobCompletionRepo,
+			s.twilioClient,
+			s.sendgridClient,
+			s.cfg.LDFlag_TwilioFromPhone,
+			s.cfg.LDFlag_SendgridFromEmail,
+			s.cfg.OrganizationName,
+			s.cfg.LDFlag_SendgridSandboxMode,
 		)
 
 		dto, _ := s.buildInstanceDTO(ctx, rev, nil, nil, nil, nil, nil, nil, nil)
@@ -441,13 +453,17 @@ func (s *JobService) CancelJobInstance(
 		"Worker canceled in-progress job after latest start time (%s). The job has been canceled.",
 		lStart.Format("15:04"),
 	)
+	// MODIFIED: Corrected the function call to match the updated signature.
 	NotifyOnCallAgents(
 		ctx,
+		s.cfg.AppUrl,
 		prop,
-		defn.ID.String(),
+		defn,
+		cancelled,
 		"[Escalation] Worker Canceled In-Progress Job (Late)",
 		messageBody,
 		s.agentRepo,
+		s.agentJobCompletionRepo,
 		s.twilioClient,
 		s.sendgridClient,
 		s.cfg.LDFlag_TwilioFromPhone,

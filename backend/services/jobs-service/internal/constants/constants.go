@@ -8,6 +8,7 @@ import (
 const (
 	RadiusMiles                    = 75
 	LocationRadiusMeters           = 200
+	RadiusMilesToNotifyAgents      = 50
 	MaxAssignUnassignCountForFlag  = 2
 	DaysToListOpenJobsRange        = 8 // Query window is [yesterday...today+7] = 9 days total
 	DaysToSeedAhead                = 7 // How many days ahead to seed new instances

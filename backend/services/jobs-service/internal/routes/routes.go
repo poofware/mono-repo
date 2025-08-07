@@ -24,4 +24,7 @@ const (
 	// Manager or system endpoint
 	JobsDefinitionStatus = "/api/v1/jobs/definition/status"
 	JobsDefinitionCreate = "/api/v1/manager/jobs/definition"
+
+	// Public agent completion endpoint
+	JobsAgentComplete = "/api/v1/jobs/agent-complete/{token}"
 )

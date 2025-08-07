@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Confirmed | Poof</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Poppins', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 flex items-center justify-center min-h-screen p-4">
+
+  <main class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-6 text-center">
+    <img src="./assets/images/POOF_LOGO-LC_BW.svg" alt="Poof logo" class="w-24 mx-auto" onerror="this.onerror=null; this.src='https://placehold.co/96x48/000000/FFFFFF?text=Poof';">
+    
+    <div class="space-y-4 py-8">
+      <svg class="mx-auto h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <h1 class="text-2xl font-bold text-slate-900">Job Confirmed!</h1>
+      <p class="text-slate-500">Thank you! You have successfully claimed the job and it has been marked as complete.</p>
+      <a href="poofworker://open" class="inline-block mt-4 text-[#743ee4] hover:underline font-semibold">Open the Poof Worker App</a>
+    </div>
+  </main>
+
+</body>
+</html>

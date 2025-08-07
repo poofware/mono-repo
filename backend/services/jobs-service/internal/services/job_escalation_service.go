@@ -14,15 +14,16 @@ import (
 )
 
 type JobEscalationService struct {
-	cfg            *config.Config
-	jobDefRepo     repositories.JobDefinitionRepository
-	jobInstRepo    repositories.JobInstanceRepository
-	workerRepo     repositories.WorkerRepository
-	propRepo       repositories.PropertyRepository
-	repRepo        repositories.AgentRepository
-	twilioClient   *twilio.RestClient
-	sendgridClient *sendgrid.Client
-	jobService     *JobService
+	cfg                    *config.Config
+	jobDefRepo             repositories.JobDefinitionRepository
+	jobInstRepo            repositories.JobInstanceRepository
+	workerRepo             repositories.WorkerRepository
+	propRepo               repositories.PropertyRepository
+	repRepo                repositories.AgentRepository
+	agentJobCompletionRepo repositories.AgentJobCompletionRepository
+	twilioClient           *twilio.RestClient
+	sendgridClient         *sendgrid.Client
+	jobService             *JobService
 }
 
 func NewJobEscalationService(
@@ -32,6 +33,7 @@ func NewJobEscalationService(
 	workerRepo repositories.WorkerRepository,
 	propRepo repositories.PropertyRepository,
 	repRepo repositories.AgentRepository,
+	ajcRepo repositories.AgentJobCompletionRepository,
 	jobService *JobService,
 ) *JobEscalationService {
 	twClient := twilio.NewRestClientWithParams(twilio.ClientParams{
@@ -41,15 +43,16 @@ func NewJobEscalationService(
 	sgClient := sendgrid.NewSendClient(cfg.SendGridAPIKey)
 
 	return &JobEscalationService{
-		cfg:            cfg,
-		jobDefRepo:     defRepo,
-		jobInstRepo:    instRepo,
-		workerRepo:     workerRepo,
-		propRepo:       propRepo,
-		repRepo:        repRepo,
-		twilioClient:   twClient,
-		sendgridClient: sgClient,
-		jobService:     jobService,
+		cfg:                    cfg,
+		jobDefRepo:             defRepo,
+		jobInstRepo:            instRepo,
+		workerRepo:             workerRepo,
+		propRepo:               propRepo,
+		repRepo:                repRepo,
+		agentJobCompletionRepo: ajcRepo,
+		twilioClient:           twClient,
+		sendgridClient:         sgClient,
+		jobService:             jobService,
 	}
 }
 
@@ -115,7 +118,7 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 				continue
 			}
 			msgBody := "Job exceeded its latest start time and has been automatically canceled."
-			s.notifyOnCallStaff(ctx, defn, "Job auto-canceled after expiry", msgBody)
+			s.notifyOnCallStaff(ctx, defn, inst, "Job auto-canceled after expiry", msgBody)
 		}
 	}
 	return nil
@@ -177,6 +180,7 @@ func (s *JobEscalationService) forceReopenNoShow(ctx context.Context, inst *mode
 func (s *JobEscalationService) notifyOnCallStaff(
 	ctx context.Context,
 	defn *models.JobDefinition,
+	inst *models.JobInstance,
 	title string,
 	msgBody string,
 ) {
@@ -187,11 +191,14 @@ func (s *JobEscalationService) notifyOnCallStaff(
 
 	NotifyOnCallAgents(
 		ctx,
+		s.cfg.AppUrl,
 		prop,
-		defn.ID.String(),
+		defn,
+		inst,
 		title,
 		msgBody,
 		s.repRepo,
+		s.agentJobCompletionRepo,
 		s.twilioClient,
 		s.sendgridClient,
 		s.cfg.LDFlag_TwilioFromPhone,

@@ -145,6 +145,12 @@ func LoadConfig() *Config {
 	if !ok || checkrAPIKey == "" {
 		utils.Logger.Fatalf("CHECKR_API_KEY not found in BWS secrets (%s)", bwsProjectName)
 	}
+	
+	gmapsAPIKey, ok := appSecrets["GMAPS_ROUTES_API_KEY"]
+	if !ok || gmapsAPIKey == "" {
+		utils.Logger.Fatal("GMAPS_ROUTES_API_KEY not found in BWS secrets (shared-env)")
+	}
+
 
 	//----------------------------------------------------------------------
 	// Parse required secrets from sharedSecrets (RSA keys)
@@ -212,11 +218,6 @@ func LoadConfig() *Config {
 	sendgridAPIKey, ok := sharedSecrets["SENDGRID_API_KEY"]
 	if !ok || sendgridAPIKey == "" {
 		utils.Logger.Fatalf("SENDGRID_API_KEY not found in BWS secrets (%s)", bwsProjectName)
-	}
-
-	gmapsAPIKey, ok := sharedSecrets["GMAPS_ROUTES_API_KEY"]
-	if !ok || gmapsAPIKey == "" {
-		utils.Logger.Fatal("GMAPS_ROUTES_API_KEY not found in BWS secrets (shared-env)")
 	}
 
 	//----------------------------------------------------------------------

@@ -18,6 +18,10 @@ import '../../utils/stripe_utils.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart'; // Import URL launcher
 import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
+// Add these constants near the top of the file.
+const String kStripeTermsUrl = 'https://stripe.com/legal/connect-account';
+const String kStripePrivacyUrl = 'https://stripe.com/privacy';
+
 class StripePage extends ConsumerStatefulWidget {
   const StripePage({super.key});
 
@@ -71,6 +75,16 @@ class _StripePageState extends ConsumerState<StripePage> {
     }
   }
 
+  // Add this helper function to launch URLs
+  Future<void> _launchUrl(String url) async {
+    final success = await tryLaunchUrl(url);
+    if (!mounted) return;
+    if (!success) {
+      final appLocalizations = AppLocalizations.of(context);
+      showAppSnackBar(context, Text(appLocalizations.urlLauncherCannotLaunch));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context);
@@ -94,12 +108,12 @@ class _StripePageState extends ConsumerState<StripePage> {
                       children: [
                         const SizedBox(height: 16),
                         const Center(
-                              child: Icon(
-                                Icons.account_balance_wallet_outlined,
-                                size: 64,
-                                color: AppColors.poofColor,
-                              ),
-                            )
+                          child: Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 64,
+                            color: AppColors.poofColor,
+                          ),
+                        )
                             .animate()
                             .fadeIn(delay: 200.ms, duration: 400.ms)
                             .scale(
@@ -109,11 +123,11 @@ class _StripePageState extends ConsumerState<StripePage> {
                             ),
                         const SizedBox(height: 24),
                         Text(
-                              appLocalizations.stripeConnectPageTitle,
-                              style: theme.textTheme.headlineLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
+                          appLocalizations.stripeConnectPageTitle,
+                          style: theme.textTheme.headlineLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
                             .animate()
                             .fadeIn(delay: 300.ms)
                             .slideX(
@@ -122,14 +136,14 @@ class _StripePageState extends ConsumerState<StripePage> {
                               curve: Curves.easeOutCubic,
                             ),
                         Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                appLocalizations.stripeConnectPageSubtitle,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            )
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            appLocalizations.stripeConnectPageSubtitle,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        )
                             .animate()
                             .fadeIn(delay: 400.ms)
                             .slideX(
@@ -238,15 +252,7 @@ class _StripePageState extends ConsumerState<StripePage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             TextButton(
-                              onPressed: () {
-                                showAppSnackBar(
-                                  context,
-                                  Text(
-                                    appLocalizations
-                                        .stripeConnectPageTermsSnackbar,
-                                  ),
-                                );
-                              },
+                              onPressed: () => _launchUrl(kStripeTermsUrl),
                               child: Text(
                                 appLocalizations.stripeConnectPageTermsButton,
                                 style: const TextStyle(
@@ -256,15 +262,7 @@ class _StripePageState extends ConsumerState<StripePage> {
                               ),
                             ),
                             TextButton(
-                              onPressed: () {
-                                showAppSnackBar(
-                                  context,
-                                  Text(
-                                    appLocalizations
-                                        .stripeConnectPagePrivacySnackbar,
-                                  ),
-                                );
-                              },
+                              onPressed: () => _launchUrl(kStripePrivacyUrl),
                               child: Text(
                                 appLocalizations.stripeConnectPagePrivacyButton,
                                 style: const TextStyle(

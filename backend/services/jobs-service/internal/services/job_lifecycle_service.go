@@ -581,8 +581,8 @@ func (s *JobService) UnacceptJobInstance(
 
 				messageBody := "Worker un-assigned from job after acceptance cutoff. Job reopened and may need coverage."
 				NotifyOnCallAgents(
-					ctx, prop, defn.ID.String(), "[Escalation] Worker Unassigned Late", messageBody,
-					s.agentRepo, s.twilioClient, s.sendgridClient,
+					ctx, s.cfg.AppUrl, prop, defn, inst, "[Escalation] Worker Unassigned Late", messageBody,
+					s.agentRepo, s.agentJobCompletionRepo, s.twilioClient, s.sendgridClient,
 					s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
 					s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
 				)

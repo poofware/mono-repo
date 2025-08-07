@@ -41,6 +41,7 @@ func main() {
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	agentRepo := repositories.NewAgentRepository(application.DB)
+	ajcRepo := repositories.NewAgentJobCompletionRepository(application.DB)
 
 	// NEW: unitRepo for tenant tokens
 	unitRepo := repositories.NewUnitRepository(application.DB)
@@ -54,7 +55,7 @@ func main() {
 	})
 	sgClient := sendgrid.NewSendClient(cfg.SendGridAPIKey)
 
-	// UPDATED: pass unitRepo to jobService
+	// UPDATED: pass unitRepo and ajcRepo to jobService
 	jobService := services.NewJobService(
 		cfg,
 		defRepo,
@@ -66,6 +67,7 @@ func main() {
 		agentRepo,
 		unitRepo,
 		juvRepo,
+		ajcRepo, // MODIFIED
 		openaiSvc,
 		twClient,
 		sgClient,
@@ -95,11 +97,14 @@ func main() {
 		workerRepo,
 		propRepo,
 		agentRepo,
+		ajcRepo, // MODIFIED
 		jobService,
 	)
 	jobScheduler := services.NewJobSchedulerService(cfg, defRepo, instRepo, propRepo)
 
-	jobsController := controllers.NewJobsController(jobService)
+	agentCompletionSvc := services.NewAgentCompletionService(ajcRepo, instRepo)
+
+	jobsController := controllers.NewJobsController(jobService, agentCompletionSvc)
 	healthController := controllers.NewHealthController(application)
 	jobDefsController := controllers.NewJobDefinitionsController(jobService)
 
@@ -107,6 +112,7 @@ func main() {
 
 	// Public
 	router.HandleFunc(routes.Health, healthController.HealthCheckHandler).Methods(http.MethodGet)
+	router.HandleFunc(routes.JobsAgentComplete, jobsController.AgentCompleteHandler).Methods(http.MethodGet)
 
 	secured := router.NewRoute().Subrouter()
 	secured.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation))
@@ -161,6 +167,15 @@ func main() {
 	})
 	if jcasErr != nil {
 		utils.Logger.WithError(jcasErr).Fatal("Failed to schedule JCAS escalation cron")
+	}
+
+	_, cleanupErr := c.AddFunc("0 4 * * *", func() {
+		if _, e := agentCompletionSvc.CleanupExpired(context.Background()); e != nil {
+			utils.Logger.WithError(e).Error("agent completion cleanup failed")
+		}
+	})
+	if cleanupErr != nil {
+		utils.Logger.WithError(cleanupErr).Fatal("Failed to schedule agent completion cleanup cron")
 	}
 	c.Start()
 

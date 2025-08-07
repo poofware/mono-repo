@@ -264,6 +264,24 @@ CREATE INDEX idx_job_definitions_manager_id ON job_definitions (manager_id);
 CREATE INDEX idx_job_definitions_property_id ON job_definitions (property_id);
 
 -- ----------------------------------------------------------------------
+--  agents
+-- ----------------------------------------------------------------------
+CREATE TABLE agents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    phone_number VARCHAR(20) NOT NULL UNIQUE,
+    address VARCHAR(255) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(50) NOT NULL,
+    zip_code VARCHAR(20) NOT NULL,
+    latitude DECIMAL(9, 6) NOT NULL,
+    longitude DECIMAL(9, 6) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- ----------------------------------------------------------------------
 --  job_instances
 -- ----------------------------------------------------------------------
 CREATE TABLE job_instances (
@@ -275,6 +293,7 @@ CREATE TABLE job_instances (
     service_date DATE NOT NULL,
     status INSTANCE_STATUS_TYPE NOT NULL DEFAULT 'OPEN',
     assigned_worker_id UUID REFERENCES workers (id),
+    completed_by_agent_id UUID NULL REFERENCES agents (id),
     effective_pay NUMERIC(10, 2) NOT NULL DEFAULT 0,
     check_in_at TIMESTAMP WITH TIME ZONE,
     check_out_at TIMESTAMP WITH TIME ZONE,
@@ -289,17 +308,28 @@ CREATE TABLE job_instances (
         (status = 'OPEN' AND assigned_worker_id IS NULL)
         OR
         (
-            status IN ('ASSIGNED', 'IN_PROGRESS', 'COMPLETED')
+            status IN ('ASSIGNED', 'IN_PROGRESS')
             AND
             assigned_worker_id IS NOT NULL
         )
         OR
-        (status IN ('RETIRED', 'CANCELED'))
+        (status IN ('RETIRED', 'CANCELED', 'COMPLETED'))
     )
 );
 CREATE INDEX idx_job_instances_service_date ON job_instances (service_date);
 CREATE INDEX idx_job_instances_status ON job_instances (status);
 CREATE INDEX idx_job_instances_definition_id ON job_instances (definition_id);
+
+-- New table for agent job completion tokens
+CREATE TABLE agent_job_completions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_instance_id UUID NOT NULL REFERENCES job_instances (id)
+    ON DELETE CASCADE,
+    agent_id UUID NOT NULL REFERENCES agents (id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ NULL
+);
 
 -- ----------------------------------------------------------------------
 --  pm_refresh_tokens
@@ -474,26 +504,6 @@ CREATE TABLE worker_score_events (
     new_score INT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
-
--- ----------------------------------------------------------------------
---  agents
--- ----------------------------------------------------------------------
-CREATE TABLE agents (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    phone_number VARCHAR(20) NOT NULL UNIQUE,
-    address VARCHAR(255) NOT NULL,
-    city VARCHAR(100) NOT NULL,
-    state VARCHAR(50) NOT NULL,
-    zip_code VARCHAR(20) NOT NULL,
-    latitude DECIMAL(9, 6) NOT NULL,
-    longitude DECIMAL(9, 6) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_agents_lat_lon
-ON agents USING gist (point(latitude, longitude));
 
 -- ----------------------------------------------------------------------
 --  iOS App Attest keys

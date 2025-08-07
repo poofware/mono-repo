@@ -15,8 +15,10 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/sendgrid/sendgrid-go"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stretchr/testify/require"
+	"github.com/twilio/twilio-go"
 )
 
 // TestHelper encapsulates all necessary components for running integration tests across services.
@@ -32,6 +34,14 @@ type TestHelper struct {
 	CheckrAPIKey        string
 	GMapsRoutesAPIKey 	string
 	RunWithUI           bool
+
+	// Clients and config for notifications, with test-sane defaults.
+	// Can be overridden by the calling test suite after initialization.
+	TwilioClient        *twilio.RestClient
+	SendGridClient      *sendgrid.Client
+	OrganizationName    string
+	SendgridSandboxMode bool
+
 
 	// From ldflags
 	AppName         string
@@ -52,6 +62,7 @@ type TestHelper struct {
 	PMSMSRepo       repositories.PMSMSVerificationRepository
 	WorkerEmailRepo repositories.WorkerEmailVerificationRepository
 	WorkerSMSRepo   repositories.WorkerSMSVerificationRepository
+	AgentJobCompletionRepo repositories.AgentJobCompletionRepository
 }
 
 // NewTestHelper sets up the entire testing environment by loading secrets, connecting to the DB,
@@ -79,7 +90,7 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 	client, err := utils.NewBWSSecretsClient()
 	require.NoError(t, err, "Failed to init BWSSecretsClient")
 
-	// 3. Shared Secrets (RSA Key, DB Encryption Key, Stripe Secret Key)
+	// 3. Shared Secrets (RSA Key, DB Encryption Key, Stripe Secret Key, etc.)
 	sharedAppName := fmt.Sprintf("shared-%s", env)
 	sharedSecrets, err := client.GetBWSSecrets(sharedAppName)
 	require.NoError(t, err, "Failed to fetch shared secrets")
@@ -102,6 +113,15 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 	stripeSecretKey, ok := sharedSecrets["STRIPE_SECRET_KEY"]
 	require.True(t, ok && stripeSecretKey != "", "STRIPE_SECRET_KEY not found in sharedSecrets")
 
+	// Load Twilio and SendGrid secrets
+	twilioSID, ok := sharedSecrets["TWILIO_ACCOUNT_SID"]
+	require.True(t, ok && twilioSID != "", "TWILIO_ACCOUNT_SID not found")
+	twilioToken, ok := sharedSecrets["TWILIO_AUTH_TOKEN"]
+	require.True(t, ok && twilioToken != "", "TWILIO_AUTH_TOKEN not found")
+	sendgridAPIKey, ok := sharedSecrets["SENDGRID_API_KEY"]
+	require.True(t, ok && sendgridAPIKey != "", "SENDGRID_API_KEY not found")
+
+
 	// 4. App-Specific Secrets (DB_URL, Webhook Secrets, API Keys)
 	appNameEnv := fmt.Sprintf("%s-%s", appName, env)
 	appSecrets, err := client.GetBWSSecrets(appNameEnv)
@@ -122,8 +142,14 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 	require.NoError(t, err)
 	t.Cleanup(func() { dbPool.Close() })
 
-	// 6. Initialize Stripe Client
+	// 6. Initialize Stripe, Twilio, and SendGrid Clients
 	sc := stripe.NewClient(stripeSecretKey)
+	twClient := twilio.NewRestClientWithParams(twilio.ClientParams{
+		Username: twilioSID,
+		Password: twilioToken,
+	})
+	sgClient := sendgrid.NewSendClient(sendgridAPIKey)
+
 
 	// 7. Initialize all repositories and the helper
 	h := &TestHelper{
@@ -138,6 +164,14 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 		CheckrAPIKey:        checkrAPIKey,
 		GMapsRoutesAPIKey:   gmapsRoutesAPIKey,
 		RunWithUI:           runWithUI,
+		// Populate notification fields with safe, hardcoded defaults.
+		// The calling test suite is responsible for overriding these with real config values if needed.
+		TwilioClient:        twClient,
+		SendGridClient:      sgClient,
+		OrganizationName:    utils.OrganizationName,
+		SendgridSandboxMode: true,
+
+
 		AppName:             appName,
 		UniqueRunnerID:      uniqueRunID,
 		UniqueRunNumber:     uniqueRunNum,
@@ -154,6 +188,7 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 		PMSMSRepo:           repositories.NewPMSMSVerificationRepository(dbPool),
 		WorkerEmailRepo:     repositories.NewWorkerEmailVerificationRepository(dbPool),
 		WorkerSMSRepo:       repositories.NewWorkerSMSVerificationRepository(dbPool),
+		AgentJobCompletionRepo: repositories.NewAgentJobCompletionRepository(dbPool),
 	}
 
 	return h

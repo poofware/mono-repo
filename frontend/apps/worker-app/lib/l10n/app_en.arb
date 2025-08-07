@@ -443,11 +443,8 @@
   "stripeConnectPageStep3Subtitle": "Get paid directly to your bank account",
   "stripeConnectPageTermsButton": "Terms of Service",
   "stripeConnectPagePrivacyButton": "Privacy Policy",
-  "stripeConnectPageTermsSnackbar": "Terms of Service (placeholder)",
-  "stripeConnectPagePrivacySnackbar": "Privacy Policy (placeholder)",
   "stripeConnectPageNeedHelpLabel": "Need help? ",
   "stripeConnectPageContactSupportButton": "Contact Support",
-  "stripeConnectPageContactSupportSnackbar": "Contact support (placeholder)",
   "stripeConnectPageConnectButton": "Connect With Stripe",
   "stripeConnectPageFailedToStart": "Failed to start Stripe Connect flow: {error}",
   "@stripeConnectPageFailedToStart": {
@@ -471,7 +468,6 @@
   "stripeIdvPageSecurityNote": "Your information is encrypted and securely transmitted. We only receive verification results and do not store sensitive personal data.",
   "stripeIdvPageNeedHelpLabel": "Need help? ",
   "stripeIdvPageContactSupportButton": "Contact Support",
-  "stripeIdvPageContactSupportSnackbar": "Contact support (placeholder)",
   "stripeIdvPageStartButton": "Start Identity Verification",
   "stripeIdvPageFailedToStart": "Failed to start ID verification flow: {error}",
   "@stripeIdvPageFailedToStart": {

@@ -32,6 +32,9 @@ type JobInstanceRepository interface {
 	UpdateStatusToInProgress(ctx context.Context, instanceID uuid.UUID, expectedVersion int64) (*models.JobInstance, error)
 	UpdateStatusToCompleted(ctx context.Context, instanceID uuid.UUID, expectedVersion int64) (*models.JobInstance, error)
 
+	// Marks a job as completed by an agent using an escalation token
+	CompleteByAgent(ctx context.Context, instanceID uuid.UUID, agentID uuid.UUID) (*models.JobInstance, error)
+
 	// NEW
 	UpdateStatusToCancelled(ctx context.Context, instanceID uuid.UUID, expectedVersion int64) (*models.JobInstance, error)
 
@@ -59,7 +62,7 @@ func baseSelectInstance() string {
             assigned_worker_id, effective_pay,
             check_in_at, check_out_at,
             excluded_worker_ids, assign_unassign_count, flagged_for_review,
-            row_version, created_at, updated_at
+            row_version, created_at, updated_at, completed_by_agent_id
         FROM job_instances
     `
 }
@@ -83,6 +86,7 @@ func scanInstance(row pgx.Row) (*models.JobInstance, error) {
 		&inst.RowVersion,
 		&inst.CreatedAt,
 		&inst.UpdatedAt,
+		&inst.CompletedByAgentID,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, nil
@@ -481,6 +485,48 @@ func (r *jobInstanceRepo) UpdateStatusToCompleted(
 	return scanInstance(newRow)
 }
 
+// CompleteByAgent sets a job instance to COMPLETED and records the agent responsible.
+// It returns an error if the job has already been claimed (status != OPEN).
+func (r *jobInstanceRepo) CompleteByAgent(ctx context.Context, instanceID uuid.UUID, agentID uuid.UUID) (*models.JobInstance, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		} else {
+			_ = tx.Commit(ctx)
+		}
+	}()
+
+	row := tx.QueryRow(ctx, baseSelectInstance()+" WHERE id=$1 FOR UPDATE", instanceID)
+	inst, err := scanInstance(row)
+	if err != nil {
+		return nil, err
+	}
+	if inst == nil {
+		return nil, pgx.ErrNoRows
+	}
+	if inst.Status != models.InstanceStatusOpen {
+		return inst, fmt.Errorf("job_not_open")
+	}
+
+	_, err = tx.Exec(ctx, `
+                UPDATE job_instances
+                SET status='COMPLETED',
+                    completed_by_agent_id=$2,
+                    row_version=row_version+1,
+                    updated_at=NOW()
+                WHERE id=$1
+        `, instanceID, agentID)
+	if err != nil {
+		return nil, err
+	}
+	newRow := tx.QueryRow(ctx, baseSelectInstance()+" WHERE id=$1", instanceID)
+	return scanInstance(newRow)
+}
+
 // NEW: UpdateStatusToCancelled
 func (r *jobInstanceRepo) UpdateStatusToCancelled(
 	ctx context.Context,
@@ -527,7 +573,8 @@ func (r *jobInstanceRepo) UpdateStatusToCancelled(
 }
 
 // NEW: RevertInProgressToOpenAtomic
-//  transitions from IN_PROGRESS to OPEN, removing assigned_worker_id, clearing check_in_at, etc.
+//
+//	transitions from IN_PROGRESS to OPEN, removing assigned_worker_id, clearing check_in_at, etc.
 func (r *jobInstanceRepo) RevertInProgressToOpenAtomic(
 	ctx context.Context,
 	instanceID uuid.UUID,
@@ -628,4 +675,3 @@ func (r *jobInstanceRepo) AddExcludedWorker(ctx context.Context, instanceID uuid
     `, workerID, instanceID)
 	return err
 }
-

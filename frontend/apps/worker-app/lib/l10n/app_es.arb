@@ -438,11 +438,8 @@
   "stripeConnectPageStep3Subtitle": "Recibe pagos directamente en tu cuenta bancaria",
   "stripeConnectPageTermsButton": "Términos de Servicio",
   "stripeConnectPagePrivacyButton": "Política de Privacidad",
-  "stripeConnectPageTermsSnackbar": "Términos de Servicio (marcador de posición)",
-  "stripeConnectPagePrivacySnackbar": "Política de Privacidad (marcador de posición)",
   "stripeConnectPageNeedHelpLabel": "¿Necesitas ayuda? ",
   "stripeConnectPageContactSupportButton": "Contactar a Soporte",
-  "stripeConnectPageContactSupportSnackbar": "Contactar a soporte (marcador de posición)",
   "stripeConnectPageConnectButton": "Conectar con Stripe",
   "stripeConnectPageFailedToStart": "Error al iniciar el flujo de Stripe Connect: {error}",
   "@stripeConnectPageFailedToStart": {
@@ -466,7 +463,6 @@
   "stripeIdvPageSecurityNote": "Tu información se cifra y transmite de forma segura. Solo recibimos los resultados de la verificación y no almacenamos datos personales sensibles.",
   "stripeIdvPageNeedHelpLabel": "¿Necesitas ayuda? ",
   "stripeIdvPageContactSupportButton": "Contactar a Soporte",
-  "stripeIdvPageContactSupportSnackbar": "Contactar a soporte (marcador de posición)",
   "stripeIdvPageStartButton": "Iniciar Verificación de Identidad",
   "stripeIdvPageFailedToStart": "Error al iniciar el flujo de verificación de ID: {error}",
   "@stripeIdvPageFailedToStart": {

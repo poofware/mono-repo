@@ -12,7 +12,6 @@ type AgentRepository interface {
 	Create(ctx context.Context, rep *models.Agent) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Agent, error)
 	ListAll(ctx context.Context) ([]*models.Agent, error)
-	ListByProximity(ctx context.Context, lat, lng, radiusMiles float64) ([]*models.Agent, error)
 }
 
 type poofRepRepo struct {
@@ -46,27 +45,6 @@ func (r *poofRepRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Agent,
 func (r *poofRepRepo) ListAll(ctx context.Context) ([]*models.Agent, error) {
 	q := baseSelectAgent() + " ORDER BY created_at"
 	rows, err := r.db.Query(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []*models.Agent
-	for rows.Next() {
-		rep, err := scanAgent(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rep)
-	}
-	return out, rows.Err()
-}
-
-func (r *poofRepRepo) ListByProximity(ctx context.Context, lat, lng, radiusMiles float64) ([]*models.Agent, error) {
-	q := baseSelectAgent() + `
-        WHERE earth_distance(ll_to_earth(latitude, longitude), ll_to_earth($1,$2)) <= $3 * 1609.34
-        ORDER BY created_at`
-	rows, err := r.db.Query(ctx, q, lat, lng, radiusMiles)
 	if err != nil {
 		return nil, err
 	}
