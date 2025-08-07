@@ -40,7 +40,7 @@ func main() {
 	propRepo := repositories.NewPropertyRepository(application.DB) // NEW
 
 	if cfg.LDFlag_SeedDbWithTestData {
-		if err := app.SeedAllTestData(context.Background(), workerRepo, payoutRepo); err != nil {
+		if err := app.SeedAllTestData(context.Background(), workerRepo, jobInstRepo, payoutRepo); err != nil {
 			utils.Logger.Fatal("Failed to seed default payouts:", err)
 		}
 	}
