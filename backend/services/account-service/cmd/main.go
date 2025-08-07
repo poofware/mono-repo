@@ -38,15 +38,16 @@ func main() {
 	bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	unitRepo := repositories.NewUnitRepository(application.DB)
+	agentRepo := repositories.NewAgentRepository(application.DB)
 
 	// Unconditionally seed permanent accounts (e.g., for Google Play reviewers).
-	if err := app.SeedAllAccounts(workerRepo, pmRepo); err != nil { //
+	if err := app.SeedAllAccounts(workerRepo, pmRepo, agentRepo); err != nil {
 		utils.Logger.Fatal("Failed to seed permanent accounts:", err)
 	}
 
 	// Conditionally seed test accounts if the feature flag is enabled.
 	if cfg.LDFlag_SeedDbWithTestAccounts {
-		if err := app.SeedAllTestAccounts(workerRepo, pmRepo); err != nil {
+		if err := app.SeedAllTestAccounts(workerRepo, pmRepo, agentRepo); err != nil {
 			utils.Logger.Fatal("Failed to seed default accounts:", err)
 		}
 	}
@@ -56,7 +57,7 @@ func main() {
 	// Services
 	sgClient := sendgrid.NewSendClient(cfg.SendgridAPIKey) // Instantiate SendGrid client
 	pmService := services.NewPMService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo)
-	workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo)
+        workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo, unitRepo, propRepo)
 	waitlistService := services.NewWaitlistService(cfg, workerRepo)
 	// MODIFIED: Inject SendGrid client and Config into WorkerStripeService
 	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo, sgClient)

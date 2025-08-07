@@ -1,18 +1,18 @@
 package services
 
 import (
-	"slices"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/mono-repo/backend/shared/go-models"
-	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
 	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 func (s *JobService) ForceReopenNoShow(
@@ -375,49 +375,8 @@ func (s *JobService) CancelJobInstance(
 	now := time.Now().UTC()
 	wUUID := uuid.MustParse(workerID)
 
-	// Case 1: Canceled before the no-show cutoff.
-	if now.Before(noShowTime) {
-		acceptanceCutoffTime := noShowTime.Add(-constants.AcceptanceCutoffBeforeNoShow)
-		// Nested check: if cancellation is after the acceptance cutoff, it's treated as a late cancellation.
-		if now.After(acceptanceCutoffTime) {
-			// This is effectively a late cancellation, treated with the same severity as a no-show.
-			expectedVersion := inst.RowVersion
-			cancelled, err2 := s.instRepo.UpdateStatusToCancelled(ctx, instanceID, expectedVersion)
-			if err2 != nil {
-				if strings.Contains(err2.Error(), utils.ErrRowVersionConflict.Error()) {
-					latest, _ := s.instRepo.GetByID(ctx, instanceID)
-					if latest != nil {
-						return nil, internal_utils.NewRowVersionConflictError(latest)
-					}
-				}
-				return nil, err2
-			}
-			if cancelled == nil {
-				return nil, utils.ErrNoRowsUpdated
-			}
-
-			// Apply no-show penalty and always exclude.
-			if s.workerRepo != nil {
-				_ = s.instRepo.AddExcludedWorker(ctx, cancelled.ID, wUUID)
-				_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, constants.WorkerPenaltyNoShow, "CANCEL_IN_PROGRESS_LATE")
-			}
-			messageBody := fmt.Sprintf(
-				"Worker canceled in-progress job after acceptance cutoff time. The job's latest start time was %s. Coverage is likely required.",
-				lStart.Format("15:04"),
-			)
-			NotifyOnCallAgents(
-				ctx, prop, defn.ID.String(), "[Escalation] Worker Canceled In-Progress Job (Late)", messageBody,
-				s.agentRepo, s.twilioClient, s.sendgridClient,
-				s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
-				s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
-			)
-			dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil, nil, nil, nil, nil, nil)
-			return dto, nil
-		}
-
-		// Revert job to OPEN.
+	if now.Before(lStart) {
 		penaltyDelta, excludeWorker := CalculatePenaltyForUnassign(now, eStart, noShowTime)
-
 		expectedVersion := inst.RowVersion
 		assignCount := inst.AssignUnassignCount + 1
 		flagged := inst.FlaggedForReview || (assignCount > constants.MaxAssignUnassignCountForFlag)
@@ -443,12 +402,21 @@ func (s *JobService) CancelJobInstance(
 			_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, penaltyDelta, "CANCEL_IN_PROGRESS_REVERT")
 		}
 
+		messageBody := fmt.Sprintf(
+			"Worker canceled in-progress job before latest start time (%s). Job reopened and may need coverage.",
+			lStart.Format("15:04"),
+		)
+		NotifyOnCallAgents(
+			ctx, prop, defn.ID.String(), "[Escalation] Worker Canceled In-Progress Job", messageBody,
+			s.agentRepo, s.twilioClient, s.sendgridClient,
+			s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
+			s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
+		)
+
 		dto, _ := s.buildInstanceDTO(ctx, rev, nil, nil, nil, nil, nil, nil, nil)
 		return dto, nil
 	}
 
-	// Case 2: Canceled after the no-show cutoff. Job is fully CANCELED.
-	// This is treated with the same severity as a no-show.
 	expectedVersion := inst.RowVersion
 	cancelled, err2 := s.instRepo.UpdateStatusToCancelled(ctx, instanceID, expectedVersion)
 	if err2 != nil {
@@ -464,14 +432,13 @@ func (s *JobService) CancelJobInstance(
 		return nil, utils.ErrNoRowsUpdated
 	}
 
-	// Apply no-show penalty and always exclude.
 	if s.workerRepo != nil {
 		_ = s.instRepo.AddExcludedWorker(ctx, cancelled.ID, wUUID)
 		_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, constants.WorkerPenaltyNoShow, "CANCEL_IN_PROGRESS_LATE")
 	}
 
 	messageBody := fmt.Sprintf(
-		"Worker canceled in-progress job after no-show time. The job's latest start time was %s. Coverage is likely required.",
+		"Worker canceled in-progress job after latest start time (%s). The job has been canceled.",
 		lStart.Format("15:04"),
 	)
 	NotifyOnCallAgents(

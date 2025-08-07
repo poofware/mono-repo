@@ -492,6 +492,8 @@ CREATE TABLE agents (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_agents_lat_lon
+ON agents USING gist (point(latitude, longitude));
 
 -- ----------------------------------------------------------------------
 --  iOS App Attest keys

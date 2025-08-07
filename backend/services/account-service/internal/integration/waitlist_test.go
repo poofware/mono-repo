@@ -21,6 +21,9 @@ func TestSubmitPersonalInfo_Waitlist(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
 
+	_, err := h.DB.Exec(ctx, `DELETE FROM properties`)
+	require.NoError(t, err)
+
 	worker := &models.Worker{
 		ID:          uuid.New(),
 		Email:       "waitlist+" + uuid.NewString() + "@thepoofapp.com",
@@ -56,6 +59,78 @@ func TestSubmitPersonalInfo_Waitlist(t *testing.T) {
 	require.Equal(t, models.SetupProgressIDVerify, wUpdated.SetupProgress)
 	require.NotNil(t, wUpdated.WaitlistReason)
 	require.Equal(t, models.WaitlistReasonGeographic, *wUpdated.WaitlistReason)
+}
+
+func TestSubmitPersonalInfo_InRange_NoWaitlist(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+
+	_, err := h.DB.Exec(ctx, `DELETE FROM properties`)
+	require.NoError(t, err)
+
+	pm := &models.PropertyManager{
+		ID:              uuid.New(),
+		Email:           "pm+" + uuid.NewString() + "@test.com",
+		TOTPSecret:      "test",
+		BusinessName:    "Test PM",
+		BusinessAddress: "1600 Amphitheatre Parkway",
+		City:            "Mountain View",
+		State:           "CA",
+		ZipCode:         "94043",
+		AccountStatus:   models.AccountStatusActive,
+		SetupProgress:   models.SetupProgressDone,
+	}
+	require.NoError(t, h.PMRepo.Create(ctx, pm))
+	defer h.DB.Exec(ctx, `DELETE FROM property_managers WHERE id=$1`, pm.ID)
+
+	prop := &models.Property{
+		ID:           uuid.New(),
+		ManagerID:    pm.ID,
+		PropertyName: "Test Property",
+		Address:      "1600 Amphitheatre Parkway",
+		City:         "Mountain View",
+		State:        "CA",
+		ZipCode:      "94043",
+		TimeZone:     "America/Los_Angeles",
+		Latitude:     37.4220,
+		Longitude:    -122.0841,
+	}
+	require.NoError(t, h.PropertyRepo.Create(ctx, prop))
+	defer h.DB.Exec(ctx, `DELETE FROM properties WHERE id=$1`, prop.ID)
+
+	worker := &models.Worker{
+		ID:          uuid.New(),
+		Email:       "inrange+" + uuid.NewString() + "@thepoofapp.com",
+		PhoneNumber: testhelpers.UniquePhone(),
+		TOTPSecret:  "test-secret",
+		FirstName:   "Geo",
+		LastName:    "Range",
+	}
+	require.NoError(t, h.WorkerRepo.Create(ctx, worker))
+	defer h.DB.Exec(ctx, `DELETE FROM workers WHERE id=$1`, worker.ID)
+
+	token := h.CreateMobileJWT(worker.ID, "test-device-id", "FAKE-PLAY")
+
+	reqPayload := internal_dtos.SubmitPersonalInfoRequest{
+		StreetAddress: "1600 Amphitheatre Parkway",
+		City:          "Mountain View",
+		State:         "CA",
+		ZipCode:       "94043",
+		VehicleYear:   2020,
+		VehicleMake:   "Toyota",
+		VehicleModel:  "Prius",
+	}
+	body, _ := json.Marshal(reqPayload)
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.WorkerSubmitPersonalInfo, token, body, "android", "test-device-id")
+	resp := h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	wUpdated, err := h.WorkerRepo.GetByID(ctx, worker.ID)
+	require.NoError(t, err)
+	require.False(t, wUpdated.OnWaitlist)
+	require.Nil(t, wUpdated.WaitlistReason)
+	require.Equal(t, models.SetupProgressIDVerify, wUpdated.SetupProgress)
 }
 
 func TestWorkerRepository_WaitlistQueries(t *testing.T) {

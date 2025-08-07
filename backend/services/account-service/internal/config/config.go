@@ -29,6 +29,7 @@ type Config struct {
 	TwilioAccountSID                     string
 	TwilioAuthToken                      string
 	SendgridAPIKey                       string
+	GMapsAPIKey                          string
 	RSAPrivateKey                        *rsa.PrivateKey
 	RSAPublicKey                         *rsa.PublicKey
 	LDSDKKey                             string
@@ -213,6 +214,11 @@ func LoadConfig() *Config {
 		utils.Logger.Fatalf("SENDGRID_API_KEY not found in BWS secrets (%s)", bwsProjectName)
 	}
 
+	gmapsAPIKey, ok := sharedSecrets["GMAPS_ROUTES_API_KEY"]
+	if !ok || gmapsAPIKey == "" {
+		utils.Logger.Fatal("GMAPS_ROUTES_API_KEY not found in BWS secrets (shared-env)")
+	}
+
 	//----------------------------------------------------------------------
 	// Initialize the LaunchDarkly client with the LD_SDK_KEY.
 	//----------------------------------------------------------------------
@@ -358,6 +364,7 @@ func LoadConfig() *Config {
 		TwilioAccountSID:                     twilioAccountSID,
 		TwilioAuthToken:                      twilioAuthToken,
 		SendgridAPIKey:                       sendgridAPIKey,
+		GMapsAPIKey:                          gmapsAPIKey,
 		RSAPrivateKey:                        privateKey,
 		RSAPublicKey:                         publicKey,
 		LDSDKKey:                             ldSDKKey,

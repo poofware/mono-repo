@@ -162,6 +162,7 @@ void main() {
       expect(worker.email, testEmail);
       expect(worker.onWaitlist, isA<bool>());
       expect(worker.waitlistReason, isA<WaitlistReason>());
+      expect(worker.tenantToken, isNull);
     });
 
     // -------------------------------------------------------------------------
@@ -178,6 +179,18 @@ void main() {
       // Now fetch worker again to confirm it persisted
       final fetchedAgain = await accountRepo.getWorker();
       expect(fetchedAgain.city, equals(newCity));
+    });
+
+    testWidgets('Patch Worker – invalid tenant token', (tester) async {
+      try {
+        await accountRepo.patchWorker(
+          const WorkerPatchRequest(tenantToken: 'bad-token'),
+        );
+        fail('Expected ApiException for invalid tenant token');
+      } on ApiException catch (e) {
+        expect(e.errorCode, 'invalid_tenant_token');
+        expect(e.statusCode, 400);
+      }
     });
 
     // -----------------------   Stripe   -----------------------

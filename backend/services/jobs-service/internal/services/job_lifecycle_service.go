@@ -10,11 +10,11 @@ import (
 
 	"github.com/bradfitz/latlong"
 	"github.com/google/uuid"
-	"github.com/poofware/mono-repo/backend/shared/go-models"
-	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
 	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -90,7 +90,7 @@ func (s *JobService) AcceptJobInstanceWithLocation(
 		return nil, internal_utils.ErrNotWithinTimeWindow
 	}
 
-	distMiles := internal_utils.DistanceMiles(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
+	distMiles := utils.DistanceMiles(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
 	if distMiles > float64(constants.RadiusMiles) {
 		return nil, internal_utils.ErrLocationOutOfBounds
 	}
@@ -184,7 +184,7 @@ func (s *JobService) StartJobInstanceWithLocation(
 		return nil, internal_utils.ErrNotWithinTimeWindow
 	}
 
-	distMeters := internal_utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
+	distMeters := utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
 	if distMeters > float64(constants.LocationRadiusMeters) {
 		return nil, internal_utils.ErrLocationOutOfBounds
 	}
@@ -246,7 +246,7 @@ func (s *JobService) VerifyUnitPhoto(
 		return nil, fmt.Errorf("property not found")
 	}
 
-	dist := internal_utils.ComputeDistanceMeters(lat, lng, prop.Latitude, prop.Longitude)
+	dist := utils.ComputeDistanceMeters(lat, lng, prop.Latitude, prop.Longitude)
 	if dist > float64(constants.LocationRadiusMeters) {
 		return nil, internal_utils.ErrLocationOutOfBounds
 	}
@@ -447,7 +447,7 @@ func (s *JobService) ProcessDumpTrip(
 		within := false
 		for _, d := range dumps {
 			if ContainsUUID(defn.DumpsterIDs, d.ID) {
-				dist := internal_utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
+				dist := utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
 				if dist <= float64(constants.LocationRadiusMeters) {
 					within = true
 					break
@@ -557,8 +557,10 @@ func (s *JobService) UnacceptJobInstance(
 			acceptanceCutoffTime := noShowTime.Add(-constants.AcceptanceCutoffBeforeNoShow)
 
 			if now.After(acceptanceCutoffTime) {
-				// Job is too close to start time to be reopened. It must be CANCELED.
-				cancelled, err2 := s.instRepo.UpdateStatusToCancelled(ctx, instanceID, inst.RowVersion)
+				// Re-open the job but penalize and exclude the worker
+				assignCount := inst.AssignUnassignCount + 1
+				flagged := inst.FlaggedForReview || (assignCount > constants.MaxAssignUnassignCountForFlag)
+				updatedInst, err2 := s.instRepo.UnassignInstanceAtomic(ctx, instanceID, inst.RowVersion, assignCount, flagged)
 				if err2 != nil {
 					if strings.Contains(err2.Error(), utils.ErrRowVersionConflict.Error()) {
 						latest, _ := s.instRepo.GetByID(ctx, instanceID)
@@ -568,17 +570,16 @@ func (s *JobService) UnacceptJobInstance(
 					}
 					return nil, err2
 				}
-				if cancelled == nil {
+				if updatedInst == nil {
 					return nil, utils.ErrNoRowsUpdated
 				}
 
-				// Apply no-show penalty and always exclude.
 				if s.workerRepo != nil {
-					_ = s.instRepo.AddExcludedWorker(ctx, cancelled.ID, wUUID)
+					_ = s.instRepo.AddExcludedWorker(ctx, updatedInst.ID, wUUID)
 					_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, constants.WorkerPenaltyNoShow, "UNACCEPT_LATE_CANCEL")
 				}
 
-				messageBody := "Worker un-assigned from job after acceptance cutoff. It has been canceled and may need coverage."
+				messageBody := "Worker un-assigned from job after acceptance cutoff. Job reopened and may need coverage."
 				NotifyOnCallAgents(
 					ctx, prop, defn.ID.String(), "[Escalation] Worker Unassigned Late", messageBody,
 					s.agentRepo, s.twilioClient, s.sendgridClient,
@@ -586,7 +587,7 @@ func (s *JobService) UnacceptJobInstance(
 					s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
 				)
 
-				dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil, nil, nil, nil, nil, nil)
+				dto, _ := s.buildInstanceDTO(ctx, updatedInst, nil, nil, nil, nil, nil, nil, nil)
 				return dto, nil
 			}
 

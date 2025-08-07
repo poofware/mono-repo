@@ -36,6 +36,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   late final TextEditingController _lastNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
+  late final TextEditingController _tenantTokenController;
 
   // State for the new reusable widgets
   AddressResolved? _addressState;
@@ -56,6 +57,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _lastNameController = TextEditingController();
     _emailController = TextEditingController();
     _phoneController = TextEditingController();
+    _tenantTokenController = TextEditingController();
     _firstNameController.addListener(_validateForm);
     _lastNameController.addListener(_validateForm);
     _emailController.addListener(_validateForm);
@@ -70,6 +72,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _tenantTokenController.dispose();
     super.dispose();
   }
 
@@ -173,6 +176,10 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
         onTap: () => _launchUrl('https://candidate.checkr.com/'),
       ),
     ];
+    if (worker != null) {
+      accountManagementTiles
+          .add(_buildTenantAccessCard(worker, appLocalizations));
+    }
 
     final profileScaffold = Scaffold(
       body: SafeArea(
@@ -406,6 +413,65 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     );
   }
 
+  Widget _buildTenantAccessCard(
+      Worker worker, AppLocalizations appLocalizations) {
+    final token = worker.tenantToken ?? '';
+    if (_isEditing) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(appLocalizations.myProfilePageResidentProgramTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _tenantTokenController,
+            decoration: _customInputDecoration(
+                labelText: appLocalizations.myProfilePageTokenLabel),
+          ),
+        ],
+      );
+    }
+    if (token.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(appLocalizations.myProfilePageResidentProgramTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(appLocalizations.myProfilePageResidentProgramDescription),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () => setState(() => _isEditing = true),
+            child: Text(appLocalizations.myProfilePageAddTokenButton),
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(appLocalizations.myProfilePageResidentProgramTitle,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+                child: Text(
+                    '${appLocalizations.myProfilePageTokenLabel}: $token')),
+            TextButton(
+              onPressed: () => setState(() => _isEditing = true),
+              child: Text(appLocalizations.myProfilePageEditTokenButton),
+            ),
+            TextButton(
+              onPressed: _removeTenantToken,
+              child: Text(appLocalizations.myProfilePageRemoveTokenButton),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildEditableProfileField({
     required TextEditingController controller,
     required String label,
@@ -469,6 +535,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _vehicleYear = w.vehicleYear;
     _vehicleMake = w.vehicleMake;
     _vehicleModel = w.vehicleModel;
+    _tenantTokenController.text = w.tenantToken ?? '';
   }
 
   void _cancelEdit(Worker worker) {
@@ -508,6 +575,27 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     }
   }
 
+  Future<void> _removeTenantToken() async {
+    setState(() => _isSaving = true);
+    final repo = ref.read(workerAccountRepositoryProvider);
+    try {
+      await repo.patchWorker(const WorkerPatchRequest(tenantToken: ''));
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          Text(AppLocalizations.of(context)
+              .myProfilePageProfileUpdatedSnackbar),
+        );
+        setState(() => _isSaving = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError(context, e as Exception);
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
   Future<void> _saveProfile(Worker worker) async {
     setState(() => _isSaving = true);
     final BuildContext capturedContext = context;
@@ -542,6 +630,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       patchFields['vehicle_make'] = _vehicleMake;
     if (_vehicleModel != worker.vehicleModel)
       patchFields['vehicle_model'] = _vehicleModel;
+    if (_tenantTokenController.text.trim() != (worker.tenantToken ?? ''))
+      patchFields['tenant_token'] = _tenantTokenController.text.trim();
 
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
     if (isTestMode) {
@@ -597,6 +687,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       vehicleYear: changedFields['vehicle_year'],
       vehicleMake: changedFields['vehicle_make'],
       vehicleModel: changedFields['vehicle_model'],
+      tenantToken: changedFields['tenant_token'],
     );
 
     try {

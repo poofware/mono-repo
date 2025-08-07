@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 func TestGeocodeAddress(t *testing.T) {
@@ -15,7 +15,7 @@ func TestGeocodeAddress(t *testing.T) {
 		t.Skip("GMAPS_ROUTES_API_KEY secret not set")
 	}
 
-	lat, lng, err := internal_utils.GeocodeAddress("1600 Amphitheatre Parkway, Mountain View, CA", h.GMapsRoutesAPIKey)
+	lat, lng, err := utils.GeocodeAddress("1600 Amphitheatre Parkway, Mountain View, CA", h.GMapsRoutesAPIKey)
 	require.NoError(t, err)
 
 	require.InEpsilon(t, 37.423021, lat, 0.001)

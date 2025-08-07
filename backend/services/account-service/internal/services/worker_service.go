@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"time"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
@@ -21,33 +21,32 @@ import (
 )
 
 type WorkerService struct {
-	repo                repositories.WorkerRepository
-	smsVerificationRepo repositories.WorkerSMSVerificationRepository
-	cfg                 *config.Config
-}
-
-type zipRange struct {
-	start int
-	end   int
+        repo                repositories.WorkerRepository
+        smsVerificationRepo repositories.WorkerSMSVerificationRepository
+        unitRepo            repositories.UnitRepository
+		propRepo            repositories.PropertyRepository
+        cfg                 *config.Config
 }
 
 var (
-	allowedStates = map[string]struct{}{utils.StateAL: {}}
-	allowedZips   = []zipRange{{35739, 35775}, {35801, 35899}}
-	nonDigits     = regexp.MustCompile(`[^0-9]`)
+	nonDigits    = regexp.MustCompile(`[^0-9]`)
 )
 
 // NewWorkerService creates a WorkerService.
 func NewWorkerService(
-	cfg *config.Config,
-	repo repositories.WorkerRepository,
-	smsRepo repositories.WorkerSMSVerificationRepository,
+        cfg *config.Config,
+        repo repositories.WorkerRepository,
+        smsRepo repositories.WorkerSMSVerificationRepository,
+        unitRepo repositories.UnitRepository,
+		propRepo repositories.PropertyRepository,
 ) *WorkerService {
-	return &WorkerService{
-		cfg:                 cfg,
-		repo:                repo,
-		smsVerificationRepo: smsRepo,
-	}
+        return &WorkerService{
+                cfg:                 cfg,
+                repo:                repo,
+                smsVerificationRepo: smsRepo,
+                unitRepo:            unitRepo,
+				propRepo:            propRepo,
+        }
 }
 
 // GetWorkerByID retrieves the worker from the DB.
@@ -86,26 +85,30 @@ func (s *WorkerService) SubmitPersonalInfo(
 	if len(zipDigits) < 5 {
 		return nil, fmt.Errorf("invalid zip code")
 	}
-	zipInt, _ := strconv.Atoi(zipDigits[:5])
 
-	inState := false
-	if _, ok := allowedStates[normalizedState]; ok {
-		inState = true
+	address := fmt.Sprintf("%s, %s, %s %s", req.StreetAddress, req.City, normalizedState, req.ZipCode)
+	lat, lng, err := utils.GeocodeAddress(address, s.cfg.GMapsAPIKey)
+	if err != nil {
+		return nil, err
 	}
 
-	inZip := false
-	if inState {
-		for _, r := range allowedZips {
-			if zipInt >= r.start && zipInt <= r.end {
-				inZip = true
-				break
-			}
+	props, err := s.propRepo.ListAllProperties(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	inRange := false
+	for _, p := range props {
+		dist := utils.DistanceMiles(lat, lng, p.Latitude, p.Longitude)
+		if dist <= float64(RadiusMiles) {
+			inRange = true
+			break
 		}
 	}
 
 	shouldWaitlist := false
 	var reason *models.WaitlistReasonType
-	if !inState || !inZip {
+	if !inRange {
 		shouldWaitlist = true
 		r := models.WaitlistReasonGeographic
 		reason = &r
@@ -258,9 +261,25 @@ func (s *WorkerService) PatchWorker(
 		if patchReq.VehicleMake != nil {
 			stored.VehicleMake = *patchReq.VehicleMake
 		}
-		if patchReq.VehicleModel != nil {
-			stored.VehicleModel = *patchReq.VehicleModel
-		}
+                if patchReq.VehicleModel != nil {
+                        stored.VehicleModel = *patchReq.VehicleModel
+                }
+
+                if patchReq.TenantToken != nil {
+                        token := strings.TrimSpace(*patchReq.TenantToken)
+                        if token == "" {
+                                stored.TenantToken = nil
+                        } else {
+                                unit, err := s.unitRepo.FindByTenantToken(ctx, token)
+                                if err != nil {
+                                        return err
+                                }
+                                if unit == nil {
+                                        return utils.ErrInvalidTenantToken
+                                }
+                                stored.TenantToken = &token
+                        }
+                }
 
 		// Remember the final, updated Worker
 		finalWorker = stored

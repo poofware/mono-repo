@@ -102,8 +102,8 @@ func loadPropertyLocation(tz string) *time.Location {
 // The Location is left as 'loc' so later .Weekday(), .Hour(), etc.
 // all reflect the property’s own time-zone.
 func dateOnlyInLocation(t time.Time, loc *time.Location) time.Time {
-    y, m, d := t.In(loc).Date()
-    return time.Date(y, m, d, 0, 0, 0, 0, loc)
+	y, m, d := t.In(loc).Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, loc)
 }
 
 func ContainsUUID(list []uuid.UUID, val uuid.UUID) bool {
@@ -135,10 +135,18 @@ func NotifyOnCallAgents(
 	orgName string,
 	sendgridSandbox bool,
 ) {
-	// 1) Fetch all on-call reps
-	reps, err := agentRepo.ListAll(ctx)
+	// 1) Fetch on-call reps near the property's location (default radius 50 miles)
+	var (
+		reps []*models.Agent
+		err  error
+	)
+	if prop != nil {
+		reps, err = agentRepo.ListByProximity(ctx, prop.Latitude, prop.Longitude, 50)
+	} else {
+		reps, err = agentRepo.ListAll(ctx)
+	}
 	if err != nil {
-		utils.Logger.WithError(err).Error("NotifyOnCallAgents: ListAll reps failed")
+		utils.Logger.WithError(err).Error("NotifyOnCallAgents: list reps failed")
 		return
 	}
 

@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
-	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
-	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/twilio/twilio-go"
 )
@@ -86,7 +86,7 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 		if locErr != nil {
 			propLoc = time.UTC // Fallback
 		}
-		
+
 		lStart := time.Date(inst.ServiceDate.Year(), inst.ServiceDate.Month(), inst.ServiceDate.Day(), defn.LatestStartTime.Hour(), defn.LatestStartTime.Minute(), 0, 0, propLoc)
 
 		// Possibly apply surge multipliers to any open job, comparing against the consistent UTC `now`.
@@ -97,15 +97,25 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 			cutoff := lStart.Add(-constants.NoShowCutoffBeforeLatestStart)
 			if nowUTC.After(cutoff) {
 				s.forceReopenNoShow(ctx, inst)
+				// Update local status to OPEN for subsequent checks
+				inst.Status = models.InstanceStatusOpen
 			}
 		}
 
-		// If still open at T-20 => forcibly cancel job
-		if inst.Status == models.InstanceStatusOpen {
-			cutoff20 := lStart.Add(-constants.OnCallEscalationBeforeLatest)
-			if nowUTC.After(cutoff20) && nowUTC.Before(lStart) {
-				s.forceCancelAtDispatchTime(ctx, inst, defn)
+		// Cancel any job whose latest start time has passed
+		if (inst.Status == models.InstanceStatusOpen || inst.Status == models.InstanceStatusAssigned) && nowUTC.After(lStart) {
+			rowVersion := inst.RowVersion
+			canceled, err := s.jobInstRepo.UpdateStatusToCancelled(ctx, inst.ID, rowVersion)
+			if err != nil {
+				utils.Logger.WithError(err).Error("RunEscalationCheck: auto-cancel failed")
+				continue
 			}
+			if canceled == nil {
+				utils.Logger.Warnf("RunEscalationCheck: no rows updated for job=%s", inst.ID)
+				continue
+			}
+			msgBody := "Job exceeded its latest start time and has been automatically canceled."
+			s.notifyOnCallStaff(ctx, defn, "Job auto-canceled after expiry", msgBody)
 		}
 	}
 	return nil
@@ -161,36 +171,6 @@ func (s *JobEscalationService) forceReopenNoShow(ctx context.Context, inst *mode
 	if err2 != nil {
 		utils.Logger.WithError(err2).Error("forceReopenNoShow: Unassign failed")
 	}
-}
-
-// forceCancelAtDispatchTime transitions the job from OPEN => CANCELED
-// and notifies on-call staff that it was never claimed before T-20 cutoff.
-func (s *JobEscalationService) forceCancelAtDispatchTime(
-	ctx context.Context,
-	inst *models.JobInstance,
-	defn *models.JobDefinition,
-) {
-	rowVersion := inst.RowVersion
-	canceled, err := s.jobInstRepo.UpdateStatusToCancelled(ctx, inst.ID, rowVersion)
-	if err != nil {
-		utils.Logger.WithError(err).Error("forceCancelAtDispatchTime: concurrency or DB error")
-		return
-	}
-	if canceled == nil {
-		utils.Logger.Warnf("forceCancelAtDispatchTime: no rows updated for job=%s", inst.ID)
-		return
-	}
-
-	// There's no assigned worker => no penalty logic
-	utils.Logger.Infof("forceCancelAtDispatchTime: forcibly canceled job=%s at T-20", inst.ID)
-
-	// Notify on-call staff
-	prop, pErr := s.propRepo.GetByID(ctx, defn.PropertyID)
-	if pErr != nil || prop == nil {
-		utils.Logger.WithError(pErr).Warn("forceCancelAtDispatchTime: property not found or nil")
-	}
-	msgBody := "Job was never claimed before T-20. It has been automatically canceled. No coverage found."
-	s.notifyOnCallStaff(ctx, defn, "Open job auto-canceled at T-20", msgBody)
 }
 
 // notifyOnCallStaff uses the shared helpers.go method

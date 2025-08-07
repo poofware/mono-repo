@@ -11,9 +11,13 @@ import (
 func SeedAllAccounts(
 	workerRepo repositories.WorkerRepository,
 	pmRepo repositories.PropertyManagerRepository,
+	agentRepo repositories.AgentRepository,
 ) error {
 	if err := seeding.SeedGooglePlayReviewerWorker(workerRepo); err != nil {
 		return fmt.Errorf("seed google play reviewer account: %w", err)
+	}
+	if err := seeding.SeedDefaultAgents(agentRepo); err != nil {
+		return fmt.Errorf("seed default agents: %w", err)
 	}
 	return nil
 }
@@ -22,6 +26,7 @@ func SeedAllAccounts(
 func SeedAllTestAccounts(
 	workerRepo repositories.WorkerRepository,
 	pmRepo repositories.PropertyManagerRepository,
+	agentRepo repositories.AgentRepository,
 ) error {
 	if err := seeding.SeedDefaultWorkers(workerRepo); err != nil {
 		return fmt.Errorf("seed default workers: %w", err)

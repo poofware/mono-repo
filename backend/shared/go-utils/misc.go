@@ -1,5 +1,9 @@
 package utils
 
+import (
+	"math"
+)
+
 func Ptr[T any](v T) *T {
     return &v
 }
@@ -15,4 +19,8 @@ func Val[T any](p *T) T {
     }
     var zero T
     return zero
+}
+
+func round1(f float64) float64 {
+	return math.Round(f*10) / 10
 }

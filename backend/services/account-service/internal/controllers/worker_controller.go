@@ -73,17 +73,19 @@ func (c *WorkerController) PatchWorkerHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	updatedWorker, err := c.workerService.PatchWorker(context.Background(), ctxUserID.(string), patchReq)
-	if err != nil {
-		switch {
-		case errors.Is(err, utils.ErrPhoneNotVerified):
-			utils.RespondErrorWithCode(w, http.StatusForbidden, utils.ErrCodePhoneNotVerified, "New phone number is not verified. Please verify it before updating.", err)
-		default:
-			utils.Logger.WithError(err).Error("Failed to patch worker record")
-			utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to update worker", err)
-		}
-		return
-	}
+        updatedWorker, err := c.workerService.PatchWorker(context.Background(), ctxUserID.(string), patchReq)
+        if err != nil {
+                switch {
+                case errors.Is(err, utils.ErrPhoneNotVerified):
+                        utils.RespondErrorWithCode(w, http.StatusForbidden, utils.ErrCodePhoneNotVerified, "New phone number is not verified. Please verify it before updating.", err)
+                case errors.Is(err, utils.ErrInvalidTenantToken):
+                        utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidTenantToken, "Invalid tenant token", err)
+                default:
+                        utils.Logger.WithError(err).Error("Failed to patch worker record")
+                        utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to update worker", err)
+                }
+                return
+        }
 
 	// Service returned nil worker but no error.
 	if updatedWorker == nil {

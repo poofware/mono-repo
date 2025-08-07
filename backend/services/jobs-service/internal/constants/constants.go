@@ -11,7 +11,6 @@ const (
 	MaxAssignUnassignCountForFlag  = 2
 	DaysToListOpenJobsRange        = 8 // Query window is [yesterday...today+7] = 9 days total
 	DaysToSeedAhead                = 7 // How many days ahead to seed new instances
-	CrowFliesDriveTimeMultiplier   = 2.0
 	MinJobDefinitionStartWindowMinutes       = 90 // Min duration between earliest/latest start
 	MinTimeBeforeLatestStartForHintMinutes = 50 // Hint must be at least this many mins before latest start
 )

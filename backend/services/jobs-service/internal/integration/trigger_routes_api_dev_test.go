@@ -16,9 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/poofware/mono-repo/backend/shared/go-models"
-	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
-	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
 )
 
 // TestListOpenJobs_TravelInfo verifies that DistanceMiles and TravelMinutes are correctly
@@ -71,7 +70,7 @@ func TestListOpenJobs_TravelInfo(t *testing.T) {
 	require.True(t, foundJobPA, "Expected to find San Jose job from Palo Alto query. Results: %+v", outPA.Results)
 
 	// --- Distance Assertions for PA to SJ ---
-	expectedHaversineDistPAtoSJ := internal_utils.DistanceMiles(workerQueryLatPA, workerQueryLngPA, propLatSJ, propLngSJ)
+	expectedHaversineDistPAtoSJ := utils.DistanceMiles(workerQueryLatPA, workerQueryLngPA, propLatSJ, propLngSJ)
 	actualDrivingDistPAtoSJ := jobDTOPA.DistanceMiles
 	t.Logf("Palo Alto to San Jose: Expected Haversine Distance=%.2f, API Reported Driving Distance=%.2f", expectedHaversineDistPAtoSJ, actualDrivingDistPAtoSJ)
 
@@ -132,7 +131,7 @@ func TestListOpenJobs_TravelInfo(t *testing.T) {
 	require.True(t, foundJobSF, "Expected to find San Francisco job from Oakland query. Results: %+v", outSF.Results)
 
 	// --- Distance Assertions for OK to SF ---
-	expectedHaversineDistOKtoSF := internal_utils.DistanceMiles(workerQueryLatOK, workerQueryLngOK, propLatSF, propLngSF)
+	expectedHaversineDistOKtoSF := utils.DistanceMiles(workerQueryLatOK, workerQueryLngOK, propLatSF, propLngSF)
 	actualDrivingDistOKtoSF := jobDTOSF.DistanceMiles
 	t.Logf("Oakland to San Francisco: Expected Haversine Distance=%.2f, API Reported Driving Distance=%.2f", expectedHaversineDistOKtoSF, actualDrivingDistOKtoSF)
 
@@ -149,7 +148,7 @@ func TestListOpenJobs_TravelInfo(t *testing.T) {
 	if jobDTOSF.TravelMinutes != nil {
 		require.Greater(t, *jobDTOSF.TravelMinutes, 0, "TravelMinutes (OK-SF) should be positive. Got: %d", *jobDTOSF.TravelMinutes)
 
-		haversineBasedFallbackTimeOKtoSF := int(expectedHaversineDistOKtoSF*constants.CrowFliesDriveTimeMultiplier + 0.5)
+		haversineBasedFallbackTimeOKtoSF := int(expectedHaversineDistOKtoSF*utils.CrowFliesDriveTimeMultiplier + 0.5)
 
 		t.Logf("Oakland to San Francisco: API Reported Driving Distance=%.2f, API Reported TravelMinutes=%d, Haversine-based Fallback Time Est: ~%d mins",
 			actualDrivingDistOKtoSF,

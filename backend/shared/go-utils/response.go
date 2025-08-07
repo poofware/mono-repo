@@ -21,12 +21,13 @@ const (
 	ErrCodeNotFound                  = "not_found"
 	ErrCodeConflict                  = "conflict"
 	ErrCodePhoneNotVerified          = "phone_not_verified"
-	ErrCodeEmailNotVerified          = "email_not_verified"
-	ErrCodeRowVersionConflict        = "row_version_conflict"
-	ErrCodeRateLimitExceeded         = "rate_limit_exceeded"
-	ErrCodeLocationInaccurate        = "location_inaccurate"
-	ErrCodeKeyNotFoundForAssertion = "key_not_found_for_assertion"
-	ErrCodeExternalServiceFailure    = "external_service_failure" // NEW
+        ErrCodeEmailNotVerified          = "email_not_verified"
+        ErrCodeRowVersionConflict        = "row_version_conflict"
+        ErrCodeRateLimitExceeded         = "rate_limit_exceeded"
+        ErrCodeLocationInaccurate        = "location_inaccurate"
+        ErrCodeKeyNotFoundForAssertion = "key_not_found_for_assertion"
+        ErrCodeInvalidTenantToken        = "invalid_tenant_token"
+        ErrCodeExternalServiceFailure    = "external_service_failure" // NEW
 )
 
 // ErrorResponse is now extended with an optional `Details` field
