@@ -476,14 +476,19 @@ CREATE TABLE worker_score_events (
 );
 
 -- ----------------------------------------------------------------------
---  poof_representatives
+--  agents
 -- ----------------------------------------------------------------------
-CREATE TABLE poof_representatives (
+CREATE TABLE agents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     phone_number VARCHAR(20) NOT NULL UNIQUE,
-    region VARCHAR(100),
+    address VARCHAR(255) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(50) NOT NULL,
+    zip_code VARCHAR(20) NOT NULL,
+    latitude DECIMAL(9, 6) NOT NULL,
+    longitude DECIMAL(9, 6) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -541,7 +546,7 @@ CREATE INDEX idx_worker_payouts_worker_id ON worker_payouts (worker_id);
 DROP TABLE IF EXISTS worker_payouts;
 DROP TABLE IF EXISTS attestation_challenges;
 DROP TABLE IF EXISTS worker_score_events;
-DROP TABLE IF EXISTS poof_representatives;
+DROP TABLE IF EXISTS agents;
 DROP TABLE IF EXISTS worker_blacklisted_tokens;
 DROP TABLE IF EXISTS pm_blacklisted_tokens;
 DROP TABLE IF EXISTS worker_sms_verification_codes;

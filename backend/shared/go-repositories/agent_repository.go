@@ -25,7 +25,7 @@ func NewAgentRepository(db DB) AgentRepository {
 
 func (r *poofRepRepo) Create(ctx context.Context, rep *models.Agent) error {
     q := `
-        INSERT INTO poof_representatives (
+        INSERT INTO agents (
             id, name, email, phone_number, region, created_at, updated_at
         ) VALUES ($1,$2,$3,$4,$5, NOW(), NOW())
     `
@@ -36,13 +36,13 @@ func (r *poofRepRepo) Create(ctx context.Context, rep *models.Agent) error {
 }
 
 func (r *poofRepRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Agent, error) {
-    q := baseSelectRep() + " WHERE id=$1"
+    q := baseSelectAgent() + " WHERE id=$1"
     row := r.db.QueryRow(ctx, q, id)
-    return scanRep(row)
+    return scanAgent(row)
 }
 
 func (r *poofRepRepo) ListAll(ctx context.Context) ([]*models.Agent, error) {
-    q := baseSelectRep() + " ORDER BY created_at"
+    q := baseSelectAgent() + " ORDER BY created_at"
     rows, err := r.db.Query(ctx, q)
     if err != nil {
         return nil, err
@@ -51,7 +51,7 @@ func (r *poofRepRepo) ListAll(ctx context.Context) ([]*models.Agent, error) {
 
     var out []*models.Agent
     for rows.Next() {
-        rep, err := scanRep(rows)
+        rep, err := scanAgent(rows)
         if err != nil {
             return nil, err
         }
@@ -61,7 +61,7 @@ func (r *poofRepRepo) ListAll(ctx context.Context) ([]*models.Agent, error) {
 }
 
 func (r *poofRepRepo) ListByRegion(ctx context.Context, region string) ([]*models.Agent, error) {
-    q := baseSelectRep() + " WHERE region=$1 ORDER BY created_at"
+    q := baseSelectAgent() + " WHERE region=$1 ORDER BY created_at"
     rows, err := r.db.Query(ctx, q, region)
     if err != nil {
         return nil, err
@@ -70,7 +70,7 @@ func (r *poofRepRepo) ListByRegion(ctx context.Context, region string) ([]*model
 
     var out []*models.Agent
     for rows.Next() {
-        rep, err := scanRep(rows)
+        rep, err := scanAgent(rows)
         if err != nil {
             return nil, err
         }
@@ -79,16 +79,16 @@ func (r *poofRepRepo) ListByRegion(ctx context.Context, region string) ([]*model
     return out, rows.Err()
 }
 
-func baseSelectRep() string {
+func baseSelectAgent() string {
     return `
         SELECT
             id, name, email, phone_number, region,
             created_at, updated_at
-        FROM poof_representatives
+        FROM agents
     `
 }
 
-func scanRep(row pgx.Row) (*models.Agent, error) {
+func scanAgent(row pgx.Row) (*models.Agent, error) {
     var rep models.Agent
     err := row.Scan(
         &rep.ID, &rep.Name, &rep.Email, &rep.PhoneNumber, &rep.Region,
