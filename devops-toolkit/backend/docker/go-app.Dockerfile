@@ -81,11 +81,11 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
     go build \
       -ldflags "\
         -linkmode external -extldflags '-static -lm' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.AppName=${APP_NAME}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.LDServerContextKey=${LD_SERVER_CONTEXT_KEY}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.LDServerContextKind=${LD_SERVER_CONTEXT_KIND}'" \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.AppName=${APP_NAME}' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.LDServerContextKey=${LD_SERVER_CONTEXT_KEY}' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.LDServerContextKind=${LD_SERVER_CONTEXT_KIND}'" \
       -v -o "/${APP_NAME}" ./cmd/main.go;
 
 ######################################

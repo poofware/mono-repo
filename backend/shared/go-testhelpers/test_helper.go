@@ -30,6 +30,7 @@ type TestHelper struct {
 	StripeWebhookSecret string
 	StripeClient        *stripe.Client
 	CheckrAPIKey        string
+	GMapsRoutesAPIKey 	string
 	RunWithUI           bool
 
 	// From ldflags
@@ -110,6 +111,7 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 
 	stripeWebhookSecret := sharedSecrets["STRIPE_WEBHOOK_SECRET"] // Can be empty if not used by service
 	checkrAPIKey := appSecrets["CHECKR_API_KEY"]               // Can be empty if not used by service
+	gmapsRoutesAPIKey := appSecrets["GMAPS_ROUTES_API_KEY"]       // Can be empty if not used by service
 
 	// 5. Connect to DB with isolated role
 	effectiveURL, err := utils.WithIsolatedRole(dbURL, uniqueRunID, uniqueRunNum)
@@ -134,6 +136,7 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 		StripeWebhookSecret: stripeWebhookSecret,
 		StripeClient:        sc,
 		CheckrAPIKey:        checkrAPIKey,
+		GMapsRoutesAPIKey:   gmapsRoutesAPIKey,
 		RunWithUI:           runWithUI,
 		AppName:             appName,
 		UniqueRunnerID:      uniqueRunID,

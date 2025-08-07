@@ -51,7 +51,6 @@ func (s *JobService) ForceReopenNoShow(
 	if err != nil || defn == nil {
 		return reopened, nil
 	}
-	s.ApplyManualSurge(ctx, reopened, defn, constants.SurgeMultiplierStage4)
 
 	return reopened, nil
 }
