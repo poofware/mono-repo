@@ -41,10 +41,27 @@ func TestManualAgentFlows(t *testing.T) {
 	require.NoError(t, h.AgentRepo.Create(ctx, agent), "Failed to create test agent")
 	defer h.DB.Exec(ctx, `DELETE FROM agents WHERE id=$1`, agent.ID)
 
+	// MODIFICATION: Create a building and units to test human-readable notification content.
+	bldg := h.CreateTestBuilding(ctx, prop.ID, "Building 100")
+	unit1 := h.CreateTestUnit(ctx, prop.ID, bldg.ID, "101")
+	unit2 := h.CreateTestUnit(ctx, prop.ID, bldg.ID, "102")
+
 	// Create a job definition and a corresponding instance for the notification context.
 	earliest, latest := h.TestSameDayTimeWindow()
-	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, prop.ID, "ManualAgentFlowDef", nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, prop.ID, "ManualAgentFlowDef", []uuid.UUID{bldg.ID}, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+
+	// Assign the specific units to the definition.
+	require.NoError(t, h.JobDefRepo.UpdateWithRetry(ctx, defn.ID, func(j *models.JobDefinition) error {
+		j.AssignedUnitsByBuilding[0].UnitIDs = []uuid.UUID{unit1.ID, unit2.ID}
+		return nil
+	}))
+	// Re-fetch definition to get the latest state after update.
+	defn, err := h.JobDefRepo.GetByID(ctx, defn.ID)
+	require.NoError(t, err)
+
 	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+	// MODIFIED: Defer cleanup for the job instance to resolve foreign key issues.
+	defer h.DB.Exec(ctx, `DELETE FROM job_instances WHERE id=$1`, inst.ID)
 
 	// --- 2. Prompt user and trigger the real notification ---
 	fmt.Println("\n[MANUAL TEST: AGENT COMPLETION FLOW]")
@@ -56,7 +73,7 @@ func TestManualAgentFlows(t *testing.T) {
 	reader := bufio.NewReader(os.Stdin)
 	_, _ = reader.ReadString('\n')
 
-	// Directly call the notification function. This will generate a token and save it to the DB.
+	// MODIFIED: Call the notification function with the updated signature, including bldgRepo and unitRepo.
 	t.Log("User initiated notification. Calling NotifyOnCallAgents...")
 	services.NotifyOnCallAgents(
 		ctx,
@@ -68,6 +85,8 @@ func TestManualAgentFlows(t *testing.T) {
 		"A test job is unassigned and requires attention.",
 		h.AgentRepo,
 		h.AgentJobCompletionRepo,
+		h.BldgRepo,
+		h.UnitRepo,
 		h.TwilioClient,
 		h.SendGridClient,
 		cfg.LDFlag_TwilioFromPhone,
@@ -80,7 +99,7 @@ func TestManualAgentFlows(t *testing.T) {
 	// --- 3. Retrieve the token that was just generated and sent ---
 	var token string
 	query := `SELECT token FROM agent_job_completions WHERE job_instance_id = $1 AND agent_id = $2 ORDER BY expires_at DESC LIMIT 1`
-	err := h.DB.QueryRow(ctx, query, inst.ID, agent.ID).Scan(&token)
+	err = h.DB.QueryRow(ctx, query, inst.ID, agent.ID).Scan(&token)
 	require.NoError(t, err, "Failed to retrieve the generated token from the database for verification")
 	require.NotEmpty(t, token, "Retrieved token should not be empty")
 	t.Logf("Successfully retrieved the token from DB: %s", token)

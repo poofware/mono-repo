@@ -402,9 +402,11 @@ func (s *JobService) CancelJobInstance(
 			_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, penaltyDelta, "CANCEL_IN_PROGRESS_REVERT")
 		}
 
+		// MODIFIED: More descriptive message body.
 		messageBody := fmt.Sprintf(
-			"Worker canceled in-progress job before latest start time (%s). Job reopened and may need coverage.",
-			lStart.Format("15:04"),
+			"The assigned worker canceled this in-progress job at %s before the latest start time (%s). The job has been reopened and may need coverage.",
+			prop.PropertyName,
+			lStart.Format("3:04 PM MST"),
 		)
 		// MODIFIED: Corrected the function call to match the updated signature.
 		NotifyOnCallAgents(
@@ -417,6 +419,8 @@ func (s *JobService) CancelJobInstance(
 			messageBody,
 			s.agentRepo,
 			s.agentJobCompletionRepo,
+			s.bldgRepo,
+			s.unitRepo,
 			s.twilioClient,
 			s.sendgridClient,
 			s.cfg.LDFlag_TwilioFromPhone,
@@ -449,9 +453,11 @@ func (s *JobService) CancelJobInstance(
 		_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, constants.WorkerPenaltyNoShow, "CANCEL_IN_PROGRESS_LATE")
 	}
 
+	// MODIFIED: More descriptive message body.
 	messageBody := fmt.Sprintf(
-		"Worker canceled in-progress job after latest start time (%s). The job has been canceled.",
-		lStart.Format("15:04"),
+		"The assigned worker canceled this in-progress job at %s after the latest start time (%s). The job has been canceled and requires no further action.",
+		prop.PropertyName,
+		lStart.Format("3:04 PM MST"),
 	)
 	// MODIFIED: Corrected the function call to match the updated signature.
 	NotifyOnCallAgents(
@@ -460,10 +466,12 @@ func (s *JobService) CancelJobInstance(
 		prop,
 		defn,
 		cancelled,
-		"[Escalation] Worker Canceled In-Progress Job (Late)",
+		"[Alert] Worker Canceled In-Progress Job (Late)",
 		messageBody,
 		s.agentRepo,
 		s.agentJobCompletionRepo,
+		s.bldgRepo,
+		s.unitRepo,
 		s.twilioClient,
 		s.sendgridClient,
 		s.cfg.LDFlag_TwilioFromPhone,

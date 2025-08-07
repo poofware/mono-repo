@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"time"
+	"fmt"
 
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
@@ -13,6 +14,7 @@ import (
 	"github.com/twilio/twilio-go"
 )
 
+// MODIFIED: Added building and unit repos for detailed notifications.
 type JobEscalationService struct {
 	cfg                    *config.Config
 	jobDefRepo             repositories.JobDefinitionRepository
@@ -21,11 +23,14 @@ type JobEscalationService struct {
 	propRepo               repositories.PropertyRepository
 	repRepo                repositories.AgentRepository
 	agentJobCompletionRepo repositories.AgentJobCompletionRepository
+	bldgRepo               repositories.PropertyBuildingRepository
+	unitRepo               repositories.UnitRepository
 	twilioClient           *twilio.RestClient
 	sendgridClient         *sendgrid.Client
 	jobService             *JobService
 }
 
+// MODIFIED: Updated constructor to accept new repository dependencies.
 func NewJobEscalationService(
 	cfg *config.Config,
 	defRepo repositories.JobDefinitionRepository,
@@ -34,6 +39,8 @@ func NewJobEscalationService(
 	propRepo repositories.PropertyRepository,
 	repRepo repositories.AgentRepository,
 	ajcRepo repositories.AgentJobCompletionRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	unitRepo repositories.UnitRepository,
 	jobService *JobService,
 ) *JobEscalationService {
 	twClient := twilio.NewRestClientWithParams(twilio.ClientParams{
@@ -50,6 +57,8 @@ func NewJobEscalationService(
 		propRepo:               propRepo,
 		repRepo:                repRepo,
 		agentJobCompletionRepo: ajcRepo,
+		bldgRepo:               bldgRepo,
+		unitRepo:               unitRepo,
 		twilioClient:           twClient,
 		sendgridClient:         sgClient,
 		jobService:             jobService,
@@ -99,7 +108,7 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 		if inst.Status == models.InstanceStatusAssigned && inst.CheckInAt == nil {
 			cutoff := lStart.Add(-constants.NoShowCutoffBeforeLatestStart)
 			if nowUTC.After(cutoff) {
-				s.forceReopenNoShow(ctx, inst)
+				s.forceReopenNoShow(ctx, inst, defn, prop) // MODIFIED: Pass defn and prop
 				// Update local status to OPEN for subsequent checks
 				inst.Status = models.InstanceStatusOpen
 			}
@@ -117,8 +126,9 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 				utils.Logger.Warnf("RunEscalationCheck: no rows updated for job=%s", inst.ID)
 				continue
 			}
-			msgBody := "Job exceeded its latest start time and has been automatically canceled."
-			s.notifyOnCallStaff(ctx, defn, inst, "Job auto-canceled after expiry", msgBody)
+			// MODIFIED: More descriptive message body.
+			msgBody := fmt.Sprintf("This job at %s exceeded its latest start time of %s and has been automatically canceled.", prop.PropertyName, lStart.Format("3:04 PM MST"))
+			s.notifyOnCallStaff(ctx, defn, inst, "Job Auto-Canceled After Expiry", msgBody)
 		}
 	}
 	return nil
@@ -161,22 +171,31 @@ func (s *JobEscalationService) applySurgeIfNeeded(
 	}
 }
 
-// forceReopenNoShow is invoked if assigned job not started by lStart - 30m
-func (s *JobEscalationService) forceReopenNoShow(ctx context.Context, inst *models.JobInstance) {
+// MODIFIED: Now triggers a notification for the no-show event.
+func (s *JobEscalationService) forceReopenNoShow(ctx context.Context, inst *models.JobInstance, defn *models.JobDefinition, prop *models.Property) {
 	if inst.Status != models.InstanceStatusAssigned || inst.AssignedWorkerID == nil {
 		return
 	}
-	err := s.workerRepo.AdjustWorkerScoreAtomic(ctx, *inst.AssignedWorkerID, constants.WorkerPenaltyNoShow, "NOSHOW")
+	assignedWorkerID := *inst.AssignedWorkerID
+	err := s.workerRepo.AdjustWorkerScoreAtomic(ctx, assignedWorkerID, constants.WorkerPenaltyNoShow, "NOSHOW")
 	if err != nil {
-		utils.Logger.WithError(err).Errorf("Failed to penalize no-show for worker=%s job=%s", inst.AssignedWorkerID, inst.ID)
+		utils.Logger.WithError(err).Errorf("Failed to penalize no-show for worker=%s job=%s", assignedWorkerID, inst.ID)
 	}
-	_, err2 := s.jobService.ForceReopenNoShow(ctx, inst.ID, *inst.AssignedWorkerID)
+	_, err2 := s.jobService.ForceReopenNoShow(ctx, inst.ID, assignedWorkerID)
 	if err2 != nil {
 		utils.Logger.WithError(err2).Error("forceReopenNoShow: Unassign failed")
+		return // Do not notify if the unassign failed
 	}
+
+	// NEW: Send notification after successfully reopening the job.
+	messageBody := fmt.Sprintf(
+		"The worker assigned to this job at %s was a no-show. The job has been reopened and requires immediate coverage.",
+		prop.PropertyName,
+	)
+	s.notifyOnCallStaff(ctx, defn, inst, "[Escalation] Worker No-Show", messageBody)
 }
 
-// notifyOnCallStaff uses the shared helpers.go method
+// MODIFIED: Updated to pass building and unit repos to the notification helper.
 func (s *JobEscalationService) notifyOnCallStaff(
 	ctx context.Context,
 	defn *models.JobDefinition,
@@ -199,6 +218,8 @@ func (s *JobEscalationService) notifyOnCallStaff(
 		msgBody,
 		s.repRepo,
 		s.agentJobCompletionRepo,
+		s.bldgRepo,
+		s.unitRepo,
 		s.twilioClient,
 		s.sendgridClient,
 		s.cfg.LDFlag_TwilioFromPhone,

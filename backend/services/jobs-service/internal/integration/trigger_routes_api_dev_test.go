@@ -43,7 +43,8 @@ func TestListOpenJobs_TravelInfo(t *testing.T) {
 	defSJ := h.CreateTestJobDefinition(t, ctx, testPM.ID, propSJ.ID, "GMapsJobSJ",
 		[]uuid.UUID{buildingSJ.ID}, []uuid.UUID{dumpsterSJ.ID}, earliest, latest,
 		models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	_ = h.CreateTestJobInstance(t, ctx, defSJ.ID, time.Now().UTC(), models.InstanceStatusOpen, nil)
+	// MODIFIED: Create instance for tomorrow to ensure it's always within the acceptance window.
+	_ = h.CreateTestJobInstance(t, ctx, defSJ.ID, time.Now().UTC().AddDate(0, 0, 1), models.InstanceStatusOpen, nil)
 
 	listURLPA := fmt.Sprintf("%s/api/v1/jobs/open?lat=%f&lng=%f&page=1&size=10",
 		h.BaseURL, workerQueryLatPA, workerQueryLngPA)

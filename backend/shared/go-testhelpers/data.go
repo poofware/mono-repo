@@ -152,6 +152,19 @@ func (h *TestHelper) CreateTestBuilding(ctx context.Context, propID uuid.UUID, b
 	return b
 }
 
+// NEW: CreateTestUnit creates and persists a new unit.
+func (h *TestHelper) CreateTestUnit(ctx context.Context, propID, bldgID uuid.UUID, unitNum string) *models.Unit {
+	u := &models.Unit{
+		ID:          uuid.New(),
+		PropertyID:  propID,
+		BuildingID:  bldgID,
+		UnitNumber:  unitNum,
+		TenantToken: uuid.NewString(),
+	}
+	require.NoError(h.T, h.UnitRepo.Create(ctx, u), "Failed to create test unit")
+	return u
+}
+
 // CreateTestDumpster creates and persists a new dumpster.
 func (h *TestHelper) CreateTestDumpster(ctx context.Context, propID uuid.UUID, dumpsterNum string) *models.Dumpster {
 	d := &models.Dumpster{

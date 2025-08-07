@@ -579,10 +579,11 @@ func (s *JobService) UnacceptJobInstance(
 					_ = s.workerRepo.AdjustWorkerScoreAtomic(ctx, wUUID, constants.WorkerPenaltyNoShow, "UNACCEPT_LATE_CANCEL")
 				}
 
-				messageBody := "Worker un-assigned from job after acceptance cutoff. Job reopened and may need coverage."
+				// MODIFIED: More descriptive message body.
+				messageBody := fmt.Sprintf("The assigned worker un-assigned from this job at %s after the acceptance cutoff time. The job has been reopened and may need urgent coverage.", prop.PropertyName)
 				NotifyOnCallAgents(
 					ctx, s.cfg.AppUrl, prop, defn, inst, "[Escalation] Worker Unassigned Late", messageBody,
-					s.agentRepo, s.agentJobCompletionRepo, s.twilioClient, s.sendgridClient,
+					s.agentRepo, s.agentJobCompletionRepo, s.bldgRepo, s.unitRepo, s.twilioClient, s.sendgridClient,
 					s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
 					s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
 				)

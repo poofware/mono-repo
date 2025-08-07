@@ -43,7 +43,7 @@ func main() {
 	agentRepo := repositories.NewAgentRepository(application.DB)
 	ajcRepo := repositories.NewAgentJobCompletionRepository(application.DB)
 
-	// NEW: unitRepo for tenant tokens
+	// MODIFIED: unitRepo is now required by more services.
 	unitRepo := repositories.NewUnitRepository(application.DB)
 	juvRepo := repositories.NewJobUnitVerificationRepository(application.DB)
 
@@ -90,6 +90,7 @@ func main() {
 		}
 	}
 
+	// MODIFIED: Escalation service now requires building and unit repos for detailed notifications.
 	escalationService := services.NewJobEscalationService(
 		cfg,
 		defRepo,
@@ -97,7 +98,9 @@ func main() {
 		workerRepo,
 		propRepo,
 		agentRepo,
-		ajcRepo, // MODIFIED
+		ajcRepo,
+		bldgRepo,
+		unitRepo,
 		jobService,
 	)
 	jobScheduler := services.NewJobSchedulerService(cfg, defRepo, instRepo, propRepo)

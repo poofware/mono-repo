@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 	twilioApi "github.com/twilio/twilio-go/rest/api/v2010"
 )
 
-// MODIFIED: Updated HTML with a more modern design and a prominent "I'm On It" button.
+// MODIFIED: Updated HTML with a more modern design, more details, and a prominent "I'm On It" button.
 const internalEscalationEmailHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -61,7 +62,7 @@ BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; bac
       <p>An automated escalation has occurred for the following job. Please review immediately.</p>
       <ul>
          <li><strong>Property:</strong> %s</li>
-        <li><strong>Definition ID:</strong> %s</li>
+         <li><strong>Address:</strong> %s</li>
         <li><strong>Alert Details:</strong> %s</li>
      <li><strong>Original Time Window:</strong> %s</li>
          <li><strong>Latest Start Time (No-Show):</strong> %s</li>
@@ -76,7 +77,7 @@ BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; bac
 </body>
 </html>`
 
-// NEW: A simpler template for internal team notifications without the "I'm On It" button.
+// MODIFIED: Team notification now includes full job details.
 const teamNotificationEmailHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -107,8 +108,10 @@ const teamNotificationEmailHTML = `<!DOCTYPE html>
       <p>This is an automated alert for the operations team.</p>
       <ul>
         <li><strong>Property:</strong> %s</li>
+        <li><strong>Address:</strong> %s</li>
          <li><strong>Definition ID:</strong> %s</li>
         <li><strong>Alert Details:</strong> %s</li>
+        <li><strong>Buildings & Units:</strong><ul>%s</ul></li>
         <li><strong>Timestamp (UTC):</strong> %s</li>
       </ul>
     </div>
@@ -181,7 +184,7 @@ func CombineDateTime(d time.Time, t time.Time) time.Time {
 	return time.Date(d.Year(), d.Month(), d.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
 }
 
-// MODIFIED: This function has been updated to require a JobInstance to create a valid foreign key.
+// MODIFIED: This function has been updated to require a JobInstance and repositories to fetch human-readable data.
 func NotifyOnCallAgents(
 	ctx context.Context,
 	appURL string,
@@ -192,6 +195,8 @@ func NotifyOnCallAgents(
 	messageBody string,
 	agentRepo repositories.AgentRepository,
 	ajcRepo repositories.AgentJobCompletionRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	unitRepo repositories.UnitRepository,
 	twClient *twilio.RestClient,
 	sgClient *sendgrid.Client,
 	fromPhone string,
@@ -221,10 +226,14 @@ func NotifyOnCallAgents(
 
 	// 2) Prepare property name (if found) and final subject/body
 	propertyName := "(Unknown Property)"
-	if prop != nil && prop.PropertyName != "" {
-		propertyName = prop.PropertyName
+	propertyAddress := "(Unknown Address)"
+	if prop != nil {
+		if prop.PropertyName != "" {
+			propertyName = prop.PropertyName
+		}
+		propertyAddress = fmt.Sprintf("%s, %s, %s %s", prop.Address, prop.City, prop.State, prop.ZipCode)
 	}
-	subject := fmt.Sprintf("%s (DefinitionID=%s)", messageTitle, def.ID.String())
+	subject := fmt.Sprintf("%s: %s", messageTitle, propertyName)
 
 	// MODIFIED: Extract and format job details for notifications.
 	propLoc := loadPropertyLocation(prop.TimeZone)
@@ -236,10 +245,28 @@ func NotifyOnCallAgents(
 
 	timeWindowStr := fmt.Sprintf("%s - %s", eStartLocal.Format("3:04 PM"), lStartLocal.Format("3:04 PM MST"))
 	noShowTimeStr := noShowTimeLocal.Format("3:04 PM MST")
+
 	var buildingsAndUnits strings.Builder
+	var buildingsAndUnitsPlainText strings.Builder
 	for _, group := range def.AssignedUnitsByBuilding {
-		// This is a placeholder for building name. In a real scenario, you'd fetch the building name.
-		buildingsAndUnits.WriteString(fmt.Sprintf("<li>Building (ID: %s): %d units</li>", group.BuildingID.String(), len(group.UnitIDs)))
+		bldg, err := bldgRepo.GetByID(ctx, group.BuildingID)
+		if err != nil || bldg == nil {
+			buildingsAndUnits.WriteString(fmt.Sprintf("<li>Building (ID: %s): %d units</li>", group.BuildingID, len(group.UnitIDs)))
+			buildingsAndUnitsPlainText.WriteString(fmt.Sprintf("\n- Building (ID: %s): %d units", group.BuildingID, len(group.UnitIDs)))
+			continue
+		}
+
+		var unitNumbers []string
+		for _, unitID := range group.UnitIDs {
+			unit, err := unitRepo.GetByID(ctx, unitID)
+			if err == nil && unit != nil {
+				unitNumbers = append(unitNumbers, unit.UnitNumber)
+			}
+		}
+		sort.Strings(unitNumbers) // Sort for consistent output
+
+		buildingsAndUnits.WriteString(fmt.Sprintf("<li><strong>%s:</strong> %s</li>", bldg.BuildingName, strings.Join(unitNumbers, ", ")))
+		buildingsAndUnitsPlainText.WriteString(fmt.Sprintf("\n- %s: %s", bldg.BuildingName, strings.Join(unitNumbers, ", ")))
 	}
 	// END MODIFICATION
 
@@ -249,7 +276,6 @@ func NotifyOnCallAgents(
 		token := uuid.NewString()
 		completionRecord := &models.AgentJobCompletion{
 			ID:            uuid.New(),
-			// MODIFICATION: Use the JobInstance ID to satisfy the foreign key constraint.
 			JobInstanceID: inst.ID,
 			AgentID:       r.ID,
 			Token:         token,
@@ -262,13 +288,15 @@ func NotifyOnCallAgents(
 		confirmationLink := fmt.Sprintf("%s/api/v1/jobs/agent-complete/%s", appURL, token)
 
 		// ---------- Prepare Email and SMS Content ----------
-		// MODIFIED: Add job details to the plain text body for SMS.
+		// MODIFIED: Add more job details to the plain text body for SMS.
 		plainTextBody := fmt.Sprintf(
-			"%s\nProperty: %s\nTime Window: %s\nNo-Show Time: %s\n\nI'm On It: %s",
+			"%s\n\nProperty: %s\nAddress: %s\nTime Window: %s\nNo-Show Time: %s\n\nDetails:%s\n\nI'm On It: %s",
 			messageBody,
 			propertyName,
+			propertyAddress,
 			timeWindowStr,
 			noShowTimeStr,
+			buildingsAndUnitsPlainText.String(),
 			confirmationLink,
 		)
 
@@ -277,7 +305,7 @@ func NotifyOnCallAgents(
 			internalEscalationEmailHTML,
 			subject,
 			propertyName,
-			def.ID.String(),
+			propertyAddress,
 			messageBody,
 			timeWindowStr,
 			noShowTimeStr,
@@ -323,20 +351,22 @@ func NotifyOnCallAgents(
 		}
 	}
 
-	// ---------- NEW: Always send a notification to the internal team ----------
+	// ---------- MODIFIED: Always send a detailed notification to the internal team ----------
 	if sgClient != nil {
 		teamEmail := "team@thepoofapp.com"
 		teamSubject := fmt.Sprintf("[Internal Alert] %s", subject)
 		teamPlainText := fmt.Sprintf(
-			"An automated alert was triggered.\n\nTitle: %s\nProperty: %s\nDefinition ID: %s\nDetails: %s",
-			messageTitle, propertyName, def.ID.String(), messageBody,
+			"An automated alert was triggered.\n\nTitle: %s\nProperty: %s\nAddress: %s\nDefinition ID: %s\nDetails: %s\nUnits:%s",
+			messageTitle, propertyName, propertyAddress, def.ID.String(), messageBody, buildingsAndUnitsPlainText.String(),
 		)
 		teamHtmlBody := fmt.Sprintf(
 			teamNotificationEmailHTML,
 			teamSubject,
 			propertyName,
+			propertyAddress,
 			def.ID.String(),
 			messageBody,
+			buildingsAndUnits.String(),
 			time.Now().UTC().Format(time.RFC1123Z),
 		)
 
