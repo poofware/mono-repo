@@ -7,11 +7,11 @@ import (
 	"errors"
 
 	"github.com/go-playground/validator/v10"
-	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/go-dtos"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
+	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // WorkerController contains methods for Worker endpoints.

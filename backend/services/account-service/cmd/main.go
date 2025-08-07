@@ -10,14 +10,14 @@ import (
 	_ "time/tzdata" // Load timezone data
 	cron "github.com/robfig/cron/v3"
 
-	"github.com/poofware/account-service/internal/app"
-	"github.com/poofware/account-service/internal/config"
-	"github.com/poofware/account-service/internal/controllers"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/controllers"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/sendgrid/sendgrid-go" // Import SendGrid
 )
 

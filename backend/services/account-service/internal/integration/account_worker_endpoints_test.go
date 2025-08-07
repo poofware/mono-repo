@@ -13,10 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/go-dtos"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // TestWorkerPatch_Success tests a valid PATCH request.

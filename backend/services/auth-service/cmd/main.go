@@ -8,14 +8,14 @@ import (
 	cron "github.com/robfig/cron/v3"
 	"github.com/rs/cors"
 
-	"github.com/poofware/auth-service/internal/app"
-	"github.com/poofware/auth-service/internal/config"
-	"github.com/poofware/auth-service/internal/controllers"
-	auth_repositories "github.com/poofware/auth-service/internal/repositories"
-	"github.com/poofware/auth-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/controllers"
+	auth_repositories "github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 func main() {

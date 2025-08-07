@@ -8,15 +8,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/earnings-service/internal/config"
-	"github.com/poofware/earnings-service/internal/constants"
-	"github.com/poofware/earnings-service/internal/dtos"
-	internal_models "github.com/poofware/earnings-service/internal/models"
-	internal_repositories "github.com/poofware/earnings-service/internal/repositories"
-	internal_utils "github.com/poofware/earnings-service/internal/utils"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/dtos"
+	internal_models "github.com/poofware/mono-repo/backend/services/earnings-service/internal/models"
+	internal_repositories "github.com/poofware/mono-repo/backend/services/earnings-service/internal/repositories"
+	internal_utils "github.com/poofware/mono-repo/backend/services/earnings-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 const (

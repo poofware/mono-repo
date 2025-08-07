@@ -15,10 +15,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/poofware/auth-service/internal/config"
-	"github.com/poofware/auth-service/internal/dtos"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-testhelpers"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
 	"github.com/stretchr/testify/require"
 )
 

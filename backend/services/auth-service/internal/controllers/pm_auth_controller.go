@@ -11,13 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 
-	"github.com/poofware/auth-service/internal/config"
-	auth_dtos "github.com/poofware/auth-service/internal/dtos"
-	"github.com/poofware/auth-service/internal/services"
-	auth_utils "github.com/poofware/auth-service/internal/utils"
-	"github.com/poofware/go-dtos"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	auth_dtos "github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/services"
+	auth_utils "github.com/poofware/mono-repo/backend/services/auth-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type PMAuthController struct {

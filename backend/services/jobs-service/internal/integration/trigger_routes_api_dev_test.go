@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/go-models"
-	"github.com/poofware/jobs-service/internal/constants"
-	"github.com/poofware/jobs-service/internal/dtos"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
 )
 
 // TestListOpenJobs_TravelInfo verifies that DistanceMiles and TravelMinutes are correctly

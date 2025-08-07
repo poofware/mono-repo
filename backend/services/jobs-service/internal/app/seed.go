@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	seeding "github.com/poofware/go-seeding"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/jobs-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	seeding "github.com/poofware/mono-repo/backend/shared/go-seeding"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
 )
 
 // Helper to check for unique violation error (PostgreSQL specific code)

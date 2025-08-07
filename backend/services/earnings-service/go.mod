@@ -1,4 +1,4 @@
-module github.com/poofware/earnings-service
+module github.com/poofware/mono-repo/backend/services/earnings-service
 
 go 1.24.3
 

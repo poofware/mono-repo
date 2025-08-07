@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	ld "github.com/launchdarkly/go-server-sdk/v7"
-	"github.com/poofware/account-service/internal/config"
-	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/go-dtos"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type WorkerService struct {

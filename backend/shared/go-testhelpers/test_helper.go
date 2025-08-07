@@ -13,8 +13,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stretchr/testify/require"
 )

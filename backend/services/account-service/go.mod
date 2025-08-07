@@ -1,4 +1,4 @@
-module github.com/poofware/account-service
+module github.com/poofware/mono-repo/backend/services/account-service
 
 go 1.24.3
 

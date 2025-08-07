@@ -1,4 +1,4 @@
-module github.com/poofware/go-seeding
+module github.com/poofware/mono-repo/backend/shared/go-seeding
 
 go 1.24.5
 

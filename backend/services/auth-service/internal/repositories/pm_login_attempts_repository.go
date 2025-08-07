@@ -6,7 +6,7 @@ import (
     "time"
 
     "github.com/google/uuid"
-    . "github.com/poofware/go-repositories"
+    . "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 type PMLoginAttempts struct {

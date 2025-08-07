@@ -10,8 +10,8 @@ import (
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 
-	"github.com/poofware/interest-service/internal/config"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/config"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // HTML template for the public-facing acknowledgment email.

@@ -6,11 +6,11 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/poofware/earnings-service/internal/config"
-	"github.com/poofware/earnings-service/internal/constants"
-	"github.com/poofware/earnings-service/internal/dtos"
-	"github.com/poofware/earnings-service/internal/services"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/webhook"
 )

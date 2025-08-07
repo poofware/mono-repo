@@ -7,9 +7,9 @@ import (
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	ld "github.com/launchdarkly/go-server-sdk/v7"
 
-	"github.com/poofware/account-service/internal/config"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 type WaitlistService struct {

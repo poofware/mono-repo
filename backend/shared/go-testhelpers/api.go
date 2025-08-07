@@ -7,7 +7,7 @@ import (
 	"net/http/cookiejar"
 	"strings"
 
-	"github.com/poofware/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
 	"github.com/stretchr/testify/require"
 )
 

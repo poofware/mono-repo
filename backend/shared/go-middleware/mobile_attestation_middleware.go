@@ -7,7 +7,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // MobileAttestationMiddleware intercepts requests for "mobile" platforms.

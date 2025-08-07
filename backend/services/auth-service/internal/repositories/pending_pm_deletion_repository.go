@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/auth-service/internal/models"
-	repo "github.com/poofware/go-repositories"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/models"
+	repo "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 // PendingPMDeletionRepository handles CRUD for pending PM account deletions.

@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
-	"github.com/poofware/interest-service/internal/dtos"
-	"github.com/poofware/interest-service/internal/services"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type InterestController struct {

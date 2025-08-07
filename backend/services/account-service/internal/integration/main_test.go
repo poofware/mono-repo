@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/poofware/account-service/internal/config"
-	"github.com/poofware/go-testhelpers"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
 )
 
 var h *testhelpers.TestHelper

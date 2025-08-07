@@ -8,19 +8,19 @@ import (
 	_ "time/tzdata"
 
 	"github.com/gorilla/mux"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	cron "github.com/robfig/cron/v3"
 	"github.com/rs/cors"
 	"github.com/sendgrid/sendgrid-go"
 	twilio "github.com/twilio/twilio-go"
 
-	"github.com/poofware/jobs-service/internal/app"
-	"github.com/poofware/jobs-service/internal/config"
-	"github.com/poofware/jobs-service/internal/controllers"
-	"github.com/poofware/jobs-service/internal/routes"
-	"github.com/poofware/jobs-service/internal/services"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/controllers"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
 )
 
 func main() {

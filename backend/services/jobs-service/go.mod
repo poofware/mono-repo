@@ -1,4 +1,4 @@
-module github.com/poofware/jobs-service
+module github.com/poofware/mono-repo/backend/services/jobs-service
 
 go 1.24.3
 

@@ -1,4 +1,4 @@
-module github.com/poofware/go-models
+module github.com/poofware/mono-repo/backend/shared/go-models
 
 go 1.23.1
 

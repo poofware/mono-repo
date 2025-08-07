@@ -1,28 +1,34 @@
 package utils
 
 import (
-	"context"
-	"fmt"
-	"sync"
-	"time"
+        "context"
+        "fmt"
+        "net/http"
+        "sync"
+        "time"
 
-	routing "cloud.google.com/go/maps/routing/apiv2"
-	"cloud.google.com/go/maps/routing/apiv2/routingpb"
-	"github.com/poofware/go-utils" // Assuming your root go-utils for Logger
-	"github.com/umahmood/haversine"
-	"google.golang.org/api/option"
-	"google.golang.org/genproto/googleapis/type/latlng"
-	"google.golang.org/grpc/metadata"
+        routing "cloud.google.com/go/maps/routing/apiv2"
+        "cloud.google.com/go/maps/routing/apiv2/routingpb"
+        "github.com/poofware/mono-repo/backend/shared/go-utils" // Assuming your root go-utils for Logger
+        "github.com/umahmood/haversine"
+        "google.golang.org/api/option"
+        "google.golang.org/genproto/googleapis/type/latlng"
+        "google.golang.org/grpc/metadata"
+        "googlemaps.github.io/maps"
 
-	"github.com/poofware/jobs-service/internal/constants"
+        "github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
 )
 
 /*──────────── reusable, thread-safe Routes client ────────────*/
 
 var (
-	routesClientOnce sync.Once
-	routesClient     *routing.RoutesClient
-	routesClientErr  error
+        routesClientOnce sync.Once
+        routesClient     *routing.RoutesClient
+        routesClientErr  error
+
+        geocodeClientOnce sync.Once
+        geocodeClient     *maps.Client
+        geocodeClientErr  error
 )
 
 func getRoutesClient(ctx context.Context, apiKey string) (*routing.RoutesClient, error) {
@@ -40,6 +46,49 @@ func getRoutesClient(ctx context.Context, apiKey string) (*routing.RoutesClient,
 		}
 	})
 	return routesClient, routesClientErr
+}
+
+func getGeocodeClient(apiKey string) (*maps.Client, error) {
+        geocodeClientOnce.Do(func() {
+                utils.Logger.Info("[GMapsClient] Initializing Google Maps Geocoding client...")
+                geocodeClient, geocodeClientErr = maps.NewClient(
+                        maps.WithAPIKey(apiKey),
+                        maps.WithHTTPClient(&http.Client{Timeout: 10 * time.Second}),
+                )
+                if geocodeClientErr != nil {
+                        utils.Logger.WithError(geocodeClientErr).Error("[GMapsClient] Failed to initialize Google Maps Geocoding client")
+                }
+        })
+        return geocodeClient, geocodeClientErr
+}
+
+// GeocodeAddress resolves the given address to latitude and longitude using the
+// Google Maps Geocoding API. If the API key is empty or the API call fails,
+// an error is returned.
+func GeocodeAddress(address, apiKey string) (float64, float64, error) {
+        if apiKey == "" {
+                return 0, 0, fmt.Errorf("API key is empty")
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
+
+        cli, err := getGeocodeClient(apiKey)
+        if err != nil {
+                return 0, 0, err
+        }
+
+        resp, err := cli.Geocode(ctx, &maps.GeocodingRequest{Address: address})
+        if err != nil {
+                return 0, 0, err
+        }
+
+        if len(resp) == 0 {
+                return 0, 0, fmt.Errorf("no geocoding results")
+        }
+
+        loc := resp[0].Geometry.Location
+        return loc.Lat, loc.Lng, nil
 }
 
 /*────────────────────────────────────────────────────────────────────────────

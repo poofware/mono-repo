@@ -13,13 +13,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/constants"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/jobs-service/internal/routes"
-	"github.com/poofware/jobs-service/internal/services"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
+	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
 )
 
 /*

@@ -1,4 +1,4 @@
-module github.com/poofware/go-utils
+module github.com/poofware/mono-repo/backend/shared/go-utils
 
 go 1.23.1
 

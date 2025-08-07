@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/constants"
-	"github.com/poofware/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
 )
 
 func CalculatePenaltyForUnassign(now, eStart, noShowTime time.Time) (int, bool) {

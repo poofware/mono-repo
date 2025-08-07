@@ -1,4 +1,4 @@
-module github.com/poofware/auth-service
+module github.com/poofware/mono-repo/backend/services/auth-service
 
 go 1.24.3
 

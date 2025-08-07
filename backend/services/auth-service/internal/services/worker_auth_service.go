@@ -18,13 +18,13 @@ import (
 	"github.com/twilio/twilio-go"
 	twilioApi "github.com/twilio/twilio-go/rest/api/v2010"
 
-	"github.com/poofware/auth-service/internal/config"
-	"github.com/poofware/auth-service/internal/dtos"
-	auth_repositories "github.com/poofware/auth-service/internal/repositories"
-	internal_utils "github.com/poofware/auth-service/internal/utils"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
+	auth_repositories "github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	internal_utils "github.com/poofware/mono-repo/backend/services/auth-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // ---------------------------------------------------------------------

@@ -8,8 +8,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/poofware/auth-service/internal/services"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stretchr/testify/require"
 )
 

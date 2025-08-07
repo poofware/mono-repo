@@ -10,11 +10,11 @@ import (
 
     "github.com/golang-jwt/jwt/v5"
     "github.com/google/uuid"
-    "github.com/poofware/auth-service/internal/config"
-    "github.com/poofware/auth-service/internal/models"
-    "github.com/poofware/auth-service/internal/repositories"
-    "github.com/poofware/go-middleware"
-    "github.com/poofware/go-utils"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/models"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+    "github.com/poofware/mono-repo/backend/shared/go-middleware"
+    "github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // ---------------------------------------------------------------------

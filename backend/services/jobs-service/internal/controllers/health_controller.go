@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/poofware/jobs-service/internal/app"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // HealthController checks DB connectivity, etc.

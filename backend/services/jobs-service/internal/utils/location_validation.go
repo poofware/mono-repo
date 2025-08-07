@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // validateLocationData checks lat/lng range, accuracy, timestamp proximity, and

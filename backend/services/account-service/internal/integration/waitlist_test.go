@@ -11,10 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/go-models"
-	testhelpers "github.com/poofware/go-testhelpers"
+	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	testhelpers "github.com/poofware/mono-repo/backend/shared/go-testhelpers"
 )
 
 func TestSubmitPersonalInfo_Waitlist(t *testing.T) {

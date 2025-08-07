@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stretchr/testify/require"
 )
 

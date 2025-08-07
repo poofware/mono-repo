@@ -15,14 +15,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/earnings-service/internal/constants"
-	"github.com/poofware/earnings-service/internal/dtos"
-	internal_models "github.com/poofware/earnings-service/internal/models"
-	internal_repositories "github.com/poofware/earnings-service/internal/repositories"
-	"github.com/poofware/earnings-service/internal/routes"
-	"github.com/poofware/earnings-service/internal/services"
-	internal_utils "github.com/poofware/earnings-service/internal/utils"
-	"github.com/poofware/go-models"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/dtos"
+	internal_models "github.com/poofware/mono-repo/backend/services/earnings-service/internal/models"
+	internal_repositories "github.com/poofware/mono-repo/backend/services/earnings-service/internal/repositories"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/services"
+	internal_utils "github.com/poofware/mono-repo/backend/services/earnings-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/stripe/stripe-go/v82"
 )
 

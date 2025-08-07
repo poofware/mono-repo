@@ -3,7 +3,7 @@ package dtos
 import (
 	"time"
 
-	"github.com/poofware/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
 
 // Existing Worker DTO for GET endpoints

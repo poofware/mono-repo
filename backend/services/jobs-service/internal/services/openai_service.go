@@ -9,7 +9,7 @@ import (
 	openai "github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/shared"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	logrus "github.com/sirupsen/logrus"
 )
 

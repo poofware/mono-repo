@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
 )
 
 type PMService struct {

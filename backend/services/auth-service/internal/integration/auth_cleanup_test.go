@@ -11,10 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	auth_models "github.com/poofware/auth-service/internal/models"
-	auth_repositories "github.com/poofware/auth-service/internal/repositories"
-	"github.com/poofware/auth-service/internal/services"
-	"github.com/poofware/go-utils"
+	auth_models "github.com/poofware/mono-repo/backend/services/auth-service/internal/models"
+	auth_repositories "github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // TestCronJobCleanupServices verifies that the daily cleanup cron jobs for

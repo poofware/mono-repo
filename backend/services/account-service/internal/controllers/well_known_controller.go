@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // AppleAppSiteAssociation represents the JSON structure returned by the iOS universal link handler.

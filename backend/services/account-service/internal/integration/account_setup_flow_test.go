@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 var smsRepo repositories.WorkerSMSVerificationRepository // This is specific to this test file

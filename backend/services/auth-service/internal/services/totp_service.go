@@ -1,8 +1,8 @@
 package services
 
 import (
-    "github.com/poofware/auth-service/internal/config"
-    auth_utils "github.com/poofware/auth-service/internal/utils"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+    auth_utils "github.com/poofware/mono-repo/backend/services/auth-service/internal/utils"
 )
 
 // TOTPService defines methods for TOTP-related functionality.

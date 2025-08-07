@@ -11,10 +11,10 @@ import (
 	_ "time/tzdata"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-testhelpers"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/config"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
 	"github.com/stretchr/testify/require"
 )
 

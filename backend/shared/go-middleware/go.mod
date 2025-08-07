@@ -1,4 +1,4 @@
-module github.com/poofware/go-middleware
+module github.com/poofware/mono-repo/backend/shared/go-middleware
 
 go 1.23.1
 

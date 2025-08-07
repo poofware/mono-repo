@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/poofware/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
 )
 
 // fallbackTemplate is a simple HTML template that:

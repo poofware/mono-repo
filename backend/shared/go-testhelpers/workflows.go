@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/stretchr/testify/require"
 	stripe "github.com/stripe/stripe-go/v82"
 )

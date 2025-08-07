@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/poofware/jobs-service/internal/config"
-	"github.com/poofware/go-repositories"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 	"github.com/twilio/twilio-go"
 	"github.com/sendgrid/sendgrid-go"
 )

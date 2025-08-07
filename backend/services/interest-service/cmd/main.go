@@ -7,11 +7,11 @@ import (
 	"github.com/rs/cors"
 	_ "time/tzdata"
 
-	"github.com/poofware/interest-service/internal/app"
-	"github.com/poofware/interest-service/internal/config"
-	"github.com/poofware/interest-service/internal/controllers"
-	"github.com/poofware/interest-service/internal/routes"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/controllers"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 func main() {

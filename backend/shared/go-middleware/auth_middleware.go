@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type contextKey string

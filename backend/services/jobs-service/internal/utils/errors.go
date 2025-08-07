@@ -5,7 +5,7 @@ package utils
 import (
 	"errors"
 
-	"github.com/poofware/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
 
 /*

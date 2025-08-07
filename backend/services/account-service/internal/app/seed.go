@@ -3,8 +3,8 @@ package app
 import (
 	"fmt"
 
-	"github.com/poofware/go-repositories"
-	seeding "github.com/poofware/go-seeding"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	seeding "github.com/poofware/mono-repo/backend/shared/go-seeding"
 )
 
 // SeedAllAccounts seeds permanent shared accounts (e.g., reviewer accounts).

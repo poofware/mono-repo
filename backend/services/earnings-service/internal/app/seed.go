@@ -7,12 +7,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
-	internal_models "github.com/poofware/earnings-service/internal/models"
-	internal_repositories "github.com/poofware/earnings-service/internal/repositories"
-	internal_utils "github.com/poofware/earnings-service/internal/utils"
-	"github.com/poofware/go-repositories"
-	seeding "github.com/poofware/go-seeding"
-	"github.com/poofware/go-utils"
+	internal_models "github.com/poofware/mono-repo/backend/services/earnings-service/internal/models"
+	internal_repositories "github.com/poofware/mono-repo/backend/services/earnings-service/internal/repositories"
+	internal_utils "github.com/poofware/mono-repo/backend/services/earnings-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	seeding "github.com/poofware/mono-repo/backend/shared/go-seeding"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // SentinelPayoutID is used to check if seeding has already occurred.
