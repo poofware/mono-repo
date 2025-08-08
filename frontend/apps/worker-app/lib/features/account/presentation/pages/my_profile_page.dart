@@ -98,7 +98,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       barrierDismissible: true,
       barrierLabel: 'Checkr Outcome',
       transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => const CheckrOutcomePage(),
+      pageBuilder: (_, _, _) => const CheckrOutcomePage(),
       transitionBuilder: (context, anim1, anim2, child) {
         return SlideTransition(
           position: Tween(
@@ -636,46 +636,60 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     final BuildContext capturedContext = context;
 
     final patchFields = <String, dynamic>{};
-    if (_firstNameController.text.trim() != worker.firstName)
+    if (_firstNameController.text.trim() != worker.firstName) {
       patchFields['first_name'] = _firstNameController.text.trim();
-    if (_lastNameController.text.trim() != worker.lastName)
+    }
+    if (_lastNameController.text.trim() != worker.lastName) {
       patchFields['last_name'] = _lastNameController.text.trim();
-    if (_emailController.text.trim() != worker.email)
+    }
+    if (_emailController.text.trim() != worker.email) {
       patchFields['email'] = _emailController.text.trim();
-    if (_phoneController.text.trim() != worker.phoneNumber)
+    }
+    if (_phoneController.text.trim() != worker.phoneNumber) {
       patchFields['phone_number'] = _phoneController.text.trim();
-
-    if (_addressState != null) {
-      if (_addressState!.street != worker.streetAddress)
-        patchFields['street_address'] = _addressState!.street;
-      if (_addressState!.city != worker.city)
-        patchFields['city'] = _addressState!.city;
-      if (_addressState!.state != worker.state)
-        patchFields['state'] = _addressState!.state;
-      if (_addressState!.postalCode != worker.zipCode)
-        patchFields['zip_code'] = _addressState!.postalCode;
     }
 
-    if (_aptSuite != (worker.aptSuite ?? ''))
-      patchFields['apt_suite'] = _aptSuite;
+    if (_addressState != null) {
+      if (_addressState!.street != worker.streetAddress) {
+        patchFields['street_address'] = _addressState!.street;
+      }
+      if (_addressState!.city != worker.city) {
+        patchFields['city'] = _addressState!.city;
+      }
+      if (_addressState!.state != worker.state) {
+        patchFields['state'] = _addressState!.state;
+      }
+      if (_addressState!.postalCode != worker.zipCode) {
+        patchFields['zip_code'] = _addressState!.postalCode;
+      }
+    }
 
-    if (_vehicleYear != worker.vehicleYear)
+    if (_aptSuite != (worker.aptSuite ?? '')) {
+      patchFields['apt_suite'] = _aptSuite;
+    }
+
+    if (_vehicleYear != worker.vehicleYear) {
       patchFields['vehicle_year'] = _vehicleYear;
-    if (_vehicleMake != worker.vehicleMake)
+    }
+    if (_vehicleMake != worker.vehicleMake) {
       patchFields['vehicle_make'] = _vehicleMake;
-    if (_vehicleModel != worker.vehicleModel)
+    }
+    if (_vehicleModel != worker.vehicleModel) {
       patchFields['vehicle_model'] = _vehicleModel;
-    if (_tenantTokenController.text.trim() != (worker.tenantToken ?? ''))
+    }
+    if (_tenantTokenController.text.trim() != (worker.tenantToken ?? '')) {
       patchFields['tenant_token'] = _tenantTokenController.text.trim();
+    }
 
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
     if (isTestMode) {
       await Future.delayed(const Duration(seconds: 1));
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isSaving = false;
           _isEditing = false;
         });
+      }
       return;
     }
 
@@ -689,16 +703,20 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
     final workerAuthRepo = ref.read(workerAuthRepositoryProvider);
     try {
-      if (patchFields.containsKey('phone_number'))
+      if (patchFields.containsKey('phone_number')) {
         await workerAuthRepo.checkPhoneValid(patchFields['phone_number']);
-      if (patchFields.containsKey('email'))
+      }
+      if (patchFields.containsKey('email')) {
         await workerAuthRepo.checkEmailValid(patchFields['email']);
+      }
       if (!capturedContext.mounted) return;
       await _attemptPatch(patchFields, capturedContext);
     } on Exception catch (e) {
       if (!capturedContext.mounted) return;
       _showError(capturedContext, e);
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -727,12 +745,13 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
     try {
       await repo.patchWorker(patchRequest);
-      showAppSnackBar(context, Text(t.myProfilePageProfileUpdatedSnackbar));
-      if (mounted)
+      if (mounted) {
+        showAppSnackBar(context, Text(t.myProfilePageProfileUpdatedSnackbar));
         setState(() {
           _isSaving = false;
           _isEditing = false;
         });
+      }
     } on ApiException catch (e) {
       if (e.errorCode == 'phone_not_verified') {
         final newPhone = changedFields['phone_number'] as String?;

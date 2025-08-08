@@ -8,8 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart';
-import 'package:poof_flutter_auth/src/utils/device_attestation_utils.dart'
-    as attestation;
+
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
@@ -112,7 +111,7 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
   Future<void> _prepareWebView() async {
     final platformEnum = getCurrentPlatform();
     final deviceId = await DeviceIdManager.getDeviceId();
-    final keyId = await attestation.getCachedKeyId(
+    final keyId = await getCachedKeyId(
       isAndroid: platformEnum == FlutterPlatform.android,
     );
     if (!mounted) return;

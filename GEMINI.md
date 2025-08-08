@@ -178,11 +178,11 @@ For a faster feedback loop without running the full test suite, you can use stat
     ```
 2.  **Run the analyzer**:
     ```bash
-    staticcheck -tests -tags="integration,dev_test,dev" ./...
+    cd ... && staticcheck -tests -tags="integration,dev_test,dev" ./...
     ```
     If `staticcheck` is not installed, you can use `go vet` as a fallback:
     ```bash
-    go vet -tags="integration,dev_test,dev" ./...
+    cd ... && go vet -tags="integration,dev_test,dev" ./...
     ```
 
 -----
@@ -258,10 +258,10 @@ For a faster feedback loop on Dart code, you can use the Flutter analyzer. This 
 2.  **Run the analyzer**:
     ```bash
     # If you modify .arb files for localization, run this first:
-    flutter gen-l10n --verbose
+    cd ... && flutter gen-l10n --verbose
     
     # Then run the analyzer
-    flutter analyze
+    cd ... && flutter analyze
     ```
 
 -----

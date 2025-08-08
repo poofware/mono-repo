@@ -164,6 +164,54 @@ class BuildingInfo extends StatelessWidget {
   }
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FloorInfo  ⇢  CENTRE COLUMN (width is flexible)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class FloorInfo extends StatelessWidget {
+  final List<JobInstance> instances;
+
+  const FloorInfo({super.key, required this.instances});
+
+  @override
+  Widget build(BuildContext context) {
+    if (instances.isEmpty) return const SizedBox.shrink();
+
+    final allFloors = instances
+        .expand((i) => i.buildings)
+        .expand((b) => b.floors)
+        .toList();
+
+    if (allFloors.isEmpty) return const SizedBox.shrink();
+
+    final uniqueFloors = allFloors.toSet().toList();
+    uniqueFloors.sort();
+
+    String label;
+    if (uniqueFloors.length > 2) {
+      label = '${uniqueFloors.length} floors';
+    } else {
+      label = 'fl ${uniqueFloors.join(', ')}';
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.stairs_outlined, size: 16),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // StartTimeHintInfo  ⇢  LEFT-HAND COLUMN (kept flexible)
 // ─────────────────────────────────────────────────────────────────────────────

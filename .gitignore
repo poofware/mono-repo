@@ -80,3 +80,5 @@
 
 *.generated
 *.null*
+
+.codex.env

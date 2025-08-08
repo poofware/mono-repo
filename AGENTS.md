@@ -1,92 +1,255 @@
-# Agent Developer Guide
+# Developer Guide
 
-This guide is for AI agents working in a sandboxed environment without Docker access. Your primary responsibility is to modify code, update tests, and validate your changes using static analysis only.
-
-**You must not attempt to run, build, or test the full applications using `make` commands that require Docker (e.g., `up`, `ci`, `run-*`, `build-*`).**
+Welcome to the monorepo! This guide provides all the necessary information for developers to get started with setting up, running, and testing the services and applications.
 
 -----
 
-## 1. Backend Development (Go)
+## 1. Prerequisites
 
-Your workflow for backend Go services is focused on a single static analysis step for all validation.
+Before you begin, ensure you have the following tools installed on your system:
 
-### 1.1. Primary Workflow: Static Analysis and Test Validation
+- **Git:** For version control.
+- **Docker & Docker Compose:** For running backend services in a containerized environment.
+- **GNU Make:** Version 4.4 or higher is recommended. The build system relies heavily on Makefiles.
+- **Go:** Version 1.24 or higher for backend development.
+- **Flutter:** The stable channel is recommended for mobile app development.
+- **Node.js:** For frontend web development.
+- **Bitwarden Secrets Manager CLI (`bws`):** For accessing secrets.
 
-This is the **only required validation step** for Go code. It provides the fastest feedback on the correctness of both your application code and your test code.
+You will also need a Bitwarden access token (`BWS_ACCESS_TOKEN`) exported as an environment variable to fetch necessary secrets for local development.
+
+-----
+
+## 2. Project Architecture
+
+This monorepo contains backend microservices written in Go and frontend applications built with Flutter and standard web technologies.
+
+- **Backend:** A collection of Go microservices located in `backend/services/`. These services are containerized with Docker and managed via Makefiles. The `backend/meta-service` acts as a gateway, orchestrating and exposing all other backend services for local development.
+- **Frontend:** Applications are located in `frontend/apps/`. This includes the Flutter-based `worker-app` for iOS and Android, and `the-website` for the public-facing web presence.
+- **Shared Libraries:** Common code is shared across projects. Go packages are in `backend/shared/`, and Flutter packages are in `frontend/shared/`.
+
+-----
+
+## 3. Core Concepts
+
+### Secrets Management (Bitwarden)
+
+All secrets (API keys, database URLs, etc.) are managed in Bitwarden Secrets Manager. The `bws` CLI tool, combined with a `BWS_ACCESS_TOKEN`, is used to fetch these secrets at build time.
+
+- **Authentication:** You must have the `BWS_ACCESS_TOKEN` environment variable set in your shell.
+- **Usage:** The Makefiles and Dockerfiles are configured to automatically fetch the required secrets for the environment (`dev`, `staging`, etc.) you are working in. You do not need to manually run `bws` commands.
+
+### Database Migrations (Tern)
+
+Database schema changes are managed through SQL migration files located in `backend/migrations`. We use `tern` to apply these migrations.
+
+- **Running Migrations:** Migrations are run automatically as part of the `make up` or `make ci` process. To run them manually:
+
+```bash
+# From a service directory, e.g., backend/services/account-service
+make migrate
+```
+
+- **Creating a New Migration:** Use the `tern new` command. Ensure you are in a directory with a configured `tern.conf` file or provide the path to your migrations.
+
+- **Agent-Specific Migration Guidelines:** When working as an AI agent, you must follow these strict guidelines:
+    1.  **Always modify the latest migration file** instead of creating new ones.
+    2.  **Find the latest migration**: Look for the most recent timestamp in the `backend/migrations/` directory.
+    3.  **Modify in place**: Add your schema changes to the existing latest migration file.
+    4.  **Rationale**: The latest migration represents the current development state and will be deployed to production.
+    5.  **Forbidden Actions**:
+        -   Never create new migration files unless explicitly instructed.
+        -   Never run migration commands or database setup commands.
+        -   Never attempt to connect to databases - your changes will be validated by CI.
+
+### Key Environment Variables
+
+You can override the behavior of the build system by setting these variables when running `make` commands.
+
+- **`ENV`**: Specifies the target environment. This is the most important variable as it controls which configuration, secrets, and deployment targets are used.
+
+- `dev-test` (Default): For local development and testing. Connects to local Docker services.
+- `dev`: Similar to `dev-test`.
+- `staging`: For deployments to the staging environment on Fly.io.
+- `prod`: For deployments to the production environment on Fly.io.
+- **Usage:** `make up ENV=staging`
+
+- **`AUTO_LAUNCH_BACKEND`**: (Frontend) Automatically starts the backend (`meta-service`) when running frontend tasks like `run-ios` or `ci-android`.
+
+- `1` (Default): The backend is started automatically. Ideal for frontend-focused work.
+- `0`: The backend is not started automatically. Useful if you are managing the backend stack manually in a separate terminal.
+- **Usage:** `AUTO_LAUNCH_BACKEND=0 make run-android`
+
+- **`PARA_DEPS`**: (Backend) Controls whether dependency tasks are executed in parallel or sequentially.
+
+- `1` (Default): Runs dependency tasks in parallel for faster execution.
+- `0`: Runs dependency tasks sequentially. The output is cleaner and easier to debug if there are issues with a specific dependency.
+- **Usage:** `PARA_DEPS=0 make up` (from `backend/meta-service`)
+
+-----
+
+## 4. Backend Development
+
+All backend services are designed to be run within Docker containers. The `meta-service` is the primary entry point for running the entire backend stack locally.
+
+### Running the Full Backend Stack
+
+For most development, you will want to run all backend services simultaneously.
+
+1.  **Navigate to the meta-service directory:**
+
+```bash
+cd backend/meta-service
+```
+
+2.  **Start all services:**
+
+```bash
+make up
+```
+
+This command will:
+
+- Create a shared Docker network.
+- Build Docker images for all dependent services (`auth-service`, `account-service`, etc.).
+- Start all services in detached mode.
+- Set up a local gateway with `ngrok` to expose the services to your frontend applications. The public URL will be printed in the console.
+
+### Running Individual Services
+
+While developing a specific service, you can run its build and test commands individually from its directory.
+
+- **Build:** `make build` - This command compiles the service to ensure it builds successfully but does not run it.
+- **Test:** `make ci` - This command runs the continuous integration pipeline for the service, which typically includes building the code, running database migrations, and executing integration tests within a clean Docker environment.
+
+Below are the paths for each service:
+
+| Service            | Path                              | Test Command | Build Command |
+| ------------------ | --------------------------------- | ------------ | ------------- |
+| **account-service**| `backend/services/account-service`| `make ci`    | `make build`    |
+| **auth-service**   | `backend/services/auth-service`   | `make ci`    | `make build`    |
+| **earnings-service**| `backend/services/earnings-service`| `make ci`    | `make build`    |
+| **interest-service**| `backend/services/interest-service`| `make ci`    | `make build`    |
+| **jobs-service**   | `backend/services/jobs-service`   | `make ci`    | `make build`    |
+| **meta-service**   | `backend/meta-service`            | `make ci`    | `make build`    |
+
+
+## 4.1. Testing Requirements
+
+For every new feature or bug fix in the backend services, you must add or update the corresponding unit and integration tests to ensure code quality and maintain system reliability.
+
+**Note**: We are only writing integration tests for now, but will be adding unit tests in the future.
+
+### Unit Tests
+
+Unit tests should be created for individual functions and methods, focusing on testing business logic in isolation.
+
+- **Location:** Place unit tests alongside the code being tested, following Go conventions (e.g., `service_test.go` for `service.go`)
+- **Running Unit Tests:** From any service directory, run:
+```bash
+go test ./...
+```
+- **Coverage:** Aim for comprehensive coverage of new functionality and edge cases
+
+**Note:** Do not write unit tests right now. We will be adding unit tests in the future.
+
+### Integration Tests
+
+Integration tests verify that different components work together correctly and are located in each service's `internal/integration/` directory.
+
+- **Location:** `backend/services/<service-name>/internal/integration/`
+- **Running Integration Tests:** Use the CI command which includes integration tests:
+```bash
+make ci
+```
+- **Requirements:** Integration tests must be updated when:
+- Adding new API endpoints
+- Modifying existing endpoint behavior
+- Changing database schemas or queries
+- Updating service interactions
+
+### Static Analysis (Go)
+
+For a faster feedback loop without running the full test suite, you can use static analysis to validate Go code. This is a great way to quickly check for compilation errors and other issues.
 
 1.  **Navigate to the service directory**:
     ```bash
     cd backend/services/<service-name>
     ```
-2.  **Add or Update Tests**: Your primary responsibility is to add or update integration tests in `internal/integration/` to match your code changes.
-
-3.  **Run the analyzer**: Run `staticcheck` with the `-tests` flag. This single command will analyze and validate your main application code and your test files, ensuring everything compiles and adheres to standards. It is the preferred tool.
+2.  **Run the analyzer**:
     ```bash
-    staticcheck -tests -tags="integration,dev_test" ./...
+    cd ... && staticcheck -tests -tags="integration,dev_test,dev" ./...
     ```
-    If `staticcheck` is not installed, you can use `go vet` as a fallback.
+    If `staticcheck` is not installed, you can use `go vet` as a fallback:
     ```bash
-    go vet -tags="integration,dev_test" ./...
+    cd ... && go vet -tags="integration,dev_test,dev" ./...
     ```
-4.  **You are strictly forbidden from running any compiled binaries or test executables.** The CI pipeline will handle test execution.
-
-### 1.2. Service Compilation (Optional)
-
-After your code and tests pass static analysis, you can optionally perform a compilation of the main service binary to be absolutely certain it builds. This is slower than static analysis and is not a required step.
-
-1.  Navigate to the service directory: `cd backend/services/<service-name>`
-2.  Run the build command:
-    ```bash
-    go build -ldflags="\
-    -linkmode external -extldflags '-lm' \
-    -X 'github.com/poofware/<service-name>/internal/config.AppName=<service-name>' \
-    -X 'github.com/poofware/<service-name>/internal/config.UniqueRunNumber=local-run' \
-    -X 'github.com/poofware/<service-name>/internal/config.UniqueRunnerID=local-dev' \
-    -X 'github.com/poofware/<service-name>/internal/config.LDServerContextKey=server' \
-    -X 'github.com/poofware/<service-name>/internal/config.LDServerContextKind=user'" \
-    -o <service-name> ./cmd/main.go
-    ```
-3.  **You are strictly forbidden from running the compiled service binary.**
 
 -----
 
-## 2. Database Migration Guidelines
+## 5. Frontend Development
 
-When working with database schema changes, you must follow these strict guidelines:
+Frontend applications connect to the backend stack running via the `meta-service`.
 
-### 2.1. Migration File Management
+### Worker App (Flutter)
 
-1. **Always modify the latest migration file** instead of creating new ones
-2. **Find the latest migration**: Look for the most recent timestamp in `backend/migrations/` directory
-3. **Modify in place**: Add your schema changes to the existing latest migration file
-4. **Rationale**: The latest migration represents the current development state and will be deployed to production
+The `worker-app` is a cross-platform mobile application for gig workers.
 
-### 2.2. Migration Workflow
+- **Path:** `frontend/apps/worker-app`
 
-1. **Locate the latest migration**:
-   ```bash
-   ls -la backend/migrations/ | tail -5
-   ```
-2. **Edit the latest `.sql` file** to include your schema changes
-3. **Update corresponding Go models** in the service's `internal/models/` directory
-4. **Add integration tests** that validate your schema changes work with the updated models
-5. **Run static analysis** as described in section 1.1 to validate your changes
+#### Setup
 
-### 2.3. Forbidden Actions
+1.  **Install Dependencies:** Before running the app, install the necessary Flutter and native dependencies:
+- For iOS: `make dependencies-ios`
+- For Android: `make dependencies-android`
 
-- **Never create new migration files** unless explicitly instructed
-- **Never run migration commands** or database setup commands
-- **Never attempt to connect to databases** - your changes will be validated by CI
+#### Running the App
 
------
+The `run` commands will automatically start the backend stack if it's not already running (`AUTO_LAUNCH_BACKEND=1` is the default).
 
-## 3. Frontend Development (Flutter/Dart)
+- **Run on Android:** `make run-android`
+- **Run on iOS:** `make run-ios`
 
-Your workflow for the Flutter application is focused exclusively on static analysis.
+#### Building and Running Tests
 
-### 3.1. Primary Workflow: Static Analysis
+- **Build (Android):** `make build-android`
+- **Test (Android):** `make ci-android`
+- **Build (iOS):** `make build-ios`
+- **Test (iOS):** `make ci-ios`
 
-This is the **only required validation step** for Dart code.
+### The Website (Web)
+
+This is the main public-facing website.
+
+- **Path:** `frontend/apps/the-website`
+- **Build:** `make build-web`
+- **Test:** `make ci-web`
+
+### 5.1. Testing Requirements
+
+For every new feature or bug fix in the frontend applications, you must add or update the corresponding API integration tests to ensure code quality and maintain system reliability. This is critical for maintaining a stable data layer and preventing regressions.
+
+#### API Integration Tests
+
+API integration tests verify that the frontend's data layer correctly interacts with the backend services.
+
+- **Location:** `frontend/apps/worker-app/integration_test/api`
+- **Running Integration Tests:**
+```bash
+# For Android
+make ci-android
+
+# For iOS
+make ci-ios
+```
+- **Requirements:** API integration tests must be created or updated whenever changes are made to the data layer of the application, including:
+- Adding new API service methods
+- Modifying existing API service method behavior
+- Changing the structure of data models that are sent to or received from the backend
+
+### Static Analysis (Flutter/Dart)
+
+For a faster feedback loop on Dart code, you can use the Flutter analyzer. This is a great way to quickly check for compilation errors, warnings, and style issues without running the full application.
 
 1.  **Navigate to the app directory**:
     ```bash
@@ -94,17 +257,41 @@ This is the **only required validation step** for Dart code.
     ```
 2.  **Run the analyzer**:
     ```bash
-    # Generate localization files first if you modify .arb files
-    flutter gen-l10n --verbose
+    # If you modify .arb files for localization, run this first:
+    cd ... && flutter gen-l10n --verbose
     
-    # Then run the analyzer
-    flutter analyze
+    # Then run the analyzer in a way that gaurantees you can capture the output even in escalated priveleges (outside sandbox) mode:
+    cd <path/to/flutter/project> && (flutter analyze 2>&1) | sed -n '1,400p'
     ```
-3.  **Address analyzer output**: Even if `flutter analyze` only shows informational messages, you must fix important suggestions such as deprecation warnings, performance issues, and code quality improvements.
-4.  **You are strictly forbidden from running any `make` commands (`run-*`, `build-*`, `ci-*`).** The `flutter analyze` command is your only validation task.
 
-### 3.2. Testing Requirements
+### Agent Requirements for Flutter Commands
 
-Your responsibility is to **add or update** API integration tests in `frontend/apps/worker-app/integration_test/api/` to reflect any changes made to the data layer (API clients, models).
+**Important for AI Agents:** Flutter commands (including `flutter analyze`, `flutter gen-l10n`, and any `make` commands that invoke Flutter) require privilege escalation.
 
-**You are strictly forbidden from running these tests.** The CI pipeline will handle execution. Your sole validation duty for all Dart code is `flutter analyze`.
+-----
+
+## 6. Full-Stack Workflow
+
+1.  **Start the Backend:** In a terminal, navigate to `backend/meta-service` and run `make up`. Note the ngrok URL that is output.
+2.  **Configure Frontend:** The frontend applications are configured to use the backend gateway URL provided during the build process. For local development, this is handled automatically by the Makefiles.
+3.  **Run the Frontend:** In a separate terminal, navigate to the desired frontend app directory (e.g., `frontend/apps/worker-app`) and run the corresponding `make run-[platform]` command. The app will connect to the local backend stack.
+4.  **Develop:** Make changes to your frontend or backend code. The Go services and Flutter app support hot-reloading for a fast development cycle.
+5.  **Testing:** Run the appropriate `make ci` command for the backend service or `make ci-[platform]` for the frontend app to execute tests and ensure everything is functioning correctly.
+
+-----
+
+## 7. Deployment
+
+Deployments are handled via GitHub Actions and target [Fly.io](https://fly.io).
+
+- **Staging:** The `staging` environment is deployed automatically from the `develop` branch for backend services and the `testflight`/`playstore` branches for mobile apps.
+- **Production:** The `prod` environment is deployed automatically from the `main` branch.
+
+The Makefiles in each service contain `deploy-[platform]` targets that are used by the CI/CD pipelines. Manual deployments are generally not required.
+
+-----
+
+## 8. CI/CD
+
+The repository is configured with GitHub Actions for continuous integration and deployment. Workflows are located in the `.github/workflows` directory. Pushes to `develop`, `main`, `testflight`, and `playstore` branches will trigger the respective build, test, and deployment pipelines.
+

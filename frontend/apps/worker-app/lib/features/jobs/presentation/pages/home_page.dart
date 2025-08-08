@@ -55,12 +55,20 @@ final filteredDefinitionsProvider = Provider<List<DefinitionGroup>>((ref) {
 
   final list = groupOpenJobs(jobsState.openJobs).where(matchesQuery).toList();
 
+  // Default sort: property, then building
+  list.sort((a, b) {
+    final propertyCompare = a.propertyName.compareTo(b.propertyName);
+    if (propertyCompare != 0) return propertyCompare;
+    return a.buildingSubtitle.compareTo(b.buildingSubtitle);
+  });
+
   switch (sortBy) {
     case 'pay':
       list.sort((a, b) => b.pay.compareTo(a.pay));
       break;
-    default:
+    case 'distance':
       list.sort((a, b) => a.distanceMiles.compareTo(b.distanceMiles));
+      break;
   }
   return list;
 });
@@ -145,6 +153,8 @@ class _HomePageState extends ConsumerState<HomePage>
   final ReceivePort _markerTapReceivePort = ReceivePort();
   // Timer for throttling marker updates
   Timer? _markerUpdateThrottleTimer;
+  // Warm-up subscription to keep a recent location cached by the OS
+  StreamSubscription<Position>? _positionWarmupSub;
 
   // ---- Tap-vs-Drag/Hold helpers for ripple effect ----
   static const _quickTapMax = Duration(milliseconds: 180);
@@ -197,6 +207,19 @@ class _HomePageState extends ConsumerState<HomePage>
       if (mounted) {
         setState(() => _mapStyle = style);
       }
+    });
+
+    // Start a lightweight location stream to keep the OS cache warm.
+    // This helps make on-demand fixes faster.
+    _positionWarmupSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.low,
+        distanceFilter: 50, // only when user moves meaningfully
+      ),
+    ).listen((_) {
+      // No-op: Allow OS to maintain a fresh last-known position.
+    }, onError: (_) {
+      // Ignore stream errors; on-demand fetch will handle errors.
     });
   }
 
@@ -273,6 +296,7 @@ class _HomePageState extends ConsumerState<HomePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _positionWarmupSub?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _sheetController.removeListener(_onSheetSizeChanged);
@@ -353,26 +377,51 @@ class _HomePageState extends ConsumerState<HomePage>
     if (useBoot) {
       camToSet = bootCam;
     } else if (permissionGranted) {
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 7),
-          ),
-        );
-        if (!mounted) return;
+      // Try last-known first for a fast snap
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
         camToSet = CameraPosition(
-          target: LatLng(pos.latitude, pos.longitude),
+          target: LatLng(lastKnown.latitude, lastKnown.longitude),
           zoom: kDefaultMapZoom,
         );
-      } catch (_) {
-        if (!mounted) return;
-        camToSet =
-            storedPersistedCam ??
-            const CameraPosition(
-              target: kGenericFallbackLatLng,
-              zoom: kGenericFallbackZoom,
+        // Kick off a background refine to a fresh fix
+        // (ignore result if it fails or times out)
+        unawaited(_refineLocationInBackground());
+      } else {
+        // Quick, balanced attempt first
+        try {
+          final posBalanced = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium,
+              timeLimit: Duration(seconds: 3),
+            ),
+          );
+          camToSet = CameraPosition(
+            target: LatLng(posBalanced.latitude, posBalanced.longitude),
+            zoom: kDefaultMapZoom,
+          );
+          // Optionally refine further (silent)
+          unawaited(_refineLocationInBackground());
+        } catch (_) {
+          try {
+            final posHigh = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.high,
+                timeLimit: Duration(seconds: 7),
+              ),
             );
+            camToSet = CameraPosition(
+              target: LatLng(posHigh.latitude, posHigh.longitude),
+              zoom: kDefaultMapZoom,
+            );
+          } catch (_) {
+            camToSet = storedPersistedCam ??
+                const CameraPosition(
+                  target: kGenericFallbackLatLng,
+                  zoom: kGenericFallbackZoom,
+                );
+          }
+        }
       }
     } else {
       if (!mounted) return;
@@ -429,6 +478,48 @@ class _HomePageState extends ConsumerState<HomePage>
     _lastCameraMove = camFromIdle;
   }
 
+  /// Attempts to get a fresher fix in the background and gently refines the camera.
+  Future<void> _refineLocationInBackground() async {
+    try {
+      // First, try balanced quickly
+      Position pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 3),
+        ),
+      );
+      if (!mounted) return;
+      final cam = CameraPosition(
+        target: LatLng(pos.latitude, pos.longitude),
+        zoom: _mapController != null
+            ? await _mapController!.getZoomLevel()
+            : kDefaultMapZoom,
+      );
+      _moveOrAnimateMapToPosition(cam, animate: true);
+      return;
+    } catch (_) {
+      // Fall through to high accuracy attempt
+    }
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 7),
+        ),
+      );
+      if (!mounted) return;
+      final cam = CameraPosition(
+        target: LatLng(pos.latitude, pos.longitude),
+        zoom: _mapController != null
+            ? await _mapController!.getZoomLevel()
+            : kDefaultMapZoom,
+      );
+      _moveOrAnimateMapToPosition(cam, animate: true);
+    } catch (_) {
+      // Ignore error; keep previous camera
+    }
+  }
+
   Future<void> _snapToUserLocation() async {
     if (!_locationPermissionOK || _isSnappingToLocation) return;
     if (!mounted) return;
@@ -438,19 +529,61 @@ class _HomePageState extends ConsumerState<HomePage>
     final BuildContext capturedContext = context;
 
     try {
-      final pos = await Geolocator.getCurrentPosition(
+      // 1) Try last-known for an instant snap
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        final zoom = _mapController != null
+            ? await _mapController!.getZoomLevel()
+            : kDefaultMapZoom;
+        final cam = CameraPosition(
+          target: LatLng(lastKnown.latitude, lastKnown.longitude),
+          zoom: zoom,
+        );
+        _moveOrAnimateMapToPosition(cam, animate: true);
+        if (mounted) setState(() => _isSnappingToLocation = false);
+        // 2) Refine silently in background
+        unawaited(_refineLocationInBackground());
+        return;
+      }
+
+      // 3) No last-known: quick balanced attempt
+      try {
+        final posBalanced = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+        final zoom = _mapController != null
+            ? await _mapController!.getZoomLevel()
+            : kDefaultMapZoom;
+        final cam = CameraPosition(
+          target: LatLng(posBalanced.latitude, posBalanced.longitude),
+          zoom: zoom,
+        );
+        _moveOrAnimateMapToPosition(cam, animate: true);
+        if (mounted) setState(() => _isSnappingToLocation = false);
+        // Optional refine silently
+        unawaited(_refineLocationInBackground());
+        return;
+      } catch (_) {
+        // Fall through to high accuracy below
+      }
+
+      // 4) High-accuracy fallback with modest timeout
+      final posHigh = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 7),
         ),
       );
-      if (!mounted) return;
-      final userLatLng = LatLng(pos.latitude, pos.longitude);
       final zoom = _mapController != null
           ? await _mapController!.getZoomLevel()
           : kDefaultMapZoom;
-      if (!mounted) return;
-      final cam = CameraPosition(target: userLatLng, zoom: zoom);
+      final cam = CameraPosition(
+        target: LatLng(posHigh.latitude, posHigh.longitude),
+        zoom: zoom,
+      );
       _moveOrAnimateMapToPosition(cam, animate: true);
     } catch (e) {
       if (!capturedContext.mounted) return;
@@ -786,8 +919,9 @@ class _HomePageState extends ConsumerState<HomePage>
             onPointerMove: (PointerMoveEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartPosition == null)
+                  _tapStartPosition == null) {
                 return;
+              }
 
               final travelled = (e.position - _tapStartPosition!).distance;
               if (travelled > kTouchSlop) {
@@ -797,8 +931,9 @@ class _HomePageState extends ConsumerState<HomePage>
             onPointerUp: (PointerUpEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartTime == null)
+                  _tapStartTime == null) {
                 return;
+              }
 
               final held = DateTime.now().difference(_tapStartTime!);
               if (held <= _quickTapMax) {

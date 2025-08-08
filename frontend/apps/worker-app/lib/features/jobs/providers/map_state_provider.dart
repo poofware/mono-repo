@@ -62,7 +62,7 @@ Map<String, Marker> rebuildAndCreateMarkersIsolate(RebuildMarkerArgs args) {
         markerId: MarkerId(d.definitionId),
         position: _markerPositionIsolateHelper(d.instances.first),
         icon: isSelected ? _markerSelectedIcon : _markerDefaultIcon,
-        zIndex: isSelected ? 1.0 : 0.0,
+        zIndexInt: isSelected ? 1: 0,
         consumeTapEvents: true,
         onTap: () {
           if (mainIsolatePort != null) {
@@ -116,10 +116,10 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
 
     if (previousSelectedId != null && newCacheState.containsKey(previousSelectedId)) {
       final oldMarker = newCacheState[previousSelectedId]!;
-      if (oldMarker.icon != _markerDefaultIcon || oldMarker.zIndex != 0.0) {
+      if (oldMarker.icon != _markerDefaultIcon || oldMarker.zIndexInt != 0.0) {
         newCacheState[previousSelectedId] = oldMarker.copyWith(
           iconParam: _markerDefaultIcon,
-          zIndexParam: 0.0,
+          zIndexIntParam: 0,
         );
         changed = true;
       }
@@ -127,10 +127,10 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
 
     if (newSelectedId != null && newCacheState.containsKey(newSelectedId)) {
        final oldMarker = newCacheState[newSelectedId]!;
-       if (oldMarker.icon != _markerSelectedIcon || oldMarker.zIndex != 1.0) {
+       if (oldMarker.icon != _markerSelectedIcon || oldMarker.zIndexInt != 1.0) {
         newCacheState[newSelectedId] = oldMarker.copyWith(
           iconParam: _markerSelectedIcon,
-          zIndexParam: 1.0,
+          zIndexIntParam: 1,
         );
         changed = true;
       }

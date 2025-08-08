@@ -26,7 +26,7 @@ import 'package:poof_worker/features/jobs/presentation/pages/home_page.dart'
 import 'package:poof_worker/features/jobs/utils/job_photo_persistence.dart';
 import 'package:poof_worker/features/account/data/models/worker.dart';
 import 'package:poof_worker/core/presentation/widgets/global_error_listener.dart';
-import 'package:poof_flutter_auth/src/utils/auth_logger.dart';
+import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/presentation/widgets/global_debug_listener.dart';
 import 'package:poof_worker/core/utils/fresh_install_manager.dart';
 
@@ -279,9 +279,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
             ),
           );
         },
-        themeMode: ref.watch(settingsStateNotifierProvider).themeMode,
+        themeMode: ThemeMode.light,
         theme: _buildTheme(Brightness.light),
-        darkTheme: _buildTheme(Brightness.dark),
       ),
     );
   }
@@ -352,4 +351,3 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     );
   }
 }
-

@@ -148,31 +148,33 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       ),
     );
 
-    if (confirmed != true) return;
-    if (!context.mounted) return;
-    showDialog<void>(
-      context: context, // ignore: use_build_context_synchronously
-      barrierDismissible: false,
-      builder: (_) => const _CancelingDialogWidget(),
-    );
+    if (confirmed != true) {
+      return;
+    }
 
-    final wasSuccess = await ref
-        .read(jobsNotifierProvider.notifier)
-        .cancelJob(widget.job.instanceId);
+    if (mounted) {
+      final navigator = Navigator.of(context);
+      final router = GoRouter.of(context);
 
-    if (!context.mounted) return;
-    final navigator = Navigator.of(
-      context,
-    ); // ignore: use_build_context_synchronously
-    final router = GoRouter.of(
-      context,
-    ); // ignore: use_build_context_synchronously
-    navigator.pop(); // close the loading dialog
-    if (wasSuccess) {
-      if (navigator.canPop()) {
-        navigator.pop();
-      } else {
-        router.goNamed(AppRouteNames.mainTab);
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const _CancelingDialogWidget(),
+      );
+
+      final wasSuccess = await ref
+          .read(jobsNotifierProvider.notifier)
+          .cancelJob(widget.job.instanceId);
+
+      if (mounted) {
+        navigator.pop(); // close the loading dialog
+        if (wasSuccess) {
+          if (navigator.canPop()) {
+            navigator.pop();
+          } else {
+            router.goNamed(AppRouteNames.mainTab);
+          }
+        }
       }
     }
   }
@@ -384,10 +386,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     if (success && mounted) {
       final job = ref.read(jobsNotifierProvider).inProgressJob;
       if (job == null) {
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.goNamed(AppRouteNames.mainTab);
+        if (mounted) {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.goNamed(AppRouteNames.mainTab);
+          }
         }
       }
     }

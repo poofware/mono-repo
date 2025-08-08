@@ -33,7 +33,6 @@ import 'package:poof_worker/features/account/presentation/pages/stripe_connect_n
 import 'package:poof_worker/features/account/presentation/pages/stripe_idv_page.dart';
 import 'package:poof_worker/features/account/presentation/pages/stripe_idv_in_progress_page.dart';
 import 'package:poof_worker/features/account/presentation/pages/stripe_idv_not_complete_page.dart';
-import 'package:poof_worker/features/account/presentation/pages/settings_page.dart';
 import 'package:poof_worker/features/account/presentation/pages/my_profile_page.dart';
 
 // Jobs
@@ -86,7 +85,6 @@ class AppRouteNames {
   static const String jobInProgressPage = 'JobInProgressPage';
   static const String earningsPage = 'EarningsPage';
   static const String weekEarningsDetailPage = 'WeekEarningsDetailPage';
-  static const String settingsPage = 'SettingsPage';
   static const String myProfilePage = 'MyProfilePage';
   static const String signingOutPage = 'SigningOutPage';
   static const String sessionExpiredPage = 'SessionExpiredPage';
@@ -322,11 +320,6 @@ final List<AppRoute> _appRoutes = [
         final week = state.extra as WeeklyEarnings;
         return WeekEarningsDetailPage(week: week);
       }),
-  AppRoute(
-      access: RouteAccess.protected,
-      path: '/settings',
-      name: AppRouteNames.settingsPage,
-      builder: (_, _) => const SettingsPage()),
   AppRoute(
       access: RouteAccess.protected,
       path: '/my_profile',

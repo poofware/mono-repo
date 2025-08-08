@@ -11,8 +11,9 @@ import 'job_accept_sheet.dart';
 /// Info items in a single row, symmetrically spaced.
 class CarouselDefinitionCard extends StatelessWidget {
   final DefinitionGroup definition;
+  final VoidCallback? onTap;
 
-  const CarouselDefinitionCard({super.key, required this.definition});
+  const CarouselDefinitionCard({super.key, required this.definition, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -24,9 +25,15 @@ class CarouselDefinitionCard extends StatelessWidget {
         definition.instances.isNotEmpty ? definition.instances.first : null;
     final bool hasBuildingInfo = definition.instances.isNotEmpty &&
         definition.instances.any((inst) => inst.numberOfBuildings > 0);
+    final bool isSingleBuilding = definition.instances.isNotEmpty &&
+        definition.instances.every((inst) => inst.numberOfBuildings == 1);
 
     return InkWell(
       onTap: () {
+        if (onTap != null) {
+          onTap!();
+          return;
+        }
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
@@ -34,11 +41,8 @@ class CarouselDefinitionCard extends StatelessWidget {
           backgroundColor: Colors.transparent,
           barrierColor: Colors.black.withValues(alpha: 0.0),
           builder: (BuildContext context) {
-            // By wrapping the sheet in its own Scaffold, ScaffoldMessenger.of(context)
-            // inside the sheet will find this Scaffold first, and the SnackBar will
-            // appear correctly on top of the sheet.
             return Scaffold(
-              backgroundColor: Colors.transparent, // Keeps the modal transparent look
+              backgroundColor: Colors.transparent,
               body: Align(
                 alignment: Alignment.bottomCenter,
                 child: JobAcceptSheet(definition: definition),
@@ -86,7 +90,6 @@ class CarouselDefinitionCard extends StatelessWidget {
                                 definition.buildingSubtitle,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  fontStyle: FontStyle.italic,
                                   color: Colors.grey.shade600,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -139,17 +142,18 @@ class CarouselDefinitionCard extends StatelessWidget {
                           ),
                         ),
 
-                        // Second cell: BuildingInfo (centered) or empty if none
+                        // Second cell: BuildingInfo or FloorInfo (centered)
                         SizedBox(
                           width: cellWidth,
-                          child: hasBuildingInfo
-                              ? Align(
-                                  alignment: Alignment.center,
-                                  child: BuildingInfo(
-                                    instances: definition.instances,
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: isSingleBuilding
+                                ? FloorInfo(instances: definition.instances)
+                                : hasBuildingInfo
+                                    ? BuildingInfo(
+                                        instances: definition.instances)
+                                    : const SizedBox.shrink(),
+                          ),
                         ),
 
                         // Third cell: DriveTimeInfo (right-aligned)

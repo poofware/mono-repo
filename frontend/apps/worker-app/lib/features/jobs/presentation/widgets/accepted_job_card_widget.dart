@@ -54,7 +54,6 @@ class AcceptedJobCard extends StatelessWidget {
                               job.buildingSubtitle,
                               style: TextStyle(
                                 fontSize: 14,
-                                fontStyle: FontStyle.italic,
                                 color: Colors.grey.shade700,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -107,14 +106,14 @@ class AcceptedJobCard extends StatelessWidget {
                         ),
                       ),
 
-                      // 2nd cell: BuildingInfo (centered)
+                      // 2nd cell: BuildingInfo or FloorInfo (centered)
                       SizedBox(
                         width: cellWidth,
                         child: Align(
                           alignment: Alignment.center,
-                          child: BuildingInfo(
-                            instances: [job],
-                          ),
+                          child: (job.numberOfBuildings == 1)
+                              ? FloorInfo(instances: [job])
+                              : BuildingInfo(instances: [job]),
                         ),
                       ),
 
