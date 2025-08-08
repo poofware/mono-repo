@@ -22,6 +22,8 @@ const (
 	// A worker cannot accept a job if it's within 20 minutes of the no-show cutoff time.
 	AcceptanceCutoffBeforeNoShow = 20 * time.Minute
 	OnCallEscalationBeforeLatest = 20 * time.Minute
+	Warning90MinBeforeLatestStart = 90 * time.Minute
+	Warning40MinBeforeLatestStart = 40 * time.Minute
 )
 
 // Worker Penalty Tiers (negative values)
@@ -54,8 +56,8 @@ const (
 const (
 	SurgeWindowStage1 = 6 * time.Hour    // T-6h -> T-3h
 	SurgeWindowStage2 = 3 * time.Hour    // T-3h -> T-90m
-	SurgeWindowStage3 = 90 * time.Minute // T-90m -> T-30m
-	SurgeWindowStage4 = 30 * time.Minute // T-30m -> no-show time
+	SurgeWindowStage3 = 90 * time.Minute // T-90m -> T-45m
+	SurgeWindowStage4 = 45 * time.Minute // T-45m -> no-show time (SURGE STOPS HERE)
 )
 
 // Common concurrency conflict / row-version conflict messages

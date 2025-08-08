@@ -386,3 +386,86 @@ func NotifyOnCallAgents(
 		utils.Logger.Warn("SendGrid client is nil, skipping internal team notification.")
 	}
 }
+
+func NotifyInternalTeamOnly(
+	ctx context.Context,
+	prop *models.Property,
+	def *models.JobDefinition,
+	inst *models.JobInstance,
+	messageTitle string,
+	messageBody string,
+	bldgRepo repositories.PropertyBuildingRepository,
+	unitRepo repositories.UnitRepository,
+	sgClient *sendgrid.Client,
+	fromEmail string,
+	orgName string,
+	sendgridSandbox bool,
+) {
+	if sgClient == nil {
+		utils.Logger.Warn("SendGrid client is nil, skipping internal team notification.")
+		return
+	}
+
+	propertyName := "(Unknown Property)"
+	propertyAddress := "(Unknown Address)"
+	if prop != nil {
+		if prop.PropertyName != "" {
+			propertyName = prop.PropertyName
+		}
+		propertyAddress = fmt.Sprintf("%s, %s, %s %s", prop.Address, prop.City, prop.State, prop.ZipCode)
+	}
+	teamSubject := fmt.Sprintf("[Internal Alert] %s", messageTitle)
+
+	var buildingsAndUnits strings.Builder
+	var buildingsAndUnitsPlainText strings.Builder
+	for _, group := range def.AssignedUnitsByBuilding {
+		bldg, err := bldgRepo.GetByID(ctx, group.BuildingID)
+		if err != nil || bldg == nil {
+			buildingsAndUnits.WriteString(fmt.Sprintf("<li>Building (ID: %s): %d units</li>", group.BuildingID, len(group.UnitIDs)))
+			buildingsAndUnitsPlainText.WriteString(fmt.Sprintf("\n- Building (ID: %s): %d units", group.BuildingID, len(group.UnitIDs)))
+			continue
+		}
+
+		var unitNumbers []string
+		for _, unitID := range group.UnitIDs {
+			unit, err := unitRepo.GetByID(ctx, unitID)
+			if err == nil && unit != nil {
+				unitNumbers = append(unitNumbers, unit.UnitNumber)
+			}
+		}
+		sort.Strings(unitNumbers)
+
+		buildingsAndUnits.WriteString(fmt.Sprintf("<li><strong>%s:</strong> %s</li>", bldg.BuildingName, strings.Join(unitNumbers, ", ")))
+		buildingsAndUnitsPlainText.WriteString(fmt.Sprintf("\n- %s: %s", bldg.BuildingName, strings.Join(unitNumbers, ", ")))
+	}
+
+	teamEmail := "team@thepoofapp.com"
+	teamPlainText := fmt.Sprintf(
+		"An automated alert was triggered.\n\nTitle: %s\nProperty: %s\nAddress: %s\nDefinition ID: %s\nDetails: %s\nUnits:%s",
+		messageTitle, propertyName, propertyAddress, def.ID.String(), messageBody, buildingsAndUnitsPlainText.String(),
+	)
+	teamHtmlBody := fmt.Sprintf(
+		teamNotificationEmailHTML,
+		teamSubject,
+		propertyName,
+		propertyAddress,
+		def.ID.String(),
+		messageBody,
+		buildingsAndUnits.String(),
+		time.Now().UTC().Format(time.RFC1123Z),
+	)
+
+	from := mail.NewEmail(fmt.Sprintf("%s Bot", orgName), fromEmail)
+	to := mail.NewEmail("Poof Operations Team", teamEmail)
+	msg := mail.NewSingleEmail(from, teamSubject, to, teamPlainText, teamHtmlBody)
+	if sendgridSandbox {
+		ms := mail.NewMailSettings()
+		ms.SetSandboxMode(mail.NewSetting(true))
+		msg.MailSettings = ms
+	}
+	if _, sgErr := sgClient.Send(msg); sgErr != nil {
+		utils.Logger.WithError(sgErr).Errorf("Failed to send internal team notification to %s", teamEmail)
+	} else {
+		utils.Logger.Infof("Successfully sent internal team notification to %s for event: %s", teamEmail, messageTitle)
+	}
+}

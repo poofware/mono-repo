@@ -114,6 +114,25 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 			}
 		}
 
+		// If the job is still open, check for 90- and 40-minute warnings.
+		if inst.Status == models.InstanceStatusOpen {
+			// Check for 90-minute warning (internal team only)
+			warning90MinCutoff := lStart.Add(-constants.Warning90MinBeforeLatestStart)
+			if nowUTC.After(warning90MinCutoff) && inst.Warning90MinSentAt == nil {
+				msgBody := fmt.Sprintf("This job at %s is unassigned and is approaching its latest start time of %s.", prop.PropertyName, lStart.Format("3:04 PM MST"))
+				s.notifyInternalTeam(ctx, defn, inst, "[Warning] Unassigned Job (90 Min)", msgBody)
+				s.jobInstRepo.SetWarning90MinSent(ctx, inst.ID)
+			}
+
+			// Check for 40-minute warning (all-call)
+			warning40MinCutoff := lStart.Add(-constants.Warning40MinBeforeLatestStart)
+			if nowUTC.After(warning40MinCutoff) && inst.Warning40MinSentAt == nil {
+				msgBody := fmt.Sprintf("This job at %s is unassigned and is approaching its latest start time of %s. This is the final warning.", prop.PropertyName, lStart.Format("3:04 PM MST"))
+				s.notifyOnCallStaff(ctx, defn, inst, "[Urgent] Unassigned Job (40 Min)", msgBody)
+				s.jobInstRepo.SetWarning40MinSent(ctx, inst.ID)
+			}
+		}
+
 		// Cancel any job whose latest start time has passed
 		if (inst.Status == models.InstanceStatusOpen || inst.Status == models.InstanceStatusAssigned) && nowUTC.After(lStart) {
 			rowVersion := inst.RowVersion
@@ -128,7 +147,7 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 			}
 			// MODIFIED: More descriptive message body.
 			msgBody := fmt.Sprintf("This job at %s exceeded its latest start time of %s and has been automatically canceled.", prop.PropertyName, lStart.Format("3:04 PM MST"))
-			s.notifyOnCallStaff(ctx, defn, inst, "Job Auto-Canceled After Expiry", msgBody)
+			s.notifyInternalTeam(ctx, defn, inst, "Job Auto-Canceled After Expiry", msgBody)
 		}
 	}
 	return nil
@@ -223,6 +242,34 @@ func (s *JobEscalationService) notifyOnCallStaff(
 		s.twilioClient,
 		s.sendgridClient,
 		s.cfg.LDFlag_TwilioFromPhone,
+		s.cfg.LDFlag_SendgridFromEmail,
+		s.cfg.OrganizationName,
+		s.cfg.LDFlag_SendgridSandboxMode,
+	)
+}
+
+func (s *JobEscalationService) notifyInternalTeam(
+	ctx context.Context,
+	defn *models.JobDefinition,
+	inst *models.JobInstance,
+	title string,
+	msgBody string,
+) {
+	prop, err := s.propRepo.GetByID(ctx, defn.PropertyID)
+	if err != nil || prop == nil {
+		utils.Logger.WithError(err).Warn("notifyInternalTeam: property not found or nil")
+	}
+
+	NotifyInternalTeamOnly(
+		ctx,
+		prop,
+		defn,
+		inst,
+		title,
+		msgBody,
+		s.bldgRepo,
+		s.unitRepo,
+		s.sendgridClient,
 		s.cfg.LDFlag_SendgridFromEmail,
 		s.cfg.OrganizationName,
 		s.cfg.LDFlag_SendgridSandboxMode,

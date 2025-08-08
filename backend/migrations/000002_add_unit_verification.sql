@@ -39,6 +39,10 @@ ADD COLUMN on_waitlist BOOLEAN NOT NULL DEFAULT FALSE,
 ADD COLUMN waitlisted_at TIMESTAMPTZ NULL,
 ADD COLUMN waitlist_reason WAITLIST_REASON_TYPE NULL;
 
+ALTER TABLE job_instances
+ADD COLUMN warning_90_min_sent_at TIMESTAMPTZ,
+ADD COLUMN warning_40_min_sent_at TIMESTAMPTZ;
+
 CREATE TABLE pending_worker_deletions (
     token TEXT PRIMARY KEY,
     worker_id UUID NOT NULL REFERENCES workers (id) ON DELETE CASCADE,
@@ -63,6 +67,10 @@ ALTER TABLE workers
 DROP COLUMN on_waitlist,
 DROP COLUMN waitlisted_at,
 DROP COLUMN waitlist_reason;
+
+ALTER TABLE job_instances
+DROP COLUMN warning_90_min_sent_at,
+DROP COLUMN warning_40_min_sent_at;
 
 DROP TABLE IF EXISTS job_unit_verifications;
 DROP TYPE IF EXISTS UNIT_VERIFICATION_STATUS;

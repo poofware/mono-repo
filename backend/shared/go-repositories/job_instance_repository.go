@@ -45,6 +45,8 @@ type JobInstanceRepository interface {
 	DeleteFutureOpenInstances(ctx context.Context, defID uuid.UUID, today time.Time) error
 
 	AddExcludedWorker(ctx context.Context, instanceID uuid.UUID, workerID uuid.UUID) error
+	SetWarning90MinSent(ctx context.Context, instanceID uuid.UUID) error
+	SetWarning40MinSent(ctx context.Context, instanceID uuid.UUID) error
 }
 
 type jobInstanceRepo struct {
@@ -673,5 +675,25 @@ func (r *jobInstanceRepo) AddExcludedWorker(ctx context.Context, instanceID uuid
             updated_at=NOW()
         WHERE id=$2
     `, workerID, instanceID)
+	return err
+}
+
+func (r *jobInstanceRepo) SetWarning90MinSent(ctx context.Context, instanceID uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `
+        UPDATE job_instances
+        SET warning_90_min_sent_at=NOW(),
+            updated_at=NOW()
+        WHERE id=$1
+    `, instanceID)
+	return err
+}
+
+func (r *jobInstanceRepo) SetWarning40MinSent(ctx context.Context, instanceID uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `
+        UPDATE job_instances
+        SET warning_40_min_sent_at=NOW(),
+            updated_at=NOW()
+        WHERE id=$1
+    `, instanceID)
 	return err
 }

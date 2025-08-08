@@ -460,21 +460,16 @@ func (s *JobService) CancelJobInstance(
 		lStart.Format("3:04 PM MST"),
 	)
 	// MODIFIED: Corrected the function call to match the updated signature.
-	NotifyOnCallAgents(
+	NotifyInternalTeamOnly(
 		ctx,
-		s.cfg.AppUrl,
 		prop,
 		defn,
 		cancelled,
 		"[Alert] Worker Canceled In-Progress Job (Late)",
 		messageBody,
-		s.agentRepo,
-		s.agentJobCompletionRepo,
 		s.bldgRepo,
 		s.unitRepo,
-		s.twilioClient,
 		s.sendgridClient,
-		s.cfg.LDFlag_TwilioFromPhone,
 		s.cfg.LDFlag_SendgridFromEmail,
 		s.cfg.OrganizationName,
 		s.cfg.LDFlag_SendgridSandboxMode,

@@ -38,6 +38,8 @@ type JobInstance struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	CompletedByAgentID *uuid.UUID `json:"completed_by_agent_id,omitempty"`
+	Warning90MinSentAt *time.Time `json:"warning_90_min_sent_at,omitempty"`
+	Warning40MinSentAt *time.Time `json:"warning_40_min_sent_at,omitempty"`
 }
 
 func (ji *JobInstance) GetID() string {
