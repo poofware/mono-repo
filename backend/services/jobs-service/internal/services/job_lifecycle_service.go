@@ -584,8 +584,7 @@ func (s *JobService) UnacceptJobInstance(
 				NotifyOnCallAgents(
 					ctx, s.cfg.AppUrl, prop, defn, inst, "[Escalation] Worker Unassigned Late", messageBody,
 					s.agentRepo, s.agentJobCompletionRepo, s.bldgRepo, s.unitRepo, s.twilioClient, s.sendgridClient,
-					s.cfg.LDFlag_TwilioFromPhone, s.cfg.LDFlag_SendgridFromEmail,
-					s.cfg.OrganizationName, s.cfg.LDFlag_SendgridSandboxMode,
+					s.cfg,
 				)
 
 				dto, _ := s.buildInstanceDTO(ctx, updatedInst, nil, nil, nil, nil, nil, nil, nil)

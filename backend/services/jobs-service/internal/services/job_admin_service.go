@@ -423,10 +423,7 @@ func (s *JobService) CancelJobInstance(
 			s.unitRepo,
 			s.twilioClient,
 			s.sendgridClient,
-			s.cfg.LDFlag_TwilioFromPhone,
-			s.cfg.LDFlag_SendgridFromEmail,
-			s.cfg.OrganizationName,
-			s.cfg.LDFlag_SendgridSandboxMode,
+			s.cfg,
 		)
 
 		dto, _ := s.buildInstanceDTO(ctx, rev, nil, nil, nil, nil, nil, nil, nil)
@@ -470,9 +467,7 @@ func (s *JobService) CancelJobInstance(
 		s.bldgRepo,
 		s.unitRepo,
 		s.sendgridClient,
-		s.cfg.LDFlag_SendgridFromEmail,
-		s.cfg.OrganizationName,
-		s.cfg.LDFlag_SendgridSandboxMode,
+		s.cfg,
 	)
 
 	dto, _ := s.buildInstanceDTO(ctx, cancelled, nil, nil, nil, nil, nil, nil, nil)

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/poofware/mono-repo/backend/shared/go-repositories"
@@ -178,8 +179,7 @@ func ContainsUUID(list []uuid.UUID, val uuid.UUID) bool {
 // `t` is a time.Time where only the Hour, Minute, and Second are relevant.
 func CombineDateTime(d time.Time, t time.Time) time.Time {
 	if t.IsZero() {
-		return time.Time{}
-	}
+		return time.Time{}}
 	return time.Date(d.Year(), d.Month(), d.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
 }
 
@@ -198,11 +198,16 @@ func NotifyOnCallAgents(
 	unitRepo repositories.UnitRepository,
 	twClient *twilio.RestClient,
 	sgClient *sendgrid.Client,
-	fromPhone string,
-	fromEmail string,
-	orgName string,
-	sendgridSandbox bool,
+	cfg *config.Config,
 ) {
+	if !cfg.LDFlag_NotifyJobStatuses {
+		utils.Logger.Info("NotifyOnCallAgents skipped due to feature flag.")
+		return
+	}
+	fromPhone := cfg.LDFlag_TwilioFromPhone
+	fromEmail := cfg.LDFlag_SendgridFromEmail
+	orgName := cfg.OrganizationName
+	sendgridSandbox := cfg.LDFlag_SendgridSandboxMode
 	// 1) Fetch ALL on-call reps and filter by proximity in-memory.
 	// This removes the dependency on the earthdistance PG extension.
 	allReps, err := agentRepo.ListAll(ctx)
@@ -397,14 +402,20 @@ func NotifyInternalTeamOnly(
 	bldgRepo repositories.PropertyBuildingRepository,
 	unitRepo repositories.UnitRepository,
 	sgClient *sendgrid.Client,
-	fromEmail string,
-	orgName string,
-	sendgridSandbox bool,
+	cfg *config.Config,
 ) {
+	if !cfg.LDFlag_NotifyJobStatuses {
+		utils.Logger.Info("NotifyInternalTeamOnly skipped due to feature flag.")
+		return
+	}
 	if sgClient == nil {
 		utils.Logger.Warn("SendGrid client is nil, skipping internal team notification.")
 		return
 	}
+
+	fromEmail := cfg.LDFlag_SendgridFromEmail
+	orgName := cfg.OrganizationName
+	sendgridSandbox := cfg.LDFlag_SendgridSandboxMode
 
 	propertyName := "(Unknown Property)"
 	propertyAddress := "(Unknown Address)"

@@ -168,6 +168,23 @@ make ci
 - Changing database schemas or queries
 - Updating service interactions
 
+### Static Analysis (Go)
+
+For a faster feedback loop without running the full test suite, you can use static analysis to validate Go code. This is a great way to quickly check for compilation errors and other issues.
+
+1.  **Navigate to the service directory**:
+    ```bash
+    cd backend/services/<service-name>
+    ```
+2.  **Run the analyzer**:
+    ```bash
+    staticcheck -tests -tags="integration,dev_test,dev" ./...
+    ```
+    If `staticcheck` is not installed, you can use `go vet` as a fallback:
+    ```bash
+    go vet -tags="integration,dev_test,dev" ./...
+    ```
+
 -----
 
 ## 5. Frontend Development
@@ -229,6 +246,23 @@ make ci-ios
 - Adding new API service methods
 - Modifying existing API service method behavior
 - Changing the structure of data models that are sent to or received from the backend
+
+### Static Analysis (Flutter/Dart)
+
+For a faster feedback loop on Dart code, you can use the Flutter analyzer. This is a great way to quickly check for compilation errors, warnings, and style issues without running the full application.
+
+1.  **Navigate to the app directory**:
+    ```bash
+    cd frontend/apps/worker-app
+    ```
+2.  **Run the analyzer**:
+    ```bash
+    # If you modify .arb files for localization, run this first:
+    flutter gen-l10n --verbose
+    
+    # Then run the analyzer
+    flutter analyze
+    ```
 
 -----
 

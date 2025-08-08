@@ -241,10 +241,7 @@ func (s *JobEscalationService) notifyOnCallStaff(
 		s.unitRepo,
 		s.twilioClient,
 		s.sendgridClient,
-		s.cfg.LDFlag_TwilioFromPhone,
-		s.cfg.LDFlag_SendgridFromEmail,
-		s.cfg.OrganizationName,
-		s.cfg.LDFlag_SendgridSandboxMode,
+		s.cfg,
 	)
 }
 
@@ -270,8 +267,6 @@ func (s *JobEscalationService) notifyInternalTeam(
 		s.bldgRepo,
 		s.unitRepo,
 		s.sendgridClient,
-		s.cfg.LDFlag_SendgridFromEmail,
-		s.cfg.OrganizationName,
-		s.cfg.LDFlag_SendgridSandboxMode,
+		s.cfg,
 	)
 }

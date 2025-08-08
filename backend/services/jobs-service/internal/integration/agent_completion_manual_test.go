@@ -73,28 +73,39 @@ func TestManualAgentFlows(t *testing.T) {
 	reader := bufio.NewReader(os.Stdin)
 	_, _ = reader.ReadString('\n')
 
-	// MODIFIED: Call the notification function with the updated signature, including bldgRepo and unitRepo.
-	t.Log("User initiated notification. Calling NotifyOnCallAgents...")
-	services.NotifyOnCallAgents(
-		ctx,
-		cfg.AppUrl,
-		prop,
-		defn,
-		inst,
-		"[Test Escalation] Unassigned Job",
-		"A test job is unassigned and requires attention.",
-		h.AgentRepo,
-		h.AgentJobCompletionRepo,
-		h.BldgRepo,
-		h.UnitRepo,
-		h.TwilioClient,
-		h.SendGridClient,
-		cfg.LDFlag_TwilioFromPhone,
-		cfg.LDFlag_SendgridFromEmail,
-		cfg.OrganizationName,
-		cfg.LDFlag_SendgridSandboxMode,
-	)
-	t.Log("NotifyOnCallAgents function executed.")
+	// MODIFIED: Conditionally send notification or manually create token based on feature flag.
+	if cfg.LDFlag_NotifyJobStatuses {
+		t.Log("LDFlag_NotifyJobStatuses is TRUE. Calling NotifyOnCallAgents to send real notification...")
+		services.NotifyOnCallAgents(
+			ctx,
+			cfg.AppUrl,
+			prop,
+			defn,
+			inst,
+			"[Test Escalation] Unassigned Job",
+			"A test job is unassigned and requires attention.",
+			h.AgentRepo,
+			h.AgentJobCompletionRepo,
+			h.BldgRepo,
+			h.UnitRepo,
+			h.TwilioClient,
+			h.SendGridClient,
+			cfg,
+		)
+		t.Log("NotifyOnCallAgents function executed.")
+	} else {
+		t.Log("LDFlag_NotifyJobStatuses is FALSE. Manually creating agent completion record...")
+		completionRecord := &models.AgentJobCompletion{
+			ID:            uuid.New(),
+			JobInstanceID: inst.ID,
+			AgentID:       agent.ID,
+			Token:         uuid.NewString(),
+			ExpiresAt:     time.Now().Add(24 * time.Hour),
+		}
+		err := h.AgentJobCompletionRepo.Create(ctx, completionRecord)
+		require.NoError(t, err, "Failed to manually create agent job completion record")
+		t.Log("Manual agent completion record created.")
+	}
 
 	// --- 3. Retrieve the token that was just generated and sent ---
 	var token string
