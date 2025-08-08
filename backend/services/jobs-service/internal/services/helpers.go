@@ -28,28 +28,26 @@ const internalEscalationEmailHTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <title>Job Escalation Alert</title>
 <style>
-  body { font-family: -apple-system, 
-BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #fcf8e3;
- color: #8a6d3b; margin: 0; padding: 20px; }
-  .container { max-width: 600px; margin: auto; background: #fff; border: 1px solid #faebcc; border-radius: 8px; }
-  .header { background-color: #fcf8e3; padding: 15px 20px; border-bottom: 1px solid #faebcc; }
-  .header h1 { margin: 0;
- font-size: 20px; color: #8a6d3b; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f3f4f6; color: #1f2937; margin: 0; padding: 20px; }
+  .container { max-width: 600px; margin: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+  .header { background-color: #dbeafe; padding: 20px; border-bottom: 1px solid #bfdbfe; text-align: center; }
+  .header h1 { margin: 0; font-size: 24px; color: #1e40af; }
   .content { padding: 20px; }
-  .content p { margin-top: 0; }
-  ul { list-style: none; padding: 0; }
-  li { padding: 8px; border-bottom: 1px solid #eee; }
+  .content p { margin-top: 0; line-height: 1.6; }
+  ul { list-style: none; padding: 0; margin: 20px 0; }
+  li { padding: 10px; border-bottom: 1px solid #eee; }
   li:last-child { border-bottom: none; }
    strong { color: #333; }
-  .button-container { text-align: center; margin: 20px 0; }
+  .button-container { text-align: center; margin: 30px 0; }
   .button {
-    background-color: #337ab7;
+    background-color: #743ee4;
     color: white !important;
-    padding: 12px 25px;
+    padding: 15px 30px;
     text-decoration: none;
-    border-radius: 5px;
+    border-radius: 8px;
     font-weight: bold;
     display: inline-block;
+    font-size: 16px;
   }
 </style>
 </head>
@@ -91,7 +89,7 @@ const teamNotificationEmailHTML = `<!DOCTYPE html>
   .header h1 { margin: 0; font-size: 20px; color: #1e40af; }
   .content { padding: 20px; }
   .content p { margin-top: 0; }
-  ul { list-style: 
+  ul { list-style:
  none; padding: 0; }
   li { padding: 8px; border-bottom: 1px solid #eee; }
   li:last-child { border-bottom: none; }
@@ -100,7 +98,7 @@ const teamNotificationEmailHTML = `<!DOCTYPE html>
 </head>
 <body>
   <div class="container">
-  
+
   <div class="header">
       <h1>%s</h1>
     </div>
@@ -111,7 +109,8 @@ const teamNotificationEmailHTML = `<!DOCTYPE html>
         <li><strong>Address:</strong> %s</li>
          <li><strong>Definition ID:</strong> %s</li>
         <li><strong>Alert Details:</strong> %s</li>
-        <li><strong>Buildings & Units:</strong><ul>%s</ul></li>
+
+      <li><strong>Buildings & Units:</strong><ul>%s</ul></li>
         <li><strong>Timestamp (UTC):</strong> %s</li>
       </ul>
     </div>
