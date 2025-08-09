@@ -290,3 +290,43 @@ The Makefiles in each service contain `deploy-[platform]` targets that are used 
 ## 8. CI/CD
 
 The repository is configured with GitHub Actions for continuous integration and deployment. Workflows are located in the `.github/workflows` directory. Pushes to `develop`, `main`, `testflight`, and `playstore` branches will trigger the respective build, test, and deployment pipelines.
+
+-----
+
+## 9. Agent Command Logging
+
+When running commands from this guide, all output must be logged to command-specific files for debugging and audit purposes.
+
+### Logging Requirements
+
+- **Log File Format:** All command output must be teed to log files with the prefix `gemini-` followed by a descriptive name based on the command being executed.
+- **Location:** Log files should be created in the current working directory where the command is executed.
+- **Command Examples:**
+
+```bash
+# Backend service testing
+make ci 2>&1 | tee gemini-service-ci.log
+
+# Flutter builds
+make build-android 2>&1 | tee gemini-flutter-build-android.log
+make run-ios 2>&1 | tee gemini-flutter-run-ios.log
+
+# Static analysis
+flutter analyze 2>&1 | tee gemini-flutter-analyze.log
+staticcheck ./... 2>&1 | tee gemini-go-staticcheck.log
+
+# Database migrations
+make migrate 2>&1 | tee gemini-db-migrate.log
+
+# Backend stack startup
+make up 2>&1 | tee gemini-backend-up.log
+```
+
+### Log File Naming Convention
+
+Use descriptive names that identify the operation:
+- `gemini-<service>-<operation>.log` for service-specific commands
+- `gemini-<platform>-<action>.log` for platform-specific commands
+- `gemini-<tool>-<command>.log` for tool-specific operations
+
+This ensures all command execution is tracked and can be reviewed for troubleshooting.
