@@ -12,12 +12,14 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/providers/app_providers.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
+import 'package:poof_worker/core/utils/location_permissions.dart' as locperm;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
@@ -248,7 +250,16 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
   // ---------------------------------------------------------------------------
   // NAVIGATION
   // ---------------------------------------------------------------------------
-  void _onContinue() => context.goNamed('MainTab');
+  void _onContinue() async {
+    // Require permission on both platforms; if missing, show disclosure and
+    // keep the user in this flow until granted.
+    final hasPerm = await locperm.hasLocationPermission();
+    if (!hasPerm) {
+      if (mounted) context.goNamed(AppRouteNames.locationDisclosurePage);
+      return;
+    }
+    if (mounted) context.goNamed(AppRouteNames.mainTab);
+  }
 
   Future<void> _showDetailsSheet() async {
     final appLocalizations = AppLocalizations.of(context);

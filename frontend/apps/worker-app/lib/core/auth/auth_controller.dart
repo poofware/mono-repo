@@ -14,6 +14,7 @@ import 'package:poof_worker/core/providers/ui_messaging_provider.dart';
 import 'package:poof_worker/core/providers/welcome_video_provider.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'package:poof_worker/core/routing/router.dart';
+import 'package:poof_worker/core/utils/location_permissions.dart' as locperm;
 
 class AuthController {
   final Ref _ref;
@@ -100,6 +101,14 @@ class AuthController {
     await _sessionManager.signIn(creds);
 
     final worker = _ref.read(workerStateNotifierProvider).worker;
+    // Gate both platforms: if account is active and permission missing, show
+    // the disclosure first, then resume sign-in flow.
+    if (worker != null &&
+        worker.accountStatus == AccountStatusType.active &&
+        !await locperm.hasLocationPermission()) {
+      await router.pushNamed(AppRouteNames.locationDisclosurePage);
+    }
+
     if (worker != null && worker.accountStatus == AccountStatusType.active) {
       await Future.wait([
         _ref.read(jobsNotifierProvider.notifier).fetchAllMyJobs(),
@@ -131,6 +140,13 @@ class AuthController {
         final worker = await _ref
             .read(workerAccountRepositoryProvider)
             .getWorker();
+
+        // Gate both platforms: avoid triggering GPS fix before disclosure when
+        // active, then resume session flow after user acknowledges.
+        if (worker.accountStatus == AccountStatusType.active &&
+            !await locperm.hasLocationPermission()) {
+          await router.pushNamed(AppRouteNames.locationDisclosurePage);
+        }
 
         if (worker.accountStatus == AccountStatusType.active) {
           await Future.wait([

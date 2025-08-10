@@ -20,15 +20,15 @@ import 'package:poof_worker/core/providers/app_providers.dart';
 import 'package:poof_worker/features/account/providers/providers.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/features/earnings/providers/providers.dart';
-import 'package:poof_worker/core/utils/location_permissions.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/home_page.dart'
-    show kDefaultMapZoom, kLosAngelesLatLng; // For map defaults
+    show kDefaultMapZoom, kSanFranciscoLatLng; // For map defaults
 import 'package:poof_worker/features/jobs/utils/job_photo_persistence.dart';
 import 'package:poof_worker/features/account/data/models/worker.dart';
 import 'package:poof_worker/core/presentation/widgets/global_error_listener.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/presentation/widgets/global_debug_listener.dart';
 import 'package:poof_worker/core/utils/fresh_install_manager.dart';
+ 
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -148,23 +148,24 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _determineInitialCameraPositionAndPermission() async {
+    // Policy-compliant: do not prompt for permission at app launch.
     final logger = ref.read(appLoggerProvider);
-    logger.d("MyApp: Determining initial camera position and permission...");
+    logger.d("MyApp: Determining initial camera without prompting...");
 
-    final bool permissionGranted =
-        await ensureLocationGranted(background: false);
-    ref.read(bootTimePermissionGrantedProvider.notifier).state =
-        permissionGranted;
-    logger.d("MyApp: Location permission granted at boot: $permissionGranted");
+    // Only check current permission; do NOT request here.
+    final perm = await Geolocator.checkPermission();
+    final permissionGranted =
+        perm == LocationPermission.always || perm == LocationPermission.whileInUse;
+    ref.read(bootTimePermissionGrantedProvider.notifier).state = permissionGranted;
+    logger.d("MyApp: Location permission present at boot: $permissionGranted");
 
     CameraPosition? initialCamera;
-
     if (permissionGranted) {
       try {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high, // Use a reasonable accuracy
-            timeLimit: Duration(seconds: 7), // Shorter timeout for boot
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 7),
           ),
         );
         initialCamera = CameraPosition(
@@ -174,14 +175,18 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         logger.d("MyApp: Initial location fetched: ${initialCamera.target}");
       } catch (e) {
         logger.w(
-            "MyApp: Boot-time location fetch failed despite permission: $e. Initial camera will be null.");
-        initialCamera = null; // Explicitly null if fetch fails with permission
+            "MyApp: Boot-time location fetch failed despite permission: $e. Using default LA.");
+        initialCamera = const CameraPosition(
+          target: kSanFranciscoLatLng,
+          zoom: kDefaultMapZoom,
+        );
       }
     } else {
-      logger.d(
-          "MyApp: Location permission not granted at boot. Defaulting to LA.");
+      logger.d("MyApp: No permission at boot. Using default San Francisco.");
       initialCamera = const CameraPosition(
-          target: kLosAngelesLatLng, zoom: kDefaultMapZoom);
+        target: kSanFranciscoLatLng,
+        zoom: kDefaultMapZoom,
+      );
     }
     ref.read(initialBootCameraPositionProvider.notifier).state = initialCamera;
   }

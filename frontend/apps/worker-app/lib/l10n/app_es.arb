@@ -33,6 +33,9 @@
       }
     }
   },
+  "locationDisclosureTitle": "Activar la ubicación",
+  "locationDisclosureBody": "Usamos tu ubicación solo mientras utilizas la app para:\n\n• Encontrar trabajos cercanos y centrar el mapa en ti.\n• Mantener tu ruta actualizada durante un trabajo.\n• Confirmar que estás en el lugar correcto para acciones como aceptar, iniciar y desechar.\n\nNo recopilamos tu ubicación cuando la app está cerrada.",
+  "locationDisclosureContinue": "Continuar",
   "phoneNumberFieldLabel": "Número de Teléfono",
   "phoneNumberFieldTooltip": "Seleccionar País",
   "homePageCouldNotGetLocation": "No se pudo obtener la ubicación actual: {error}",

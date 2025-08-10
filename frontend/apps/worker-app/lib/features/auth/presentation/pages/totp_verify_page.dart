@@ -10,6 +10,7 @@ import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_flutter_widgets/poof_flutter_widgets.dart'
     show SixDigitField;
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+ 
 
 /// Arguments for the unified TOTP verification page.
 class TotpVerifyArgs {

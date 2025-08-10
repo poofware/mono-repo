@@ -138,6 +138,9 @@
   "phoneVerificationInfoNoNumber": "(No phone number provided)",
   "phoneVerificationInfoExplanation": "This step confirms your mobile number so we can keep your account secure, send you important updates, and ensure that only you can access the account. Tap the button below to receive the verification code via SMS.",
   "phoneVerificationInfoSendCodeButton": "Send Verification Code",
+  "locationDisclosureTitle": "Enable Location",
+  "locationDisclosureBody": "We use your location only while you’re using the app to:\n\n• Find nearby jobs and center the map on you.\n• Keep your route updated during a job.\n• Confirm you’re at the right place for job actions like accept, start and dump.\n\nWe don’t collect location when the app is closed.",
+  "locationDisclosureContinue": "Continue",
   "phoneVerificationInfoFailedSms": "Failed to request SMS code: {error}",
   "@phoneVerificationInfoFailedSms": {
       "placeholders": {

@@ -52,6 +52,7 @@ import 'package:poof_worker/features/earnings/data/models/models.dart'
 // Our new Signing Out page
 import 'package:poof_worker/features/auth/presentation/pages/signing_out_page.dart';
 import 'package:poof_worker/features/auth/presentation/pages/session_expired_page.dart';
+import 'package:poof_worker/features/auth/presentation/pages/location_disclosure_page.dart';
 
 /// Defines the named routes used throughout the application for navigation.
 class AppRouteNames {
@@ -88,6 +89,7 @@ class AppRouteNames {
   static const String myProfilePage = 'MyProfilePage';
   static const String signingOutPage = 'SigningOutPage';
   static const String sessionExpiredPage = 'SessionExpiredPage';
+  static const String locationDisclosurePage = 'LocationDisclosurePage';
 }
 
 enum RouteAccess {
@@ -335,6 +337,11 @@ final List<AppRoute> _appRoutes = [
       path: '/session_expired',
       name: AppRouteNames.sessionExpiredPage,
       builder: (_, _) => const SessionExpiredPage()),
+  AppRoute(
+      access: RouteAccess.protected,
+      path: '/location_disclosure',
+      name: AppRouteNames.locationDisclosurePage,
+      builder: (_, _) => const LocationDisclosurePage()),
 ];
 
 // ... rest of the file is unchanged ...

@@ -101,6 +101,7 @@ String buildSearchableDefinitionText(DefinitionGroup d) {
 
 const kDefaultMapZoom = 14.5;
 const kLosAngelesLatLng = LatLng(34.0522, -118.2437);
+const kSanFranciscoLatLng = LatLng(37.7749, -122.4194);
 const kGenericFallbackLatLng = LatLng(0.0, 0.0);
 const kGenericFallbackZoom = 2.0;
 
@@ -186,7 +187,7 @@ class _HomePageState extends ConsumerState<HomePage>
       ref.read(currentMapCameraPositionProvider.notifier).state =
           initialBootCam ??
           const CameraPosition(
-            target: kLosAngelesLatLng,
+            target: kSanFranciscoLatLng,
             zoom: kDefaultMapZoom,
           );
       _lastCameraMove = ref.read(currentMapCameraPositionProvider);
@@ -426,7 +427,7 @@ class _HomePageState extends ConsumerState<HomePage>
     } else {
       if (!mounted) return;
       camToSet = const CameraPosition(
-        target: kLosAngelesLatLng,
+        target: kSanFranciscoLatLng,
         zoom: kDefaultMapZoom,
       );
     }
