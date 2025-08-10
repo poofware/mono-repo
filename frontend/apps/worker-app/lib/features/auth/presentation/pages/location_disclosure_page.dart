@@ -72,7 +72,7 @@ class LocationDisclosurePage extends ConsumerWidget {
               text,
               style: theme.textTheme.bodyLarge?.copyWith(
                 height: 1.5,
-                color: theme.colorScheme.onSurface.withOpacity(0.87),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.87),
               ),
             ),
           ),
@@ -87,7 +87,6 @@ class LocationDisclosurePage extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (_, __) {},
       child: Scaffold(
         body: SafeArea(
           child: Center(
@@ -104,8 +103,8 @@ class LocationDisclosurePage extends ConsumerWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          theme.colorScheme.primary.withOpacity(0.1),
-                          theme.colorScheme.primary.withOpacity(0.2),
+                          theme.colorScheme.primary.withValues(alpha: 0.1),
+                          theme.colorScheme.primary.withValues(alpha: 0.2),
                         ],
                       ),
                       shape: BoxShape.circle,
@@ -113,8 +112,8 @@ class LocationDisclosurePage extends ConsumerWidget {
                     child: Center(
                       child: SvgPicture.asset(
                         'assets/vectors/POOF_SYMBOL_COLOR.svg',
-                        height: 80,
-                        width: 80,
+                        height: 90,
+                        width: 90,
                       ),
                     ),
                   )
@@ -144,10 +143,12 @@ class LocationDisclosurePage extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: theme.colorScheme.outline.withOpacity(0.1),
+                        color:
+                            theme.colorScheme.outline.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Column(
@@ -174,7 +175,8 @@ class LocationDisclosurePage extends ConsumerWidget {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                      color: theme.colorScheme.primaryContainer
+                          .withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -189,7 +191,8 @@ class LocationDisclosurePage extends ConsumerWidget {
                           child: Text(
                             l10n.locationDisclosurePrivacy,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.8),
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.8),
                               fontWeight: FontWeight.w500,
                             ),
                           ),

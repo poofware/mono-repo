@@ -266,7 +266,7 @@ For a faster feedback loop on Dart code, you can use the Flutter analyzer. This 
 
 ### Agent Requirements for Flutter Commands
 
-**Important for AI Agents:** Flutter commands (including `flutter analyze`, `flutter gen-l10n`, and any `make` commands that invoke Flutter) require privilege escalation.
+**Important for Codex AI Agent:** Flutter commands (including `flutter analyze`, `flutter gen-l10n`, and any `make` commands that invoke Flutter) require privilege escalation. If not codex agent, than this is not required or operating inside of a sandbox, this is not required.
 
 -----
 
@@ -303,34 +303,34 @@ When running commands from this guide, all output must be logged to command-spec
 
 ### Logging Requirements
 
-- **Log File Format:** All command output must be teed to log files with the prefix `codex-` followed by a descriptive name based on the command being executed.
+- **Log File Format:** All command output must be teed to log files with the prefix `<model name>-` followed by a descriptive name based on the command being executed.
 - **Location:** Log files should be created in the current working directory where the command is executed.
 - **Command Examples:**
 
 ```bash
 # Backend service testing
-make ci 2>&1 | tee codex-service-ci.log
+make ci 2>&1 | tee <model name>-service-ci.log
 
 # Flutter builds
-make build-android 2>&1 | tee codex-flutter-build-android.log
-make run-ios 2>&1 | tee codex-flutter-run-ios.log
+make build-android 2>&1 | tee <model name>-flutter-build-android.log
+make run-ios 2>&1 | tee <model name>-flutter-run-ios.log
 
 # Static analysis
-flutter analyze 2>&1 | tee codex-flutter-analyze.log
-staticcheck ./... 2>&1 | tee codex-go-staticcheck.log
+flutter analyze 2>&1 | tee <model name>-flutter-analyze.log
+staticcheck ./... 2>&1 | tee <model name>-go-staticcheck.log
 
 # Database migrations
-make migrate 2>&1 | tee codex-db-migrate.log
+make migrate 2>&1 | tee <model name>-db-migrate.log
 
 # Backend stack startup
-make up 2>&1 | tee codex-backend-up.log
+make up 2>&1 | tee <model name>-backend-up.log
 ```
 
 ### Log File Naming Convention
 
 Use descriptive names that identify the operation:
-- `codex-<service>-<operation>.log` for service-specific commands
-- `codex-<platform>-<action>.log` for platform-specific commands
-- `codex-<tool>-<command>.log` for tool-specific operations
+- `<model-name>-<service>-<operation>.log` for service-specific commands
+- `<model-name>-<platform>-<action>.log` for platform-specific commands
+- `<model-name>-<tool>-<command>.log` for tool-specific operations
 
 This ensures all command execution is tracked and can be reviewed for troubleshooting.
