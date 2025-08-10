@@ -151,7 +151,9 @@ class AuthController {
         if (worker.accountStatus == AccountStatusType.active) {
           await Future.wait([
             _ref.read(jobsNotifierProvider.notifier).fetchAllMyJobs(),
-            _ref.read(earningsNotifierProvider.notifier).fetchEarningsSummary(),
+            _ref
+                .read(earningsNotifierProvider.notifier)
+                .fetchEarningsSummary(),
           ]);
 
           final jobsError = _ref.read(jobsNotifierProvider).error;

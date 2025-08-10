@@ -107,7 +107,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   /// Refreshes data when the app is resumed.
-  void _refreshDataIfAppropriate() {
+  Future<void> _refreshDataIfAppropriate() async {
     if (!ref.read(appStateProvider).isLoggedIn) return;
     
     final worker = ref.read(workerStateNotifierProvider).worker;
@@ -127,6 +127,18 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // Always refresh earnings summary.
     earningsNotifier.fetchEarningsSummary(force: true);
     
+    // Only refresh jobs if we have location permission; otherwise skip.
+    final perm = await Geolocator.checkPermission();
+    final hasLocationPerm =
+        perm == LocationPermission.always || perm == LocationPermission.whileInUse;
+
+    if (!hasLocationPerm) {
+      ref
+          .read(appLoggerProvider)
+          .d('Location permission missing at resume; skipping jobs refresh.');
+      return;
+    }
+
     // Refresh jobs based on online status.
     if (jobsState.isOnline) {
       jobsNotifier.refreshOnlineJobsIfActive();

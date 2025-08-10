@@ -143,23 +143,29 @@
   "locationDisclosureContinue": "Continue",
   "phoneVerificationInfoFailedSms": "Failed to request SMS code: {error}",
   "@phoneVerificationInfoFailedSms": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "verifyNumberTitle": "Verify Your Number",
   "verifyNumberMessage": "Enter the 6-digit code we sent to {phoneNumber}",
   "@verifyNumberMessage": {
-      "placeholders": {
-          "phoneNumber": {"type": "String"}
+    "placeholders": {
+      "phoneNumber": {
+        "type": "String"
       }
+    }
   },
   "verifyNumberEnter6DigitCode": "Please enter a valid 6-digit code",
   "verifyNumberFailed": "SMS verification failed: {error}",
   "@verifyNumberFailed": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "verifyNumberDidNotReceiveCode": "Didn't receive a code? ",
   "verifyNumberResendCode": "Resend",
@@ -174,9 +180,11 @@
   "verifyNumberCodeResent": "Code resent!",
   "verifyNumberFailedToResend": "Failed to resend: {error}",
   "@verifyNumberFailedToResend": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "verifyNumberVerifyButton": "Verify",
   "totpSignupTitle": "Secure Your Account",
@@ -190,9 +198,11 @@
   "totpSignupOpenAuthenticatorButton": "Add Account Automatically",
   "totpSignupFailedToGenerate": "Failed to generate TOTP secret: {error}",
   "@totpSignupFailedToGenerate": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "totpSignupNoSecretFound": "No TOTP secret found! Please go back and try again.",
   "totpSignupKeyCopied": "Secret key copied to clipboard!",
@@ -201,7 +211,9 @@
   "totpVerifyMessage": "Enter the 6-digit code from your authenticator app for {identifier}",
   "@totpVerifyMessage": {
     "placeholders": {
-      "identifier": { "type": "String" }
+      "identifier": {
+        "type": "String"
+      }
     }
   },
   "totpVerifyAccountNameInfo": "In your authenticator app, look for the code labeled:",
@@ -209,9 +221,11 @@
   "totpVerifyButton": "Verify",
   "totpVerifyLoginFailed": "Login failed: {error}",
   "@totpVerifyLoginFailed": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "totpVerifyUnexpectedErrorWorkerNull": "Unexpected error: worker data is null",
   "workerDrawerMyProfile": "My Profile",
@@ -272,23 +286,43 @@
   "completedJobBottomSheetTitle": "Job Completed",
   "completedJobBottomSheetPropertyLabel": "Property: {propertyName}",
   "@completedJobBottomSheetPropertyLabel": {
-    "placeholders": {"propertyName": {"type": "String"}}
+    "placeholders": {
+      "propertyName": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetAddressLabel": "Address: {address}",
   "@completedJobBottomSheetAddressLabel": {
-    "placeholders": {"address": {"type": "String"}}
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetPayLabel": "Pay: {payAmount}",
   "@completedJobBottomSheetPayLabel": {
-    "placeholders": {"payAmount": {"type": "String"}}
+    "placeholders": {
+      "payAmount": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetCompletedLabel": "Completed: {dateTime}",
   "@completedJobBottomSheetCompletedLabel": {
-    "placeholders": {"dateTime": {"type": "String"}}
+    "placeholders": {
+      "dateTime": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetTimeToCompleteLabel": "Time to Complete: {duration}",
   "@completedJobBottomSheetTimeToCompleteLabel": {
-    "placeholders": {"duration": {"type": "String"}}
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetCloseButton": "CLOSE",
   "jobInProgressPageTitle": "Job in Progress",
@@ -344,7 +378,11 @@
   "jobCancelSuccessSnackbar": "Job has been canceled.",
   "jobInProgressEstTimeLabel": "Estimated: {time}",
   "@jobInProgressEstTimeLabel": {
-    "placeholders": {"time": {"type": "String"}}
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "jobInProgressPictureSnackbar": "Taking a picture... (placeholder)",
   "jobInProgressMessageSnackbar": "Messaging... (placeholder)",
@@ -353,7 +391,14 @@
   "jobInProgressCompleteJobAction": "Slide to Complete Job",
   "jobInProgressBagsCollected": "Bags Collected: {count} / {max}",
   "@jobInProgressBagsCollected": {
-    "placeholders": {"count": {"type": "int"}, "max": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
   },
   "jobInProgressUnitStatusPending": "Pending",
   "jobInProgressUnitStatusVerified": "Verified",
@@ -400,7 +445,11 @@
   "checkrPageSecureWindowNote": "You'll complete the check in a secure in-app window.",
   "checkrPageFailedToStart": "Failed to start background check: {error}",
   "@checkrPageFailedToStart": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "checkrInProgressPageTitle": "Background Check – Verifying",
   "checkrInProgressPageMessage": "We're waiting for you to finish the background check authorization in the secure form.",
@@ -409,7 +458,11 @@
   "checkrInProgressPageCheckAgainButton": "Did you finish? Tap here to check again",
   "checkrInProgressPageCouldNotReopen": "Couldn’t reopen form: {error}",
   "@checkrInProgressPageCouldNotReopen": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "checkrInviteCompletePageTitle": "Invitation Complete!",
   "checkrInviteCompletePageMessage": "We’re now processing your background check. You can continue while we finalize the results.",
@@ -419,7 +472,11 @@
   "checkrOutcomePageCurrentStatusLabel": "Current Status: ",
   "checkrOutcomePageEmailNotification": "Detailed report updates will be emailed to {email}.",
   "@checkrOutcomePageEmailNotification": {
-      "placeholders": {"email": {"type": "String"}}
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
   },
   "checkrOutcomePageYourEmailFallback": "your email",
   "checkrOutcomePageQuestions1": "If you have questions, please ",
@@ -430,7 +487,11 @@
   "checkrOutcomePageLimitedFunctionalityWarning": "Some app features will be limited until your check is approved.",
   "checkrOutcomePageErrorFetching": "Error fetching data: {error}",
   "@checkrOutcomePageErrorFetching": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "checkrOutcomePageSubtitlePending": "Your background check is currently being processed. This can take a few days. We'll notify you once it's complete.",
   "checkrOutcomePageSubtitleCanceled": "There was an issue with your background check. Please review the details in your Checkr Candidate Portal or contact support for more information.",
@@ -451,7 +512,11 @@
   "stripeConnectPageConnectButton": "Connect With Stripe",
   "stripeConnectPageFailedToStart": "Failed to start Stripe Connect flow: {error}",
   "@stripeConnectPageFailedToStart": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "stripeConnectInProgressPageTitle": "Stripe Connect Onboarding In Progress",
   "stripeConnectInProgressPageMessage": "We’re waiting for you to finish the Stripe Connect onboarding flow in your browser or external link.",
@@ -474,7 +539,11 @@
   "stripeIdvPageStartButton": "Start Identity Verification",
   "stripeIdvPageFailedToStart": "Failed to start ID verification flow: {error}",
   "@stripeIdvPageFailedToStart": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "stripeIdvInProgressPageTitle": "Stripe ID Verification In Progress",
   "stripeIdvInProgressPageMessage": "We’re waiting for you to finish the Stripe Identity Verification flow in your browser or external link.",
@@ -637,5 +706,10 @@
   "bagsCollectedHelpTitle": "Bags Collected",
   "bagsCollectedHelpBody": "This shows how many bags you've collected on your current trip to the dumpster. You can carry a maximum of 8 bags at a time.\n\nOnce you have collected one or more bags (up to 8), you must take them to the dumpster. Use the slider at the bottom to mark them as 'Dumped' and begin your next trip.",
   "howToCompleteAJobTitle": "How to Complete a Job",
-  "howToCompleteAJobBody": "1. Collect Bags (Up to 8):** Visit each unit on your route. Tap the camera icon and take a clear photo showing the entire door from top to bottom, the door number, and empty trash can area. A successful photo marks the unit as 'Verified' and adds a bag to your current trip. You can collect a maximum of 8 bags per trip.\n\n**2. Report Issues:** If a trash can is missing, use the menu (...) next to the camera icon to 'Report Missing Trash Can' before taking your photo.\n\n**3. Go to the Dumpster:** Once you have collected one or more bags (up to the 8-bag limit), take them to the designated dumpster location shown on the map.\n\n**4. Dump Bags & Repeat:** At the dumpster, slide the 'Dump Bags' slider at the bottom of the screen. This marks all collected bags as 'Dumped' and resets your trip count to 0. Repeat steps 1-4 until all units are serviced.\n\n**6. Complete the Job:** After your final trip to the dumpster, the slider will change to 'Slide to Complete Job'. Sliding it will complete the job and record your earnings."
+  "howToCompleteAJobBody": "1. Collect Bags (Up to 8):** Visit each unit on your route. Tap the camera icon and take a clear photo showing the entire door from top to bottom, the door number, and empty trash can area. A successful photo marks the unit as 'Verified' and adds a bag to your current trip. You can collect a maximum of 8 bags per trip.\n\n**2. Report Issues:** If a trash can is missing, use the menu (...) next to the camera icon to 'Report Missing Trash Can' before taking your photo.\n\n**3. Go to the Dumpster:** Once you have collected one or more bags (up to the 8-bag limit), take them to the designated dumpster location shown on the map.\n\n**4. Dump Bags & Repeat:** At the dumpster, slide the 'Dump Bags' slider at the bottom of the screen. This marks all collected bags as 'Dumped' and resets your trip count to 0. Repeat steps 1-4 until all units are serviced.\n\n**6. Complete the Job:** After your final trip to the dumpster, the slider will change to 'Slide to Complete Job'. Sliding it will complete the job and record your earnings.",
+  "locationDisclosureIntro": "We use your location only while you're using the app to:",
+  "locationDisclosureBullet1": "Find nearby jobs and center the map on you",
+  "locationDisclosureBullet2": "Keep your route updated during a job",
+  "locationDisclosureBullet3": "Confirm you're at the right place for job actions like accept, start and dump",
+  "locationDisclosurePrivacy": "We don't collect location when the app is closed"
 }

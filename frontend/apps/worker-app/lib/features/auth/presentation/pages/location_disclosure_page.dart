@@ -50,6 +50,37 @@ class LocationDisclosurePage extends ConsumerWidget {
     }
   }
 
+  Widget _buildBulletPoint(BuildContext context, String text) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                height: 1.5,
+                color: theme.colorScheme.onSurface.withOpacity(0.87),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -66,17 +97,24 @@ class LocationDisclosurePage extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 120,
-                    height: 120,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.15),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          theme.colorScheme.primary.withOpacity(0.1),
+                          theme.colorScheme.primary.withOpacity(0.2),
+                        ],
+                      ),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
                       child: SvgPicture.asset(
                         'assets/vectors/POOF_SYMBOL_COLOR.svg',
-                        height: 100,
-                        width: 100,
+                        height: 80,
+                        width: 80,
                       ),
                     ),
                   )
@@ -88,25 +126,82 @@ class LocationDisclosurePage extends ConsumerWidget {
                         duration: 600.ms,
                       )
                       .fadeIn(duration: 600.ms),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 36),
                   Text(
                     l10n.locationDisclosureTitle,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
-                  ),
+                  ).animate().fadeIn(delay: 200.ms, duration: 500.ms),
                   const SizedBox(height: 12),
                   Text(
-                    l10n.locationDisclosureBody,
+                    l10n.locationDisclosureIntro,
                     style: theme.textTheme.titleMedium,
                     textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
+                  ).animate().fadeIn(delay: 300.ms, duration: 500.ms),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: theme.colorScheme.outline.withOpacity(0.1),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildBulletPoint(
+                          context,
+                          l10n.locationDisclosureBullet1,
+                        ),
+                        _buildBulletPoint(
+                          context,
+                          l10n.locationDisclosureBullet2,
+                        ),
+                        _buildBulletPoint(
+                          context,
+                          l10n.locationDisclosureBullet3,
+                        ),
+                      ],
+                    ),
+                  ).animate().fadeIn(delay: 400.ms, duration: 500.ms),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.privacy_tip_outlined,
+                          color: theme.colorScheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            l10n.locationDisclosurePrivacy,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ).animate().fadeIn(delay: 500.ms, duration: 500.ms),
+                  const SizedBox(height: 32),
                   WelcomeButton(
                     text: l10n.locationDisclosureContinue,
                     onPressed: () => _requestLocationPermission(context),
-                  ),
+                  ).animate().fadeIn(delay: 600.ms, duration: 500.ms),
                 ],
               ),
             ),

@@ -10,7 +10,6 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
-import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
@@ -129,112 +128,80 @@ class _PhoneVerificationInfoPageState
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: AppConstants.kDefaultPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Back Button
-              Align(
-                alignment: Alignment.topLeft,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => context.pop(),
-                ),
-              ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.shield_outlined,
+                  size: 80,
+                  color: AppColors.poofColor,
+                ).animate().fadeIn(delay: 200.ms, duration: 400.ms).scale(),
 
-              const Spacer(flex: 1),
+                const SizedBox(height: 24),
 
-              // Icon
-              const Icon(
-                Icons.shield_outlined,
-                size: 80,
-                color: AppColors.poofColor,
-              ).animate().fadeIn(delay: 200.ms, duration: 400.ms).scale(),
+                Text(
+                  appLocalizations.phoneVerificationInfoTitle,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+                    .animate()
+                    .fadeIn(delay: 300.ms, duration: 400.ms)
+                    .slideY(begin: 0.2),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 12),
 
-              // Title
-              Text(
-                    appLocalizations.phoneVerificationInfoTitle,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall?.copyWith(
+                Text(
+                  appLocalizations.phoneVerificationInfoMessage,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium,
+                )
+                    .animate()
+                    .fadeIn(delay: 400.ms, duration: 400.ms)
+                    .slideY(begin: 0.2),
+
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    phone.isEmpty
+                        ? appLocalizations.phoneVerificationInfoNoNumber
+                        : phone,
+                    style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
                     ),
-                  )
-                  .animate()
-                  .fadeIn(delay: 300.ms, duration: 400.ms)
-                  .slideY(begin: 0.2),
+                  ),
+                )
+                    .animate()
+                    .fadeIn(delay: 500.ms, duration: 400.ms)
+                    .slideY(begin: 0.2),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-              // Message
-              Text(
-                    appLocalizations.phoneVerificationInfoMessage,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 16,
-                    ),
-                  )
-                  .animate()
-                  .fadeIn(delay: 400.ms, duration: 400.ms)
-                  .slideY(begin: 0.2),
-
-              const SizedBox(height: 16),
-
-              // Phone Number Display
-              Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        phone.isEmpty
-                            ? appLocalizations.phoneVerificationInfoNoNumber
-                            : phone,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ),
-                  )
-                  .animate()
-                  .fadeIn(delay: 500.ms, duration: 400.ms)
-                  .slideY(begin: 0.2),
-
-              const SizedBox(height: 24),
-
-              // Explanation
-              Text(
-                    appLocalizations.phoneVerificationInfoExplanation,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      height: 1.5, // Better line spacing for readability
-                    ),
-                  )
-                  .animate()
-                  .fadeIn(delay: 600.ms, duration: 400.ms)
-                  .slideY(begin: 0.2),
-
-              const Spacer(flex: 2),
-
-              // Action Button
-              WelcomeButton(
-                    text: appLocalizations.phoneVerificationInfoSendCodeButton,
-                    isLoading: _isLoading,
-                    onPressed: _isLoading ? null : _onSendCodeAndVerify,
-                  )
-                  .animate()
-                  .fadeIn(delay: 700.ms, duration: 400.ms)
-                  .slideY(begin: 0.5),
-            ],
+                WelcomeButton(
+                  text: appLocalizations.phoneVerificationInfoSendCodeButton,
+                  isLoading: _isLoading,
+                  onPressed: _isLoading ? null : _onSendCodeAndVerify,
+                )
+                    .animate()
+                    .fadeIn(delay: 600.ms, duration: 400.ms)
+                    .slideY(begin: 0.2),
+              ],
+            ),
           ),
         ),
       ),
