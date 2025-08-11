@@ -1,6 +1,5 @@
 // worker-app/lib/features/jobs/providers/map_state_provider.dart
 
-import 'package:flutter/foundation.dart';
 // No material imports needed here
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -27,8 +26,7 @@ LatLng _markerPositionIsolateHelper(JobInstance inst) {
     return LatLng(
         inst.buildings.first.latitude, inst.buildings.first.longitude);
   }
-  // Use AND to ensure both coordinates are valid; prevents bogus positions
-  if (inst.property.latitude != 0 && inst.property.longitude != 0) {
+  if (inst.property.latitude != 0 || inst.property.longitude != 0) {
     return LatLng(inst.property.latitude, inst.property.longitude);
   }
   return kLosAngelesLatLng; // Fallback position
@@ -56,7 +54,6 @@ class RebuildMarkerArgs {
 // --- Compute function for rebuilding markers in an isolate ---
 Map<String, Marker> rebuildAndCreateMarkersIsolate(RebuildMarkerArgs args) {
   final Map<String, Marker> newCache = {};
-  final SendPort? mainIsolatePort = IsolateNameServer.lookupPortByName(kMarkerTapPortName);
 
   if (!args.isOnline) {
     return newCache; // Return empty cache if not online
@@ -72,8 +69,7 @@ Map<String, Marker> rebuildAndCreateMarkersIsolate(RebuildMarkerArgs args) {
         markerId: MarkerId(key),
         position: pos,
         icon: _markerDefaultIcon,
-        // Allow map onTap for pixel-nearest, but also handle direct marker taps
-        consumeTapEvents: false,
+        consumeTapEvents: true,
         onTap: () {
           final SendPort? port = IsolateNameServer.lookupPortByName(kMarkerTapPortName);
           if (port != null) {
@@ -99,8 +95,6 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
   final Ref ref;
   MarkerCacheNotifier(this.ref) : super({});
 
-  String? _currentHighlightedDefId;
-
   /// Public method to replace all markers in the cache.
   void replaceAllMarkers(Map<String, Marker> newMarkers) {
     // Consider using mapEquals if performance allows and newMarkers might be structurally same but different instance
@@ -121,7 +115,6 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
     if (state.isNotEmpty) {
       state = {};
     }
-    _currentHighlightedDefId = null;
   }
 
   /// Highlights selection using a single overlay marker positioned at the
@@ -132,7 +125,6 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
 
     if (newSelectedId == null) {
       cache.remove(kSelectedOverlayMarkerId);
-      _currentHighlightedDefId = null;
       state = cache;
       return;
     }
@@ -166,7 +158,6 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
           consumeTapEvents: false,
         );
 
-    _currentHighlightedDefId = newSelectedId;
     state = cache;
   }
 }

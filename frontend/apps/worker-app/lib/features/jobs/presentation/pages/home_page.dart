@@ -55,21 +55,56 @@ final filteredDefinitionsProvider = Provider<List<DefinitionGroup>>((ref) {
 
   final list = groupOpenJobs(jobsState.openJobs).where(matchesQuery).toList();
 
-  // Default sort: property, then building
-  list.sort((a, b) {
-    final propertyCompare = a.propertyName.compareTo(b.propertyName);
-    if (propertyCompare != 0) return propertyCompare;
-    return a.buildingSubtitle.compareTo(b.buildingSubtitle);
-  });
+  // Primary sort for the sheet is user-selected. We will keep this behavior
+  // here and build a separate provider for the carousel to ensure a stable
+  // property/building sort there.
+  int byPropThenBldgThenId(DefinitionGroup a, DefinitionGroup b) {
+    final c1 = a.propertyName.compareTo(b.propertyName);
+    if (c1 != 0) return c1;
+    final c2 = a.buildingSubtitle.compareTo(b.buildingSubtitle);
+    if (c2 != 0) return c2;
+    return a.definitionId.compareTo(b.definitionId);
+  }
+
+  int byDistance(DefinitionGroup a, DefinitionGroup b) {
+    final c = a.distanceMiles.compareTo(b.distanceMiles);
+    if (c != 0) return c;
+    return byPropThenBldgThenId(a, b);
+  }
+
+  int byPay(DefinitionGroup a, DefinitionGroup b) {
+    final c = b.pay.compareTo(a.pay);
+    if (c != 0) return c;
+    return byPropThenBldgThenId(a, b);
+  }
 
   switch (sortBy) {
     case 'pay':
-      list.sort((a, b) => b.pay.compareTo(a.pay));
+      list.sort(byPay);
       break;
     case 'distance':
-      list.sort((a, b) => a.distanceMiles.compareTo(b.distanceMiles));
+      list.sort(byDistance);
       break;
+    default:
+      list.sort(byPropThenBldgThenId);
   }
+  return list;
+});
+
+/// Dedicated provider for the carousel order: always property, then building,
+/// then definitionId as a deterministic tie-breaker. This ensures that cards
+/// for the same property/building stay adjacent in the carousel regardless of
+/// the sheet's selected sort mode.
+final carouselDefinitionsProvider = Provider<List<DefinitionGroup>>((ref) {
+  final filtered = ref.watch(filteredDefinitionsProvider);
+  final list = [...filtered];
+  list.sort((a, b) {
+    final c1 = a.propertyName.compareTo(b.propertyName);
+    if (c1 != 0) return c1;
+    final c2 = a.buildingSubtitle.compareTo(b.buildingSubtitle);
+    if (c2 != 0) return c2;
+    return a.definitionId.compareTo(b.definitionId);
+  });
   return list;
 });
 
@@ -169,7 +204,7 @@ class _HomePageState extends ConsumerState<HomePage>
   double _cachedMinSheetSize = 0.0;
   double _cachedMaxSheetSize = 1.0;
 
-  List<DefinitionGroup> _defs() => ref.read(filteredDefinitionsProvider);
+  List<DefinitionGroup> _defs() => ref.read(carouselDefinitionsProvider);
   String? _selectedDefId() => ref.read(selectedDefinitionIdProvider);
 
   @override
@@ -247,7 +282,6 @@ class _HomePageState extends ConsumerState<HomePage>
         if (targetDef != null) {
           final idx = currentFilteredDefs.indexOf(targetDef);
           if (idx != -1) {
-            // Select due to marker tap: do not move camera, do not sync carousel
             _selectDefinition(
               targetDef,
               idx,
@@ -304,7 +338,7 @@ class _HomePageState extends ConsumerState<HomePage>
               inst.buildings.first.latitude != 0 &&
               inst.buildings.first.longitude != 0) {
             pos = LatLng(inst.buildings.first.latitude, inst.buildings.first.longitude);
-          } else if (inst.property.latitude != 0 && inst.property.longitude != 0) {
+          } else if (inst.property.latitude != 0 || inst.property.longitude != 0) {
             pos = LatLng(inst.property.latitude, inst.property.longitude);
           } else {
             pos = kLosAngelesLatLng;
@@ -319,10 +353,13 @@ class _HomePageState extends ConsumerState<HomePage>
         ref.read(locationKeyToDefinitionIdsProvider.notifier).state = locToDefs;
 
         ref.read(jobMarkerCacheProvider.notifier).replaceAllMarkers(newMarkerMap);
-        // Ensure current selection is highlighted after markers refresh
-        ref
-            .read(jobMarkerCacheProvider.notifier)
-            .updateSelection(currentSelectedId, null);
+        // Re-apply highlight if a selection already exists, since cache was replaced
+        final selectedId = ref.read(selectedDefinitionIdProvider);
+        if (selectedId != null) {
+          ref
+              .read(jobMarkerCacheProvider.notifier)
+              .updateSelection(selectedId, null);
+        }
       }
     } catch (e, s) {
       debugPrint("Error during marker computation: $e\n$s");
@@ -706,22 +743,16 @@ class _HomePageState extends ConsumerState<HomePage>
 
     if (_carouselPageController.hasClients &&
         _carouselPageController.page?.round() != idx) {
-      // Only sync carousel page for programmatic selections or when we intend
-      // to animate the map (e.g., user swiped the carousel). For tap selections
-      // we avoid changing the page to prevent any camera panning side effects.
-      final shouldSyncCarousel = !fromUserInteraction || animateMap;
-      if (shouldSyncCarousel) {
-        if (fromUserInteraction && animateMap) {
-          _ignoreNextPageChange = true;
-          _carouselPageController.animateToPage(
-            idx,
-            duration: _cameraPanDuration,
-            curve: Curves.easeInOut,
-          );
-        } else {
-          _ignoreNextPageChange = true;
-          _carouselPageController.jumpToPage(idx);
-        }
+      if (fromUserInteraction && animateMap) {
+        _ignoreNextPageChange = true;
+        _carouselPageController.animateToPage(
+          idx,
+          duration: _cameraPanDuration,
+          curve: Curves.easeInOut,
+        );
+      } else {
+        _ignoreNextPageChange = true;
+        _carouselPageController.jumpToPage(idx);
       }
     }
 
@@ -825,66 +856,8 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
-  Future<void> _onMapTap(LatLng tapLatLng) async {
-    if (_mapController == null || !mounted) return;
-    try {
-      final GoogleMapController controller = _mapController!;
-      final tapScreen = await controller.getScreenCoordinate(tapLatLng);
-
-      // Read current marker cache (keyed by locationKey) and ignore the overlay marker
-      final markerCache = ref.read(jobMarkerCacheProvider);
-      if (markerCache.isEmpty) return;
-
-      const String overlayId = kSelectedOverlayMarkerId;
-
-      String? closestLocKey;
-      double closestDistSq = double.infinity;
-
-      for (final entry in markerCache.entries) {
-        final String key = entry.key;
-        if (key == overlayId) continue; // ignore highlight overlay
-
-        final LatLng pos = entry.value.position;
-        final screen = await controller.getScreenCoordinate(pos);
-        final dx = (screen.x - tapScreen.x).toDouble();
-        final dy = (screen.y - tapScreen.y).toDouble();
-        final distSq = dx * dx + dy * dy;
-        if (distSq < closestDistSq) {
-          closestDistSq = distSq;
-          closestLocKey = key;
-        }
-      }
-
-      if (closestLocKey == null) return;
-
-      // Accept only if within a small pixel radius
-      const double maxPixelRadius = 28.0;
-      if (closestDistSq > maxPixelRadius * maxPixelRadius) return;
-
-      final locToDefs = ref.read(locationKeyToDefinitionIdsProvider);
-      final defsAtLoc = locToDefs[closestLocKey];
-      if (defsAtLoc == null || defsAtLoc.isEmpty) return;
-
-      final currentFilteredDefs = ref.read(filteredDefinitionsProvider);
-      final target = currentFilteredDefs.firstWhereOrNull(
-        (d) => d.definitionId == defsAtLoc.first,
-      );
-      if (target == null) return;
-
-      final idx = currentFilteredDefs.indexOf(target);
-      if (idx == -1) return;
-
-      // Select via tap: do not pan camera and do not sync carousel
-      _selectDefinition(
-        target,
-        idx,
-        fromUserInteraction: true,
-        animateMap: false,
-      );
-    } catch (_) {
-      // Ignore errors; tap selection is best-effort
-    }
-  }
+  // Undo map onTap behavior to restore original; leave no-op
+  Future<void> _onMapTap(LatLng tapLatLng) async {}
 
   void _handleViewOnMapFromSheet(DefinitionGroup definition) {
     if (!mounted) return;
@@ -944,6 +917,7 @@ class _HomePageState extends ConsumerState<HomePage>
     final jobsState = ref.watch(jobsNotifierProvider);
     final newOpenJobs = jobsState.openJobs;
     final filteredDefs = ref.watch(filteredDefinitionsProvider);
+    final carouselDefs = ref.watch(carouselDefinitionsProvider);
     final liveCameraPosition = ref.watch(currentMapCameraPositionProvider);
     final appLocalizations = AppLocalizations.of(context);
 
@@ -956,14 +930,14 @@ class _HomePageState extends ConsumerState<HomePage>
 
     if ((openJobsListActuallyChanged || isFirstTimeLoadingJobs) &&
         newOpenJobs.isNotEmpty) {
-      final currentFilteredDefsForRecenter = ref.read(
-        filteredDefinitionsProvider,
+      final currentCarouselDefsForRecenter = ref.read(
+        carouselDefinitionsProvider,
       );
-      if (currentFilteredDefsForRecenter.isNotEmpty) {
+      if (currentCarouselDefsForRecenter.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             // Auto-select first def and ensure overlay appears immediately
-            final firstDef = currentFilteredDefsForRecenter.first;
+            final firstDef = currentCarouselDefsForRecenter.first;
             _selectDefinition(
               firstDef,
               0,
@@ -1013,7 +987,53 @@ class _HomePageState extends ConsumerState<HomePage>
       next,
     ) {
       _updateMarkerCacheForAllDefsThrottled();
+      // When going online, ensure a visible selection exists for current defs
+      if (next && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final currentSelectedId = ref.read(selectedDefinitionIdProvider);
+          final defs = ref.read(filteredDefinitionsProvider);
+          if (defs.isEmpty) return;
+          final hasSelectedInDefs = currentSelectedId != null &&
+              defs.any((d) => d.definitionId == currentSelectedId);
+          if (!hasSelectedInDefs) {
+            _selectDefinition(
+              defs.first,
+              0,
+              fromUserInteraction: false,
+              animateMap: true,
+            );
+          }
+        });
+      }
     });
+
+    // After the initial online job load completes, ensure selection & highlight
+    ref.listen<bool>(
+      jobsNotifierProvider.select((s) => s.hasLoadedInitialJobs),
+      (prev, next) {
+        if (next && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            final defs = ref.read(filteredDefinitionsProvider);
+            if (defs.isEmpty) return;
+            final currentSelectedId = ref.read(selectedDefinitionIdProvider);
+            final hasSelectedInDefs = currentSelectedId != null &&
+                defs.any((d) => d.definitionId == currentSelectedId);
+            if (!hasSelectedInDefs) {
+              // Ensure markers/maps are up-to-date, then select first
+              await _performFullMarkerUpdate();
+              _selectDefinition(
+                defs.first,
+                0,
+                fromUserInteraction: false,
+                animateMap: true,
+              );
+            }
+          });
+        }
+      },
+    );
 
     final screenHeight = MediaQuery.of(context).size.height;
     final minSheetSize = _computeMinSheetSize(context);
@@ -1028,7 +1048,7 @@ class _HomePageState extends ConsumerState<HomePage>
     _cachedMaxSheetSize = maxSheetSize;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncCarouselPage(filteredDefs);
+      if (mounted) _syncCarouselPage(carouselDefs);
     });
 
     return Scaffold(
@@ -1192,7 +1212,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       ),
                     ),
                   ),
-                if (filteredDefs.isNotEmpty)
+                if (carouselDefs.isNotEmpty)
                   Positioned(
                     left: 0,
                     right: 0,
@@ -1201,16 +1221,16 @@ class _HomePageState extends ConsumerState<HomePage>
                       duration: const Duration(milliseconds: 250),
                       opacity: _carouselOpacity,
                       child: JobDefinitionCarousel(
-                        definitions: filteredDefs,
+                        definitions: carouselDefs,
                         pageController: _carouselPageController,
                         onPageChanged: (idx) {
                           if (_ignoreNextPageChange) {
                             _ignoreNextPageChange = false;
                             return;
                           }
-                          if (idx < filteredDefs.length) {
+                          if (idx < carouselDefs.length) {
                             _selectDefinition(
-                              filteredDefs[idx],
+                              carouselDefs[idx],
                               idx,
                               fromUserInteraction: true,
                               animateMap: true,
