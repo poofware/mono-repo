@@ -15,6 +15,7 @@ import 'package:poof_worker/core/providers/welcome_video_provider.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart' as locperm;
+import 'package:poof_worker/core/providers/initial_setup_providers.dart';
 
 class AuthController {
   final Ref _ref;
@@ -109,25 +110,32 @@ class AuthController {
       await router.pushNamed(AppRouteNames.locationDisclosurePage);
     }
 
+    // Navigate ASAP to let heavy UI (map) mount while data loads in background.
+    _navigateToNextStep(router);
+
+    // Kick off post-login data fetches after navigation to allow pre-rendering.
     if (worker != null && worker.accountStatus == AccountStatusType.active) {
-      await Future.wait([
+      // ignore: discarded_futures
+      Future.wait([
         _ref.read(jobsNotifierProvider.notifier).fetchAllMyJobs(),
         _ref.read(earningsNotifierProvider.notifier).fetchEarningsSummary(),
-      ]);
-
-      final jobsError = _ref.read(jobsNotifierProvider).error;
-      final earningsError = _ref.read(earningsNotifierProvider).error;
-      final postLoginErrors = <Object>[
-        if (jobsError != null) jobsError,
-        if (earningsError != null) earningsError,
-      ];
-      if (postLoginErrors.isNotEmpty) {
-        _ref.read(postBootErrorProvider.notifier).state = postLoginErrors;
-      }
+      ])
+          .then((_) {
+        final jobsError = _ref.read(jobsNotifierProvider).error;
+        final earningsError = _ref.read(earningsNotifierProvider).error;
+        final postLoginErrors = <Object>[
+          if (jobsError != null) jobsError,
+          if (earningsError != null) earningsError,
+        ];
+        if (postLoginErrors.isNotEmpty) {
+          _ref.read(postBootErrorProvider.notifier).state = postLoginErrors;
+        }
+      })
+          .catchError((Object e, StackTrace s) {
+        // Surface background fetch errors to the UI messaging provider
+        _ref.read(postBootErrorProvider.notifier).state = [e];
+      });
     }
-
-    // After all data is settled, navigate.
-    _navigateToNextStep(router);
   }
 
   /// Initializes the session on app start and navigates to the correct screen if logged in.
@@ -203,6 +211,8 @@ class AuthController {
     // Clear any persisted home-UI state
     _ref.invalidate(lastMapCameraPositionProvider);
     _ref.invalidate(lastSelectedDefinitionIdProvider);
+    // Ensure map warm-up overlays are allowed again on next app run
+    _ref.read(homeMapMountedProvider.notifier).state = false;
   }
 
   Future<void> handleAuthLost() async {
@@ -224,5 +234,7 @@ class AuthController {
     // Clear any persisted home-UI state
     _ref.invalidate(lastMapCameraPositionProvider);
     _ref.invalidate(lastSelectedDefinitionIdProvider);
+    // Ensure map warm-up overlays are allowed again on next app run
+    _ref.read(homeMapMountedProvider.notifier).state = false;
   }
 }

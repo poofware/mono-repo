@@ -334,3 +334,13 @@ Use descriptive names that identify the operation:
 - `<model-name>-<tool>-<command>.log` for tool-specific operations
 
 This ensures all command execution is tracked and can be reviewed for troubleshooting.
+
+## 10. ### Code Changes and Version Control Policy
+
+**Important for AI Agents:** When making code changes, you must **NEVER** attempt to commit, push, or otherwise persist changes to version control. All changes should remain as local modifications only.
+
+- **Forbidden Actions:**
+  - Never run `git add`, `git commit`, `git push`, or any other git commands
+  - Never attempt to create pull requests or merge requests
+  - Never modify `.git` configuration or repository settings
+  - Never tag releases or create branches

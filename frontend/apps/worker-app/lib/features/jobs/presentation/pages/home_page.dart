@@ -204,11 +204,17 @@ class _HomePageState extends ConsumerState<HomePage>
     }
     _markerTapReceivePort.listen(_handleMarkerTapFromIsolate);
 
-    rootBundle.loadString('assets/jsons/map_style.json').then((style) {
-      if (mounted) {
-        setState(() => _mapStyle = style);
-      }
-    });
+    // Prefer preloaded style to avoid flash when the map first attaches
+    final preloaded = ref.read(mapStyleJsonProvider);
+    if (preloaded != null && preloaded.isNotEmpty) {
+      _mapStyle = preloaded;
+    } else {
+      rootBundle.loadString('assets/jsons/map_style.json').then((style) {
+        if (mounted) {
+          setState(() => _mapStyle = style);
+        }
+      });
+    }
 
     // Start a lightweight location stream to keep the OS cache warm.
     // This helps make on-demand fixes faster.
@@ -747,6 +753,8 @@ class _HomePageState extends ConsumerState<HomePage>
     if (mounted) {
       final liveCamPos = _currentLiveCameraPos();
       _mapController!.moveCamera(CameraUpdate.newCameraPosition(liveCamPos));
+      // Signal that the main Home map is mounted so any warm-up overlay can stop.
+      ref.read(homeMapMountedProvider.notifier).state = true;
       _restoreSelection();
     }
   }

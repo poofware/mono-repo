@@ -6,9 +6,19 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/utils/location_consent_manager.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
+import 'package:go_router/go_router.dart';
+import 'package:poof_worker/core/routing/router.dart';
+import 'package:poof_worker/core/utils/navigation_keys.dart';
 
-class LocationDisclosurePage extends ConsumerWidget {
+class LocationDisclosurePage extends ConsumerStatefulWidget {
   const LocationDisclosurePage({super.key});
+
+  @override
+  ConsumerState<LocationDisclosurePage> createState() => _LocationDisclosurePageState();
+}
+
+class _LocationDisclosurePageState extends ConsumerState<LocationDisclosurePage> {
+  bool _submitting = false;
 
   Future<void> _requestLocationPermission(BuildContext context) async {
     // Keep looping here until we actually have permission. Only pop() when
@@ -17,10 +27,12 @@ class LocationDisclosurePage extends ConsumerWidget {
     // settings. We do not leave this page until permission is granted.
     await LocationConsentManager.markAndroidDisclosureComplete();
     try {
+      if (mounted) setState(() => _submitting = true);
       // Ensure device location services are ON.
       final servicesOn = await Geolocator.isLocationServiceEnabled();
       if (!servicesOn) {
         await Geolocator.openLocationSettings();
+        if (mounted) setState(() => _submitting = false);
         return; // Stay on page; user can tap Continue again.
       }
 
@@ -35,18 +47,30 @@ class LocationDisclosurePage extends ConsumerWidget {
           perm == LocationPermission.whileInUse;
 
       if (granted) {
-        if (context.mounted) Navigator.of(context).pop();
+        if (!context.mounted) return;
+        // Small post-frame to let button remain in loading state until we navigate
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final rootNav = rootNavigatorKey.currentState;
+          if (rootNav != null && rootNav.canPop()) {
+            rootNav.pop();
+          } else {
+            context.goNamed(AppRouteNames.mainTab);
+          }
+        });
         return;
       }
 
       // Permanently denied → send to app settings.
       if (perm == LocationPermission.deniedForever) {
         await Geolocator.openAppSettings();
+        if (mounted) setState(() => _submitting = false);
         return; // Stay; user can try again after adjusting settings.
       }
       // Any other non-granted case: stay on page (no-op), user can try again.
+      if (mounted) setState(() => _submitting = false);
     } catch (_) {
       // Swallow and keep user on page; they can try again.
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -82,7 +106,7 @@ class LocationDisclosurePage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     return PopScope(
@@ -203,6 +227,7 @@ class LocationDisclosurePage extends ConsumerWidget {
                   const SizedBox(height: 32),
                   WelcomeButton(
                     text: l10n.locationDisclosureContinue,
+                    isLoading: _submitting,
                     onPressed: () => _requestLocationPermission(context),
                   ).animate().fadeIn(delay: 600.ms, duration: 500.ms),
                 ],

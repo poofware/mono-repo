@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
@@ -117,6 +118,12 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     final earningsNotifier = ref.read(earningsNotifierProvider.notifier);
     final jobsState = ref.read(jobsNotifierProvider);
 
+    // Avoid duplicate refresh if a fetch is already in-flight
+    if (jobsState.isLoadingAcceptedJobs || jobsState.isLoadingOpenJobs) {
+      ref.read(appLoggerProvider).d('App resumed, but jobs are already loading. Skipping refresh.');
+      return;
+    }
+
     if (jobsState.inProgressJob != null) {
       ref.read(appLoggerProvider).d('App resumed, but job is in progress. Skipping refresh.');
       return;
@@ -203,6 +210,15 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     ref.read(initialBootCameraPositionProvider.notifier).state = initialCamera;
   }
 
+  Future<void> _preloadMapStyleJson() async {
+    try {
+      final style = await rootBundle.loadString('assets/jsons/map_style.json');
+      ref.read(mapStyleJsonProvider.notifier).state = style;
+    } catch (_) {
+      // ignore; map can render without style
+    }
+  }
+
   Future<void> _boot() async {
     final logger = ref.read(appLoggerProvider);
     try {
@@ -218,7 +234,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       }
 
       final inProgressJob = ref.read(jobsNotifierProvider).inProgressJob;
-      await _determineInitialCameraPositionAndPermission();
+      await Future.wait([
+        _determineInitialCameraPositionAndPermission(),
+        _preloadMapStyleJson(),
+      ]);
       if (inProgressJob != null) {
         _router.goNamed(AppRouteNames.jobInProgressPage, extra: inProgressJob);
       } else {
@@ -275,6 +294,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
             child: GlobalErrorListener(
               child: Stack(
                 children: [
+                  const _GlobalMapWarmUp(),
                   child!,
                   if (status == NetworkStatus.offline)
                     Positioned(
@@ -364,6 +384,41 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           fontSize: 15,
         ),
         actionTextColor: Colors.cyan.shade300,
+      ),
+    );
+  }
+}
+
+class _GlobalMapWarmUp extends ConsumerWidget {
+  const _GlobalMapWarmUp();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mainMapMounted = ref.watch(homeMapMountedProvider);
+    if (mainMapMounted) return const SizedBox.shrink();
+    final initialCam = ref.watch(initialBootCameraPositionProvider) ??
+        const CameraPosition(target: kSanFranciscoLatLng, zoom: kDefaultMapZoom);
+    final mapStyle = ref.watch(mapStyleJsonProvider) ?? '';
+    return Positioned(
+      right: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0.01, // ensure platform view actually renders on iOS
+          child: RepaintBoundary(
+            child: SizedBox(
+              width: 120,
+              height: 120,
+              child: GoogleMap(
+              initialCameraPosition: initialCam,
+              style: mapStyle.isEmpty ? null : mapStyle,
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              mapToolbarEnabled: false,
+              zoomControlsEnabled: false,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

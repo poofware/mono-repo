@@ -195,7 +195,7 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
         ? 'production'
         : 'staging';
     final sessionTokenPath =
-        '${PoofWorkerFlavorConfig.instance.apiServiceURL}/account/worker/checkr/session-token';
+        '${PoofWorkerFlavorConfig.instance.apiServiceURL}/v1/account/worker/checkr/session-token';
 
     return '''
 <!doctype html>
@@ -218,7 +218,8 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
             'Authorization': `Bearer $accessToken`,
             'X-Platform'   : '$platform',
             'X-Device-ID'  : '$deviceId',
-            'X-Key-ID'     : '$keyId',
+            'X-Key-Id'     : '$keyId',
+            'ngrok-skip-browser-warning': 'true',
           }),
           candidateId: '$candidateId',
           styles: {
