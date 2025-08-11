@@ -249,7 +249,7 @@ make ci-ios
 
 ### Static Analysis (Flutter/Dart)
 
-For a faster feedback loop on Dart code, you can use the Flutter analyzer. This is a great way to quickly check for compilation errors, warnings, and style issues without running the full application.
+For a faster feedback loop on Dart code, you can use the Flutter analyzer. This is a great way to quickly check for compilation errors, warnings, and style issues without running the full application. Resolve all warnings or deprecation info level issues, and of course errors.
 
 1.  **Navigate to the app directory**:
     ```bash

@@ -37,10 +37,11 @@
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:allowBackup="false">
+        android:enableOnBackInvokedCallback="false">
 
         <meta-data
-      android:name="io.flutter.embedding.android.EnableImpeller"
-      android:value="false" />
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
 
         <!-- Inject the Google Maps key from environment -->
         <meta-data
@@ -54,7 +55,8 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:enableOnBackInvokedCallback="false">
 
             <!-- Specifies an Android theme for launch. -->
             <meta-data

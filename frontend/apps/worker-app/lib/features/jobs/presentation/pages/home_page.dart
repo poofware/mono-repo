@@ -236,21 +236,25 @@ class _HomePageState extends ConsumerState<HomePage>
   /// Handles marker tap events sent from the isolate.
   void _handleMarkerTapFromIsolate(dynamic message) {
     if (message is String) {
-      final definitionId = message;
+      final locationKey = message;
       final currentFilteredDefs = ref.read(filteredDefinitionsProvider);
-      final targetDef = currentFilteredDefs.firstWhereOrNull(
-        (d) => d.definitionId == definitionId,
-      );
-
-      if (targetDef != null) {
-        final idx = currentFilteredDefs.indexOf(targetDef);
-        if (idx != -1) {
-          _selectDefinition(
-            targetDef,
-            idx,
-            fromUserInteraction: true,
-            animateMap: false,
-          );
+      final locToDefs = ref.read(locationKeyToDefinitionIdsProvider);
+      final idsAtLoc = locToDefs[locationKey];
+      if (idsAtLoc != null && idsAtLoc.isNotEmpty) {
+        final targetDef = currentFilteredDefs.firstWhereOrNull(
+          (d) => d.definitionId == idsAtLoc.first,
+        );
+        if (targetDef != null) {
+          final idx = currentFilteredDefs.indexOf(targetDef);
+          if (idx != -1) {
+            // Select due to marker tap: do not move camera, do not sync carousel
+            _selectDefinition(
+              targetDef,
+              idx,
+              fromUserInteraction: true,
+              animateMap: false,
+            );
+          }
         }
       }
     }
@@ -288,9 +292,37 @@ class _HomePageState extends ConsumerState<HomePage>
         args,
       );
       if (mounted) {
+        // Build dedupe maps: definition -> location key, and location -> ids
+        final defToLoc = <String, String>{};
+        final locToPos = <String, LatLng>{};
+        final locToDefs = <String, List<String>>{};
+        for (final d in currentFilteredDefs) {
+          if (d.instances.isEmpty) continue;
+          final inst = d.instances.first;
+          LatLng pos;
+          if (inst.buildings.isNotEmpty &&
+              inst.buildings.first.latitude != 0 &&
+              inst.buildings.first.longitude != 0) {
+            pos = LatLng(inst.buildings.first.latitude, inst.buildings.first.longitude);
+          } else if (inst.property.latitude != 0 && inst.property.longitude != 0) {
+            pos = LatLng(inst.property.latitude, inst.property.longitude);
+          } else {
+            pos = kLosAngelesLatLng;
+          }
+          final key = locationKeyForLatLng(pos);
+          defToLoc[d.definitionId] = key;
+          locToPos[key] = pos;
+          locToDefs.putIfAbsent(key, () => <String>[]).add(d.definitionId);
+        }
+        ref.read(definitionIdToLocationKeyProvider.notifier).state = defToLoc;
+        ref.read(locationKeyToPositionProvider.notifier).state = locToPos;
+        ref.read(locationKeyToDefinitionIdsProvider.notifier).state = locToDefs;
+
+        ref.read(jobMarkerCacheProvider.notifier).replaceAllMarkers(newMarkerMap);
+        // Ensure current selection is highlighted after markers refresh
         ref
             .read(jobMarkerCacheProvider.notifier)
-            .replaceAllMarkers(newMarkerMap);
+            .updateSelection(currentSelectedId, null);
       }
     } catch (e, s) {
       debugPrint("Error during marker computation: $e\n$s");
@@ -674,30 +706,42 @@ class _HomePageState extends ConsumerState<HomePage>
 
     if (_carouselPageController.hasClients &&
         _carouselPageController.page?.round() != idx) {
-      if (fromUserInteraction && animateMap) {
-        _ignoreNextPageChange = true;
-        _carouselPageController.animateToPage(
-          idx,
-          duration: _cameraPanDuration,
-          curve: Curves.easeInOut,
-        );
-      } else {
-        _ignoreNextPageChange = true;
-        _carouselPageController.jumpToPage(idx);
+      // Only sync carousel page for programmatic selections or when we intend
+      // to animate the map (e.g., user swiped the carousel). For tap selections
+      // we avoid changing the page to prevent any camera panning side effects.
+      final shouldSyncCarousel = !fromUserInteraction || animateMap;
+      if (shouldSyncCarousel) {
+        if (fromUserInteraction && animateMap) {
+          _ignoreNextPageChange = true;
+          _carouselPageController.animateToPage(
+            idx,
+            duration: _cameraPanDuration,
+            curve: Curves.easeInOut,
+          );
+        } else {
+          _ignoreNextPageChange = true;
+          _carouselPageController.jumpToPage(idx);
+        }
       }
     }
 
     if (animateMap && def.instances.isNotEmpty) {
       if (_mapController != null) {
-        LatLng targetPosition = LatLng(
-          def.instances.first.property.latitude,
-          def.instances.first.property.longitude,
-        );
-        if (def.instances.first.buildings.isNotEmpty &&
-            def.instances.first.buildings.first.latitude != 0 &&
-            def.instances.first.buildings.first.longitude != 0) {
-          final building = def.instances.first.buildings.first;
+        LatLng targetPosition;
+        final inst = def.instances.first;
+        if (inst.buildings.isNotEmpty &&
+            inst.buildings.first.latitude != 0 &&
+            inst.buildings.first.longitude != 0) {
+          final building = inst.buildings.first;
           targetPosition = LatLng(building.latitude, building.longitude);
+        } else if (inst.property.latitude != 0 &&
+            inst.property.longitude != 0) {
+          targetPosition = LatLng(
+            inst.property.latitude,
+            inst.property.longitude,
+          );
+        } else {
+          targetPosition = kLosAngelesLatLng;
         }
         final targetCameraPos = CameraPosition(
           target: targetPosition,
@@ -756,6 +800,16 @@ class _HomePageState extends ConsumerState<HomePage>
       // Signal that the main Home map is mounted so any warm-up overlay can stop.
       ref.read(homeMapMountedProvider.notifier).state = true;
       _restoreSelection();
+
+      // Ensure initial highlighted overlay for first definition on first mount
+      final defs = _defs();
+      if (defs.isNotEmpty) {
+        final selectedId = _selectedDefId() ?? defs.first.definitionId;
+        if (_selectedDefId() == null) {
+          ref.read(selectedDefinitionIdProvider.notifier).state = selectedId;
+        }
+        ref.read(jobMarkerCacheProvider.notifier).updateSelection(selectedId, null);
+      }
     }
   }
 
@@ -768,6 +822,67 @@ class _HomePageState extends ConsumerState<HomePage>
   void _onCameraIdle() {
     if (_lastCameraMove != null && mounted) {
       _applyCameraPositionFromIdle(_lastCameraMove!);
+    }
+  }
+
+  Future<void> _onMapTap(LatLng tapLatLng) async {
+    if (_mapController == null || !mounted) return;
+    try {
+      final GoogleMapController controller = _mapController!;
+      final tapScreen = await controller.getScreenCoordinate(tapLatLng);
+
+      // Read current marker cache (keyed by locationKey) and ignore the overlay marker
+      final markerCache = ref.read(jobMarkerCacheProvider);
+      if (markerCache.isEmpty) return;
+
+      const String overlayId = kSelectedOverlayMarkerId;
+
+      String? closestLocKey;
+      double closestDistSq = double.infinity;
+
+      for (final entry in markerCache.entries) {
+        final String key = entry.key;
+        if (key == overlayId) continue; // ignore highlight overlay
+
+        final LatLng pos = entry.value.position;
+        final screen = await controller.getScreenCoordinate(pos);
+        final dx = (screen.x - tapScreen.x).toDouble();
+        final dy = (screen.y - tapScreen.y).toDouble();
+        final distSq = dx * dx + dy * dy;
+        if (distSq < closestDistSq) {
+          closestDistSq = distSq;
+          closestLocKey = key;
+        }
+      }
+
+      if (closestLocKey == null) return;
+
+      // Accept only if within a small pixel radius
+      const double maxPixelRadius = 28.0;
+      if (closestDistSq > maxPixelRadius * maxPixelRadius) return;
+
+      final locToDefs = ref.read(locationKeyToDefinitionIdsProvider);
+      final defsAtLoc = locToDefs[closestLocKey];
+      if (defsAtLoc == null || defsAtLoc.isEmpty) return;
+
+      final currentFilteredDefs = ref.read(filteredDefinitionsProvider);
+      final target = currentFilteredDefs.firstWhereOrNull(
+        (d) => d.definitionId == defsAtLoc.first,
+      );
+      if (target == null) return;
+
+      final idx = currentFilteredDefs.indexOf(target);
+      if (idx == -1) return;
+
+      // Select via tap: do not pan camera and do not sync carousel
+      _selectDefinition(
+        target,
+        idx,
+        fromUserInteraction: true,
+        animateMap: false,
+      );
+    } catch (_) {
+      // Ignore errors; tap selection is best-effort
     }
   }
 
@@ -847,12 +962,17 @@ class _HomePageState extends ConsumerState<HomePage>
       if (currentFilteredDefsForRecenter.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
+            // Auto-select first def and ensure overlay appears immediately
+            final firstDef = currentFilteredDefsForRecenter.first;
             _selectDefinition(
-              currentFilteredDefsForRecenter.first,
+              firstDef,
               0,
               fromUserInteraction: false,
               animateMap: true,
             );
+            ref
+                .read(jobMarkerCacheProvider.notifier)
+                .updateSelection(firstDef.definitionId, null);
             if (_isInitialLoad) {
               _isInitialLoad = false;
             }
@@ -981,6 +1101,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     onCameraMove: _onCameraMove,
                     onCameraIdle: _onCameraIdle,
                     onCameraMoveStarted: _onCameraMoveStarted,
+                    onTap: _onMapTap,
                   ),
                 ),
                 const TapRippleOverlay(),
@@ -1182,6 +1303,7 @@ class MapPane extends ConsumerWidget {
   final Function(CameraPosition) onCameraMove;
   final Function() onCameraIdle;
   final Function() onCameraMoveStarted;
+  final Future<void> Function(LatLng)? onTap;
 
   const MapPane({
     super.key,
@@ -1192,6 +1314,7 @@ class MapPane extends ConsumerWidget {
     required this.onCameraMove,
     required this.onCameraIdle,
     required this.onCameraMoveStarted,
+    this.onTap,
   });
 
   @override
@@ -1204,6 +1327,7 @@ class MapPane extends ConsumerWidget {
       onCameraMove: onCameraMove,
       onCameraIdle: onCameraIdle,
       onCameraMoveStarted: onCameraMoveStarted,
+      onTap: onTap,
       markers: markers,
       myLocationEnabled: locationPermissionOK,
       myLocationButtonEnabled: false,
