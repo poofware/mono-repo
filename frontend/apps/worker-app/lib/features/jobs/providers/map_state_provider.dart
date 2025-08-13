@@ -1,6 +1,7 @@
 // worker-app/lib/features/jobs/providers/map_state_provider.dart
 
 // No material imports needed here
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
@@ -10,7 +11,6 @@ import 'dart:isolate'; // For SendPort
 
 // --- Top-level constants and helpers for marker creation (accessible by isolate) ---
 const String kMarkerTapPortName = 'markerTapPort'; // Port name for tap events
-const String kSelectedOverlayMarkerId = '__selected_overlay_marker__';
 
 final BitmapDescriptor _markerDefaultIcon =
     BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
@@ -93,21 +93,24 @@ final selectedDefinitionIdProvider = StateProvider<String?>((ref) => null);
 /// Its state is now primarily set by HomePage after running a compute function.
 class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
   final Ref ref;
+  String? _selectedLocKey; // track current selected location
   MarkerCacheNotifier(this.ref) : super({});
 
   /// Public method to replace all markers in the cache.
   void replaceAllMarkers(Map<String, Marker> newMarkers) {
-    // Consider using mapEquals if performance allows and newMarkers might be structurally same but different instance
-    // if (!mapEquals(state, newMarkers)) {
-    //   state = newMarkers;
-    // }
-    // Preserve existing overlay marker across rebuilds
-    final overlay = state[kSelectedOverlayMarkerId];
-    final merged = Map<String, Marker>.from(newMarkers);
-    if (overlay != null) {
-      merged[kSelectedOverlayMarkerId] = overlay;
+    // If we already have a selection, keep it visually selected by mutating the real marker.
+    if (_selectedLocKey != null && newMarkers.containsKey(_selectedLocKey)) {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        newMarkers[_selectedLocKey!] = newMarkers[_selectedLocKey!]!.copyWith(
+          iconParam: _markerSelectedIcon,
+          zIndexIntParam: 1,
+        );
+      } else {
+        newMarkers[_selectedLocKey!] =
+            newMarkers[_selectedLocKey!]!.copyWith(iconParam: _markerSelectedIcon);
+      }
     }
-    state = merged;
+    state = newMarkers;
   }
 
   /// Public method to clear all markers from the cache.
@@ -117,47 +120,43 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
     }
   }
 
-  /// Highlights selection using a single overlay marker positioned at the
-  /// selected location. Base markers remain unchanged.
+  /// Toggle selection by updating the real marker at that location.
   void updateSelection(String? newSelectedId, String? previousSelectedId) {
     if (state.isEmpty) return;
+
+    final defToLoc = ref.read(definitionIdToLocationKeyProvider);
     final cache = Map<String, Marker>.from(state);
 
-    if (newSelectedId == null) {
-      cache.remove(kSelectedOverlayMarkerId);
-      state = cache;
-      return;
-    }
-
-    // Map definition -> location key
-    final defToLoc = ref.read(definitionIdToLocationKeyProvider);
-    final locKey = defToLoc[newSelectedId];
-    if (locKey == null) {
-      return;
-    }
-
-    // Try to resolve position from cache; if missing, use stored location map
-    LatLng? pos = cache[locKey]?.position;
-    if (pos == null) {
-      final locMap = ref.read(locationKeyToPositionProvider);
-      pos = locMap[locKey];
-      if (pos == null) {
-        return;
+    // Revert previous selection (by explicit previous ID or last known loc key)
+    final String? prevLocKey =
+        previousSelectedId != null ? defToLoc[previousSelectedId] : _selectedLocKey;
+    if (prevLocKey != null && cache.containsKey(prevLocKey)) {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        cache[prevLocKey] = cache[prevLocKey]!.copyWith(
+          iconParam: _markerDefaultIcon,
+          zIndexIntParam: 0,
+        );
+      } else {
+        cache[prevLocKey] =
+            cache[prevLocKey]!.copyWith(iconParam: _markerDefaultIcon);
       }
     }
-    cache[kSelectedOverlayMarkerId] = (cache[kSelectedOverlayMarkerId])?.copyWith(
-          positionParam: pos,
-          iconParam: _markerSelectedIcon,
-          zIndexIntParam: 100,
-        ) ??
-        Marker(
-          markerId: const MarkerId(kSelectedOverlayMarkerId),
-          position: pos,
-          icon: _markerSelectedIcon,
-          zIndexInt: 100,
-          consumeTapEvents: false,
-        );
 
+    // Apply new selection
+    final String? newLocKey = newSelectedId != null ? defToLoc[newSelectedId] : null;
+    if (newLocKey != null && cache.containsKey(newLocKey)) {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        cache[newLocKey] = cache[newLocKey]!.copyWith(
+          iconParam: _markerSelectedIcon,
+          zIndexIntParam: 1,
+        );
+      } else {
+        cache[newLocKey] =
+            cache[newLocKey]!.copyWith(iconParam: _markerSelectedIcon);
+      }
+    }
+
+    _selectedLocKey = newLocKey;
     state = cache;
   }
 }
