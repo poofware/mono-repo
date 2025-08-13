@@ -98,19 +98,37 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
 
   /// Public method to replace all markers in the cache.
   void replaceAllMarkers(Map<String, Marker> newMarkers) {
-    // If we already have a selection, keep it visually selected by mutating the real marker.
-    if (_selectedLocKey != null && newMarkers.containsKey(_selectedLocKey)) {
-      if (defaultTargetPlatform == TargetPlatform.iOS) {
-        newMarkers[_selectedLocKey!] = newMarkers[_selectedLocKey!]!.copyWith(
-          iconParam: _markerSelectedIcon,
-          zIndexIntParam: 1,
-        );
+    final old = state;
+    final merged = <String, Marker>{};
+
+    // Preserve existing Marker instances when position is unchanged.
+    // This reduces churn in the platform view and prevents flicker.
+    for (final entry in newMarkers.entries) {
+      final key = entry.key;
+      final nextMarker = entry.value;
+      final prevMarker = old[key];
+      if (prevMarker != null && prevMarker.position == nextMarker.position) {
+        merged[key] = prevMarker;
       } else {
-        newMarkers[_selectedLocKey!] =
-            newMarkers[_selectedLocKey!]!.copyWith(iconParam: _markerSelectedIcon);
+        merged[key] = nextMarker;
       }
     }
-    state = newMarkers;
+
+    // Only update state if there are real changes (keys or instances differ).
+    if (!_mapIdentityEqual(old, merged)) {
+      state = merged;
+    }
+  }
+
+  bool _mapIdentityEqual(Map<String, Marker> a, Map<String, Marker> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final k in a.keys) {
+      final av = a[k];
+      final bv = b[k];
+      if (bv == null || !identical(av, bv)) return false;
+    }
+    return true;
   }
 
   /// Public method to clear all markers from the cache.
