@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/poofware/interest-service/internal/app"
-	"github.com/poofware/interest-service/internal/dtos"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type HealthController struct {

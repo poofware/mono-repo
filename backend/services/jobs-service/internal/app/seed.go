@@ -1,5 +1,3 @@
-// meta-service/services/jobs-service/internal/app/seed.go
-
 package app
 
 import (
@@ -13,11 +11,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/jobs-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	seeding "github.com/poofware/mono-repo/backend/shared/go-seeding"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
 )
 
 // Helper to check for unique violation error (PostgreSQL specific code)
@@ -62,18 +61,23 @@ func SeedAllTestData(
 	defRepo repositories.JobDefinitionRepository,
 	jobService *services.JobService,
 ) error {
-	pmRepo := repositories.NewPropertyManagerRepository(db, encryptionKey)
-	workerRepo := repositories.NewWorkerRepository(db, encryptionKey) // NEW: Worker Repo
-	unitRepo := repositories.NewUnitRepository(db)
-	// instRepo := repositories.NewJobInstanceRepository(db) // For manual seeding -- no longer needed here
-
-	if err := seedDefaultPMIfNeeded(ctx, pmRepo); err != nil {
-		return fmt.Errorf("seed default PM if needed: %w", err)
+	sentinelPropID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	if existing, err := propRepo.GetByID(ctx, sentinelPropID); err != nil {
+		return fmt.Errorf("check existing seed property: %w", err)
+	} else if existing != nil {
+		utils.Logger.Info("jobs-service: seed data already present; skipping seeding")
+		return nil
 	}
 
-	// NEW: Seed workers before properties and jobs
-	if err := seedDefaultWorkersIfNeeded(ctx, workerRepo); err != nil {
-		return fmt.Errorf("seed default workers if needed: %w", err)
+	pmRepo := repositories.NewPropertyManagerRepository(db, encryptionKey)
+	workerRepo := repositories.NewWorkerRepository(db, encryptionKey)
+	unitRepo := repositories.NewUnitRepository(db)
+
+	if err := seeding.SeedDefaultPropertyManager(pmRepo); err != nil {
+		return fmt.Errorf("seed default PM: %w", err)
+	}
+	if err := seeding.SeedDefaultWorkers(workerRepo); err != nil {
+		return fmt.Errorf("seed default workers: %w", err)
 	}
 
 	propID, err := seedPropertyDataIfNeeded(ctx, propRepo, bldgRepo, dumpRepo, unitRepo)
@@ -91,7 +95,7 @@ func SeedAllTestData(
 		return fmt.Errorf("seed job definitions if needed: %w", err)
 	}
 
-	// NEW: Seed the small 3-unit demo job for Demo Property 1.
+	// Seed the small 3-unit demo job for Demo Property 1.
 	if err := seedSmallDemoJobIfNeeded(ctx, defRepo, bldgRepo, unitRepo, jobService, propRepo, propID); err != nil {
 		return fmt.Errorf("seed small demo job if needed: %w", err)
 	}
@@ -121,123 +125,6 @@ func SeedAllTestData(
 
 /*
 ------------------------------------------------------------------
- 1. seedDefaultPMIfNeeded
-
-------------------------------------------------------------------
-*/
-func seedDefaultPMIfNeeded(
-	ctx context.Context,
-	pmRepo repositories.PropertyManagerRepository,
-) error {
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-
-	pm := &models.PropertyManager{
-		ID:              pmID,
-		Email:           "team@thepoofapp.com",
-		PhoneNumber:     utils.Ptr("+12565550000"),
-		TOTPSecret:      "defaultpmstatusactivestotpsecret",
-		BusinessName:    "Demo Property Management",
-		BusinessAddress: "30 Gates Mill St NW",
-		City:            "Huntsville",
-		State:           "AL",
-		ZipCode:         "35806",
-	}
-	if err := pmRepo.Create(ctx, pm); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: PM (id=%s) already exists; skipping creation.", pmID)
-			return nil
-		}
-		return fmt.Errorf("could not create PM (id=%s): %w", pmID, err)
-	}
-
-	utils.Logger.Infof("jobs-service: Created default PM (id=%s).", pmID)
-	return nil
-}
-
-/*
-------------------------------------------------------------------
-
-	1.5) seedDefaultWorkersIfNeeded (NEW)
-
-------------------------------------------------------------------
-*/
-func seedDefaultWorkersIfNeeded(
-	ctx context.Context,
-	workerRepo repositories.WorkerRepository,
-) error {
-	defaultWorkerStatusIncompleteID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa1111")
-	defaultWorkerStatusActiveID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
-
-	// --- Worker 1: INCOMPLETE, at BACKGROUND_CHECK step ---
-	wIncomplete := &models.Worker{
-		ID:          defaultWorkerStatusIncompleteID,
-		Email:       "jlmoors001@gmail.com",
-		PhoneNumber: "+15551110000",
-		TOTPSecret:  "defaultworkerstatusincompletestotpsecret",
-		FirstName:   "DefaultWorker",
-		LastName:    "SetupIncomplete",
-	}
-	if err := workerRepo.Create(ctx, wIncomplete); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: Default Worker (incomplete) already present (id=%s); skipping.", wIncomplete.ID)
-		} else {
-			return fmt.Errorf("insert default worker (incomplete): %w", err)
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: Created default Worker (incomplete) id=%s, now updating status.", wIncomplete.ID)
-		if err := workerRepo.UpdateWithRetry(ctx, wIncomplete.ID, func(stored *models.Worker) error {
-			stored.StreetAddress = "123 Default Status Incomplete St"
-			stored.City = "SeedCity"
-			stored.State = "AL"
-			stored.ZipCode = "90000"
-			stored.VehicleYear = 2022
-			stored.VehicleMake = "Toyota"
-			stored.VehicleModel = "Corolla"
-			stored.SetupProgress = models.SetupProgressBackgroundCheck
-			return nil
-		}); err != nil {
-			return fmt.Errorf("update default worker (incomplete) status: %w", err)
-		}
-	}
-
-	// --- Worker 2: ACTIVE, setup DONE ---
-	wActive := &models.Worker{
-		ID:          defaultWorkerStatusActiveID,
-		Email:       "team@thepoofapp.com",
-		PhoneNumber: "+15552220000",
-		TOTPSecret:  "defaultworkerstatusactivestotpsecretokay",
-		FirstName:   "DefaultWorker",
-		LastName:    "SetupActive",
-	}
-	if err := workerRepo.Create(ctx, wActive); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: Default Worker (active) already present (id=%s); skipping.", wActive.ID)
-		} else {
-			return fmt.Errorf("insert default worker (active): %w", err)
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: Created default Worker (active) id=%s, now updating status.", wActive.ID)
-		if err := workerRepo.UpdateWithRetry(ctx, wActive.ID, func(stored *models.Worker) error {
-			stored.StreetAddress = "123 Default Status Active St"
-			stored.City = "SeedCity"
-			stored.State = "AL"
-			stored.ZipCode = "90000"
-			stored.VehicleYear = 2022
-			stored.VehicleMake = "Toyota"
-			stored.VehicleModel = "Camry"
-			stored.AccountStatus = models.AccountStatusActive
-			stored.SetupProgress = models.SetupProgressDone
-			stored.StripeConnectAccountID = utils.Ptr("acct_1RZHahCLd3ZjFFWN") // Happy Path Connect ID
-			return nil
-		}); err != nil {
-			return fmt.Errorf("update default worker (active) status: %w", err)
-		}
-	}
-	return nil
-}
-
-/*
-------------------------------------------------------------------
  2. seedPropertyDataIfNeeded
 
 ------------------------------------------------------------------
@@ -253,7 +140,7 @@ func seedPropertyDataIfNeeded(
 
 	p := &models.Property{
 		ID:           propID,
-		ManagerID:    uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		ManagerID:    uuid.MustParse(seeding.DefaultPropertyManagerID),
 		PropertyName: "Demo Property 1",
 		Address:      "30 Gates Mill St NW",
 		City:         "Huntsville",
@@ -605,7 +492,7 @@ func seedSmallDemoJobIfNeeded(
 	}
 	timeZone := prop.TimeZone
 	dumpsterID := uuid.MustParse("44444444-4444-4444-4444-444444444444") // Dumpster for Demo Property 1
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 
 	loc, err := time.LoadLocation(timeZone)
 	if err != nil {
@@ -703,7 +590,7 @@ func createDailyDefinition(
 		return uuid.Nil, err
 	}
 
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 
 	var firstID uuid.UUID
 	for i, groups := range chunks {
@@ -796,7 +683,7 @@ func createRealisticTimeWindowDefinition(
 		return uuid.Nil, err
 	}
 
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 	var firstID uuid.UUID
 	for i, groups := range chunks {
 		t := title
@@ -895,7 +782,7 @@ func seedHistoricalDefinition(
 		},
 	}
 
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 
 	// Create this definition as INACTIVE so it doesn't generate future jobs.
 	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, string(models.JobStatusArchived))
@@ -936,7 +823,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 	jobsForWeekBeforeLast := []*models.JobInstance{
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa1"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast1),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 1),
 			EffectivePay: 20.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 1).Add(17 * time.Hour)),
@@ -944,7 +831,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa2"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast2),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 3),
 			EffectivePay: 25.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 3).Add(18 * time.Hour)),
@@ -952,7 +839,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa3"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast3),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 5),
 			EffectivePay: 22.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 5).Add(19 * time.Hour)),
@@ -965,7 +852,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 	jobsForLastWeek := []*models.JobInstance{
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb1"),
+			ID:           uuid.MustParse(seeding.HistoricalJobLastWeek1),
 			ServiceDate:  lastWeekStart.AddDate(0, 0, 0),
 			EffectivePay: 30.00,
 			CheckInAt:    utils.Ptr(lastWeekStart.AddDate(0, 0, 0).Add(16 * time.Hour)),
@@ -973,7 +860,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb2"),
+			ID:           uuid.MustParse(seeding.HistoricalJobLastWeek2),
 			ServiceDate:  lastWeekStart.AddDate(0, 0, 2),
 			EffectivePay: 28.00,
 			CheckInAt:    utils.Ptr(lastWeekStart.AddDate(0, 0, 2).Add(20 * time.Hour)),
@@ -996,8 +883,8 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		todayJob,
 	)
 
-	// This is the default active worker ID seeded in seedDefaultWorkersIfNeeded
-	workerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
+	// This is the default active worker ID seeded in go-seeding
+	workerID := uuid.MustParse(seeding.DefaultActiveWorkerID)
 
 	for _, job := range allJobsToSeed {
 		// Set common properties for all seeded historical/completed jobs
@@ -1053,7 +940,7 @@ func seedCliftFarmPropertyIfNeeded(
 
 	p := &models.Property{
 		ID:           propID,
-		ManagerID:    uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		ManagerID:    uuid.MustParse(seeding.DefaultPropertyManagerID),
 		PropertyName: "The Station at Clift Farm",
 		Address:      "165 John Thomas Dr",
 		City:         "Madison",

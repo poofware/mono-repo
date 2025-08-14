@@ -13,13 +13,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/constants"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/jobs-service/internal/routes"
-	"github.com/poofware/jobs-service/internal/services"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
+	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 /*
@@ -245,7 +245,50 @@ func TestCancelInProgress_RevertsToOpen_WithPenalty(t *testing.T) {
 	}
 }
 
-func TestCancelInProgress_BecomesCanceled_AfterCutoff(t *testing.T) {
+// Late unassignment after the acceptance cutoff should reopen the job and penalize the worker
+func TestUnaccept_AfterAcceptanceCutoff_Reopens(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+	initialScore := 100
+
+	// Setup job whose acceptance cutoff has already passed but latest start is in the future
+	now := time.Now().UTC()
+	latest := now.Add(30 * time.Minute)
+	earliest := latest.Add(-2 * time.Hour)
+
+	w := h.CreateTestWorker(ctx, "unaccept-late", initialScore)
+	workerJWT := h.CreateMobileJWT(w.ID, "unacceptLateDevice", "FAKE-PLAY")
+	p := h.CreateTestProperty(ctx, "UnacceptLateProp", testPM.ID, 0, 0)
+	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "UnacceptLateJob",
+		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+	inst := h.CreateTestJobInstance(t, ctx, defn.ID, now, models.InstanceStatusOpen, nil)
+
+	// Manually assign the job to the worker to bypass acceptance window checks
+	_, err := h.DB.Exec(ctx, `UPDATE job_instances SET status=$1, assigned_worker_id=$2, row_version=row_version+1 WHERE id=$3`,
+		models.InstanceStatusAssigned, w.ID, inst.ID)
+	require.NoError(t, err)
+
+	unacceptBody, _ := json.Marshal(dtos.JobInstanceActionRequest{InstanceID: inst.ID})
+	unacceptReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsUnaccept, workerJWT, unacceptBody, "android", "unacceptLateDevice")
+	unacceptResp := h.DoRequest(unacceptReq, h.NewHTTPClient())
+	defer unacceptResp.Body.Close()
+	require.Equal(t, http.StatusOK, unacceptResp.StatusCode)
+
+	var out dtos.JobInstanceActionResponse
+	data, _ := io.ReadAll(unacceptResp.Body)
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Equal(t, string(models.InstanceStatusOpen), out.Updated.Status, "Job should reopen")
+
+	updatedWorker, err := h.WorkerRepo.GetByID(ctx, w.ID)
+	require.NoError(t, err)
+	require.Equal(t, initialScore+constants.WorkerPenaltyNoShow, updatedWorker.ReliabilityScore, "Worker should be penalized")
+
+	updatedInst, err := h.JobInstRepo.GetByID(ctx, inst.ID)
+	require.NoError(t, err)
+	require.Contains(t, updatedInst.ExcludedWorkerIDs, w.ID, "Worker should be excluded")
+}
+
+func TestCancelInProgress_BecomesCanceled_AfterLatestStart(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
 	initialScore := 100
@@ -278,10 +321,8 @@ func TestCancelInProgress_BecomesCanceled_AfterCutoff(t *testing.T) {
 	_, err := h.DB.Exec(ctx, updateQuery, models.InstanceStatusInProgress, w.ID, checkinTime, inst.ID)
 	require.NoError(t, err, "Failed to manually set instance to IN_PROGRESS")
 
-	// 2. The no-show cutoff is now guaranteed to be in the past.
-	//    no-show cutoff = latest_start_time - 20m = (now - 10m) - 20m = now - 30m.
-
-	// 3. Cancel the job. This request should now succeed with a 200.
+	// 2. Cancel the job after its latest start time has already passed.
+	//    This request should succeed with a 200 and result in a CANCELED job.
 	cancelPayload := dtos.JobInstanceActionRequest{InstanceID: inst.ID}
 	cancelBody, _ := json.Marshal(cancelPayload)
 	cancelReq := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsCancel, workerJWT, cancelBody, "android", "cancelLateDevice")

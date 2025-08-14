@@ -1,6 +1,7 @@
 // worker-app/lib/features/jobs/providers/map_state_provider.dart
 
-import 'package:flutter/foundation.dart';
+// No material imports needed here
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
@@ -31,6 +32,10 @@ LatLng _markerPositionIsolateHelper(JobInstance inst) {
   return kLosAngelesLatLng; // Fallback position
 }
 
+// Rounds to ~0.11 meters at equator; prevents near-overlaps from collapsing
+String locationKeyForLatLng(LatLng p) =>
+    '${p.latitude.toStringAsFixed(6)},${p.longitude.toStringAsFixed(6)}';
+
 // --- Arguments for the compute function ---
 class RebuildMarkerArgs {
   final List<DefinitionGroup> definitions;
@@ -49,7 +54,6 @@ class RebuildMarkerArgs {
 // --- Compute function for rebuilding markers in an isolate ---
 Map<String, Marker> rebuildAndCreateMarkersIsolate(RebuildMarkerArgs args) {
   final Map<String, Marker> newCache = {};
-  final SendPort? mainIsolatePort = IsolateNameServer.lookupPortByName(kMarkerTapPortName);
 
   if (!args.isOnline) {
     return newCache; // Return empty cache if not online
@@ -57,20 +61,19 @@ Map<String, Marker> rebuildAndCreateMarkersIsolate(RebuildMarkerArgs args) {
 
   for (final d in args.definitions) {
     if (d.instances.isNotEmpty) {
-      final isSelected = d.definitionId == args.currentSelectedId;
-      newCache[d.definitionId] = Marker(
-        markerId: MarkerId(d.definitionId),
-        position: _markerPositionIsolateHelper(d.instances.first),
-        icon: isSelected ? _markerSelectedIcon : _markerDefaultIcon,
-        zIndex: isSelected ? 1.0 : 0.0,
+      // Deduplicate by location – only one marker per rounded LatLng
+      final pos = _markerPositionIsolateHelper(d.instances.first);
+      final key = locationKeyForLatLng(pos);
+      if (newCache.containsKey(key)) continue;
+      newCache[key] = Marker(
+        markerId: MarkerId(key),
+        position: pos,
+        icon: _markerDefaultIcon,
         consumeTapEvents: true,
         onTap: () {
-          if (mainIsolatePort != null) {
-            mainIsolatePort.send(d.definitionId);
-          } else {
-            // This case should ideally not happen if the port is registered correctly.
-            // Consider logging or a fallback if critical.
-            debugPrint("Error: Marker tap port not found in isolate.");
+          final SendPort? port = IsolateNameServer.lookupPortByName(kMarkerTapPortName);
+          if (port != null) {
+            port.send(key);
           }
         },
       );
@@ -89,16 +92,43 @@ final selectedDefinitionIdProvider = StateProvider<String?>((ref) => null);
 /// Notifier for managing the cache of Marker objects.
 /// Its state is now primarily set by HomePage after running a compute function.
 class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
-  MarkerCacheNotifier() : super({});
+  final Ref ref;
+  String? _selectedLocKey; // track current selected location
+  MarkerCacheNotifier(this.ref) : super({});
 
   /// Public method to replace all markers in the cache.
   void replaceAllMarkers(Map<String, Marker> newMarkers) {
-    // Consider using mapEquals if performance allows and newMarkers might be structurally same but different instance
-    // if (!mapEquals(state, newMarkers)) {
-    //   state = newMarkers;
-    // }
-    // For now, direct assignment as compute likely produces a new map instance.
-    state = newMarkers;
+    final old = state;
+    final merged = <String, Marker>{};
+
+    // Preserve existing Marker instances when position is unchanged.
+    // This reduces churn in the platform view and prevents flicker.
+    for (final entry in newMarkers.entries) {
+      final key = entry.key;
+      final nextMarker = entry.value;
+      final prevMarker = old[key];
+      if (prevMarker != null && prevMarker.position == nextMarker.position) {
+        merged[key] = prevMarker;
+      } else {
+        merged[key] = nextMarker;
+      }
+    }
+
+    // Only update state if there are real changes (keys or instances differ).
+    if (!_mapIdentityEqual(old, merged)) {
+      state = merged;
+    }
+  }
+
+  bool _mapIdentityEqual(Map<String, Marker> a, Map<String, Marker> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final k in a.keys) {
+      final av = a[k];
+      final bv = b[k];
+      if (bv == null || !identical(av, bv)) return false;
+    }
+    return true;
   }
 
   /// Public method to clear all markers from the cache.
@@ -108,44 +138,51 @@ class MarkerCacheNotifier extends StateNotifier<Map<String, Marker>> {
     }
   }
 
-  /// Updates the icons for the previously selected and newly selected markers.
-  /// This is a lightweight operation and can be called directly.
+  /// Toggle selection by updating the real marker at that location.
   void updateSelection(String? newSelectedId, String? previousSelectedId) {
-    final newCacheState = Map<String, Marker>.from(state);
-    bool changed = false;
+    if (state.isEmpty) return;
 
-    if (previousSelectedId != null && newCacheState.containsKey(previousSelectedId)) {
-      final oldMarker = newCacheState[previousSelectedId]!;
-      if (oldMarker.icon != _markerDefaultIcon || oldMarker.zIndex != 0.0) {
-        newCacheState[previousSelectedId] = oldMarker.copyWith(
+    final defToLoc = ref.read(definitionIdToLocationKeyProvider);
+    final cache = Map<String, Marker>.from(state);
+
+    // Revert previous selection (by explicit previous ID or last known loc key)
+    final String? prevLocKey =
+        previousSelectedId != null ? defToLoc[previousSelectedId] : _selectedLocKey;
+    if (prevLocKey != null && cache.containsKey(prevLocKey)) {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        cache[prevLocKey] = cache[prevLocKey]!.copyWith(
           iconParam: _markerDefaultIcon,
-          zIndexParam: 0.0,
+          zIndexIntParam: 0,
         );
-        changed = true;
+      } else {
+        cache[prevLocKey] =
+            cache[prevLocKey]!.copyWith(iconParam: _markerDefaultIcon);
       }
     }
 
-    if (newSelectedId != null && newCacheState.containsKey(newSelectedId)) {
-       final oldMarker = newCacheState[newSelectedId]!;
-       if (oldMarker.icon != _markerSelectedIcon || oldMarker.zIndex != 1.0) {
-        newCacheState[newSelectedId] = oldMarker.copyWith(
+    // Apply new selection
+    final String? newLocKey = newSelectedId != null ? defToLoc[newSelectedId] : null;
+    if (newLocKey != null && cache.containsKey(newLocKey)) {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        cache[newLocKey] = cache[newLocKey]!.copyWith(
           iconParam: _markerSelectedIcon,
-          zIndexParam: 1.0,
+          zIndexIntParam: 1,
         );
-        changed = true;
+      } else {
+        cache[newLocKey] =
+            cache[newLocKey]!.copyWith(iconParam: _markerSelectedIcon);
       }
     }
 
-    if (changed) {
-      state = newCacheState;
-    }
+    _selectedLocKey = newLocKey;
+    state = cache;
   }
 }
 
 /// Provider for the MarkerCacheNotifier.
 final jobMarkerCacheProvider =
     StateNotifierProvider<MarkerCacheNotifier, Map<String, Marker>>((ref) {
-  return MarkerCacheNotifier();
+  return MarkerCacheNotifier(ref);
 });
 
 /// NEW provider that only emits when the *reference* of relevant markers might change.
@@ -158,3 +195,16 @@ final visibleMarkersProvider = Provider<Set<Marker>>((ref) {
   // but Riverpod handles efficient rebuilds of consumers.
   return Set<Marker>.unmodifiable(cache.values);
 });
+
+
+/// Mapping: definitionId -> locationKey
+final definitionIdToLocationKeyProvider =
+    StateProvider<Map<String, String>>((ref) => {});
+
+/// Mapping: locationKey -> exact LatLng
+final locationKeyToPositionProvider =
+    StateProvider<Map<String, LatLng>>((ref) => {});
+
+/// Mapping: locationKey -> definitions located at this coordinate
+final locationKeyToDefinitionIdsProvider =
+    StateProvider<Map<String, List<String>>>((ref) => {});

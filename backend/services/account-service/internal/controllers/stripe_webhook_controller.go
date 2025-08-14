@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"fmt"
 
-	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/account-service/internal/config"
-	"github.com/poofware/account-service/internal/constants"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/webhook"
 )

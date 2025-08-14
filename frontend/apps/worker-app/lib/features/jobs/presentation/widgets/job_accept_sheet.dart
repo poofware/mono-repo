@@ -227,7 +227,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     );
 
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: screenHeight * 0.9),
+      constraints: BoxConstraints(maxHeight: screenHeight * 0.95),
       child: Container(
         decoration: BoxDecoration(
           color: cardColor,

@@ -8,17 +8,18 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart';
-import 'package:poof_flutter_auth/src/utils/device_attestation_utils.dart'
-    as attestation;
+
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/providers/app_providers.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
+import 'package:poof_worker/core/utils/location_permissions.dart' as locperm;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
@@ -112,7 +113,7 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
   Future<void> _prepareWebView() async {
     final platformEnum = getCurrentPlatform();
     final deviceId = await DeviceIdManager.getDeviceId();
-    final keyId = await attestation.getCachedKeyId(
+    final keyId = await getCachedKeyId(
       isAndroid: platformEnum == FlutterPlatform.android,
     );
     if (!mounted) return;
@@ -194,7 +195,7 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
         ? 'production'
         : 'staging';
     final sessionTokenPath =
-        '${PoofWorkerFlavorConfig.instance.apiServiceURL}/account/worker/checkr/session-token';
+        '${PoofWorkerFlavorConfig.instance.apiServiceURL}/v1/account/worker/checkr/session-token';
 
     return '''
 <!doctype html>
@@ -217,7 +218,8 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
             'Authorization': `Bearer $accessToken`,
             'X-Platform'   : '$platform',
             'X-Device-ID'  : '$deviceId',
-            'X-Key-ID'     : '$keyId',
+            'X-Key-Id'     : '$keyId',
+            'ngrok-skip-browser-warning': 'true',
           }),
           candidateId: '$candidateId',
           styles: {
@@ -249,7 +251,16 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
   // ---------------------------------------------------------------------------
   // NAVIGATION
   // ---------------------------------------------------------------------------
-  void _onContinue() => context.goNamed('MainTab');
+  void _onContinue() async {
+    // Require permission on both platforms; if missing, show disclosure and
+    // keep the user in this flow until granted.
+    final hasPerm = await locperm.hasLocationPermission();
+    if (!hasPerm) {
+      if (mounted) context.goNamed(AppRouteNames.locationDisclosurePage);
+      return;
+    }
+    if (mounted) context.goNamed(AppRouteNames.mainTab);
+  }
 
   Future<void> _showDetailsSheet() async {
     final appLocalizations = AppLocalizations.of(context);

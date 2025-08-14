@@ -1,4 +1,4 @@
-module github.com/poofware/go-dtos
+module github.com/poofware/mono-repo/backend/shared/go-dtos
 
 go 1.24.0
 

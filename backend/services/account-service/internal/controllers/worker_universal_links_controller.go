@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/poofware/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
 )
 
 // fallbackTemplate is a simple HTML template that:
@@ -16,8 +16,10 @@ const fallbackTemplate = `<!DOCTYPE html>
 <head>
     <title>Returning to Poof Worker App</title>
     <meta charset="utf-8" />
-    <!-- Ensures correct scaling on mobile devices -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
         function openApp() {
             // Attempt to open the Poof Worker app via the custom scheme:
@@ -40,68 +42,77 @@ const fallbackTemplate = `<!DOCTYPE html>
       body {
         margin: 0;
         padding: 0;
-        font-family: Arial, sans-serif;
+        font-family: 'Poppins', sans-serif;
         background: #FAFAFA;
         color: #333;
       }
-      /* Container with max-width for better mobile handling */
       .container {
         max-width: 600px;
         margin: 0 auto;
-        padding: 1rem;
+        padding: 2rem 1rem;
+        text-align: center;
+      }
+      .logo {
+        width: 96px;
+        margin-bottom: 2rem;
       }
       h1 {
         font-size: 1.5rem;
         margin-bottom: 1rem;
       }
       p, li {
-        line-height: 1.4;
+        line-height: 1.6;
+        color: #6b7280;
       }
       #fallback-message {
         display: none;
-        margin-top: 1.5rem;
+        margin-top: 2rem;
         background: #fff;
         border: 1px solid #DDD;
-        padding: 1rem;
-        border-radius: 4px;
+        padding: 1.5rem;
+        border-radius: 8px;
       }
       a {
-        color: #007AFF;
+        color: #743ee4;
         text-decoration: none;
       }
       a:hover {
         text-decoration: underline;
       }
       button {
-        margin-right: 1rem;
-        background-color: #007AFF;
+        margin-top: 1rem;
+        background-color: #743ee4;
         color: #fff;
         border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
         cursor: pointer;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 600;
+        font-size: 1rem;
       }
       button:hover {
-        background-color: #005BB5;
+        opacity: 0.9;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin-top: 1rem;
       }
     </style>
 </head>
 <body>
     <div class="container">
+      <img src="https://thepoofapp.com/assets/images/POOF_LOGO-LC_BW.svg" alt="Poof Logo" class="logo" />
       <h1>Returning to Poof Worker App...</h1>
       <p>Please wait while we attempt to open the Poof Worker app.</p>
 
       <div id="fallback-message">
         <p>
-          If the app did not open automatically, please install or open it from the stores below,
-          or try opening it again via the button below.
+          If the app did not open automatically, please try opening it again with the button below.
         </p>
         <button onclick="openUniversalLink()">Open Poof Worker App</button>
-        <ul>
-          <li><a href="https://play.google.com/store" target="_blank">Google Play Store</a></li>
-          <li><a href="https://apps.apple.com" target="_blank">Apple App Store</a></li>
-        </ul>
-        <p>Or simply open the Poof Worker app manually on your device.</p>
+        <p style="margin-top: 1.5rem;">Or simply open the Poof Worker app manually on your device.</p>
       </div>
     </div>
 </body>
@@ -158,4 +169,3 @@ func (c *WorkerUniversalLinksController) WorkerStripeIdentityReturnHandler(w htt
 	html := c.fallbackHTML(routes.WorkerUniversalLinkStripeIdentityReturn)
 	_, _ = w.Write([]byte(html))
 }
-

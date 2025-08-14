@@ -3,9 +3,9 @@ package controllers
 import (
     "net/http"
 
-    "github.com/poofware/auth-service/internal/dtos"
-    "github.com/poofware/auth-service/internal/services"
-    "github.com/poofware/go-utils"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/services"
+    "github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // RegistrationController handles registration-related endpoints (e.g., TOTP).

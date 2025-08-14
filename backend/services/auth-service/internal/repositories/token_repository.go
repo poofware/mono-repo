@@ -5,7 +5,7 @@ import (
     "time"
 
     "github.com/google/uuid"
-    "github.com/poofware/auth-service/internal/models"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/models"
 )
 
 // TokenRepository is the interface used by the JWT service

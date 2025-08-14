@@ -45,8 +45,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     super.initState();
     if (widget.job.checkInAt != null) {
       _elapsedTime = DateTime.now().toUtc().difference(
-            widget.job.checkInAt!.toUtc(),
-          );
+        widget.job.checkInAt!.toUtc(),
+      );
     }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _elapsedTime += const Duration(seconds: 1));
@@ -114,7 +114,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                     final subject = Uri.encodeComponent(
                       l10n.emailSubjectGeneralHelp,
                     );
-                    launchUrl(Uri.parse('mailto:$supportEmail?subject=$subject'));
+                    launchUrl(
+                      Uri.parse('mailto:$supportEmail?subject=$subject'),
+                    );
                   },
                 ),
               ],
@@ -146,29 +148,33 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       ),
     );
 
-    if (confirmed != true) return;
-    if (!context.mounted) return;
-    showDialog<void>(
-      context: context, // ignore: use_build_context_synchronously
-      barrierDismissible: false,
-      builder: (_) => const _CancelingDialogWidget(),
-    );
+    if (confirmed != true) {
+      return;
+    }
 
-    final wasSuccess = await ref
-        .read(jobsNotifierProvider.notifier)
-        .cancelJob(widget.job.instanceId);
+    if (mounted) {
+      final navigator = Navigator.of(context);
+      final router = GoRouter.of(context);
 
-    if (!context.mounted) return;
-    final navigator =
-        Navigator.of(context); // ignore: use_build_context_synchronously
-    final router =
-        GoRouter.of(context); // ignore: use_build_context_synchronously
-    navigator.pop(); // close the loading dialog
-    if (wasSuccess) {
-      if (navigator.canPop()) {
-        navigator.pop();
-      } else {
-        router.goNamed(AppRouteNames.mainTab);
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const _CancelingDialogWidget(),
+      );
+
+      final wasSuccess = await ref
+          .read(jobsNotifierProvider.notifier)
+          .cancelJob(widget.job.instanceId);
+
+      if (mounted) {
+        navigator.pop(); // close the loading dialog
+        if (wasSuccess) {
+          if (navigator.canPop()) {
+            navigator.pop();
+          } else {
+            router.goNamed(AppRouteNames.mainTab);
+          }
+        }
       }
     }
   }
@@ -189,7 +195,10 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     final job = ref.read(jobsNotifierProvider).inProgressJob ?? widget.job;
     final bagsCollected = job.buildings
         .expand((b) => b.units)
-        .where((u) => u.status == UnitVerificationStatus.verified && !u.missingTrashCan)
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.verified && !u.missingTrashCan,
+        )
         .length;
 
     if (bagsCollected >= _bagLimit && !missingTrashCan) {
@@ -255,18 +264,20 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
           _verifyingUnitIds.add(unit.unitId);
         });
         unawaited(
-          ref.read(jobsNotifierProvider.notifier).verifyUnitPhoto(
+          ref
+              .read(jobsNotifierProvider.notifier)
+              .verifyUnitPhoto(
                 unit.unitId,
                 photo,
                 missingTrashCan: missingTrashCan,
               )
               .whenComplete(() {
-            if (mounted) {
-              setState(() {
-                _verifyingUnitIds.remove(unit.unitId);
-              });
-            }
-          }),
+                if (mounted) {
+                  setState(() {
+                    _verifyingUnitIds.remove(unit.unitId);
+                  });
+                }
+              }),
         );
       }
     } finally {
@@ -356,7 +367,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
       context: context,
       builder: (_) => AlertDialog(
         icon: const Icon(Icons.block, color: Colors.red, size: 48),
-        title: Text(l10n.jobInProgressUnitPermanentlyFailedTitle(unit.unitNumber)),
+        title: Text(
+          l10n.jobInProgressUnitPermanentlyFailedTitle(unit.unitNumber),
+        ),
         content: Text(l10n.jobInProgressUnitPermanentlyFailedBody),
         actions: [
           TextButton(
@@ -373,10 +386,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     if (success && mounted) {
       final job = ref.read(jobsNotifierProvider).inProgressJob;
       if (job == null) {
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.goNamed(AppRouteNames.mainTab);
+        if (mounted) {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.goNamed(AppRouteNames.mainTab);
+          }
         }
       }
     }
@@ -399,6 +414,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         return Icons.numbers;
       case 'DOOR_NUMBER_MISSING':
         return Icons.help_outline;
+      case 'DOOR_NOT_FULLY_VISIBLE':
+        return Icons.door_front_door;
       default:
         return Icons.error_outline;
     }
@@ -414,6 +431,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         return l10n.failureReasonDoorMismatch;
       case 'DOOR_NUMBER_MISSING':
         return l10n.failureReasonDoorMissing;
+      case 'DOOR_NOT_FULLY_VISIBLE':
+        return l10n.failureReasonDoorNotFullyVisible;
       default:
         return l10n.jobInProgressFailureReasonUnknown;
     }
@@ -600,9 +619,12 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   Widget _buildBuildingTile(Building b, AppLocalizations l10n) {
     final theme = Theme.of(context);
     final unprocessedUnits = b.units
-        .where((u) =>
-            u.status != UnitVerificationStatus.dumped &&
-            !(u.status == UnitVerificationStatus.failed && u.permanentFailure))
+        .where(
+          (u) =>
+              u.status != UnitVerificationStatus.dumped &&
+              !(u.status == UnitVerificationStatus.failed &&
+                  u.permanentFailure),
+        )
         .toList();
 
     if (unprocessedUnits.isEmpty) {
@@ -643,8 +665,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            children:
-                unprocessedUnits.map((u) => _buildUnitListItem(u, l10n)).toList(),
+            children: unprocessedUnits
+                .map((u) => _buildUnitListItem(u, l10n))
+                .toList(),
           ),
         ),
       ),
@@ -680,7 +703,8 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     }
 
     final waiting = _verifyingUnitIds.contains(u.unitId);
-    final canTakePhoto = u.status == UnitVerificationStatus.pending ||
+    final canTakePhoto =
+        u.status == UnitVerificationStatus.pending ||
         (u.status == UnitVerificationStatus.failed && !u.permanentFailure);
 
     Widget trailing;
@@ -699,7 +723,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
               onPressed: () => _takePhoto(u),
             );
       final menuBtn = PopupMenuButton<String>(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.0),
+        ),
         icon: const Icon(Icons.more_vert),
         tooltip: l10n.jobInProgressMoreOptionsTooltip,
         onSelected: (val) {
@@ -728,7 +754,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     } else {
       if (u.status == UnitVerificationStatus.failed) {
         trailing = PopupMenuButton<String>(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
           icon: const Icon(Icons.more_vert),
           tooltip: l10n.jobInProgressMoreOptionsTooltip,
           onSelected: (val) {
@@ -846,8 +874,9 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         final nextUnits = nextJob.buildings.expand((b) => b.units);
 
         for (final nextUnit in nextUnits) {
-          final prevUnit =
-              prevUnits.firstWhereOrNull((u) => u.unitId == nextUnit.unitId);
+          final prevUnit = prevUnits.firstWhereOrNull(
+            (u) => u.unitId == nextUnit.unitId,
+          );
           if (prevUnit != null) {
             final wasPermanentFailure = prevUnit.permanentFailure;
             final isPermanentFailure = nextUnit.permanentFailure;
@@ -866,19 +895,24 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
 
     final allUnits = job.buildings.expand((b) => b.units);
     final verifiedCount = allUnits
-        .where((u) => u.status == UnitVerificationStatus.verified && !u.missingTrashCan)
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.verified && !u.missingTrashCan,
+        )
         .length;
     final dumpedCount = allUnits
         .where((u) => u.status == UnitVerificationStatus.dumped)
         .length;
-    final permFailedCount =
-        allUnits.where((u) => u.permanentFailure).length;
+    final permFailedCount = allUnits.where((u) => u.permanentFailure).length;
     final totalUnits = allUnits.length;
 
     final pendingAndTempFailedCount = allUnits
-        .where((u) =>
-            u.status == UnitVerificationStatus.pending ||
-            (u.status == UnitVerificationStatus.failed && !u.permanentFailure))
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.pending ||
+              (u.status == UnitVerificationStatus.failed &&
+                  !u.permanentFailure),
+        )
         .length;
 
     final allUnitsAccountedFor = (dumpedCount + permFailedCount) >= totalUnits;
@@ -947,8 +981,10 @@ class _CancelingDialogWidget extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l10n.cancelJobCancellingMessage,
-              style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            l10n.cancelJobCancellingMessage,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           const CircularProgressIndicator(),
         ],
@@ -962,6 +998,9 @@ class _CancelingDialogWidget extends StatelessWidget {
 int bagCount(JobInstance job) {
   return job.buildings
       .expand((b) => b.units)
-      .where((u) => u.status == UnitVerificationStatus.verified && !u.missingTrashCan)
+      .where(
+        (u) =>
+            u.status == UnitVerificationStatus.verified && !u.missingTrashCan,
+      )
       .length;
 }

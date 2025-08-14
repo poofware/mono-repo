@@ -13,7 +13,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	ld "github.com/launchdarkly/go-server-sdk/v7"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type Config struct {
@@ -54,6 +54,7 @@ type Config struct {
 	LDFlag_DoRealMobileDeviceAttestation bool
 	LDFlag_CORSHighSecurity              bool
 	LDFlag_OpenAIPhotoVerification        bool
+	LDFlag_NotifyJobStatuses             bool
 }
 
 const (
@@ -245,6 +246,12 @@ func LoadConfig() *Config {
 	}
 	utils.Logger.Debugf("openai_photo_verification flag: %t", openaiPhotoFlag)
 
+	notifyJobStatusesFlag, err := ldClient.BoolVariation("notify_job_statuses", ctx, false)
+	if err != nil {
+		utils.Logger.WithError(err).Fatal("Error retrieving notify_job_statuses flag")
+	}
+	utils.Logger.Debugf("notify_job_statuses flag: %t", notifyJobStatusesFlag)
+
 	var openaiKey string
 	if openaiPhotoFlag {
 		val, ok := appSecrets["OPENAI_API_KEY"]
@@ -328,6 +335,7 @@ func LoadConfig() *Config {
 		LDFlag_DoRealMobileDeviceAttestation: doRealMobileDeviceAttestation,
 		LDFlag_CORSHighSecurity:              corsHighSecurityFlag,
 		LDFlag_OpenAIPhotoVerification:        openaiPhotoFlag,
+		LDFlag_NotifyJobStatuses:             notifyJobStatusesFlag,
 	}
 }
 

@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
-	"github.com/poofware/jobs-service/internal/constants"
-	"github.com/poofware/jobs-service/internal/dtos"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
 )
 
 func (s *JobService) ListOpenJobs(
@@ -110,15 +110,15 @@ func (s *JobService) ListOpenJobs(
 			var distMiles float64
 			var travelMins *int
 			if s.cfg.LDFlag_UseGMapsRoutesAPI && s.cfg.GMapsRoutesAPIKey != "" {
-				dMiles, dMins, gErr := internal_utils.ComputeDriveDistanceTimeMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude, s.cfg.GMapsRoutesAPIKey)
+				dMiles, dMins, gErr := utils.ComputeDriveDistanceTimeMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude, s.cfg.GMapsRoutesAPIKey)
 				if gErr == nil {
 					distMiles = dMiles
 					travelMins = &dMins
 				}
 			}
 			if travelMins == nil {
-				distMiles = internal_utils.DistanceMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude)
-				estMins := int(distMiles * constants.CrowFliesDriveTimeMultiplier)
+				distMiles = utils.DistanceMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude)
+				estMins := int(distMiles * utils.CrowFliesDriveTimeMultiplier)
 				travelMins = &estMins
 			}
 			routeCache[propID] = &routeInfo{DistanceMiles: distMiles, TravelMinutes: travelMins}
@@ -267,15 +267,15 @@ func (s *JobService) ListMyJobs(
 			var distMiles float64
 			var travelMins *int
 			if s.cfg.LDFlag_UseGMapsRoutesAPI && s.cfg.GMapsRoutesAPIKey != "" {
-				dMiles, dMins, gErr := internal_utils.ComputeDriveDistanceTimeMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude, s.cfg.GMapsRoutesAPIKey)
+				dMiles, dMins, gErr := utils.ComputeDriveDistanceTimeMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude, s.cfg.GMapsRoutesAPIKey)
 				if gErr == nil {
 					distMiles = dMiles
 					travelMins = &dMins
 				}
 			}
 			if travelMins == nil {
-				distMiles = internal_utils.DistanceMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude)
-				estMins := int(distMiles * constants.CrowFliesDriveTimeMultiplier)
+				distMiles = utils.DistanceMiles(q.Lat, q.Lng, prop.Latitude, prop.Longitude)
+				estMins := int(distMiles * utils.CrowFliesDriveTimeMultiplier)
 				travelMins = &estMins
 			}
 			routeCache[propID] = &routeInfo{DistanceMiles: distMiles, TravelMinutes: travelMins}

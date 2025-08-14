@@ -1,9 +1,9 @@
 package app
 
 import (
-    "github.com/poofware/interest-service/internal/config"
-    "github.com/poofware/interest-service/internal/services"
-    "github.com/poofware/go-utils"
+    "github.com/poofware/mono-repo/backend/services/interest-service/internal/config"
+    "github.com/poofware/mono-repo/backend/services/interest-service/internal/services"
+    "github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // App struct holds references to config & services.

@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/poofware/go-middleware" // ⟵ use the canonical constants
+	"github.com/poofware/mono-repo/backend/shared/go-middleware" // ⟵ use the canonical constants
 )
 
 /*

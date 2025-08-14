@@ -4,8 +4,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type CheckrWebhookController struct {

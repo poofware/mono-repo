@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
-	"github.com/poofware/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
 )
 
 func (s *JobService) computeEffectiveReleaseTimeForBatch(

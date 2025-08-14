@@ -1,4 +1,4 @@
-module github.com/poofware/interest-service
+module github.com/poofware/mono-repo/backend/services/interest-service
 
 go 1.24.0
 

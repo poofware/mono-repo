@@ -55,7 +55,9 @@ class _WelcomeButtonState extends State<WelcomeButton> {
   }
 
   Future<void> _handleTap() async {
-    if (widget.onPressed == null || _loading) return;
+    // Use effective loading guard so external loading can also block taps
+    final effectiveLoading = _loading || widget.isLoading;
+    if (widget.onPressed == null || effectiveLoading) return;
 
     setState(() => _loading = true);
 
@@ -86,6 +88,8 @@ class _WelcomeButtonState extends State<WelcomeButton> {
     final Color disabledBg = Colors.grey.shade300;
     final Color disabledFg = Colors.grey.shade600;
 
+    final effectiveLoading = _loading || widget.isLoading;
+
     return AnimatedScale(
       scale: _pressed ? _pressedScale : 1.0,
       duration: _animDuration,
@@ -102,24 +106,27 @@ class _WelcomeButtonState extends State<WelcomeButton> {
               splashFactory: InkSparkle.splashFactory,
               backgroundColor: activeBg,
               foregroundColor: activeFg,
-              disabledBackgroundColor: _loading ? loadingBg : disabledBg,
-              disabledForegroundColor: _loading ? activeFg : disabledFg,
+              disabledBackgroundColor:
+                  effectiveLoading ? loadingBg : disabledBg,
+              disabledForegroundColor:
+                  effectiveLoading ? activeFg : disabledFg,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              elevation: (_loading || widget.onPressed == null)
+              elevation: (effectiveLoading || widget.onPressed == null)
                   ? 0
                   : style.elevation?.resolve({}),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            onPressed:
-                (_loading || widget.onPressed == null) ? null : _handleTap,
+            onPressed: (effectiveLoading || widget.onPressed == null)
+                ? null
+                : _handleTap,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
-              child: _loading && widget.showSpinner
+              child: effectiveLoading && widget.showSpinner
                   ? const SizedBox(
                       key: ValueKey('spinner'),
                       width: 24,

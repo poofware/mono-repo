@@ -80,7 +80,9 @@ platform :ios do
     # Build the app with the correct configuration
     make_cmd = "make -C ../.. build-ios"
     make_cmd += " ENV=#{ENV['MAKE_ENV']}" unless ENV['MAKE_ENV'].to_s.empty?
-    make_cmd += " UNIQUE_RUN_NUMBER=persistent-staging-instance AUTO_LAUNCH_BACKEND=0" if ENV['MAKE_ENV'] == 'staging'
+    make_cmd += " UNIQUE_RUN_NUMBER=persistent-staging-instance" if ENV['MAKE_ENV'] == 'staging'
+    make_cmd += " UNIQUE_RUN_NUMBER=prod" if ENV['MAKE_ENV'] == 'prod'
+    make_cmd += " AUTO_LAUNCH_BACKEND=0"
     sh make_cmd
 
     # Sign the app with the correct provisioning profile

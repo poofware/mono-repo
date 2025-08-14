@@ -33,6 +33,9 @@
       }
     }
   },
+  "locationDisclosureTitle": "Activar la ubicación",
+  "locationDisclosureBody": "Usamos tu ubicación solo mientras utilizas la app para:\n\n• Encontrar trabajos cercanos y centrar el mapa en ti.\n• Mantener tu ruta actualizada durante un trabajo.\n• Confirmar que estás en el lugar correcto para acciones como aceptar, iniciar y desechar.\n\nNo recopilamos tu ubicación cuando la app está cerrada.",
+  "locationDisclosureContinue": "Continuar",
   "phoneNumberFieldLabel": "Número de Teléfono",
   "phoneNumberFieldTooltip": "Seleccionar País",
   "homePageCouldNotGetLocation": "No se pudo obtener la ubicación actual: {error}",
@@ -141,23 +144,29 @@
   "phoneVerificationInfoSendCodeButton": "Enviar Código de Verificación",
   "phoneVerificationInfoFailedSms": "Error al solicitar código SMS: {error}",
   "@phoneVerificationInfoFailedSms": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "verifyNumberTitle": "Verifica Tu Número",
   "verifyNumberMessage": "Introduce el código de 6 dígitos que enviamos a {phoneNumber}",
   "@verifyNumberMessage": {
-      "placeholders": {
-          "phoneNumber": {"type": "String"}
+    "placeholders": {
+      "phoneNumber": {
+        "type": "String"
       }
+    }
   },
   "verifyNumberEnter6DigitCode": "Por favor, introduce un código válido de 6 dígitos",
   "verifyNumberFailed": "Falló la verificación SMS: {error}",
   "@verifyNumberFailed": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "verifyNumberDidNotReceiveCode": "¿No recibiste un código? ",
   "verifyNumberResendCode": "Reenviar",
@@ -172,9 +181,11 @@
   "verifyNumberCodeResent": "¡Código reenviado!",
   "verifyNumberFailedToResend": "Error al reenviar: {error}",
   "@verifyNumberFailedToResend": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "verifyNumberVerifyButton": "Verificar",
   "totpSignupTitle": "Asegura Tu Cuenta",
@@ -188,9 +199,11 @@
   "totpSignupOpenAuthenticatorButton": "Configuración Automática",
   "totpSignupFailedToGenerate": "Error al generar secreto TOTP: {error}",
   "@totpSignupFailedToGenerate": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "totpSignupNoSecretFound": "¡No se encontró el secreto TOTP! Por favor, regresa e inténtalo de nuevo.",
   "totpSignupKeyCopied": "¡Clave secreta copiada al portapapeles!",
@@ -199,7 +212,9 @@
   "totpVerifyMessage": "Introduce el código de 6 dígitos de tu aplicación de autenticación para {identifier}",
   "@totpVerifyMessage": {
     "placeholders": {
-      "identifier": { "type": "String" }
+      "identifier": {
+        "type": "String"
+      }
     }
   },
   "totpVerifyAccountNameInfo": "En tu aplicación de autenticación, busca el código etiquetado como:",
@@ -207,9 +222,11 @@
   "totpVerifyButton": "Verificar",
   "totpVerifyLoginFailed": "Falló el inicio de sesión: {error}",
   "@totpVerifyLoginFailed": {
-      "placeholders": {
-          "error": {"type": "String"}
+    "placeholders": {
+      "error": {
+        "type": "String"
       }
+    }
   },
   "totpVerifyUnexpectedErrorWorkerNull": "Error inesperado: los datos del trabajador son nulos",
   "workerDrawerMyProfile": "Mi Perfil",
@@ -270,23 +287,43 @@
   "completedJobBottomSheetTitle": "Trabajo Completado",
   "completedJobBottomSheetPropertyLabel": "Propiedad: {propertyName}",
   "@completedJobBottomSheetPropertyLabel": {
-    "placeholders": {"propertyName": {"type": "String"}}
+    "placeholders": {
+      "propertyName": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetAddressLabel": "Dirección: {address}",
   "@completedJobBottomSheetAddressLabel": {
-    "placeholders": {"address": {"type": "String"}}
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetPayLabel": "Paga: {payAmount}",
   "@completedJobBottomSheetPayLabel": {
-    "placeholders": {"payAmount": {"type": "String"}}
+    "placeholders": {
+      "payAmount": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetCompletedLabel": "Completado: {dateTime}",
   "@completedJobBottomSheetCompletedLabel": {
-    "placeholders": {"dateTime": {"type": "String"}}
+    "placeholders": {
+      "dateTime": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetTimeToCompleteLabel": "Tiempo para Completar: {duration}",
   "@completedJobBottomSheetTimeToCompleteLabel": {
-    "placeholders": {"duration": {"type": "String"}}
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
   },
   "completedJobBottomSheetCloseButton": "CERRAR",
   "jobInProgressPageTitle": "Trabajo en Curso",
@@ -297,13 +334,14 @@
   "jobInProgressPhotoConfirmDialogContent": "¿Estás seguro de que quieres usar esta foto? No podrás volver a tomarla.",
   "jobInProgressPhotoConfirmDialogConfirm": "Confirmar",
   "jobInProgressPhotoConfirmDialogRetake": "Volver a tomar",
-  "jobInProgressPhotoInstructions": "Asegúrate de que la foto muestre claramente el número de la puerta, el bote de basura y que no haya bolsas.",
+  "jobInProgressPhotoInstructions": "Asegúrate de que la foto muestre claramente la puerta completa de arriba a abajo, el número de la puerta, el bote de basura y que no haya bolsas.",
   "jobInProgressFailureReasonTitle": "¿Por qué falló?",
   "jobInProgressFailureReasonUnknown": "Razón desconocida",
   "failureReasonTrashCanNotVisible": "Bote de basura no visible",
   "failureReasonTrashBagVisible": "Bolsa de basura visible",
   "failureReasonDoorMismatch": "Número de puerta no coincide",
   "failureReasonDoorMissing": "Número de puerta ausente",
+  "failureReasonDoorNotFullyVisible": "Puerta no completamente visible",
   "okButtonLabel": "OK",
   "jobInProgressNoPhotos": "Aún no se han tomado fotos.",
   "jobInProgressPhotosTakenHeader": "Fotos Tomadas",
@@ -335,7 +373,11 @@
   "jobCancelSuccessSnackbar": "El trabajo ha sido cancelado.",
   "jobInProgressEstTimeLabel": "Estimado: {time}",
   "@jobInProgressEstTimeLabel": {
-    "placeholders": {"time": {"type": "String"}}
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "jobInProgressPictureSnackbar": "Tomando una foto... (marcador de posición)",
   "jobInProgressMessageSnackbar": "Enviando mensaje... (marcador de posición)",
@@ -344,7 +386,14 @@
   "jobInProgressCompleteJobAction": "Deslizar para Completar el Trabajo",
   "jobInProgressBagsCollected": "Bolsas Recogidas: {count} / {max}",
   "@jobInProgressBagsCollected": {
-    "placeholders": {"count": {"type": "int"}, "max": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
   },
   "jobInProgressUnitStatusPending": "Pendiente",
   "jobInProgressUnitStatusVerified": "Verificado",
@@ -391,7 +440,11 @@
   "checkrPageSecureWindowNote": "Completarás la verificación en una ventana segura dentro de la aplicación.",
   "checkrPageFailedToStart": "Error al iniciar la verificación de antecedentes: {error}",
   "@checkrPageFailedToStart": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "checkrInProgressPageTitle": "Verificación de Antecedentes – Verificando",
   "checkrInProgressPageMessage": "Estamos esperando que finalices la autorización de la verificación de antecedentes en el formulario seguro.",
@@ -400,7 +453,11 @@
   "checkrInProgressPageCheckAgainButton": "¿Terminaste? Toca aquí para verificar de nuevo",
   "checkrInProgressPageCouldNotReopen": "No se pudo reabrir el formulario: {error}",
   "@checkrInProgressPageCouldNotReopen": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "checkrInviteCompletePageTitle": "¡Invitación Completa!",
   "checkrInviteCompletePageMessage": "Ahora estamos procesando tu verificación de antecedentes. Puedes continuar mientras finalizamos los resultados.",
@@ -410,7 +467,11 @@
   "checkrOutcomePageCurrentStatusLabel": "Estado Actual: ",
   "checkrOutcomePageEmailNotification": "Se enviarán actualizaciones detalladas del informe a {email}.",
   "@checkrOutcomePageEmailNotification": {
-      "placeholders": {"email": {"type": "String"}}
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
   },
   "checkrOutcomePageYourEmailFallback": "tu correo electrónico",
   "checkrOutcomePageQuestions1": "¿Tienes preguntas? Por favor, ",
@@ -421,7 +482,11 @@
   "checkrOutcomePageLimitedFunctionalityWarning": "Algunas funciones de la aplicación estarán limitadas hasta que se apruebe tu verificación.",
   "checkrOutcomePageErrorFetching": "Error al obtener datos: {error}",
   "@checkrOutcomePageErrorFetching": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "checkrOutcomePageSubtitlePending": "Tu verificación de antecedentes está siendo procesada actualmente. Esto puede tardar algunos días. Te notificaremos cuando esté completa.",
   "checkrOutcomePageSubtitleCanceled": "Hubo un problema con tu verificación de antecedentes. Por favor, revisa los detalles en tu Portal de Candidato de Checkr o contacta a soporte para más información.",
@@ -437,15 +502,16 @@
   "stripeConnectPageStep3Subtitle": "Recibe pagos directamente en tu cuenta bancaria",
   "stripeConnectPageTermsButton": "Términos de Servicio",
   "stripeConnectPagePrivacyButton": "Política de Privacidad",
-  "stripeConnectPageTermsSnackbar": "Términos de Servicio (marcador de posición)",
-  "stripeConnectPagePrivacySnackbar": "Política de Privacidad (marcador de posición)",
   "stripeConnectPageNeedHelpLabel": "¿Necesitas ayuda? ",
   "stripeConnectPageContactSupportButton": "Contactar a Soporte",
-  "stripeConnectPageContactSupportSnackbar": "Contactar a soporte (marcador de posición)",
   "stripeConnectPageConnectButton": "Conectar con Stripe",
   "stripeConnectPageFailedToStart": "Error al iniciar el flujo de Stripe Connect: {error}",
   "@stripeConnectPageFailedToStart": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "stripeConnectInProgressPageTitle": "Incorporación a Stripe Connect en Progreso",
   "stripeConnectInProgressPageMessage": "Estamos esperando que finalices el flujo de incorporación a Stripe Connect en tu navegador o enlace externo.",
@@ -465,11 +531,14 @@
   "stripeIdvPageSecurityNote": "Tu información se cifra y transmite de forma segura. Solo recibimos los resultados de la verificación y no almacenamos datos personales sensibles.",
   "stripeIdvPageNeedHelpLabel": "¿Necesitas ayuda? ",
   "stripeIdvPageContactSupportButton": "Contactar a Soporte",
-  "stripeIdvPageContactSupportSnackbar": "Contactar a soporte (marcador de posición)",
   "stripeIdvPageStartButton": "Iniciar Verificación de Identidad",
   "stripeIdvPageFailedToStart": "Error al iniciar el flujo de verificación de ID: {error}",
   "@stripeIdvPageFailedToStart": {
-      "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "stripeIdvInProgressPageTitle": "Verificación de ID de Stripe en Progreso",
   "stripeIdvInProgressPageMessage": "Estamos esperando que finalices el flujo de Verificación de ID de Stripe en tu navegador o enlace externo.",
@@ -501,6 +570,12 @@
   "myProfilePageManageBackgroundCheckSubtitle": "Abre tu portal de candidato de Checkr para ver el estado o los informes.",
   "myProfilePageCheckStatusButton": "Ver Estado de Verificación de Antecedentes",
   "myProfilePageCheckStatusSubtitle": "Revisa el progreso de tu verificación de antecedentes pendiente.",
+  "myProfilePageResidentProgramTitle": "Acceso de Inquilino",
+  "myProfilePageResidentProgramDescription": "¿Vives en una propiedad de Poof? Agrega tu token de inquilino para obtener acceso temprano a trabajos.",
+  "myProfilePageAddTokenButton": "Agregar Token",
+  "myProfilePageEditTokenButton": "Editar",
+  "myProfilePageRemoveTokenButton": "Eliminar",
+  "myProfilePageTokenLabel": "Token de Inquilino",
   "appSplashLogoPlaceholder": "EL LOGO IRÁ AQUÍ",
   "checkrInviteWebViewBarrierLabel": "Invitación de Checkr",
   "checkrStatusCanceled": "Cancelado",
@@ -597,6 +672,12 @@
   "signupExpiredTitle": "Registro Expirado",
   "signupExpiredMessage": "Tu sesión ha expirado y tu cuenta no fue creada. Por favor, inicia el proceso de registro de nuevo.",
   "signupExpiredButton": "Regresar al Inicio",
+  "waitlistPageTitle": "Estás en la lista de espera",
+  "waitlistPageMessage": "Gracias por registrarte. Te notificaremos cuando sea tu turno. Puedes revisar tu estado en cualquier momento.",
+  "waitlistPageCheckStatusButton": "Revisar mi estado",
+  "waitlistStillWaitingMessage": "Aún estás en la lista de espera. Te avisaremos cuando sea tu turno.",
+  "geographicWaitlistPageTitle": "Poof aún no está disponible en tu área",
+  "geographicWaitlistPageMessage": "Te avisaremos cuando lancemos en tu zona.",
   "helpAndSupportTitle": "Ayuda y Soporte",
   "emailSupportLabel": "Soporte por Correo",
   "helpPageIntro": "Para obtener el soporte más rápido, envía un correo electrónico a nuestro equipo. Asegúrate de incluir el correo electrónico de tu cuenta y una descripción detallada de tu problema para que podamos ayudarte lo más rápido posible.",
@@ -626,5 +707,10 @@
   "bagsCollectedHelpTitle": "Bolsas por Viaje",
   "bagsCollectedHelpBody": "Esto muestra cuántas bolsas has recogido en tu viaje actual al contenedor. Puedes llevar un máximo de 8 bolsas a la vez.\n\nUna vez que hayas recogido una o más bolsas (hasta 8), debes llevarlas al contenedor. Usa el deslizador en la parte inferior para marcarlas como 'Desechadas' y comenzar tu próximo viaje.",
   "howToCompleteAJobTitle": "Cómo Completar un Trabajo",
-  "howToCompleteAJobBody": "1. Recoger Bolsas (Hasta 8):** Visita cada puerta de unidad en tu ruta. Toca el ícono de la cámara y toma una foto clara que muestre el número de la puerta y el área del bote de basura vacío. Una foto exitosa marca la unidad como 'Verificada' y añade una bolsa a tu viaje actual. Puedes recoger un máximo de 8 bolsas por viaje.\n\n**2. Reportar Problemas:** Si falta un bote de basura, usa el menú (...) junto al ícono de la cámara para 'Reportar Bote de Basura Faltante' antes de tomar tu foto.\n\n**3. Ir al Contenedor:** Una vez que hayas recogido una o más bolsas (hasta el límite de 8), llévalas a la ubicación del contenedor designada en el mapa.\n\n**4. Desechar Bolsas y Repetir:** En el contenedor, desliza el deslizador 'Desechar Bolsas' en la parte inferior de la pantalla. Esto marcará todas las bolsas recogidas como 'Desechadas' y reiniciará tu conteo de viaje a 0. Repite los pasos 1-4 hasta que todas las unidades hayan sido atendidas.\n\n**6. Completar el Trabajo:** Después de tu último viaje al contenedor, el deslizador cambiará a 'Deslizar para Completar el Trabajo'. Deslizarlo completará el trabajo y registrará tus ganancias."
+  "howToCompleteAJobBody": "1. Recoger Bolsas (Hasta 8):** Visita cada puerta de unidad en tu ruta. Toca el ícono de la cámara y toma una foto clara que muestre la puerta completa de arriba a abajo, el número de la puerta y el área del bote de basura vacío. Una foto exitosa marca la unidad como 'Verificada' y añade una bolsa a tu viaje actual. Puedes recoger un máximo de 8 bolsas por viaje.\n\n**2. Reportar Problemas:** Si falta un bote de basura, usa el menú (...) junto al ícono de la cámara para 'Reportar Bote de Basura Faltante' antes de tomar tu foto.\n\n**3. Ir al Contenedor:** Una vez que hayas recogido una o más bolsas (hasta el límite de 8), llévalas a la ubicación del contenedor designada en el mapa.\n\n**4. Desechar Bolsas y Repetir:** En el contenedor, desliza el deslizador 'Desechar Bolsas' en la parte inferior de la pantalla. Esto marcará todas las bolsas recogidas como 'Desechadas' y reiniciará tu conteo de viaje a 0. Repite los pasos 1-4 hasta que todas las unidades hayan sido atendidas.\n\n**6. Completar el Trabajo:** Después de tu último viaje al contenedor, el deslizador cambiará a 'Deslizar para Completar el Trabajo'. Deslizarlo completará el trabajo y registrará tus ganancias.",
+  "locationDisclosureIntro": "Usamos tu ubicación solo mientras utilizas la app para:",
+  "locationDisclosureBullet1": "Encontrar trabajos cercanos y centrar el mapa en ti",
+  "locationDisclosureBullet2": "Mantener tu ruta actualizada durante un trabajo",
+  "locationDisclosureBullet3": "Confirmar que estás en el lugar correcto para acciones como aceptar, iniciar y desechar",
+  "locationDisclosurePrivacy": "No recopilamos tu ubicación cuando la app está cerrada"
 }

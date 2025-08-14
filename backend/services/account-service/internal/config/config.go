@@ -11,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	ld "github.com/launchdarkly/go-server-sdk/v7"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type Config struct {
@@ -29,8 +29,10 @@ type Config struct {
 	TwilioAccountSID                     string
 	TwilioAuthToken                      string
 	SendgridAPIKey                       string
+	GMapsAPIKey                          string
 	RSAPrivateKey                        *rsa.PrivateKey
 	RSAPublicKey                         *rsa.PublicKey
+	LDSDKKey                             string
 	LDFlag_PrefillStripeExpressKYC       bool
 	LDFlag_AllowOOSSetupFlow             bool
 	LDFlag_SeedDbWithTestAccounts        bool
@@ -143,6 +145,12 @@ func LoadConfig() *Config {
 	if !ok || checkrAPIKey == "" {
 		utils.Logger.Fatalf("CHECKR_API_KEY not found in BWS secrets (%s)", bwsProjectName)
 	}
+	
+	gmapsAPIKey, ok := appSecrets["GMAPS_ROUTES_API_KEY"]
+	if !ok || gmapsAPIKey == "" {
+		utils.Logger.Fatal("GMAPS_ROUTES_API_KEY not found in BWS secrets (shared-env)")
+	}
+
 
 	//----------------------------------------------------------------------
 	// Parse required secrets from sharedSecrets (RSA keys)
@@ -357,8 +365,10 @@ func LoadConfig() *Config {
 		TwilioAccountSID:                     twilioAccountSID,
 		TwilioAuthToken:                      twilioAuthToken,
 		SendgridAPIKey:                       sendgridAPIKey,
+		GMapsAPIKey:                          gmapsAPIKey,
 		RSAPrivateKey:                        privateKey,
 		RSAPublicKey:                         publicKey,
+		LDSDKKey:                             ldSDKKey,
 		LDFlag_PrefillStripeExpressKYC:       prefillStripeExpressKyc,
 		LDFlag_AllowOOSSetupFlow:             allowOOSSetupFlow,
 		LDFlag_SeedDbWithTestAccounts:        seedTestAccounts,

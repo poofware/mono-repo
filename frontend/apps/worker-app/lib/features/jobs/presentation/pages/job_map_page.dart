@@ -33,17 +33,22 @@ class JobMapPage extends ConsumerStatefulWidget {
   ConsumerState<JobMapPage> createState() => _JobMapPageState();
 }
 
-class _JobMapPageState extends ConsumerState<JobMapPage> {
+class _JobMapPageState extends ConsumerState<JobMapPage>
+    with AutomaticKeepAliveClientMixin {
   final Completer<GoogleMapController> _internalMapController = Completer();
   Set<Marker> _markers = {};
   bool _isMapReady = false;
   String _mapStyle = '';
+  CameraPosition? _savedCameraPosition;
 
   static const _quickTapMax = Duration(milliseconds: 180);
   Offset? _tapStartPosition;
   int? _tapPointerId;
   DateTime? _tapStartTime;
   bool _tapCancelled = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -163,21 +168,19 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-
-      final bool isAlreadyWarmed = JobMapPage._warmedJobIds.contains(
-        widget.job.instanceId,
-      );
-
-      // If the map has already been warmed, we do absolutely nothing.
-      // This prevents the flicker-inducing setState call.
-      if (isAlreadyWarmed && !widget.isForWarmup) {
+      final GoogleMapController mapController =
+          await _internalMapController.future;
+      if (_savedCameraPosition != null) {
+        await mapController.moveCamera(
+          CameraUpdate.newCameraPosition(_savedCameraPosition!),
+        );
         return;
       }
 
-      if (_markers.isNotEmpty) {
+      final bool isAlreadyWarmed =
+          JobMapPage._warmedJobIds.contains(widget.job.instanceId);
+      if (_markers.isNotEmpty && (!isAlreadyWarmed || widget.isForWarmup)) {
         final bounds = _calculateBounds();
-        final GoogleMapController mapController =
-            await _internalMapController.future;
 
         if (widget.isForWarmup) {
           await mapController.moveCamera(
@@ -185,21 +188,24 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
           );
           if (defaultTargetPlatform == TargetPlatform.android) {
             await _waitUntilTilesRender(mapController);
-            await Future.delayed(
-              const Duration(milliseconds: 300),
-            );
+            await Future.delayed(const Duration(milliseconds: 300));
           }
         } else {
-          // This case now only runs for a totally cold start
           await mapController.animateCamera(
             CameraUpdate.newLatLngBounds(bounds, 60.0),
           );
           await Future.delayed(const Duration(milliseconds: 250));
         }
+
+        final zoom = await mapController.getZoomLevel();
+        final center = LatLng(
+          (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
+          (bounds.northeast.longitude + bounds.southwest.longitude) / 2,
+        );
+        _savedCameraPosition = CameraPosition(target: center, zoom: zoom);
       }
 
-      // THIS BLOCK IS NOW ONLY REACHED ON THE FIRST WARMUP/SETUP
-      if (mounted) {
+      if (!isAlreadyWarmed) {
         setState(() => _isMapReady = true);
         JobMapPage._warmedJobIds.add(widget.job.instanceId);
         widget.onReady?.call();
@@ -208,14 +214,14 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
   }
 
   Widget _buildMapContent() {
-    // This logic is unchanged
-    final initialCameraPosition = CameraPosition(
-      target: LatLng(
-        widget.job.property.latitude,
-        widget.job.property.longitude,
-      ),
-      zoom: 16,
-    );
+    final initialCameraPosition = _savedCameraPosition ??
+        CameraPosition(
+          target: LatLng(
+            widget.job.property.latitude,
+            widget.job.property.longitude,
+          ),
+          zoom: 16,
+        );
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (e) {
@@ -257,6 +263,7 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
             initialCameraPosition: initialCameraPosition,
             onMapCreated: _onMapCreated,
             onCameraMoveStarted: widget.onCameraMoveStarted,
+            onCameraMove: (position) => _savedCameraPosition = position,
             markers: _markers,
             gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
               Factory<OneSequenceGestureRecognizer>(
@@ -290,6 +297,7 @@ class _JobMapPageState extends ConsumerState<JobMapPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // This logic is unchanged
     final mapContent = _buildMapContent();
     if (widget.buildAsScaffold) {

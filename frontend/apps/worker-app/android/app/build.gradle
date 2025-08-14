@@ -71,7 +71,7 @@ android {
         minSdkVersion 23
         targetSdkVersion 35
         // MODIFIED: versionCode is now a literal integer for Fastlane to update.
-        versionCode 3
+        versionCode 7
         versionName flutterVersionName
 
         // Pass placeholders to AndroidManifest.xml

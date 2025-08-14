@@ -4,34 +4,49 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"time"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/account-service/internal/config"
-	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/go-dtos"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	ld "github.com/launchdarkly/go-server-sdk/v7"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type WorkerService struct {
-	repo                repositories.WorkerRepository
-	smsVerificationRepo repositories.WorkerSMSVerificationRepository
-	cfg                 *config.Config
+        repo                repositories.WorkerRepository
+        smsVerificationRepo repositories.WorkerSMSVerificationRepository
+        unitRepo            repositories.UnitRepository
+		propRepo            repositories.PropertyRepository
+        cfg                 *config.Config
 }
+
+var (
+	nonDigits    = regexp.MustCompile(`[^0-9]`)
+)
 
 // NewWorkerService creates a WorkerService.
 func NewWorkerService(
-	cfg *config.Config,
-	repo repositories.WorkerRepository,
-	smsRepo repositories.WorkerSMSVerificationRepository,
+        cfg *config.Config,
+        repo repositories.WorkerRepository,
+        smsRepo repositories.WorkerSMSVerificationRepository,
+        unitRepo repositories.UnitRepository,
+		propRepo repositories.PropertyRepository,
 ) *WorkerService {
-	return &WorkerService{
-		cfg:                 cfg,
-		repo:                repo,
-		smsVerificationRepo: smsRepo,
-	}
+        return &WorkerService{
+                cfg:                 cfg,
+                repo:                repo,
+                smsVerificationRepo: smsRepo,
+                unitRepo:            unitRepo,
+				propRepo:            propRepo,
+        }
 }
 
 // GetWorkerByID retrieves the worker from the DB.
@@ -47,8 +62,9 @@ func (s *WorkerService) GetWorkerByID(ctx context.Context, userID string) (*mode
 	return worker, nil
 }
 
-// SubmitPersonalInfo updates the worker with their address and vehicle data,
-// and transitions their state from AWAITING_PERSONAL_INFO to ID_VERIFY.
+// SubmitPersonalInfo updates the worker with their address and vehicle data.
+// It sets the waitlisted_at timestamp if not already set and only advances
+// setup_progress to ID_VERIFY
 func (s *WorkerService) SubmitPersonalInfo(
 	ctx context.Context,
 	userID string,
@@ -60,26 +76,97 @@ func (s *WorkerService) SubmitPersonalInfo(
 		return nil, fmt.Errorf("invalid userID format: %w", err)
 	}
 
+	normalizedState, err := utils.NormalizeUSState(req.State)
+	if err != nil {
+		return nil, err
+	}
+
+	zipDigits := nonDigits.ReplaceAllString(req.ZipCode, "")
+	if len(zipDigits) < 5 {
+		return nil, fmt.Errorf("invalid zip code")
+	}
+
+	address := fmt.Sprintf("%s, %s, %s %s", req.StreetAddress, req.City, normalizedState, req.ZipCode)
+	lat, lng, err := utils.GeocodeAddress(address, s.cfg.GMapsAPIKey)
+	if err != nil {
+		return nil, err
+	}
+
+	props, err := s.propRepo.ListAllProperties(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	inRange := false
+	for _, p := range props {
+		dist := utils.DistanceMiles(lat, lng, p.Latitude, p.Longitude)
+		if dist <= float64(RadiusMiles) {
+			inRange = true
+			break
+		}
+	}
+
+	shouldWaitlist := false
+	var reason *models.WaitlistReasonType
+	if !inRange {
+		shouldWaitlist = true
+		r := models.WaitlistReasonGeographic
+		reason = &r
+	} else {
+		ldClient, err := ld.MakeClient(s.cfg.LDSDKKey, config.LDConnectionTimeout)
+		if err != nil {
+			return nil, err
+		}
+		if !ldClient.Initialized() {
+			ldClient.Close()
+			return nil, errors.New("launchdarkly client failed to initialize")
+		}
+		ldCtx := ldcontext.NewWithKind(ldcontext.Kind(config.LDServerContextKind), config.LDServerContextKey)
+		capacity, err := ldClient.IntVariation("worker_capacity_limit", ldCtx, 0)
+		ldClient.Close()
+		if err != nil {
+			return nil, err
+		}
+		activeCount, err := s.repo.GetActiveWorkerCount(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if activeCount >= int(capacity) {
+			shouldWaitlist = true
+			r := models.WaitlistReasonCapacity
+			reason = &r
+		}
+	}
+
 	var finalWorker *models.Worker
 	updateErr := s.repo.UpdateWithRetry(ctx, wID, func(stored *models.Worker) error {
-		// This action is only valid if the worker is in the AWAITING_PERSONAL_INFO state.
 		if stored.SetupProgress != models.SetupProgressAwaitingPersonalInfo {
 			return errors.New("worker not in AWAITING_PERSONAL_INFO state")
 		}
 
-		// Apply all updates from the request DTO.
 		stored.StreetAddress = req.StreetAddress
 		stored.AptSuite = req.AptSuite
 		stored.City = req.City
-		stored.State = req.State
+		stored.State = normalizedState
 		stored.ZipCode = req.ZipCode
 		stored.VehicleYear = req.VehicleYear
 		stored.VehicleMake = req.VehicleMake
 		stored.VehicleModel = req.VehicleModel
 
-		// Transition the state.
-		stored.SetupProgress = models.SetupProgressIDVerify
+		if shouldWaitlist {
+			stored.OnWaitlist = true
+			stored.WaitlistReason = reason
+			if stored.WaitlistedAt == nil {
+				now := time.Now().UTC()
+				stored.WaitlistedAt = &now
+			}
+		} else {
+			stored.OnWaitlist = false
+			stored.WaitlistReason = nil
+			stored.WaitlistedAt = nil
+		}
 
+		stored.SetupProgress = models.SetupProgressIDVerify
 		finalWorker = stored
 		return nil
 	})
@@ -87,7 +174,7 @@ func (s *WorkerService) SubmitPersonalInfo(
 	if updateErr != nil {
 		if updateErr == pgx.ErrNoRows {
 			utils.Logger.Errorf("Worker with ID %s not found for personal info submission", userID)
-			return nil, nil // Let controller return 404
+			return nil, nil
 		}
 		return nil, updateErr
 	}
@@ -159,7 +246,11 @@ func (s *WorkerService) PatchWorker(
 			stored.City = *patchReq.City
 		}
 		if patchReq.State != nil {
-			stored.State = *patchReq.State
+			normalizedState, err := utils.NormalizeUSState(*patchReq.State) // Validation added
+			if err != nil {
+				return err
+			}
+			stored.State = normalizedState
 		}
 		if patchReq.ZipCode != nil {
 			stored.ZipCode = *patchReq.ZipCode
@@ -170,9 +261,25 @@ func (s *WorkerService) PatchWorker(
 		if patchReq.VehicleMake != nil {
 			stored.VehicleMake = *patchReq.VehicleMake
 		}
-		if patchReq.VehicleModel != nil {
-			stored.VehicleModel = *patchReq.VehicleModel
-		}
+                if patchReq.VehicleModel != nil {
+                        stored.VehicleModel = *patchReq.VehicleModel
+                }
+
+                if patchReq.TenantToken != nil {
+                        token := strings.TrimSpace(*patchReq.TenantToken)
+                        if token == "" {
+                                stored.TenantToken = nil
+                        } else {
+                                unit, err := s.unitRepo.FindByTenantToken(ctx, token)
+                                if err != nil {
+                                        return err
+                                }
+                                if unit == nil {
+                                        return utils.ErrInvalidTenantToken
+                                }
+                                stored.TenantToken = &token
+                        }
+                }
 
 		// Remember the final, updated Worker
 		finalWorker = stored

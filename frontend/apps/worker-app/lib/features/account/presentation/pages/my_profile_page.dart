@@ -1,6 +1,5 @@
-// lib/features/account/presentation/pages/my_profile_page.dart
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,8 +35,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   late final TextEditingController _lastNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
+  late final TextEditingController _tenantTokenController;
 
-  // State for the new reusable widgets
   AddressResolved? _addressState;
   String _aptSuite = '';
   int _vehicleYear = 0;
@@ -56,6 +55,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _lastNameController = TextEditingController();
     _emailController = TextEditingController();
     _phoneController = TextEditingController();
+    _tenantTokenController = TextEditingController();
     _firstNameController.addListener(_validateForm);
     _lastNameController.addListener(_validateForm);
     _emailController.addListener(_validateForm);
@@ -70,6 +70,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _tenantTokenController.dispose();
     super.dispose();
   }
 
@@ -127,11 +128,13 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     accountStatus: AccountStatusType.active,
     setupProgress: SetupProgressType.done,
     checkrReportOutcome: CheckrReportOutcome.approved,
+    onWaitlist: false,
+    waitlistReason: WaitlistReason.none,
   );
 
   @override
   Widget build(BuildContext context) {
-    final appLocalizations = AppLocalizations.of(context);
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
     final Worker? worker = isTestMode
@@ -139,7 +142,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
         : ref.watch(workerStateNotifierProvider).worker;
 
     if (!isTestMode && worker == null) {
-      return _LoadingScaffold(appLocalizations: appLocalizations);
+      return _LoadingScaffold(appLocalizations: t);
     }
 
     if (!_hasInitializedFields && worker != null) {
@@ -154,20 +157,20 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       if (worker?.accountStatus == AccountStatusType.backgroundCheckPending)
         _StatefulLinkTile(
           icon: Icons.hourglass_top_outlined,
-          title: appLocalizations.myProfilePageCheckStatusButton,
-          subtitle: appLocalizations.myProfilePageCheckStatusSubtitle,
+          title: t.myProfilePageCheckStatusButton,
+          subtitle: t.myProfilePageCheckStatusSubtitle,
           onTap: _showCheckrOutcomePage,
         ),
       _StatefulLinkTile(
         icon: Icons.credit_card_outlined,
-        title: appLocalizations.myProfilePageManagePaymentsButton,
-        subtitle: appLocalizations.myProfilePageManagePaymentsSubtitle,
+        title: t.myProfilePageManagePaymentsButton,
+        subtitle: t.myProfilePageManagePaymentsSubtitle,
         onTap: _handleManagePayouts,
       ),
       _StatefulLinkTile(
         icon: Icons.policy_outlined,
-        title: appLocalizations.myProfilePageManageBackgroundCheckButton,
-        subtitle: appLocalizations.myProfilePageManageBackgroundCheckSubtitle,
+        title: t.myProfilePageManageBackgroundCheckButton,
+        subtitle: t.myProfilePageManageBackgroundCheckSubtitle,
         onTap: () => _launchUrl('https://candidate.checkr.com/'),
       ),
     ];
@@ -186,7 +189,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                     onPressed: () => context.pop(),
                   ),
                   Text(
-                    appLocalizations.myProfilePageTitle,
+                    t.myProfilePageTitle,
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -198,16 +201,12 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                       child: _isEditing
                           ? TextButton(
                               onPressed: () => _cancelEdit(worker!),
-                              child: Text(
-                                appLocalizations.myProfilePageCancelButton,
-                              ),
+                              child: Text(t.myProfilePageCancelButton),
                             )
                           : TextButton(
                               onPressed: () =>
                                   setState(() => _isEditing = true),
-                              child: Text(
-                                appLocalizations.myProfilePageEditButton,
-                              ),
+                              child: Text(t.myProfilePageEditButton),
                             ),
                     ),
                   ),
@@ -219,37 +218,32 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
-                    _buildProfileHeader(
-                      theme,
-                      worker!,
-                      fullName,
-                      appLocalizations,
-                    ),
+                    _buildProfileHeader(theme, worker!, fullName, t),
                     _buildSection(
-                      title: appLocalizations.myProfilePageContactSection,
+                      title: t.myProfilePageContactSection,
                       children: [
                         _buildEditableProfileField(
                           controller: _firstNameController,
-                          label: appLocalizations.myProfilePageFirstNameLabel,
+                          label: t.myProfilePageFirstNameLabel,
                           icon: Icons.person_outline,
                           isEditing: _isEditing,
                         ),
                         _buildEditableProfileField(
                           controller: _lastNameController,
-                          label: appLocalizations.myProfilePageLastNameLabel,
+                          label: t.myProfilePageLastNameLabel,
                           icon: Icons.person_outline,
                           isEditing: _isEditing,
                         ),
                         _buildEditableProfileField(
                           controller: _emailController,
-                          label: appLocalizations.myProfilePageEmailLabel,
+                          label: t.myProfilePageEmailLabel,
                           icon: Icons.email_outlined,
                           isEditing: _isEditing,
                           keyboardType: TextInputType.emailAddress,
                         ),
                         _buildEditableProfileField(
                           controller: _phoneController,
-                          label: appLocalizations.myProfilePagePhoneLabel,
+                          label: t.myProfilePagePhoneLabel,
                           icon: Icons.phone_outlined,
                           isEditing: _isEditing,
                           keyboardType: TextInputType.phone,
@@ -272,7 +266,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                       ],
                     ),
                     _buildSection(
-                      title: appLocalizations.myProfilePageVehicleSection,
+                      title: t.myProfilePageVehicleSection,
                       children: [
                         VehicleFormField(
                           initialYear: worker.vehicleYear,
@@ -291,8 +285,11 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                       ],
                     ),
                     _buildSection(
-                      title: appLocalizations
-                          .myProfilePageAccountManagementSection,
+                      title: t.myProfilePageResidentProgramTitle,
+                      children: [_buildTenantTokenSectionContent(worker, t)],
+                    ),
+                    _buildSection(
+                      title: t.myProfilePageAccountManagementSection,
                       children: accountManagementTiles,
                     ),
                   ],
@@ -304,8 +301,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                 padding: const EdgeInsets.all(16.0),
                 child: WelcomeButton(
                   text: _isSaving
-                      ? appLocalizations.myProfilePageSavingButton
-                      : appLocalizations.myProfilePageSaveChangesButton,
+                      ? t.myProfilePageSavingButton
+                      : t.myProfilePageSaveChangesButton,
                   isLoading: _isSaving,
                   showSpinner: false,
                   onPressed: _isFormValid ? () => _saveProfile(worker) : null,
@@ -321,11 +318,137 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     );
   }
 
+  Widget _buildTenantTokenSectionContent(Worker worker, AppLocalizations t) {
+    final theme = Theme.of(context);
+
+    if (_tenantTokenController.text.isEmpty &&
+        (worker.tenantToken?.isNotEmpty ?? false)) {
+      _tenantTokenController.text = worker.tenantToken!;
+    }
+
+    final token = _tenantTokenController.text;
+    final hasToken = token.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 8,
+            horizontal: 8,
+          ),
+          minLeadingWidth: 32,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          leading: CircleAvatar(
+            radius: 18,
+            backgroundColor: theme.colorScheme.surfaceContainerHigh,
+            child: const Icon(Icons.key_outlined, size: 20),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t.myProfilePageTokenLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (hasToken && !_isEditing) _buildStatusChip(theme, 'Connected'),
+            ],
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _isEditing
+                ? TextField(
+                    controller: _tenantTokenController,
+                    keyboardType: TextInputType.text,
+                    decoration:
+                        _customInputDecoration(
+                          labelText: t.myProfilePageTokenLabel,
+                        ).copyWith(
+                          // No prefix icon here to avoid duplicating the leading icon
+                          hintText: 'abc123…',
+                          suffixIcon: IconButton(
+                            tooltip: 'Paste',
+                            icon: const Icon(Icons.paste_rounded),
+                            onPressed: () async {
+                              final data = await Clipboard.getData(
+                                'text/plain',
+                              );
+                              final value = data?.text ?? '';
+                              if (value.isNotEmpty) {
+                                setState(
+                                  () => _tenantTokenController.text = value,
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                  )
+                : hasToken
+                ? SelectableText(
+                    token,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
+                  )
+                : Text(
+                    t.myProfilePageResidentProgramDescription,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+          ),
+          trailing: !_isEditing && hasToken
+              ? IconButton(
+                  tooltip: 'Copy',
+                  icon: const Icon(Icons.copy_rounded),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: token));
+                    if (mounted) {
+                      showAppSnackBar(context, const Text('Token copied'));
+                    }
+                  },
+                )
+              : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusChip(ThemeData theme, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.verified_rounded,
+            size: 16,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfileHeader(
     ThemeData theme,
     Worker worker,
     String fullName,
-    AppLocalizations appLocalizations,
+    AppLocalizations t,
   ) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
@@ -335,10 +458,11 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              // Fix: need at least two colors in gradient
               gradient: LinearGradient(
                 colors: [
                   AppColors.poofColor.withAlpha(128),
-                  AppColors.poofColor,
+                  AppColors.poofColor, // second color added
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -357,9 +481,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            fullName.isEmpty
-                ? appLocalizations.myProfilePageYourNameFallback
-                : fullName,
+            fullName.isEmpty ? t.myProfilePageYourNameFallback : fullName,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -416,6 +538,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       curve: Curves.easeInOut,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),
+        layoutBuilder: (currentChild, previousChildren) =>
+            currentChild ?? const SizedBox.shrink(),
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
         child: isEditing
@@ -467,6 +591,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _vehicleYear = w.vehicleYear;
     _vehicleMake = w.vehicleMake;
     _vehicleModel = w.vehicleModel;
+    _tenantTokenController.text = w.tenantToken ?? '';
   }
 
   void _cancelEdit(Worker worker) {
@@ -481,8 +606,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     final success = await tryLaunchUrl(url);
     if (!mounted) return;
     if (!success) {
-      final appLocalizations = AppLocalizations.of(context);
-      showAppSnackBar(context, Text(appLocalizations.urlLauncherCannotLaunch));
+      final t = AppLocalizations.of(context);
+      showAppSnackBar(context, Text(t.urlLauncherCannotLaunch));
     }
   }
 
@@ -511,44 +636,60 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     final BuildContext capturedContext = context;
 
     final patchFields = <String, dynamic>{};
-    if (_firstNameController.text.trim() != worker.firstName)
+    if (_firstNameController.text.trim() != worker.firstName) {
       patchFields['first_name'] = _firstNameController.text.trim();
-    if (_lastNameController.text.trim() != worker.lastName)
+    }
+    if (_lastNameController.text.trim() != worker.lastName) {
       patchFields['last_name'] = _lastNameController.text.trim();
-    if (_emailController.text.trim() != worker.email)
+    }
+    if (_emailController.text.trim() != worker.email) {
       patchFields['email'] = _emailController.text.trim();
-    if (_phoneController.text.trim() != worker.phoneNumber)
+    }
+    if (_phoneController.text.trim() != worker.phoneNumber) {
       patchFields['phone_number'] = _phoneController.text.trim();
-
-    if (_addressState != null) {
-      if (_addressState!.street != worker.streetAddress)
-        patchFields['street_address'] = _addressState!.street;
-      if (_addressState!.city != worker.city)
-        patchFields['city'] = _addressState!.city;
-      if (_addressState!.state != worker.state)
-        patchFields['state'] = _addressState!.state;
-      if (_addressState!.postalCode != worker.zipCode)
-        patchFields['zip_code'] = _addressState!.postalCode;
     }
 
-    if (_aptSuite != (worker.aptSuite ?? ''))
-      patchFields['apt_suite'] = _aptSuite;
+    if (_addressState != null) {
+      if (_addressState!.street != worker.streetAddress) {
+        patchFields['street_address'] = _addressState!.street;
+      }
+      if (_addressState!.city != worker.city) {
+        patchFields['city'] = _addressState!.city;
+      }
+      if (_addressState!.state != worker.state) {
+        patchFields['state'] = _addressState!.state;
+      }
+      if (_addressState!.postalCode != worker.zipCode) {
+        patchFields['zip_code'] = _addressState!.postalCode;
+      }
+    }
 
-    if (_vehicleYear != worker.vehicleYear)
+    if (_aptSuite != (worker.aptSuite ?? '')) {
+      patchFields['apt_suite'] = _aptSuite;
+    }
+
+    if (_vehicleYear != worker.vehicleYear) {
       patchFields['vehicle_year'] = _vehicleYear;
-    if (_vehicleMake != worker.vehicleMake)
+    }
+    if (_vehicleMake != worker.vehicleMake) {
       patchFields['vehicle_make'] = _vehicleMake;
-    if (_vehicleModel != worker.vehicleModel)
+    }
+    if (_vehicleModel != worker.vehicleModel) {
       patchFields['vehicle_model'] = _vehicleModel;
+    }
+    if (_tenantTokenController.text.trim() != (worker.tenantToken ?? '')) {
+      patchFields['tenant_token'] = _tenantTokenController.text.trim();
+    }
 
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
     if (isTestMode) {
       await Future.delayed(const Duration(seconds: 1));
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isSaving = false;
           _isEditing = false;
         });
+      }
       return;
     }
 
@@ -562,16 +703,20 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
     final workerAuthRepo = ref.read(workerAuthRepositoryProvider);
     try {
-      if (patchFields.containsKey('phone_number'))
+      if (patchFields.containsKey('phone_number')) {
         await workerAuthRepo.checkPhoneValid(patchFields['phone_number']);
-      if (patchFields.containsKey('email'))
+      }
+      if (patchFields.containsKey('email')) {
         await workerAuthRepo.checkEmailValid(patchFields['email']);
+      }
       if (!capturedContext.mounted) return;
       await _attemptPatch(patchFields, capturedContext);
     } on Exception catch (e) {
       if (!capturedContext.mounted) return;
       _showError(capturedContext, e);
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -580,7 +725,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     BuildContext context,
   ) async {
     final repo = ref.read(workerAccountRepositoryProvider);
-    final appLocalizations = AppLocalizations.of(context);
+    final t = AppLocalizations.of(context);
 
     final patchRequest = WorkerPatchRequest(
       firstName: changedFields['first_name'],
@@ -595,19 +740,18 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       vehicleYear: changedFields['vehicle_year'],
       vehicleMake: changedFields['vehicle_make'],
       vehicleModel: changedFields['vehicle_model'],
+      tenantToken: changedFields['tenant_token'],
     );
 
     try {
       await repo.patchWorker(patchRequest);
-      showAppSnackBar(
-        context,
-        Text(appLocalizations.myProfilePageProfileUpdatedSnackbar),
-      );
-      if (mounted)
+      if (mounted) {
+        showAppSnackBar(context, Text(t.myProfilePageProfileUpdatedSnackbar));
         setState(() {
           _isSaving = false;
           _isEditing = false;
         });
+      }
     } on ApiException catch (e) {
       if (e.errorCode == 'phone_not_verified') {
         final newPhone = changedFields['phone_number'] as String?;

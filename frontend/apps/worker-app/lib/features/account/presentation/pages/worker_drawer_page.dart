@@ -65,14 +65,7 @@ class WorkerSideDrawer extends ConsumerWidget {
                       );
                     },
                   ),
-                  _buildDrawerItem(
-                    icon: Icons.settings_outlined,
-                    text: appLocalizations.workerDrawerSettings,
-                    onTap: () {
-                      context.pop();
-                      context.pushNamed(AppRouteNames.settingsPage);
-                    },
-                  ),
+                  // Settings removed (feature deprecated)
                   const Divider(height: 24, indent: 20, endIndent: 20),
                   _buildDrawerItem(
                     icon: Icons.logout,
@@ -170,4 +163,3 @@ class WorkerSideDrawer extends ConsumerWidget {
     );
   }
 }
-

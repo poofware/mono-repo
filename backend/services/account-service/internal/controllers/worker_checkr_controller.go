@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/go-dtos"
+	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
 )
 
 // WorkerCheckrController handles Checkr-related endpoints for the Worker role.

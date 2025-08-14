@@ -8,19 +8,19 @@ import (
 	_ "time/tzdata"
 
 	"github.com/gorilla/mux"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	cron "github.com/robfig/cron/v3"
 	"github.com/rs/cors"
 	"github.com/sendgrid/sendgrid-go"
 	twilio "github.com/twilio/twilio-go"
 
-	"github.com/poofware/jobs-service/internal/app"
-	"github.com/poofware/jobs-service/internal/config"
-	"github.com/poofware/jobs-service/internal/controllers"
-	"github.com/poofware/jobs-service/internal/routes"
-	"github.com/poofware/jobs-service/internal/services"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/controllers"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
 )
 
 func main() {
@@ -41,8 +41,9 @@ func main() {
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	agentRepo := repositories.NewAgentRepository(application.DB)
+	ajcRepo := repositories.NewAgentJobCompletionRepository(application.DB)
 
-	// NEW: unitRepo for tenant tokens
+	// MODIFIED: unitRepo is now required by more services.
 	unitRepo := repositories.NewUnitRepository(application.DB)
 	juvRepo := repositories.NewJobUnitVerificationRepository(application.DB)
 
@@ -54,7 +55,7 @@ func main() {
 	})
 	sgClient := sendgrid.NewSendClient(cfg.SendGridAPIKey)
 
-	// UPDATED: pass unitRepo to jobService
+	// UPDATED: pass unitRepo and ajcRepo to jobService
 	jobService := services.NewJobService(
 		cfg,
 		defRepo,
@@ -66,6 +67,7 @@ func main() {
 		agentRepo,
 		unitRepo,
 		juvRepo,
+		ajcRepo, // MODIFIED
 		openaiSvc,
 		twClient,
 		sgClient,
@@ -88,6 +90,7 @@ func main() {
 		}
 	}
 
+	// MODIFIED: Escalation service now requires building and unit repos for detailed notifications.
 	escalationService := services.NewJobEscalationService(
 		cfg,
 		defRepo,
@@ -95,11 +98,16 @@ func main() {
 		workerRepo,
 		propRepo,
 		agentRepo,
+		ajcRepo,
+		bldgRepo,
+		unitRepo,
 		jobService,
 	)
 	jobScheduler := services.NewJobSchedulerService(cfg, defRepo, instRepo, propRepo)
 
-	jobsController := controllers.NewJobsController(jobService)
+	agentCompletionSvc := services.NewAgentCompletionService(ajcRepo, instRepo)
+
+	jobsController := controllers.NewJobsController(jobService, agentCompletionSvc)
 	healthController := controllers.NewHealthController(application)
 	jobDefsController := controllers.NewJobDefinitionsController(jobService)
 
@@ -107,6 +115,7 @@ func main() {
 
 	// Public
 	router.HandleFunc(routes.Health, healthController.HealthCheckHandler).Methods(http.MethodGet)
+	router.HandleFunc(routes.JobsAgentComplete, jobsController.AgentCompleteHandler).Methods(http.MethodGet)
 
 	secured := router.NewRoute().Subrouter()
 	secured.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation))
@@ -161,6 +170,15 @@ func main() {
 	})
 	if jcasErr != nil {
 		utils.Logger.WithError(jcasErr).Fatal("Failed to schedule JCAS escalation cron")
+	}
+
+	_, cleanupErr := c.AddFunc("0 4 * * *", func() {
+		if _, e := agentCompletionSvc.CleanupExpired(context.Background()); e != nil {
+			utils.Logger.WithError(e).Error("agent completion cleanup failed")
+		}
+	})
+	if cleanupErr != nil {
+		utils.Logger.WithError(cleanupErr).Fatal("Failed to schedule agent completion cleanup cron")
 	}
 	c.Start()
 

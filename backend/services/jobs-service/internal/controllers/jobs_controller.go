@@ -14,19 +14,21 @@ import (
 
 	"github.com/bradfitz/latlong"
 	"github.com/google/uuid"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/jobs-service/internal/services"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/gorilla/mux"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
+	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type JobsController struct {
-	jobService *services.JobService
+	jobService         *services.JobService
+	agentCompletionSvc *services.AgentCompletionService
 }
 
-func NewJobsController(js *services.JobService) *JobsController {
-	return &JobsController{jobService: js}
+func NewJobsController(js *services.JobService, ac *services.AgentCompletionService) *JobsController {
+	return &JobsController{jobService: js, agentCompletionSvc: ac}
 }
 
 // ----------------------------------------------------------------
@@ -647,6 +649,45 @@ func (c *JobsController) CancelJobHandler(w http.ResponseWriter, r *http.Request
 	}
 	utils.RespondWithJSON(w, http.StatusOK, dtos.JobInstanceActionResponse{Updated: *updated})
 }
+
+// ----------------------------------------------------------------
+// GET /api/v1/jobs/agent-complete/{token}
+// ----------------------------------------------------------------
+// MODIFIED: This handler now performs a redirect based on the outcome.
+func (c *JobsController) AgentCompleteHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	token := vars["token"]
+
+	// log that we are here
+	utils.Logger.WithField("token", token).Info("Agent completion request received")
+
+	if token == "" {
+		// Redirect to unavailable page for missing token
+		http.Redirect(w, r, "/agent-job-unavailable.html", http.StatusFound)
+		return
+	}
+
+	_, _, err := c.agentCompletionSvc.CompleteByToken(r.Context(), token)
+
+	// On any error (token not found, used, expired, or job not open),
+	// redirect to the "unavailable" page.
+	if err != nil {
+		if errors.Is(err, services.ErrTokenNotFound) ||
+			errors.Is(err, services.ErrTokenUsed) ||
+			errors.Is(err, services.ErrTokenExpired) ||
+			errors.Is(err, services.ErrJobNotOpen) {
+			http.Redirect(w, r, "/agent-job-unavailable.html", http.StatusFound)
+		} else {
+			// For unexpected internal errors, a generic error is still appropriate.
+			utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "An unexpected error occurred", nil, err)
+		}
+		return
+	}
+
+	// On success, redirect to the "confirmed" page.
+	http.Redirect(w, r, "/agent-job-confirmed.html", http.StatusFound)
+}
+
 
 // ----------------------------------------------------------------
 // parseListQueryAndLocation ...

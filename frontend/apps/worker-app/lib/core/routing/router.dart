@@ -19,6 +19,7 @@ import 'package:poof_worker/features/auth/presentation/pages/totp_signup_page.da
 import 'package:poof_worker/features/auth/presentation/pages/phone_verification_info_page.dart';
 import 'package:poof_worker/features/auth/presentation/pages/signup_success_page.dart';
 import 'package:poof_worker/features/auth/presentation/pages/signup_expired_page.dart';
+import 'package:poof_worker/features/auth/presentation/pages/waitlist_page.dart';
 
 // Checkr / Stripe / Account
 import 'package:poof_worker/features/account/presentation/pages/checkr_page.dart';
@@ -32,7 +33,6 @@ import 'package:poof_worker/features/account/presentation/pages/stripe_connect_n
 import 'package:poof_worker/features/account/presentation/pages/stripe_idv_page.dart';
 import 'package:poof_worker/features/account/presentation/pages/stripe_idv_in_progress_page.dart';
 import 'package:poof_worker/features/account/presentation/pages/stripe_idv_not_complete_page.dart';
-import 'package:poof_worker/features/account/presentation/pages/settings_page.dart';
 import 'package:poof_worker/features/account/presentation/pages/my_profile_page.dart';
 
 // Jobs
@@ -52,6 +52,7 @@ import 'package:poof_worker/features/earnings/data/models/models.dart'
 // Our new Signing Out page
 import 'package:poof_worker/features/auth/presentation/pages/signing_out_page.dart';
 import 'package:poof_worker/features/auth/presentation/pages/session_expired_page.dart';
+import 'package:poof_worker/features/auth/presentation/pages/location_disclosure_page.dart';
 
 /// Defines the named routes used throughout the application for navigation.
 class AppRouteNames {
@@ -65,6 +66,7 @@ class AppRouteNames {
   static const String totpSignUpPage = 'TotpSignUpPage';
   static const String signupSuccessPage = 'SignupSuccessPage';
   static const String signupExpiredPage = 'SignupExpiredPage';
+  static const String waitlistPage = 'WaitlistPage';
   static const String totpVerifyPage = 'TotpVerifyPage';
   static const String checkrPage = 'CheckrPage';
   static const String checkrInProgressPage = 'CheckrInProgressPage';
@@ -84,10 +86,10 @@ class AppRouteNames {
   static const String jobInProgressPage = 'JobInProgressPage';
   static const String earningsPage = 'EarningsPage';
   static const String weekEarningsDetailPage = 'WeekEarningsDetailPage';
-  static const String settingsPage = 'SettingsPage';
   static const String myProfilePage = 'MyProfilePage';
   static const String signingOutPage = 'SigningOutPage';
   static const String sessionExpiredPage = 'SessionExpiredPage';
+  static const String locationDisclosurePage = 'LocationDisclosurePage';
 }
 
 enum RouteAccess {
@@ -151,11 +153,18 @@ final List<AppRoute> _appRoutes = [
       name: AppRouteNames.addressInfoPage,
       builder: (_, _) => const AddressInfoPage()),
   AppRoute(
-    access: RouteAccess.protected,
-    path: '/vehicle_setup',
-    name: AppRouteNames.vehicleSetupPage,
-    pageBuilder: (context, state) =>
+      access: RouteAccess.protected,
+      path: '/vehicle_setup',
+      name: AppRouteNames.vehicleSetupPage,
+      pageBuilder: (context, state) =>
         const CupertinoPage(child: VehicleSetupPage()),
+  ),
+  AppRoute(
+    access: RouteAccess.protected,
+    path: '/waitlist',
+    name: AppRouteNames.waitlistPage,
+    pageBuilder: (context, state) =>
+        const CupertinoPage(child: WaitlistPage()),
   ),
   AppRoute(
       access: RouteAccess.unrestricted,
@@ -315,11 +324,6 @@ final List<AppRoute> _appRoutes = [
       }),
   AppRoute(
       access: RouteAccess.protected,
-      path: '/settings',
-      name: AppRouteNames.settingsPage,
-      builder: (_, _) => const SettingsPage()),
-  AppRoute(
-      access: RouteAccess.protected,
       path: '/my_profile',
       name: AppRouteNames.myProfilePage,
       builder: (_, _) => const MyProfilePage()),
@@ -333,6 +337,11 @@ final List<AppRoute> _appRoutes = [
       path: '/session_expired',
       name: AppRouteNames.sessionExpiredPage,
       builder: (_, _) => const SessionExpiredPage()),
+  AppRoute(
+      access: RouteAccess.protected,
+      path: '/location_disclosure',
+      name: AppRouteNames.locationDisclosurePage,
+      builder: (_, _) => const LocationDisclosurePage()),
 ];
 
 // ... rest of the file is unchanged ...

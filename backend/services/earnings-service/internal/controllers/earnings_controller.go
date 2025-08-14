@@ -3,9 +3,9 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/poofware/earnings-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type EarningsController struct {

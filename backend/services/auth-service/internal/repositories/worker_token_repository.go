@@ -7,9 +7,9 @@ import (
 
     "github.com/google/uuid"
     "github.com/jackc/pgx/v4"
-    "github.com/poofware/auth-service/internal/models"
-    "github.com/poofware/go-utils"
-    . "github.com/poofware/go-repositories"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/models"
+    "github.com/poofware/mono-repo/backend/shared/go-utils"
+    . "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 type WorkerTokenRepository interface {

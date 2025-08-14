@@ -3,7 +3,7 @@ package utils
 import (
 	"time"
 
-	"github.com/poofware/earnings-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/constants"
 )
 
 // GetPayPeriodStartForDate returns the Monday that begins the pay period for a given time `t`.

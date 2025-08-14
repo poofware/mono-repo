@@ -55,13 +55,56 @@ final filteredDefinitionsProvider = Provider<List<DefinitionGroup>>((ref) {
 
   final list = groupOpenJobs(jobsState.openJobs).where(matchesQuery).toList();
 
+  // Primary sort for the sheet is user-selected. We will keep this behavior
+  // here and build a separate provider for the carousel to ensure a stable
+  // property/building sort there.
+  int byPropThenBldgThenId(DefinitionGroup a, DefinitionGroup b) {
+    final c1 = a.propertyName.compareTo(b.propertyName);
+    if (c1 != 0) return c1;
+    final c2 = a.buildingSubtitle.compareTo(b.buildingSubtitle);
+    if (c2 != 0) return c2;
+    return a.definitionId.compareTo(b.definitionId);
+  }
+
+  int byDistance(DefinitionGroup a, DefinitionGroup b) {
+    final c = a.distanceMiles.compareTo(b.distanceMiles);
+    if (c != 0) return c;
+    return byPropThenBldgThenId(a, b);
+  }
+
+  int byPay(DefinitionGroup a, DefinitionGroup b) {
+    final c = b.pay.compareTo(a.pay);
+    if (c != 0) return c;
+    return byPropThenBldgThenId(a, b);
+  }
+
   switch (sortBy) {
     case 'pay':
-      list.sort((a, b) => b.pay.compareTo(a.pay));
+      list.sort(byPay);
+      break;
+    case 'distance':
+      list.sort(byDistance);
       break;
     default:
-      list.sort((a, b) => a.distanceMiles.compareTo(b.distanceMiles));
+      list.sort(byPropThenBldgThenId);
   }
+  return list;
+});
+
+/// Dedicated provider for the carousel order: always property, then building,
+/// then definitionId as a deterministic tie-breaker. This ensures that cards
+/// for the same property/building stay adjacent in the carousel regardless of
+/// the sheet's selected sort mode.
+final carouselDefinitionsProvider = Provider<List<DefinitionGroup>>((ref) {
+  final filtered = ref.watch(filteredDefinitionsProvider);
+  final list = [...filtered];
+  list.sort((a, b) {
+    final c1 = a.propertyName.compareTo(b.propertyName);
+    if (c1 != 0) return c1;
+    final c2 = a.buildingSubtitle.compareTo(b.buildingSubtitle);
+    if (c2 != 0) return c2;
+    return a.definitionId.compareTo(b.definitionId);
+  });
   return list;
 });
 
@@ -93,6 +136,7 @@ String buildSearchableDefinitionText(DefinitionGroup d) {
 
 const kDefaultMapZoom = 14.5;
 const kLosAngelesLatLng = LatLng(34.0522, -118.2437);
+const kSanFranciscoLatLng = LatLng(37.7749, -122.4194);
 const kGenericFallbackLatLng = LatLng(0.0, 0.0);
 const kGenericFallbackZoom = 2.0;
 
@@ -145,6 +189,8 @@ class _HomePageState extends ConsumerState<HomePage>
   final ReceivePort _markerTapReceivePort = ReceivePort();
   // Timer for throttling marker updates
   Timer? _markerUpdateThrottleTimer;
+  // Warm-up subscription to keep a recent location cached by the OS
+  StreamSubscription<Position>? _positionWarmupSub;
 
   // ---- Tap-vs-Drag/Hold helpers for ripple effect ----
   static const _quickTapMax = Duration(milliseconds: 180);
@@ -158,7 +204,7 @@ class _HomePageState extends ConsumerState<HomePage>
   double _cachedMinSheetSize = 0.0;
   double _cachedMaxSheetSize = 1.0;
 
-  List<DefinitionGroup> _defs() => ref.read(filteredDefinitionsProvider);
+  List<DefinitionGroup> _defs() => ref.read(carouselDefinitionsProvider);
   String? _selectedDefId() => ref.read(selectedDefinitionIdProvider);
 
   @override
@@ -176,7 +222,7 @@ class _HomePageState extends ConsumerState<HomePage>
       ref.read(currentMapCameraPositionProvider.notifier).state =
           initialBootCam ??
           const CameraPosition(
-            target: kLosAngelesLatLng,
+            target: kSanFranciscoLatLng,
             zoom: kDefaultMapZoom,
           );
       _lastCameraMove = ref.read(currentMapCameraPositionProvider);
@@ -193,10 +239,29 @@ class _HomePageState extends ConsumerState<HomePage>
     }
     _markerTapReceivePort.listen(_handleMarkerTapFromIsolate);
 
-    rootBundle.loadString('assets/jsons/map_style.json').then((style) {
-      if (mounted) {
-        setState(() => _mapStyle = style);
-      }
+    // Prefer preloaded style to avoid flash when the map first attaches
+    final preloaded = ref.read(mapStyleJsonProvider);
+    if (preloaded != null && preloaded.isNotEmpty) {
+      _mapStyle = preloaded;
+    } else {
+      rootBundle.loadString('assets/jsons/map_style.json').then((style) {
+        if (mounted) {
+          setState(() => _mapStyle = style);
+        }
+      });
+    }
+
+    // Start a lightweight location stream to keep the OS cache warm.
+    // This helps make on-demand fixes faster.
+    _positionWarmupSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.low,
+        distanceFilter: 50, // only when user moves meaningfully
+      ),
+    ).listen((_) {
+      // No-op: Allow OS to maintain a fresh last-known position.
+    }, onError: (_) {
+      // Ignore stream errors; on-demand fetch will handle errors.
     });
   }
 
@@ -206,21 +271,24 @@ class _HomePageState extends ConsumerState<HomePage>
   /// Handles marker tap events sent from the isolate.
   void _handleMarkerTapFromIsolate(dynamic message) {
     if (message is String) {
-      final definitionId = message;
+      final locationKey = message;
       final currentFilteredDefs = ref.read(filteredDefinitionsProvider);
-      final targetDef = currentFilteredDefs.firstWhereOrNull(
-        (d) => d.definitionId == definitionId,
-      );
-
-      if (targetDef != null) {
-        final idx = currentFilteredDefs.indexOf(targetDef);
-        if (idx != -1) {
-          _selectDefinition(
-            targetDef,
-            idx,
-            fromUserInteraction: true,
-            animateMap: false,
-          );
+      final locToDefs = ref.read(locationKeyToDefinitionIdsProvider);
+      final idsAtLoc = locToDefs[locationKey];
+      if (idsAtLoc != null && idsAtLoc.isNotEmpty) {
+        final targetDef = currentFilteredDefs.firstWhereOrNull(
+          (d) => d.definitionId == idsAtLoc.first,
+        );
+        if (targetDef != null) {
+          final idx = currentFilteredDefs.indexOf(targetDef);
+          if (idx != -1) {
+            _selectDefinition(
+              targetDef,
+              idx,
+              fromUserInteraction: true,
+              animateMap: false,
+            );
+          }
         }
       }
     }
@@ -258,9 +326,40 @@ class _HomePageState extends ConsumerState<HomePage>
         args,
       );
       if (mounted) {
-        ref
-            .read(jobMarkerCacheProvider.notifier)
-            .replaceAllMarkers(newMarkerMap);
+        // Build dedupe maps: definition -> location key, and location -> ids
+        final defToLoc = <String, String>{};
+        final locToPos = <String, LatLng>{};
+        final locToDefs = <String, List<String>>{};
+        for (final d in currentFilteredDefs) {
+          if (d.instances.isEmpty) continue;
+          final inst = d.instances.first;
+          LatLng pos;
+          if (inst.buildings.isNotEmpty &&
+              inst.buildings.first.latitude != 0 &&
+              inst.buildings.first.longitude != 0) {
+            pos = LatLng(inst.buildings.first.latitude, inst.buildings.first.longitude);
+          } else if (inst.property.latitude != 0 || inst.property.longitude != 0) {
+            pos = LatLng(inst.property.latitude, inst.property.longitude);
+          } else {
+            pos = kLosAngelesLatLng;
+          }
+          final key = locationKeyForLatLng(pos);
+          defToLoc[d.definitionId] = key;
+          locToPos[key] = pos;
+          locToDefs.putIfAbsent(key, () => <String>[]).add(d.definitionId);
+        }
+        ref.read(definitionIdToLocationKeyProvider.notifier).state = defToLoc;
+        ref.read(locationKeyToPositionProvider.notifier).state = locToPos;
+        ref.read(locationKeyToDefinitionIdsProvider.notifier).state = locToDefs;
+
+        ref.read(jobMarkerCacheProvider.notifier).replaceAllMarkers(newMarkerMap);
+        // Re-apply highlight if a selection already exists, since cache was replaced
+        final selectedId = ref.read(selectedDefinitionIdProvider);
+        if (selectedId != null) {
+          ref
+              .read(jobMarkerCacheProvider.notifier)
+              .updateSelection(selectedId, null);
+        }
       }
     } catch (e, s) {
       debugPrint("Error during marker computation: $e\n$s");
@@ -273,6 +372,7 @@ class _HomePageState extends ConsumerState<HomePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _positionWarmupSub?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _sheetController.removeListener(_onSheetSizeChanged);
@@ -353,31 +453,56 @@ class _HomePageState extends ConsumerState<HomePage>
     if (useBoot) {
       camToSet = bootCam;
     } else if (permissionGranted) {
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 7),
-          ),
-        );
-        if (!mounted) return;
+      // Try last-known first for a fast snap
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
         camToSet = CameraPosition(
-          target: LatLng(pos.latitude, pos.longitude),
+          target: LatLng(lastKnown.latitude, lastKnown.longitude),
           zoom: kDefaultMapZoom,
         );
-      } catch (_) {
-        if (!mounted) return;
-        camToSet =
-            storedPersistedCam ??
-            const CameraPosition(
-              target: kGenericFallbackLatLng,
-              zoom: kGenericFallbackZoom,
+        // Kick off a background refine to a fresh fix
+        // (ignore result if it fails or times out)
+        unawaited(_refineLocationInBackground());
+      } else {
+        // Quick, balanced attempt first
+        try {
+          final posBalanced = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium,
+              timeLimit: Duration(seconds: 3),
+            ),
+          );
+          camToSet = CameraPosition(
+            target: LatLng(posBalanced.latitude, posBalanced.longitude),
+            zoom: kDefaultMapZoom,
+          );
+          // Optionally refine further (silent)
+          unawaited(_refineLocationInBackground());
+        } catch (_) {
+          try {
+            final posHigh = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.high,
+                timeLimit: Duration(seconds: 7),
+              ),
             );
+            camToSet = CameraPosition(
+              target: LatLng(posHigh.latitude, posHigh.longitude),
+              zoom: kDefaultMapZoom,
+            );
+          } catch (_) {
+            camToSet = storedPersistedCam ??
+                const CameraPosition(
+                  target: kGenericFallbackLatLng,
+                  zoom: kGenericFallbackZoom,
+                );
+          }
+        }
       }
     } else {
       if (!mounted) return;
       camToSet = const CameraPosition(
-        target: kLosAngelesLatLng,
+        target: kSanFranciscoLatLng,
         zoom: kDefaultMapZoom,
       );
     }
@@ -429,6 +554,48 @@ class _HomePageState extends ConsumerState<HomePage>
     _lastCameraMove = camFromIdle;
   }
 
+  /// Attempts to get a fresher fix in the background and gently refines the camera.
+  Future<void> _refineLocationInBackground() async {
+    try {
+      // First, try balanced quickly
+      Position pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 3),
+        ),
+      );
+      if (!mounted) return;
+      final cam = CameraPosition(
+        target: LatLng(pos.latitude, pos.longitude),
+        zoom: _mapController != null
+            ? await _mapController!.getZoomLevel()
+            : kDefaultMapZoom,
+      );
+      _moveOrAnimateMapToPosition(cam, animate: true);
+      return;
+    } catch (_) {
+      // Fall through to high accuracy attempt
+    }
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 7),
+        ),
+      );
+      if (!mounted) return;
+      final cam = CameraPosition(
+        target: LatLng(pos.latitude, pos.longitude),
+        zoom: _mapController != null
+            ? await _mapController!.getZoomLevel()
+            : kDefaultMapZoom,
+      );
+      _moveOrAnimateMapToPosition(cam, animate: true);
+    } catch (_) {
+      // Ignore error; keep previous camera
+    }
+  }
+
   Future<void> _snapToUserLocation() async {
     if (!_locationPermissionOK || _isSnappingToLocation) return;
     if (!mounted) return;
@@ -438,19 +605,61 @@ class _HomePageState extends ConsumerState<HomePage>
     final BuildContext capturedContext = context;
 
     try {
-      final pos = await Geolocator.getCurrentPosition(
+      // 1) Try last-known for an instant snap
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        final zoom = _mapController != null
+            ? await _mapController!.getZoomLevel()
+            : kDefaultMapZoom;
+        final cam = CameraPosition(
+          target: LatLng(lastKnown.latitude, lastKnown.longitude),
+          zoom: zoom,
+        );
+        _moveOrAnimateMapToPosition(cam, animate: true);
+        if (mounted) setState(() => _isSnappingToLocation = false);
+        // 2) Refine silently in background
+        unawaited(_refineLocationInBackground());
+        return;
+      }
+
+      // 3) No last-known: quick balanced attempt
+      try {
+        final posBalanced = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+        final zoom = _mapController != null
+            ? await _mapController!.getZoomLevel()
+            : kDefaultMapZoom;
+        final cam = CameraPosition(
+          target: LatLng(posBalanced.latitude, posBalanced.longitude),
+          zoom: zoom,
+        );
+        _moveOrAnimateMapToPosition(cam, animate: true);
+        if (mounted) setState(() => _isSnappingToLocation = false);
+        // Optional refine silently
+        unawaited(_refineLocationInBackground());
+        return;
+      } catch (_) {
+        // Fall through to high accuracy below
+      }
+
+      // 4) High-accuracy fallback with modest timeout
+      final posHigh = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 7),
         ),
       );
-      if (!mounted) return;
-      final userLatLng = LatLng(pos.latitude, pos.longitude);
       final zoom = _mapController != null
           ? await _mapController!.getZoomLevel()
           : kDefaultMapZoom;
-      if (!mounted) return;
-      final cam = CameraPosition(target: userLatLng, zoom: zoom);
+      final cam = CameraPosition(
+        target: LatLng(posHigh.latitude, posHigh.longitude),
+        zoom: zoom,
+      );
       _moveOrAnimateMapToPosition(cam, animate: true);
     } catch (e) {
       if (!capturedContext.mounted) return;
@@ -549,15 +758,21 @@ class _HomePageState extends ConsumerState<HomePage>
 
     if (animateMap && def.instances.isNotEmpty) {
       if (_mapController != null) {
-        LatLng targetPosition = LatLng(
-          def.instances.first.property.latitude,
-          def.instances.first.property.longitude,
-        );
-        if (def.instances.first.buildings.isNotEmpty &&
-            def.instances.first.buildings.first.latitude != 0 &&
-            def.instances.first.buildings.first.longitude != 0) {
-          final building = def.instances.first.buildings.first;
+        LatLng targetPosition;
+        final inst = def.instances.first;
+        if (inst.buildings.isNotEmpty &&
+            inst.buildings.first.latitude != 0 &&
+            inst.buildings.first.longitude != 0) {
+          final building = inst.buildings.first;
           targetPosition = LatLng(building.latitude, building.longitude);
+        } else if (inst.property.latitude != 0 &&
+            inst.property.longitude != 0) {
+          targetPosition = LatLng(
+            inst.property.latitude,
+            inst.property.longitude,
+          );
+        } else {
+          targetPosition = kLosAngelesLatLng;
         }
         final targetCameraPos = CameraPosition(
           target: targetPosition,
@@ -613,7 +828,19 @@ class _HomePageState extends ConsumerState<HomePage>
     if (mounted) {
       final liveCamPos = _currentLiveCameraPos();
       _mapController!.moveCamera(CameraUpdate.newCameraPosition(liveCamPos));
+      // Signal that the main Home map is mounted so any warm-up overlay can stop.
+      ref.read(homeMapMountedProvider.notifier).state = true;
       _restoreSelection();
+
+      // Ensure initial highlighted overlay for first definition on first mount
+      final defs = _defs();
+      if (defs.isNotEmpty) {
+        final selectedId = _selectedDefId() ?? defs.first.definitionId;
+        if (_selectedDefId() == null) {
+          ref.read(selectedDefinitionIdProvider.notifier).state = selectedId;
+        }
+        ref.read(jobMarkerCacheProvider.notifier).updateSelection(selectedId, null);
+      }
     }
   }
 
@@ -628,6 +855,9 @@ class _HomePageState extends ConsumerState<HomePage>
       _applyCameraPositionFromIdle(_lastCameraMove!);
     }
   }
+
+  // Undo map onTap behavior to restore original; leave no-op
+  Future<void> _onMapTap(LatLng tapLatLng) async {}
 
   void _handleViewOnMapFromSheet(DefinitionGroup definition) {
     if (!mounted) return;
@@ -687,6 +917,7 @@ class _HomePageState extends ConsumerState<HomePage>
     final jobsState = ref.watch(jobsNotifierProvider);
     final newOpenJobs = jobsState.openJobs;
     final filteredDefs = ref.watch(filteredDefinitionsProvider);
+    final carouselDefs = ref.watch(carouselDefinitionsProvider);
     final liveCameraPosition = ref.watch(currentMapCameraPositionProvider);
     final appLocalizations = AppLocalizations.of(context);
 
@@ -699,18 +930,23 @@ class _HomePageState extends ConsumerState<HomePage>
 
     if ((openJobsListActuallyChanged || isFirstTimeLoadingJobs) &&
         newOpenJobs.isNotEmpty) {
-      final currentFilteredDefsForRecenter = ref.read(
-        filteredDefinitionsProvider,
+      final currentCarouselDefsForRecenter = ref.read(
+        carouselDefinitionsProvider,
       );
-      if (currentFilteredDefsForRecenter.isNotEmpty) {
+      if (currentCarouselDefsForRecenter.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
+            // Auto-select first def and ensure overlay appears immediately
+            final firstDef = currentCarouselDefsForRecenter.first;
             _selectDefinition(
-              currentFilteredDefsForRecenter.first,
+              firstDef,
               0,
               fromUserInteraction: false,
               animateMap: true,
             );
+            ref
+                .read(jobMarkerCacheProvider.notifier)
+                .updateSelection(firstDef.definitionId, null);
             if (_isInitialLoad) {
               _isInitialLoad = false;
             }
@@ -751,7 +987,53 @@ class _HomePageState extends ConsumerState<HomePage>
       next,
     ) {
       _updateMarkerCacheForAllDefsThrottled();
+      // When going online, ensure a visible selection exists for current defs
+      if (next && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final currentSelectedId = ref.read(selectedDefinitionIdProvider);
+          final defs = ref.read(filteredDefinitionsProvider);
+          if (defs.isEmpty) return;
+          final hasSelectedInDefs = currentSelectedId != null &&
+              defs.any((d) => d.definitionId == currentSelectedId);
+          if (!hasSelectedInDefs) {
+            _selectDefinition(
+              defs.first,
+              0,
+              fromUserInteraction: false,
+              animateMap: true,
+            );
+          }
+        });
+      }
     });
+
+    // After the initial online job load completes, ensure selection & highlight
+    ref.listen<bool>(
+      jobsNotifierProvider.select((s) => s.hasLoadedInitialJobs),
+      (prev, next) {
+        if (next && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            final defs = ref.read(filteredDefinitionsProvider);
+            if (defs.isEmpty) return;
+            final currentSelectedId = ref.read(selectedDefinitionIdProvider);
+            final hasSelectedInDefs = currentSelectedId != null &&
+                defs.any((d) => d.definitionId == currentSelectedId);
+            if (!hasSelectedInDefs) {
+              // Ensure markers/maps are up-to-date, then select first
+              await _performFullMarkerUpdate();
+              _selectDefinition(
+                defs.first,
+                0,
+                fromUserInteraction: false,
+                animateMap: true,
+              );
+            }
+          });
+        }
+      },
+    );
 
     final screenHeight = MediaQuery.of(context).size.height;
     final minSheetSize = _computeMinSheetSize(context);
@@ -766,7 +1048,7 @@ class _HomePageState extends ConsumerState<HomePage>
     _cachedMaxSheetSize = maxSheetSize;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncCarouselPage(filteredDefs);
+      if (mounted) _syncCarouselPage(carouselDefs);
     });
 
     return Scaffold(
@@ -786,8 +1068,9 @@ class _HomePageState extends ConsumerState<HomePage>
             onPointerMove: (PointerMoveEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartPosition == null)
+                  _tapStartPosition == null) {
                 return;
+              }
 
               final travelled = (e.position - _tapStartPosition!).distance;
               if (travelled > kTouchSlop) {
@@ -797,8 +1080,9 @@ class _HomePageState extends ConsumerState<HomePage>
             onPointerUp: (PointerUpEvent e) {
               if (e.pointer != _tapPointerId ||
                   _tapCancelled ||
-                  _tapStartTime == null)
+                  _tapStartTime == null) {
                 return;
+              }
 
               final held = DateTime.now().difference(_tapStartTime!);
               if (held <= _quickTapMax) {
@@ -837,6 +1121,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     onCameraMove: _onCameraMove,
                     onCameraIdle: _onCameraIdle,
                     onCameraMoveStarted: _onCameraMoveStarted,
+                    onTap: _onMapTap,
                   ),
                 ),
                 const TapRippleOverlay(),
@@ -927,7 +1212,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       ),
                     ),
                   ),
-                if (filteredDefs.isNotEmpty)
+                if (carouselDefs.isNotEmpty)
                   Positioned(
                     left: 0,
                     right: 0,
@@ -936,16 +1221,16 @@ class _HomePageState extends ConsumerState<HomePage>
                       duration: const Duration(milliseconds: 250),
                       opacity: _carouselOpacity,
                       child: JobDefinitionCarousel(
-                        definitions: filteredDefs,
+                        definitions: carouselDefs,
                         pageController: _carouselPageController,
                         onPageChanged: (idx) {
                           if (_ignoreNextPageChange) {
                             _ignoreNextPageChange = false;
                             return;
                           }
-                          if (idx < filteredDefs.length) {
+                          if (idx < carouselDefs.length) {
                             _selectDefinition(
-                              filteredDefs[idx],
+                              carouselDefs[idx],
                               idx,
                               fromUserInteraction: true,
                               animateMap: true,
@@ -966,6 +1251,9 @@ class _HomePageState extends ConsumerState<HomePage>
                   isOnline: isOnline,
                   isTestMode: isTest,
                   isLoadingJobs: isLoadingOpenJobs,
+                  hasLoadedInitialJobs: ref
+                      .watch(jobsNotifierProvider)
+                      .hasLoadedInitialJobs,
                   sortBy: ref.watch(jobsSortByProvider),
                   onSortChanged: (val) {
                     if (mounted) {
@@ -1035,6 +1323,7 @@ class MapPane extends ConsumerWidget {
   final Function(CameraPosition) onCameraMove;
   final Function() onCameraIdle;
   final Function() onCameraMoveStarted;
+  final Future<void> Function(LatLng)? onTap;
 
   const MapPane({
     super.key,
@@ -1045,6 +1334,7 @@ class MapPane extends ConsumerWidget {
     required this.onCameraMove,
     required this.onCameraIdle,
     required this.onCameraMoveStarted,
+    this.onTap,
   });
 
   @override
@@ -1057,6 +1347,7 @@ class MapPane extends ConsumerWidget {
       onCameraMove: onCameraMove,
       onCameraIdle: onCameraIdle,
       onCameraMoveStarted: onCameraMoveStarted,
+      onTap: onTap,
       markers: markers,
       myLocationEnabled: locationPermissionOK,
       myLocationButtonEnabled: false,

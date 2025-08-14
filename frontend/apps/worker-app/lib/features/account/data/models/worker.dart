@@ -16,6 +16,8 @@ enum SetupProgressType {
   done,
 }
 
+enum WaitlistReason { geographic, capacity, none }
+
 /// ---------------------------------------------------------------------------
 /// Worker model (matches backend DTO)
 /// ---------------------------------------------------------------------------
@@ -36,6 +38,7 @@ class Worker {
   final String vehicleMake;
   final String vehicleModel;
   final String? checkrCandidateId;
+  final String? tenantToken;
 
   // Enum fields
   final AccountStatusType accountStatus;
@@ -43,6 +46,8 @@ class Worker {
 
   // Checkr status info
   final CheckrReportOutcome checkrReportOutcome;
+  final bool onWaitlist;
+  final WaitlistReason waitlistReason;
 
   const Worker({
     required this.id,
@@ -59,9 +64,12 @@ class Worker {
     required this.vehicleMake,
     required this.vehicleModel,
     this.checkrCandidateId,
+    this.tenantToken,
     required this.accountStatus,
     required this.setupProgress,
     required this.checkrReportOutcome,
+    required this.onWaitlist,
+    required this.waitlistReason,
   });
 
   // -------------------------------------------------------------------------
@@ -97,6 +105,17 @@ class Worker {
     }
   }
 
+  static WaitlistReason _waitlistReasonFrom(String? raw) {
+    switch (raw) {
+      case 'GEOGRAPHIC':
+        return WaitlistReason.geographic;
+      case 'CAPACITY':
+        return WaitlistReason.capacity;
+      default:
+        return WaitlistReason.none;
+    }
+  }
+
   // -------------------------------------------------------------------------
   // JSON factory
   // -------------------------------------------------------------------------
@@ -116,10 +135,14 @@ class Worker {
       vehicleMake: json['vehicle_make'] as String,
       vehicleModel: json['vehicle_model'] as String,
       checkrCandidateId: json['checkr_candidate_id'] as String?,
+      tenantToken: json['tenant_token'] as String?,
       accountStatus: _accountStatusFrom(json['account_status'] as String),
       setupProgress: _setupProgressFrom(json['setup_progress'] as String),
-      checkrReportOutcome:
-          checkrOutcomeFromString(json['checkr_report_outcome'] as String),
+      checkrReportOutcome: checkrOutcomeFromString(
+        json['checkr_report_outcome'] as String,
+      ),
+      onWaitlist: json['on_waitlist'] as bool,
+      waitlistReason: _waitlistReasonFrom(json['waitlist_reason'] as String?),
     );
   }
 }
@@ -142,6 +165,7 @@ class WorkerPatchRequest implements JsonSerializable {
   final int? vehicleYear;
   final String? vehicleMake;
   final String? vehicleModel;
+  final String? tenantToken;
 
   const WorkerPatchRequest({
     this.email,
@@ -156,6 +180,7 @@ class WorkerPatchRequest implements JsonSerializable {
     this.vehicleYear,
     this.vehicleMake,
     this.vehicleModel,
+    this.tenantToken,
   });
 
   /// Converts this object to JSON, omitting null fields.
@@ -174,6 +199,7 @@ class WorkerPatchRequest implements JsonSerializable {
     if (vehicleYear != null) data['vehicle_year'] = vehicleYear;
     if (vehicleMake != null) data['vehicle_make'] = vehicleMake;
     if (vehicleModel != null) data['vehicle_model'] = vehicleModel;
+    if (tenantToken != null) data['tenant_token'] = tenantToken;
     return data;
   }
 }

@@ -3,8 +3,8 @@ package controllers
 import (
     "time"
 
-    "github.com/poofware/auth-service/internal/config"
-    "github.com/poofware/go-utils"
+    "github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+    "github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type TokenPolicy struct {

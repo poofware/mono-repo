@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -150,6 +150,19 @@ func (h *TestHelper) CreateTestBuilding(ctx context.Context, propID uuid.UUID, b
 	}
 	require.NoError(h.T, h.BldgRepo.Create(ctx, b))
 	return b
+}
+
+// NEW: CreateTestUnit creates and persists a new unit.
+func (h *TestHelper) CreateTestUnit(ctx context.Context, propID, bldgID uuid.UUID, unitNum string) *models.Unit {
+	u := &models.Unit{
+		ID:          uuid.New(),
+		PropertyID:  propID,
+		BuildingID:  bldgID,
+		UnitNumber:  unitNum,
+		TenantToken: uuid.NewString(),
+	}
+	require.NoError(h.T, h.UnitRepo.Create(ctx, u), "Failed to create test unit")
+	return u
 }
 
 // CreateTestDumpster creates and persists a new dumpster.

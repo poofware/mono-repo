@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/earnings-service/internal/constants"
-	internal_models "github.com/poofware/earnings-service/internal/models"
-	"github.com/poofware/go-repositories"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/constants"
+	internal_models "github.com/poofware/mono-repo/backend/services/earnings-service/internal/models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 	"github.com/stripe/stripe-go/v82"
 )
 

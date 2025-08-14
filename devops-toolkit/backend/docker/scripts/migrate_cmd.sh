@@ -240,7 +240,7 @@ if [[ "${ENV}" == "prod" && "${DESTINATION}" == "+1" ]]; then
   vt="schema_version"
   [[ -n "${ISOLATED_SCHEMA:-}" ]] && vt="\"${ISOLATED_SCHEMA}\".schema_version"
 
-  current=$(psql "${EFFECTIVE_DB_URL}" -Atq -c "select version from ${vt} limit 1")
+  current=$(psql "${EFFECTIVE_DB_URL}" -Atq -c "select version from ${vt} limit 1" 2>/dev/null || true)
   latest=$(ls migrations | grep -E '^[0-9]+' | cut -d_ -f1 | sort -n | tail -1)
 
   if [[ -z "${current}" ]]; then current=0; fi

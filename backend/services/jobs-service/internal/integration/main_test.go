@@ -11,10 +11,10 @@ import (
 	_ "time/tzdata"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-testhelpers"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/config"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,11 +22,12 @@ import (
 var (
 	h      *testhelpers.TestHelper
 	testPM *models.PropertyManager
+	cfg    *config.Config
 )
 
 // TestMain sets up a single TestHelper for all integration tests in this package.
 func TestMain(m *testing.M) {
-	// Required ldflags checks
+	// Required ldflags checks (these are read by config.LoadConfig)
 	if config.AppName == "" {
 		log.Fatal("config.AppName is empty or not set (ldflags missing?)")
 	}
@@ -37,8 +38,10 @@ func TestMain(m *testing.M) {
 		log.Fatal("config.UniqueRunNumber is empty or not set")
 	}
 
+	// Load the full application config, which includes fetching LD flags.
+	cfg = config.LoadConfig()
+
 	// Use a dummy testing.T to initialize the helper.
-	// We can't use one from a real test since TestMain runs before tests.
 	t := &testing.T{}
 	h = testhelpers.NewTestHelper(t, config.AppName, config.UniqueRunnerID, config.UniqueRunNumber)
 

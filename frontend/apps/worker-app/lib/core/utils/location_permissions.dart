@@ -35,6 +35,13 @@ Future<bool> ensureLocationGranted({bool background = false}) async {
 
   // Success when permission is granted for foreground or all-time use.
   return perm == LocationPermission.always ||
-         perm == LocationPermission.whileInUse;
-  }
+      perm == LocationPermission.whileInUse;
+}
 
+/// Returns true if the app currently has foreground or all-time location
+/// permission. This function does NOT prompt the user.
+Future<bool> hasLocationPermission() async {
+  final perm = await Geolocator.checkPermission();
+  return perm == LocationPermission.always ||
+      perm == LocationPermission.whileInUse;
+}

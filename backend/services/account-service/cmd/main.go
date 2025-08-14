@@ -8,15 +8,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	_ "time/tzdata" // Load timezone data
+	cron "github.com/robfig/cron/v3"
 
-	"github.com/poofware/account-service/internal/app"
-	"github.com/poofware/account-service/internal/config"
-	"github.com/poofware/account-service/internal/controllers"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/controllers"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/sendgrid/sendgrid-go" // Import SendGrid
 )
 
@@ -37,15 +38,16 @@ func main() {
 	bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	unitRepo := repositories.NewUnitRepository(application.DB)
+	agentRepo := repositories.NewAgentRepository(application.DB)
 
 	// Unconditionally seed permanent accounts (e.g., for Google Play reviewers).
-	if err := app.SeedAllAccounts(workerRepo, pmRepo); err != nil { //
+	if err := app.SeedAllAccounts(workerRepo, pmRepo, agentRepo); err != nil {
 		utils.Logger.Fatal("Failed to seed permanent accounts:", err)
 	}
 
 	// Conditionally seed test accounts if the feature flag is enabled.
 	if cfg.LDFlag_SeedDbWithTestAccounts {
-		if err := app.SeedAllTestAccounts(workerRepo, pmRepo); err != nil {
+		if err := app.SeedAllTestAccounts(workerRepo, pmRepo, agentRepo); err != nil {
 			utils.Logger.Fatal("Failed to seed default accounts:", err)
 		}
 	}
@@ -55,7 +57,8 @@ func main() {
 	// Services
 	sgClient := sendgrid.NewSendClient(cfg.SendgridAPIKey) // Instantiate SendGrid client
 	pmService := services.NewPMService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo)
-	workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo)
+        workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo, unitRepo, propRepo)
+	waitlistService := services.NewWaitlistService(cfg, workerRepo)
 	// MODIFIED: Inject SendGrid client and Config into WorkerStripeService
 	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo, sgClient)
 	stripeWebhookCheckService := services.NewStripeWebhookCheckService()
@@ -75,6 +78,18 @@ func main() {
 
 	checkrWebhookController := controllers.NewCheckrWebhookController(checkrService)
 	workerCheckrController := controllers.NewWorkerCheckrController(checkrService)
+
+	// Setup waitlist processing via cron (every 15 minutes)
+	c := cron.New()
+	_, schErr := c.AddFunc("*/15 * * * *", func() {
+		if err := waitlistService.ProcessWaitlist(context.Background()); err != nil {
+			utils.Logger.WithError(err).Error("Scheduled waitlist processing failed")
+		}
+	})
+	if schErr != nil {
+		utils.Logger.WithError(schErr).Fatal("Failed to schedule waitlist processing job")
+	}
+	c.Start()
 
 	workerUnversalLinksStripeController := controllers.NewWorkerUniversalLinksController(cfg.AppUrl)
 	wellKnownController := controllers.NewWellKnownController()
@@ -163,7 +178,7 @@ func main() {
 	}
 
 	// CORS config
-	c := cors.New(cors.Options{
+	co := cors.New(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Platform", "X-Device-ID", "X-Device-Integrity", "X-Key-Id", "ngrok-skip-browser-warning"},
@@ -171,7 +186,7 @@ func main() {
 	})
 
 	utils.Logger.Infof("Starting %s on port: %s", cfg.AppName, cfg.AppPort)
-	if err := http.ListenAndServe(":"+cfg.AppPort, c.Handler(router)); err != nil {
+	if err := http.ListenAndServe(":"+cfg.AppPort, co.Handler(router)); err != nil {
 		utils.Logger.Fatal("Failed to start server:", err)
 	}
 }
