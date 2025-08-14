@@ -1122,6 +1122,18 @@ class _HomePageState extends ConsumerState<HomePage>
                     onCameraIdle: _onCameraIdle,
                     onCameraMoveStarted: _onCameraMoveStarted,
                     onTap: _onMapTap,
+                    clusterManagers: {
+                      ClusterManager(
+                        clusterManagerId: kOpenJobsClusterId,
+                        onClusterTap: (cluster) async {
+                          if (_mapController == null) return;
+                          const padding = 50.0;
+                          await _mapController!.animateCamera(
+                            CameraUpdate.newLatLngBounds(cluster.bounds, padding),
+                          );
+                        },
+                      ),
+                    },
                   ),
                 ),
                 const TapRippleOverlay(),
@@ -1324,6 +1336,7 @@ class MapPane extends ConsumerWidget {
   final Function() onCameraIdle;
   final Function() onCameraMoveStarted;
   final Future<void> Function(LatLng)? onTap;
+  final Set<ClusterManager> clusterManagers;
 
   const MapPane({
     super.key,
@@ -1335,6 +1348,7 @@ class MapPane extends ConsumerWidget {
     required this.onCameraIdle,
     required this.onCameraMoveStarted,
     this.onTap,
+    required this.clusterManagers,
   });
 
   @override
@@ -1349,6 +1363,7 @@ class MapPane extends ConsumerWidget {
       onCameraMoveStarted: onCameraMoveStarted,
       onTap: onTap,
       markers: markers,
+      clusterManagers: clusterManagers,
       myLocationEnabled: locationPermissionOK,
       myLocationButtonEnabled: false,
       mapToolbarEnabled: false,

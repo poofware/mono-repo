@@ -11,6 +11,8 @@ import 'dart:isolate'; // For SendPort
 
 // --- Top-level constants and helpers for marker creation (accessible by isolate) ---
 const String kMarkerTapPortName = 'markerTapPort'; // Port name for tap events
+// Shared clustering id for all open-job markers
+const ClusterManagerId kOpenJobsClusterId = ClusterManagerId('open_jobs_cluster');
 
 final BitmapDescriptor _markerDefaultIcon =
     BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
@@ -70,6 +72,7 @@ Map<String, Marker> rebuildAndCreateMarkersIsolate(RebuildMarkerArgs args) {
         position: pos,
         icon: _markerDefaultIcon,
         consumeTapEvents: true,
+        clusterManagerId: kOpenJobsClusterId,
         onTap: () {
           final SendPort? port = IsolateNameServer.lookupPortByName(kMarkerTapPortName);
           if (port != null) {
