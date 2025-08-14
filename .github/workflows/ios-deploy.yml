@@ -28,7 +28,7 @@ jobs:
       - name: Select Xcode Version
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2.0'
+          xcode-version: '16.4.0'
 
       - name: Set up Flutter
         uses: flutter-actions/setup-flutter@v3
