@@ -221,28 +221,41 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
           ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$startStr ${appLocalizations.weeklyEarningsPageTitleSuffix} $endStr',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$startStr ${appLocalizations.weeklyEarningsPageTitleSuffix} $endStr',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(height: 4),
-                _buildPayoutStatusChip(week.payoutStatus, appLocalizations),
-              ],
+                  const SizedBox(height: 6),
+                  _buildPayoutStatusChip(week.payoutStatus, appLocalizations),
+                ],
+              ),
             ),
-            const Spacer(),
-            Text(
-              '\$${week.weeklyTotal.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            const SizedBox(width: 12),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                children: [
+                  Text(
+                    '\$${week.weeklyTotal.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, color: Colors.grey),
+                ],
+              ),
             ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
       ),

@@ -260,7 +260,7 @@ class _CompletedJobCard extends StatelessWidget {
 
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -277,6 +277,7 @@ class _CompletedJobCard extends StatelessWidget {
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -290,28 +291,63 @@ class _CompletedJobCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
               children: [
-                Icon(Icons.check_circle_outline,
-                    color: Colors.grey.shade600, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  appLocalizations.completedJobBottomSheetCompletedLabel(completedTime),
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                _InfoPill(
+                  icon: Icons.check_circle_outline,
+                  text: appLocalizations
+                      .completedJobBottomSheetCompletedLabel(completedTime),
                 ),
-                const Spacer(),
-                Icon(Icons.timer_outlined,
-                    color: Colors.grey.shade600, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  appLocalizations.completedJobBottomSheetTimeToCompleteLabel(duration),
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                _InfoPill(
+                  icon: Icons.timer_outlined,
+                  text: appLocalizations
+                      .completedJobBottomSheetTimeToCompleteLabel(duration),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color? foregroundColor;
+  final Color? backgroundColor;
+
+  const _InfoPill({
+    required this.icon,
+    required this.text,
+    this.foregroundColor,
+    this.backgroundColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fg = foregroundColor ?? Colors.grey.shade800;
+    final Color bg = backgroundColor ?? Colors.grey.shade100;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(fontSize: 14, color: fg),
+          ),
+        ],
       ),
     );
   }

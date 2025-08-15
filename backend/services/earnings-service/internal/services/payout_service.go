@@ -143,32 +143,45 @@ func NewPayoutService(cfg *config.Config, workerRepo repositories.WorkerReposito
 
 // NEW: ReconcileStalePayout polls Stripe for a payout's status and updates the local DB.
 func (s *PayoutService) ReconcileStalePayout(ctx context.Context, p *internal_models.WorkerPayout) (*internal_models.WorkerPayout, error) {
-	if p.StripePayoutID == nil || *p.StripePayoutID == "" {
-		// Cannot reconcile without a Stripe Payout ID. This is an inconsistent state.
-		utils.Logger.Warnf("Payout %s is in PROCESSING state but has no Stripe Payout ID. Cannot reconcile.", p.ID)
-		return p, errors.New("missing stripe_payout_id for processing payout")
-	}
+    if p.StripePayoutID == nil || *p.StripePayoutID == "" {
+        // Cannot reconcile without a Stripe Payout ID. This is an inconsistent state.
+        utils.Logger.Warnf("Payout %s is in PROCESSING state but has no Stripe Payout ID. Cannot reconcile.", p.ID)
+        return p, errors.New("missing stripe_payout_id for processing payout")
+    }
 
-	utils.Logger.Infof("Polling Stripe for status of stale payout %s (Stripe ID: %s)", p.ID, *p.StripePayoutID)
-	stripePayout, err := payout.Get(*p.StripePayoutID, nil)
-	if err != nil {
-		utils.Logger.WithError(err).Errorf("Failed to retrieve payout %s from Stripe during reconciliation", *p.StripePayoutID)
-		return p, err
-	}
+    // Look up the worker to scope the Stripe call to the correct Connect account.
+    worker, err := s.workerRepo.GetByID(ctx, p.WorkerID)
+    if err != nil || worker == nil || worker.StripeConnectAccountID == nil || *worker.StripeConnectAccountID == "" {
+        utils.Logger.WithError(err).Warnf("Cannot reconcile payout %s: missing worker or connect account id (worker=%s)", p.ID, p.WorkerID)
+        return p, errors.New("missing stripe connect account id for reconciliation")
+    }
 
-	// If the status in Stripe is different from our PROCESSING state, a webhook was likely missed.
-	if stripe.PayoutStatus(strings.ToLower(string(p.Status))) != stripePayout.Status {
-		s.sendWebhookMissAlert("Stripe Payout", stripePayout.ID, p.WorkerID)
-		// Use the existing webhook handler to process the updated payout object.
-		// This reuses the same logic for handling state transitions and notifications.
-		if err := s.HandlePayoutEvent(ctx, stripePayout); err != nil {
-			utils.Logger.WithError(err).Errorf("Failed to self-heal state for reconciled payout %s", p.ID)
-			return p, err
-		}
-	}
+    utils.Logger.Infof("Polling Stripe (Connect acct=%s) for status of stale payout %s (Stripe ID: %s)", *worker.StripeConnectAccountID, p.ID, *p.StripePayoutID)
+    poParams := &stripe.PayoutParams{}
+    poParams.SetStripeAccount(*worker.StripeConnectAccountID)
+    stripePayout, err := payout.Get(*p.StripePayoutID, poParams)
+    if err != nil {
+        utils.Logger.WithError(err).Errorf("Failed to retrieve payout %s from Stripe during reconciliation", *p.StripePayoutID)
+        return p, err
+    }
 
-	// Re-fetch the payout from our DB to return the latest state.
-	return s.payoutRepo.GetByID(ctx, p.ID)
+    // If Stripe still reports a non-final state, keep local PROCESSING and return.
+    if stripePayout.Status == stripe.PayoutStatusPending || stripePayout.Status == stripe.PayoutStatusInTransit {
+        return p, nil
+    }
+
+    // If Stripe reports a final state different from our PROCESSING, a webhook was likely missed.
+    if stripePayout.Status == stripe.PayoutStatusPaid || stripePayout.Status == stripe.PayoutStatusFailed || stripePayout.Status == stripe.PayoutStatusCanceled {
+        s.sendWebhookMissAlert("Stripe Payout", stripePayout.ID, p.WorkerID)
+        // Reuse the webhook handler to apply the authoritative state transition.
+        if err := s.HandlePayoutEvent(ctx, stripePayout); err != nil {
+            utils.Logger.WithError(err).Errorf("Failed to self-heal state for reconciled payout %s", p.ID)
+            return p, err
+        }
+    }
+
+    // Re-fetch the payout from our DB to return the latest state.
+    return s.payoutRepo.GetByID(ctx, p.ID)
 }
 
 func (s *PayoutService) PlatformWebhookSecret() string {

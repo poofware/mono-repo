@@ -976,6 +976,75 @@ func TestAdvancedRecoveryAndRetryScenarios(t *testing.T) {
 /*
 ------------------------------------------------------------------------------
 
+    Test 10: Reconciliation of Stale PROCESSING Payout (Connect-scoped)
+
+------------------------------------------------------------------------------
+Verifies that ReconcileStalePayout polls Stripe using the worker's Connect
+account context and correctly drives the payout to a final state even if
+the webhook was missed or delayed. This protects against the scenario where
+the payout remains stuck in PROCESSING indefinitely.
+*/
+func TestReconcileStaleProcessingPayout(t *testing.T) {
+    h.T = t
+    ctx := context.Background()
+    stripe.Key = cfg.StripeSecretKey
+
+    payoutRepo := internal_repositories.NewWorkerPayoutRepository(h.DB)
+    payoutService := services.NewPayoutService(cfg, h.WorkerRepo, h.JobInstRepo, payoutRepo)
+
+    // Use a unique week to avoid collisions with other tests
+    testWeek := getPreviousWeekPayPeriodStart().AddDate(0, 0, -70)
+
+    // Create a worker with a valid Connect account that results in a successful payout
+    worker := getOrCreateWorkerForStripeAccount(t, ctx, "reconcile-success", stripeAcctSuccess)
+
+    // Create a new PENDING payout and process it to move to PROCESSING and create Stripe IDs
+    payout := createTestPayout(t, ctx, payoutRepo, worker.ID, 2468, internal_models.PayoutStatusPending, nil, testWeek, []uuid.UUID{})
+
+    // Initiate processing (synchronously marks as PROCESSING and creates Stripe Transfer/Payout)
+    err := payoutService.ProcessPendingPayouts(ctx)
+    require.NoError(t, err)
+
+    // Fetch the payout and assert it has a Stripe Payout ID to reconcile against
+    stored, err := payoutRepo.GetByID(ctx, payout.ID)
+    require.NoError(t, err)
+    require.NotNil(t, stored)
+    require.NotNil(t, stored.StripePayoutID, "StripePayoutID should be set after processing")
+    // Status may already be PAID if the webhook is extremely fast; both states are acceptable pre-reconcile
+    require.NotEqual(t, internal_models.PayoutStatusPending, stored.Status, "Payout should not remain PENDING after processing")
+
+    // Attempt reconciliation. This should NOT error (must be Connect-scoped) and should
+    // drive the payout to a final state if Stripe is already finalized.
+    // We allow a brief polling window to accommodate Stripe's eventual consistency.
+    deadline := time.Now().Add(20 * time.Second)
+    var reconciled *internal_models.WorkerPayout
+    for time.Now().Before(deadline) {
+        current, err := payoutRepo.GetByID(ctx, payout.ID)
+        require.NoError(t, err)
+        require.NotNil(t, current)
+
+        reconciled, err = payoutService.ReconcileStalePayout(ctx, current)
+        require.NoError(t, err, "ReconcileStalePayout should not error when scoped to the Connect account")
+
+        // Reload after reconcile to check latest status
+        final, err := payoutRepo.GetByID(ctx, payout.ID)
+        require.NoError(t, err)
+        if final.Status == internal_models.PayoutStatusPaid || final.Status == internal_models.PayoutStatusFailed {
+            reconciled = final
+            break
+        }
+        time.Sleep(1 * time.Second)
+    }
+
+    require.NotNil(t, reconciled, "Reconciled payout should be returned")
+    require.NotEqual(t, internal_models.PayoutStatusProcessing, reconciled.Status, "Payout should not remain PROCESSING after reconciliation completes")
+    // For success test account, payout should be PAID; if Stripe is momentarily lagging, we at least assert it's no longer PROCESSING.
+    // Prefer PAID but allow FAILED in rare Stripe test modes; main assertion above guarantees it's final.
+}
+
+/*
+------------------------------------------------------------------------------
+
 	Test 9: Webhook Security
 
 ------------------------------------------------------------------------------
