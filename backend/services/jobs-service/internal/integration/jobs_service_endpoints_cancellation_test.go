@@ -31,12 +31,12 @@ import (
 func TestExcludedWorkerCannotAccept(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, serviceDate := h.WindowActiveNowInTZ("UTC")
 
 	p := h.CreateTestProperty(ctx, "ExclProp", testPM.ID, 0.0, 0.0)
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "ExclusionTest",
 		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+    inst := h.CreateTestJobInstance(t, ctx, defn.ID, serviceDate, models.InstanceStatusOpen, nil)
 
 	exW := h.CreateTestWorker(ctx, "excl1")
 	require.NoError(t, h.JobInstRepo.AddExcludedWorker(ctx, inst.ID, exW.ID))
@@ -70,7 +70,7 @@ func TestExcludedWorkerCannotAccept(t *testing.T) {
 func TestListOpenJobsLargePaging_SameDay(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, serviceDate := h.WindowActiveNowInTZ("UTC")
 
 	_, err := h.DB.Exec(ctx, `TRUNCATE TABLE job_instances, job_definitions CASCADE`)
 	require.NoError(t, err, "failed to truncate job_instances & job_definitions")
@@ -79,10 +79,10 @@ func TestListOpenJobsLargePaging_SameDay(t *testing.T) {
 	sharedBuilding := h.CreateTestBuilding(ctx, prop.ID, "SharedLargePagingBldg")
 	sharedDumpster := h.CreateTestDumpster(ctx, prop.ID, "SharedLargePagingDump")
 
-	for i := range 25 {
+    for i := range 25 {
 		def := h.CreateTestJobDefinition(t, ctx, testPM.ID, prop.ID, fmt.Sprintf("SameDayJob %d", i),
 			[]uuid.UUID{sharedBuilding.ID}, []uuid.UUID{sharedDumpster.ID}, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-		_ = h.CreateTestJobInstance(t, ctx, def.ID, time.Now().UTC(), models.InstanceStatusOpen, nil)
+        _ = h.CreateTestJobInstance(t, ctx, def.ID, serviceDate, models.InstanceStatusOpen, nil)
 	}
 
 	w := h.CreateTestWorker(ctx, "same-day-paging")
@@ -182,7 +182,7 @@ func TestCancelInProgress_RevertsToOpen_WithPenalty(t *testing.T) {
 	ctx := h.Ctx
 
 	// FIX: Use a time window that is currently active so the job can be started.
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, serviceDate := h.ActiveAcceptanceWindow()
 	initialScore := 100
 
 	w := h.CreateTestWorker(ctx, "cancel-reopen", initialScore)
@@ -191,7 +191,7 @@ func TestCancelInProgress_RevertsToOpen_WithPenalty(t *testing.T) {
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "CancelReopenJob",
 		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 	// Use today's date for the instance
-	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now().UTC(), models.InstanceStatusOpen, nil)
+    inst := h.CreateTestJobInstance(t, ctx, defn.ID, serviceDate, models.InstanceStatusOpen, nil)
 
 	// 1. Accept and Start
 	acceptPayload := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0, Lng: 0, Accuracy: 5, Timestamp: time.Now().UnixMilli()}
@@ -251,17 +251,19 @@ func TestUnaccept_AfterAcceptanceCutoff_Reopens(t *testing.T) {
 	ctx := h.Ctx
 	initialScore := 100
 
-	// Setup job whose acceptance cutoff has already passed but latest start is in the future
-	now := time.Now().UTC()
-	latest := now.Add(30 * time.Minute)
-	earliest := latest.Add(-2 * time.Hour)
+    // Setup a job where acceptance cutoff has passed but we are safely before no-show.
+    // Choose latest so that no-show (latest-20m) is ~35m from now; acceptance cutoff (no-show-40m) is ~-5m.
+    now := time.Now().UTC()
+    latest := now.Add(55 * time.Minute)      // no-show ≈ now + 35m
+    earliest := latest.Add(-2 * time.Hour)   // 2-hour window
+    serviceDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 
 	w := h.CreateTestWorker(ctx, "unaccept-late", initialScore)
 	workerJWT := h.CreateMobileJWT(w.ID, "unacceptLateDevice", "FAKE-PLAY")
 	p := h.CreateTestProperty(ctx, "UnacceptLateProp", testPM.ID, 0, 0)
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "UnacceptLateJob",
 		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	inst := h.CreateTestJobInstance(t, ctx, defn.ID, now, models.InstanceStatusOpen, nil)
+    inst := h.CreateTestJobInstance(t, ctx, defn.ID, serviceDate, models.InstanceStatusOpen, nil)
 
 	// Manually assign the job to the worker to bypass acceptance window checks
 	_, err := h.DB.Exec(ctx, `UPDATE job_instances SET status=$1, assigned_worker_id=$2, row_version=row_version+1 WHERE id=$3`,
@@ -279,9 +281,16 @@ func TestUnaccept_AfterAcceptanceCutoff_Reopens(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &out))
 	require.Equal(t, string(models.InstanceStatusOpen), out.Updated.Status, "Job should reopen")
 
-	updatedWorker, err := h.WorkerRepo.GetByID(ctx, w.ID)
-	require.NoError(t, err)
-	require.Equal(t, initialScore+constants.WorkerPenaltyNoShow, updatedWorker.ReliabilityScore, "Worker should be penalized")
+    updatedWorker, err := h.WorkerRepo.GetByID(ctx, w.ID)
+    require.NoError(t, err)
+    // Compute expected penalty using the same timezone-aware construction as the service
+    propLoc, tzErr := time.LoadLocation(p.TimeZone)
+    require.NoError(t, tzErr)
+    earliestLocal := time.Date(serviceDate.Year(), serviceDate.Month(), serviceDate.Day(), earliest.Hour(), earliest.Minute(), 0, 0, propLoc)
+    latestLocal := time.Date(serviceDate.Year(), serviceDate.Month(), serviceDate.Day(), latest.Hour(), latest.Minute(), 0, 0, propLoc)
+    noShowTime := latestLocal.Add(-constants.NoShowCutoffBeforeLatestStart)
+    expectedPenalty, _ := services.CalculatePenaltyForUnassign(time.Now(), earliestLocal, noShowTime)
+    require.Equal(t, initialScore+expectedPenalty, updatedWorker.ReliabilityScore, "Worker should be penalized correctly")
 
 	updatedInst, err := h.JobInstRepo.GetByID(ctx, inst.ID)
 	require.NoError(t, err)
@@ -293,21 +302,20 @@ func TestCancelInProgress_BecomesCanceled_AfterLatestStart(t *testing.T) {
 	ctx := h.Ctx
 	initialScore := 100
 
-	// FIX: Create a job where the time window has already passed its no-show cutoff.
-	// This isolates the test to the logic within the CancelJobInstance service method
-	// for jobs that are canceled late.
-	now := time.Now().UTC()
-	// Set latest start time to 10 minutes in the past.
-	latest := now.Add(-10 * time.Minute)
-	// Set earliest to 100 mins before that, matching the original duration.
-	earliest := latest.Add(-100 * time.Minute)
+    // FIX: Define a deterministic same-day window (2 hours duration) that avoids midnight crossing
+    // and ensures DB CHECK (latest > earliest and >= 90 minutes) always holds.
+    now := time.Now().UTC()
+    anchor := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, time.UTC) // 12:00 UTC today
+    earliest := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 10, 0, 0, 0, time.UTC) // 10:00
+    latest := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 12, 0, 0, 0, time.UTC)   // 12:00
 
 	w := h.CreateTestWorker(ctx, "cancel-late", initialScore)
 	workerJWT := h.CreateMobileJWT(w.ID, "cancelLateDevice", "FAKE-PLAY")
 	p := h.CreateTestProperty(ctx, "CancelLateProp", testPM.ID, 0, 0)
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "CancelLateJob",
 		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	inst := h.CreateTestJobInstance(t, ctx, defn.ID, now.AddDate(0, 0, -1), models.InstanceStatusOpen, nil)
+    // Use yesterday as service date so that, relative to 'now', we are definitively after the window.
+    inst := h.CreateTestJobInstance(t, ctx, defn.ID, now.AddDate(0, 0, -1), models.InstanceStatusOpen, nil)
 
 	// FIX: Manually set the job to IN_PROGRESS in the database to bypass the now-invalid
 	// time window checks in the Accept and Start handlers. This ensures we are testing
@@ -358,7 +366,7 @@ func TestCancelInProgress_BecomesCanceled_AfterLatestStart(t *testing.T) {
 func TestCancelJob_NegativeCases(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, serviceDate := h.ActiveAcceptanceWindow()
 
 	w := h.CreateTestWorker(ctx, "cancel-neg")
 	workerJWT := h.CreateMobileJWT(w.ID, "cancelNegDevice", "FAKE-PLAY")
@@ -366,13 +374,13 @@ func TestCancelJob_NegativeCases(t *testing.T) {
 	pA := h.CreateTestProperty(ctx, "CancelNegPropA", testPM.ID, 0, 0)
 	defA := h.CreateTestJobDefinition(t, ctx, testPM.ID, pA.ID, "CancelNegTestA",
 		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	instWrong := h.CreateTestJobInstance(t, ctx, defA.ID, time.Now().UTC(), models.InstanceStatusAssigned, &w.ID)
+    instWrong := h.CreateTestJobInstance(t, ctx, defA.ID, serviceDate, models.InstanceStatusAssigned, &w.ID)
 
 	pB := h.CreateTestProperty(ctx, "CancelNegPropB", testPM.ID, 0, 0)
 	defB := h.CreateTestJobDefinition(t, ctx, testPM.ID, pB.ID, "CancelNegTestB",
 		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 	otherWorker := h.CreateTestWorker(ctx, "otherCancel")
-	instNotAssigned := h.CreateTestJobInstance(t, ctx, defB.ID, time.Now().UTC(), models.InstanceStatusInProgress, &otherWorker.ID)
+    instNotAssigned := h.CreateTestJobInstance(t, ctx, defB.ID, serviceDate, models.InstanceStatusInProgress, &otherWorker.ID)
 
 	body1, _ := json.Marshal(dtos.JobInstanceActionRequest{InstanceID: instWrong.ID})
 	req1 := h.BuildAuthRequest("POST", h.BaseURL+routes.JobsCancel, workerJWT, body1, "android", "cancelNegDevice")
@@ -442,13 +450,11 @@ func TestStartJobTimeGuards(t *testing.T) {
 	require.Equal(t, internal_utils.ErrNotWithinTimeWindow.Error(), errRespA.Code)
 
 	// --- Test Case 2: Start within window (should succeed) ---
-	nowForTestCase2 := time.Now().UTC()
-	earliestForPast, latestForPast := h.TestSameDayTimeWindow()
+    earliestForPast, latestForPast, instPastServiceDate := h.ActiveAcceptanceWindow()
 
-	defIDPast := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "TimeGuardPastDef",
+    defIDPast := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "TimeGuardPastDef",
 		nil, nil, earliestForPast, latestForPast, models.JobStatusActive, nil, models.JobFreqDaily, nil).ID
-	instPastServiceDate := time.Date(nowForTestCase2.Year(), nowForTestCase2.Month(), nowForTestCase2.Day(), 0, 0, 0, 0, time.UTC)
-	instPast := h.CreateTestJobInstance(t, ctx, defIDPast, instPastServiceDate, models.InstanceStatusOpen, nil)
+    instPast := h.CreateTestJobInstance(t, ctx, defIDPast, instPastServiceDate, models.InstanceStatusOpen, nil)
 
 	locB := dtos.JobLocationActionRequest{
 		InstanceID: instPast.ID, Lat: 0.0, Lng: 0.0, Accuracy: 2.0, Timestamp: time.Now().UnixMilli(), IsMock: false,

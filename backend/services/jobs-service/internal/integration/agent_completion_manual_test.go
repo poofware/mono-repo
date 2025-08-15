@@ -47,7 +47,7 @@ func TestManualAgentFlows(t *testing.T) {
 	unit2 := h.CreateTestUnit(ctx, prop.ID, bldg.ID, "102")
 
 	// Create a job definition and a corresponding instance for the notification context.
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, _ := h.WindowActiveNowInTZ("UTC")
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, prop.ID, "ManualAgentFlowDef", []uuid.UUID{bldg.ID}, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
 
 	// Assign the specific units to the definition.

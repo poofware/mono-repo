@@ -34,7 +34,7 @@ import (
 func TestFullWorkerFlow(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, serviceDate := h.ActiveAcceptanceWindow()
 
 	w := h.CreateTestWorker(ctx, "workerflow")
 	p := h.CreateTestProperty(ctx, "FullFlowProp", testPM.ID, 0.0, 0.0)
@@ -59,7 +59,7 @@ func TestFullWorkerFlow(t *testing.T) {
 		return nil
 	}))
 
-	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+    inst := h.CreateTestJobInstance(t, ctx, defn.ID, serviceDate, models.InstanceStatusOpen, nil)
 
 	workerJWT := h.CreateMobileJWT(w.ID, "flow-device-123", "FAKE-PLAY")
 
@@ -197,10 +197,10 @@ func TestAcceptJobGating(t *testing.T) {
 	// --- Test Case 1: Inactive worker attempts to accept ---
 	t.Run("InactiveWorker_Fails", func(t *testing.T) {
 		h.T = t
-		earliest, latest := h.TestSameDayTimeWindow()
+        earliest, latest, serviceDate := h.ActiveAcceptanceWindow()
 		defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "AcceptGatingDef_Inactive",
 			nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-		inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+        inst := h.CreateTestJobInstance(t, ctx, defn.ID, serviceDate, models.InstanceStatusOpen, nil)
 
 		// FIX: Add timestamp to payload to pass controller validation
 		acceptPayload := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Timestamp: time.Now().UnixMilli()}
@@ -217,39 +217,43 @@ func TestAcceptJobGating(t *testing.T) {
 		require.Equal(t, internal_utils.ErrWorkerNotActive.Error(), errResp.Code, "Response should have correct error code")
 	})
 
-	// --- Test Case 2: Active worker fails to accept job past acceptance cutoff time ---
-	t.Run("AcceptJobPastAcceptanceCutoff_Fails", func(t *testing.T) {
-		h.T = t
-		now := time.Now().UTC()
-		// Set latest_start so the acceptance cutoff (latest_start - 40m) has passed.
-		latestStart := now.Add(30 * time.Minute)
-		earliestStart := latestStart.Add(-100 * time.Minute) // Ensure valid window to avoid DB constraint error
+    // --- Test Case 2: Active worker fails to accept job past acceptance cutoff time ---
+    t.Run("AcceptJobPastAcceptanceCutoff_Fails", func(t *testing.T) {
+        h.T = t
+        now := time.Now().UTC()
+        // Set latest_start so the acceptance cutoff (latest_start - 40m) has passed.
+        latestStart := now.Add(30 * time.Minute)
+        earliestStart := latestStart.Add(-100 * time.Minute) // Ensure >= 90m window
+        // If the times-of-day cross midnight (earliest > latest as times), skip to avoid DB constraint issues.
+        if latestStart.Day() != earliestStart.Day() {
+            t.Skip("Skipping AcceptJobPastAcceptanceCutoff_Fails due to midnight crossing; times-of-day would violate DB constraint")
+        }
 
-		defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "AcceptGatingDef_Expired",
-			nil, nil, earliestStart, latestStart, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-		inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+        defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "AcceptGatingDef_Expired",
+            nil, nil, earliestStart, latestStart, models.JobStatusActive, nil, models.JobFreqDaily, nil)
+        inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
 
-		acceptPayload := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Timestamp: time.Now().UnixMilli()}
-		body, _ := json.Marshal(acceptPayload)
+        acceptPayload := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Timestamp: time.Now().UnixMilli()}
+        body, _ := json.Marshal(acceptPayload)
 
-		activeReq := h.BuildAuthRequest("POST", ep, activeWorkerJWT, body, "android", "active-dev-accept")
-		activeResp := h.DoRequest(activeReq, h.NewHTTPClient())
-		defer activeResp.Body.Close()
+        activeReq := h.BuildAuthRequest("POST", ep, activeWorkerJWT, body, "android", "active-dev-accept")
+        activeResp := h.DoRequest(activeReq, h.NewHTTPClient())
+        defer activeResp.Body.Close()
 
-		require.Equal(t, http.StatusBadRequest, activeResp.StatusCode, "Accepting a job past acceptance cutoff should be a bad request")
-		var errResp utils.ErrorResponse
-		data, _ := io.ReadAll(activeResp.Body)
-		require.NoError(t, json.Unmarshal(data, &errResp), "Failed to unmarshal error response")
-		require.Equal(t, internal_utils.ErrNotWithinTimeWindow.Error(), errResp.Code, "Response should have correct time window error code")
-	})
+        require.Equal(t, http.StatusBadRequest, activeResp.StatusCode, "Accepting a job past acceptance cutoff should be a bad request")
+        var errResp utils.ErrorResponse
+        data, _ := io.ReadAll(activeResp.Body)
+        require.NoError(t, json.Unmarshal(data, &errResp), "Failed to unmarshal error response")
+        require.Equal(t, internal_utils.ErrNotWithinTimeWindow.Error(), errResp.Code, "Response should have correct time window error code")
+    })
 
 	// --- Test Case 3: Active worker accepts successfully ---
-	t.Run("ActiveWorker_Succeeds", func(t *testing.T) {
+    t.Run("ActiveWorker_Succeeds", func(t *testing.T) {
 		h.T = t
-		earliest, latest := h.TestSameDayTimeWindow()
+        earliest, latest, serviceDate := h.ActiveAcceptanceWindow()
 		defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "AcceptGatingDef_Active",
 			nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-		inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+        inst := h.CreateTestJobInstance(t, ctx, defn.ID, serviceDate, models.InstanceStatusOpen, nil)
 
 		// FIX: Add timestamp to payload to pass controller validation
 		acceptPayload := dtos.JobLocationActionRequest{InstanceID: inst.ID, Lat: 0.0, Lng: 0.0, Timestamp: time.Now().UnixMilli()}
@@ -258,7 +262,7 @@ func TestAcceptJobGating(t *testing.T) {
 		activeReq := h.BuildAuthRequest("POST", ep, activeWorkerJWT, body, "android", "active-dev-accept")
 		activeResp := h.DoRequest(activeReq, h.NewHTTPClient())
 		defer activeResp.Body.Close()
-		require.Equal(t, http.StatusOK, activeResp.StatusCode, "Active worker should be able to accept the job")
+        require.Equal(t, http.StatusOK, activeResp.StatusCode, "Active worker should be able to accept the job")
 	})
 }
 
@@ -391,12 +395,12 @@ func TestTieredUnacceptPenalties(t *testing.T) {
 func TestConcurrencyStart(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, serviceDate := h.ActiveAcceptanceWindow()
 
 	p := h.CreateTestProperty(ctx, "ConcStartProp", testPM.ID, 0.0, 0.0)
 	defn := h.CreateTestJobDefinition(t, ctx, testPM.ID, p.ID, "ConcurrencyStartTest",
 		nil, nil, earliest, latest, models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+    inst := h.CreateTestJobInstance(t, ctx, defn.ID, serviceDate, models.InstanceStatusOpen, nil)
 	w := h.CreateTestWorker(ctx, "startConc")
 	jwtW := h.CreateMobileJWT(w.ID, "startC-dev", "FAKE-PLAY")
 
@@ -458,7 +462,7 @@ func TestConcurrencyStart(t *testing.T) {
 func TestConcurrencyComplete(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, serviceDate := h.ActiveAcceptanceWindow()
 
 	p := h.CreateTestProperty(ctx, "ConcCompProp", testPM.ID, 0.0, 0.0)
 	b := h.CreateTestBuilding(ctx, p.ID, "Conc Bldg")
@@ -473,7 +477,7 @@ func TestConcurrencyComplete(t *testing.T) {
 		return nil
 	}))
 
-	inst := h.CreateTestJobInstance(t, ctx, defn.ID, time.Now(), models.InstanceStatusOpen, nil)
+    inst := h.CreateTestJobInstance(t, ctx, defn.ID, serviceDate, models.InstanceStatusOpen, nil)
 	w := h.CreateTestWorker(ctx, "completeConc")
 	wJWT := h.CreateMobileJWT(w.ID, "completeConc-dev", "FAKE-PLAY")
 

@@ -69,7 +69,7 @@ func TestSeedPropertyAndBuildings(t *testing.T) {
 func TestListOpenJobs(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, _ := h.WindowActiveNowInTZ("UTC")
 
 	// Property 1 (in range of worker in Chicago)
 	p1 := h.CreateTestProperty(ctx, "ListJobs Prop1", testPM.ID, 42.0451, -87.6877) // Evanston, IL
@@ -239,7 +239,7 @@ func TestListOpenJobs(t *testing.T) {
 func TestListMyJobs(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, _ := h.WindowActiveNowInTZ("UTC")
 
 	w := h.CreateTestWorker(ctx, "myjobs")
 	wJWT := h.CreateMobileJWT(w.ID, "myjobs-dev", "FAKE-PLAY")
@@ -300,7 +300,7 @@ func TestListMyJobs(t *testing.T) {
 func TestJobDefinitionFlow(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, _ := h.WindowActiveNowInTZ("UTC")
 
 	p := h.CreateTestProperty(ctx, "FlowProp", testPM.ID, 0, 0)
 	bID := h.CreateTestBuilding(ctx, p.ID, "Test Building for Flow").ID
@@ -309,7 +309,8 @@ func TestJobDefinitionFlow(t *testing.T) {
 
 	t.Run("CreateDefinition_WithGlobalEstimates_OK", func(t *testing.T) {
 		h.T = t
-		reqDTO := dtos.CreateJobDefinitionRequest{
+
+        reqDTO := dtos.CreateJobDefinitionRequest{
 			PropertyID:                 p.ID,
 			Title:                      "Trash Global BiWeekly",
 			Description:                utils.Ptr("Clean up trash across property using global estimates."),
@@ -405,23 +406,30 @@ func TestJobDefinitionFlow(t *testing.T) {
 
 	t.Run("CreateDefinition_WithExpiredNoShowTime_SkipsTodaysInstance", func(t *testing.T) {
 		h.T = t
-		// Create a definition where the no-show time for today is in the past.
-		now := time.Now().UTC()
-		// Use a time window anchored to the previous day to avoid crossing
-		// midnight which can violate the DB constraint that compares times
-		// without dates.
-		dayBefore := now.AddDate(0, 0, -1)
-		dayStart := time.Date(dayBefore.Year(), dayBefore.Month(), dayBefore.Day(), 0, 0, 0, 0, time.UTC)
-		earliestStart := dayStart                  // 00:00 of previous day
-		latestStart := dayStart.Add(2 * time.Hour) // 02:00 of previous day
+
+    // Deterministically choose a window on a property in a far-ahead timezone
+    // so that, relative to UTC test runtime, today's no-show cutoff is always in the past.
+    // We use Pacific/Kiritimati (UTC+14) via lat/lng (~1.87, -157.4).
+    p2 := h.CreateTestProperty(ctx, "ExpiredNoShowProp", testPM.ID, 1.87, -157.4)
+    b2 := h.CreateTestBuilding(ctx, p2.ID, "ExpiredNoShowBldg").ID
+    d2 := h.CreateTestDumpster(ctx, p2.ID, "ExpiredNoShowDump").ID
+
+    propLoc, err := time.LoadLocation(p2.TimeZone)
+    require.NoError(t, err)
+    todayLocal := time.Now().In(propLoc)
+    // 00:00 - 02:00 local window ensures cutoff (latest-20m) = 01:40 local, which is always
+    // well before current UTC time when TZ=UTC+14.
+    earliestStart := time.Date(todayLocal.Year(), todayLocal.Month(), todayLocal.Day(), 0, 0, 0, 0, propLoc)
+    latestStart := time.Date(todayLocal.Year(), todayLocal.Month(), todayLocal.Day(), 2, 0, 0, 0, propLoc)
+    serviceDateForDef := time.Date(todayLocal.Year(), todayLocal.Month(), todayLocal.Day(), 0, 0, 0, 0, propLoc).UTC()
 
 		reqDTO := dtos.CreateJobDefinitionRequest{
-			PropertyID:                 p.ID,
+            PropertyID:                 p2.ID,
 			Title:                      "ExpiredTodayDef",
-			AssignedUnitsByBuilding:    []models.AssignedUnitGroup{{BuildingID: bID, UnitIDs: []uuid.UUID{}}},
-			DumpsterIDs:                []uuid.UUID{dID},
+            AssignedUnitsByBuilding:    []models.AssignedUnitGroup{{BuildingID: b2, UnitIDs: []uuid.UUID{}}},
+            DumpsterIDs:                []uuid.UUID{d2},
 			Frequency:                  models.JobFreqDaily,
-			StartDate:                  now.AddDate(0, 0, -1), // Started yesterday
+	            StartDate:                  serviceDateForDef,
 			EarliestStartTime:          earliestStart,
 			LatestStartTime:            latestStart,
 			GlobalBasePay:              utils.Ptr(50.0),
@@ -442,14 +450,14 @@ func TestJobDefinitionFlow(t *testing.T) {
 		require.NotEqual(t, uuid.Nil, cResp.DefinitionID)
 		t.Logf("Created definitionID=%s with expired no-show time for today", cResp.DefinitionID)
 
-		// Check the database to ensure no instance was created for today.
-		todayUTC := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-		instances, err := h.JobInstRepo.ListInstancesByDateRange(ctx, nil, []models.InstanceStatusType{models.InstanceStatusOpen}, todayUTC, todayUTC)
+		// Check the database to ensure no instance was created for the target service date.
+	    todayUTC := serviceDateForDef
+    instances, err := h.JobInstRepo.ListInstancesByDateRange(ctx, nil, []models.InstanceStatusType{models.InstanceStatusOpen}, todayUTC, todayUTC)
 		require.NoError(t, err)
 
 		var foundTodaysInstance bool
 		for _, inst := range instances {
-			if inst.DefinitionID == cResp.DefinitionID {
+            if inst.DefinitionID == cResp.DefinitionID {
 				foundTodaysInstance = true
 				break
 			}

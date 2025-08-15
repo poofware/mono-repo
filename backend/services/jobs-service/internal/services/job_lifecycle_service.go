@@ -246,10 +246,8 @@ func (s *JobService) VerifyUnitPhoto(
 		return nil, fmt.Errorf("property not found")
 	}
 
-	dist := utils.ComputeDistanceMeters(lat, lng, prop.Latitude, prop.Longitude)
-	if dist > float64(constants.LocationRadiusMeters) {
-		return nil, internal_utils.ErrLocationOutOfBounds
-	}
+    // For photo verification, validate proximity using the unit's building coordinates,
+    // not the property's centroid.
 
 	// Ensure unit is part of the assignment
 	allowed := false
@@ -265,10 +263,18 @@ func (s *JobService) VerifyUnitPhoto(
 		return nil, internal_utils.ErrInvalidPayload
 	}
 
-	unit, err := s.unitRepo.GetByID(ctx, unitID)
-	if err != nil || unit == nil {
-		return nil, fmt.Errorf("unit not found")
-	}
+    unit, err := s.unitRepo.GetByID(ctx, unitID)
+    if err != nil || unit == nil {
+        return nil, fmt.Errorf("unit not found")
+    }
+    bldg, err := s.bldgRepo.GetByID(ctx, unit.BuildingID)
+    if err != nil || bldg == nil {
+        return nil, fmt.Errorf("building not found")
+    }
+    dist := utils.ComputeDistanceMeters(lat, lng, bldg.Latitude, bldg.Longitude)
+    if dist > float64(constants.LocationRadiusMeters) {
+        return nil, internal_utils.ErrLocationOutOfBounds
+    }
 
 	status := models.UnitVerificationVerified
 	var reasonCodes []string

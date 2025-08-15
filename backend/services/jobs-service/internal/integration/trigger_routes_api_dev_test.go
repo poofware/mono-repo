@@ -26,7 +26,7 @@ import (
 func TestListOpenJobs_TravelInfo(t *testing.T) {
 	h.T = t
 	ctx := context.Background()
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, _ := h.WindowActiveNowInTZ("UTC")
 
 	worker := h.CreateTestWorker(ctx, "gmapstester")
 	const deviceID = "gmapstest-device-session1" // Consistent device ID
