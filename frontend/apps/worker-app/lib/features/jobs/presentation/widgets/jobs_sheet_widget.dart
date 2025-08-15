@@ -299,6 +299,7 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                     child: DropdownButton<String>(
                                       value: widget.sortBy,
                                       focusColor: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
                                       style: TextStyle(
                                         color: widget.isOnline
                                             ? Theme.of(

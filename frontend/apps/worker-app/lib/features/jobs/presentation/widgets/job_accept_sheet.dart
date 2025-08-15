@@ -174,6 +174,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     final screenHeight = MediaQuery.of(context).size.height;
     final appLocalizations = AppLocalizations.of(context);
     final mediaQueryPadding = MediaQuery.of(context).padding;
+    // Revert: remove dynamic bottom gap behavior
 
     final currentOpenJobs = ref.watch(
       jobsNotifierProvider.select((s) => s.openJobs),
@@ -191,6 +192,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
               inst.instanceId == _selectedInstance!.instanceId &&
               _isSameDate(parseYmd(inst.serviceDate), _carouselInitialDate),
         );
+
+    // Hide top definition stats when a date (instance) is selected
+    final bool showDefinitionStats = _selectedInstance == null;
 
     // Determine dates for carousel.
     final now = DateTime.now();
@@ -226,8 +230,11 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
       (i) => carouselStartDate.add(Duration(days: i)),
     );
 
+    // Sheet height constraint (original behavior)
+    final double maxSheetHeight = screenHeight * 0.95;
+
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: screenHeight * 0.95),
+      constraints: BoxConstraints(maxHeight: maxSheetHeight),
       child: Container(
         decoration: BoxDecoration(
           color: cardColor,
@@ -241,8 +248,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
           ],
         ),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min, // This is key: column shrinks to fit children
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Header / Drag Handle
             Padding(
@@ -262,133 +268,157 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
             // It will only scroll if the content inside exceeds the space given to it
             // by the parent Column, which is constrained by the ConstrainedBox.
             Flexible(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () {
+                  // Background tap clears selection when a date is selected
+                  if (_selectedInstance != null) {
+                    setState(() {
+                      _selectedInstance = null;
+                    });
+                  }
+                },
+                child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Card, Carousel, and Details are here
-                      Card(
-                        color: cardColor,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                liveDefinition.propertyName,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                      // Header card and stats with standard horizontal padding
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: GestureDetector(
+                          onTap: () {}, // swallow taps on the card body
+                          child: Card(
+                            color: cardColor,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 16,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                liveDefinition.propertyAddress,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                              const Divider(height: 24),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: _statTile(
-                                      icon: Icons.attach_money,
-                                      label: appLocalizations
-                                          .jobAcceptSheetHeaderAvgPay,
-                                      value:
-                                          '${liveDefinition.pay.toStringAsFixed(0)} USD',
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTap: () {
+                                      if (_selectedInstance != null) {
+                                        setState(() {
+                                          _selectedInstance = null;
+                                        });
+                                      }
+                                    },
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          liveDefinition.propertyName,
+                                          style: const TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          liveDefinition.propertyAddress,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  Expanded(
-                                    child: _statTile(
-                                      icon: Icons.timer_outlined,
-                                      label: appLocalizations
-                                          .jobAcceptSheetHeaderAvgTime,
-                                      value: liveDefinition.displayAvgTime,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _statTile(
-                                      icon: Icons.directions_car_outlined,
-                                      label: appLocalizations
-                                          .jobAcceptSheetHeaderDriveTime,
-                                      value:
-                                          liveDefinition.displayAvgTravelTime,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _statTile(
-                                      icon: Icons.location_on_outlined,
-                                      label: appLocalizations
-                                          .jobAcceptSheetHeaderDistance,
-                                      value:
-                                          '${liveDefinition.distanceMiles.toStringAsFixed(1)} mi',
-                                    ),
-                                  ),
+                                  // Instant show/hide of definition stats (no animation)
+                                  if (showDefinitionStats)
+                                    Column(
+                                      key: const ValueKey('definition_stats'),
+                                      children: [
+                                        const Divider(height: 24),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceAround,
+                                          children: [
+                                            Expanded(
+                                              child: _statTile(
+                                                icon: Icons.attach_money,
+                                                label: appLocalizations
+                                                    .jobAcceptSheetHeaderAvgPay,
+                                                value:
+                                                    '${liveDefinition.pay.toStringAsFixed(0)} USD',
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: _statTile(
+                                                icon: Icons.timer_outlined,
+                                                label: appLocalizations
+                                                    .jobAcceptSheetHeaderAvgTime,
+                                                value: liveDefinition.displayAvgTime,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: _statTile(
+                                                icon: Icons.directions_car_outlined,
+                                                label: appLocalizations
+                                                    .jobAcceptSheetHeaderDriveTime,
+                                                value: liveDefinition.displayAvgTravelTime,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: _statTile(
+                                                icon: Icons.location_on_outlined,
+                                                label: appLocalizations
+                                                    .jobAcceptSheetHeaderDistance,
+                                                value:
+                                                    '${liveDefinition.distanceMiles.toStringAsFixed(1)} mi',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    const SizedBox.shrink(),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      DateCarousel(
-                        availableDates: carouselDates,
-                        selectedDate: isCarouselDateActuallySelected
-                            ? _carouselInitialDate
-                            : DateTime(0),
-                        onDateSelected: _handleDateSelected,
-                        isDayEnabled: (day) => liveDefinition.instances.any(
-                          (inst) =>
-                              _isSameDate(parseYmd(inst.serviceDate), day),
+                      // Date carousel should go edge-to-edge (no horizontal padding)
+                      Padding(
+                        // Instant spacing change; no animated slide
+                        padding: EdgeInsets.only(top: showDefinitionStats ? 24 : 8),
+                        child: DateCarousel(
+                          availableDates: carouselDates,
+                          selectedDate: isCarouselDateActuallySelected
+                              ? _carouselInitialDate
+                              : DateTime(0),
+                          onDateSelected: _handleDateSelected,
+                          isDayEnabled: (day) => liveDefinition.instances.any(
+                            (inst) => _isSameDate(parseYmd(inst.serviceDate), day),
+                          ),
+                          leftPadding: 12.0,
                         ),
                       ),
                       const SizedBox(height: 24),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder:
-                            (Widget child, Animation<double> animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              );
-                            },
-                        child:
-                            (_selectedInstance == null ||
+                      // Post-carousel content with horizontal padding restored
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: (_selectedInstance == null ||
                                 !liveDefinition.instances.any(
-                                  (i) =>
-                                      i.instanceId ==
-                                      _selectedInstance!.instanceId,
+                                  (i) => i.instanceId == _selectedInstance!.instanceId,
                                 ))
                             ? Container(
-                                key: const ValueKey(
-                                  'no_instance_selected_or_accepted',
-                                ),
+                                key: const ValueKey('no_instance_selected_or_accepted'),
                                 alignment: Alignment.center,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 20,
-                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 20),
                                 child: Text(
-                                  appLocalizations
-                                      .jobAcceptSheetSelectDayPrompt,
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 15,
-                                  ),
+                                  appLocalizations.jobAcceptSheetSelectDayPrompt,
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
                                   textAlign: TextAlign.center,
                                 ),
                               )
@@ -398,6 +428,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                                 appLocalizations: appLocalizations,
                               ),
                       ),
+                      if (_selectedInstance != null)
+                        const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -427,8 +459,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
               ),
             ),
           ],
+          ),
         ),
-      ),
     );
   }
 
@@ -469,7 +501,7 @@ class _InstanceDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final payLabel = appLocalizations.jobAcceptSheetHeaderAvgPay;
+    final payLabel = appLocalizations.acceptedJobsBottomSheetPayLabel;
     final estTimeLabel = appLocalizations.jobAcceptSheetHeaderAvgTime;
     final driveTimeLabel = appLocalizations.jobAcceptSheetHeaderDriveTime;
     final recommendedStartLabel =
@@ -479,15 +511,17 @@ class _InstanceDetails extends StatelessWidget {
     final floorsLabel = appLocalizations.jobAcceptSheetFloors;
     final unitsLabel = appLocalizations.jobAcceptSheetUnits;
 
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return GestureDetector(
+      onTap: () {}, // swallow taps so background doesn't clear selection
+      child: Card(
+        elevation: 2,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // First Row of details
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,7 +617,8 @@ class _InstanceDetails extends StatelessWidget {
                 const Expanded(child: SizedBox()),
               ],
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

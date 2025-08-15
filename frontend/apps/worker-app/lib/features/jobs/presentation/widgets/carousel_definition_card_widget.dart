@@ -37,7 +37,7 @@ class CarouselDefinitionCard extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
-          useSafeArea: true,
+          useSafeArea: false, // Sheet manages its own safe area
           backgroundColor: Colors.transparent,
           barrierColor: Colors.black.withValues(alpha: 0.0),
           builder: (BuildContext context) {

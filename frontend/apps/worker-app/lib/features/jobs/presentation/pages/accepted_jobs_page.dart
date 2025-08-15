@@ -276,8 +276,9 @@ class _AcceptedJobsPageState extends ConsumerState<AcceptedJobsPage>
             ),
             // The day carousel
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: DateCarousel(
+                leftPadding: 12.0,
                 availableDates: carouselDates,
                 selectedDate: _selectedDate ?? DateTime(0),
                 onDateSelected: _handleDateSelected,

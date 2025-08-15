@@ -292,7 +292,7 @@ class _CompletedJobCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Wrap(
+              Wrap(
               spacing: 10,
               runSpacing: 8,
               children: [
@@ -300,11 +300,15 @@ class _CompletedJobCard extends StatelessWidget {
                   icon: Icons.check_circle_outline,
                   text: appLocalizations
                       .completedJobBottomSheetCompletedLabel(completedTime),
+                  foregroundColor: Colors.grey.shade800,
+                  backgroundColor: Colors.grey.shade100,
                 ),
                 _InfoPill(
                   icon: Icons.timer_outlined,
                   text: appLocalizations
                       .completedJobBottomSheetTimeToCompleteLabel(duration),
+                  foregroundColor: Colors.grey.shade800,
+                  backgroundColor: Colors.grey.shade100,
                 ),
               ],
             ),

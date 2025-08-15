@@ -20,12 +20,17 @@ class DateCarousel extends StatefulWidget {
   /// If provided, only days for which `isDayEnabled(day)==true` can be tapped.
   final bool Function(DateTime)? isDayEnabled;
 
+  /// Optional left padding to offset the first card from the edge.
+  /// Defaults to 0 so other screens can choose their own spacing.
+  final double leftPadding;
+
   const DateCarousel({
     super.key,
     required this.selectedDate,
     required this.onDateSelected,
     required this.availableDates,
     this.isDayEnabled,
+    this.leftPadding = 0.0,
   });
 
   @override
@@ -75,7 +80,9 @@ class _DateCarouselState extends State<DateCarousel> {
     double offset = idx * itemWidth;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    offset = offset - (screenWidth / 2) + (_cardWidth / 2);
+    // Center the selected card within the visible content width, accounting for left padding
+    final visibleWidth = screenWidth - widget.leftPadding;
+    offset = offset - (visibleWidth / 2) + (_cardWidth / 2);
 
     if (offset < 0) offset = 0;
     final maxScroll = _scrollController.position.maxScrollExtent;
@@ -96,19 +103,61 @@ class _DateCarouselState extends State<DateCarousel> {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 120,
-      child: ListView.builder(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        itemCount: widget.availableDates.length,
-        itemBuilder: (context, index) {
-          final day = widget.availableDates[index];
-          final isSelected = _isSameDate(day, widget.selectedDate);
-          final isEnabled = widget.isDayEnabled?.call(day) ?? true;
-          return Padding(
-            padding: const EdgeInsets.only(right: _cardSpacing),
-            child: _buildDayCard(day, isSelected, isEnabled),
-          );
-        },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.only(left: widget.leftPadding),
+            itemCount: widget.availableDates.length,
+            itemBuilder: (context, index) {
+              final day = widget.availableDates[index];
+              final isSelected = _isSameDate(day, widget.selectedDate);
+              final isEnabled = widget.isDayEnabled?.call(day) ?? true;
+              return Padding(
+                padding: const EdgeInsets.only(right: _cardSpacing),
+                child: _buildDayCard(day, isSelected, isEnabled),
+              );
+            },
+          ),
+          // Tap overlay to allow selecting a card even during inertial scroll
+          Builder(
+            builder: (context) {
+              if (!_scrollController.hasClients) {
+                return const SizedBox.shrink();
+              }
+              return ValueListenableBuilder<bool>(
+                valueListenable: _scrollController.position.isScrollingNotifier,
+                builder: (context, isScrolling, _) {
+                  return IgnorePointer(
+                    ignoring: !isScrolling,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTapUp: (details) {
+                        if (!_scrollController.hasClients) return;
+                        // Stop the ongoing ballistic scroll for a crisp selection
+                        try {
+                          _scrollController.jumpTo(_scrollController.offset);
+                        } catch (_) {}
+
+                        final tapX = details.localPosition.dx;
+                        final absoluteX = _scrollController.offset + tapX - widget.leftPadding;
+                        final double itemWidth = _cardWidth + _cardSpacing;
+                        int tappedIndex = (absoluteX / itemWidth).floor();
+                        tappedIndex = tappedIndex.clamp(0, widget.availableDates.length - 1);
+                        final tappedDay = widget.availableDates[tappedIndex];
+                        final isEnabled = widget.isDayEnabled?.call(tappedDay) ?? true;
+                        if (!isEnabled) return;
+                        widget.onDateSelected(tappedDay);
+                      },
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
       ),
     );
   }

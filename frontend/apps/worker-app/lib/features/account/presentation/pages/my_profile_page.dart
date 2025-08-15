@@ -725,7 +725,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     BuildContext context,
   ) async {
     final repo = ref.read(workerAccountRepositoryProvider);
-    final t = AppLocalizations.of(context);
 
     final patchRequest = WorkerPatchRequest(
       firstName: changedFields['first_name'],
@@ -745,13 +744,15 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
     try {
       await repo.patchWorker(patchRequest);
-      if (mounted) {
-        showAppSnackBar(context, Text(t.myProfilePageProfileUpdatedSnackbar));
-        setState(() {
-          _isSaving = false;
-          _isEditing = false;
-        });
-      }
+      if (!context.mounted) return;
+      showAppSnackBar(
+        context,
+        Text(AppLocalizations.of(context).myProfilePageProfileUpdatedSnackbar),
+      );
+      setState(() {
+        _isSaving = false;
+        _isEditing = false;
+      });
     } on ApiException catch (e) {
       if (e.errorCode == 'phone_not_verified') {
         final newPhone = changedFields['phone_number'] as String?;
