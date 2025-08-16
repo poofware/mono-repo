@@ -27,8 +27,16 @@ class _ViewJobMapButtonState extends ConsumerState<ViewJobMapButton> {
   Future<void> _handleTap(BuildContext context) async {
     if (_isWarming || widget.job == null) return;
     setState(() => _isWarming = true);
-    await JobMapCache.showMap(context, widget.job!);
-    if (mounted) setState(() => _isWarming = false);
+    try {
+      // Warm + push without awaiting route so we can reset button immediately.
+      await JobMapCache.warmMap(context, widget.job!);
+      if (!mounted) return;
+      setState(() => _isWarming = false);
+      await JobMapCache.showMapInstant(context, widget.job!);
+      return;
+    } finally {
+      if (mounted) setState(() => _isWarming = false);
+    }
   }
 
   @override

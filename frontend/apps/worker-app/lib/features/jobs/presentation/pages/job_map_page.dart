@@ -187,8 +187,8 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
             CameraUpdate.newLatLngBounds(bounds, 60.0),
           );
           await _waitUntilTilesRender(mapController);
+          await Future.delayed(const Duration(milliseconds: 300));
           if (defaultTargetPlatform == TargetPlatform.android) {
-            await Future.delayed(const Duration(milliseconds: 300));
           }
         } else {
           await mapController.animateCamera(

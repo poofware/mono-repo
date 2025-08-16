@@ -13,6 +13,8 @@ class JobMapCache {
 
   static Future<JobMapPage> warmMap(BuildContext context, JobInstance job) async {
     final String id = job.instanceId;
+    // If an eviction is pending for this id, cancel it to allow warm-up to complete.
+    cancelEvict(id);
     if (_mapPages.containsKey(id)) {
       final existingCompleter = _warmCompleters[id];
       if (existingCompleter != null) await existingCompleter.future;
@@ -39,6 +41,17 @@ class JobMapCache {
     );
     Overlay.of(context).insert(entry);
 
+    // Safety timeout: if onReady isn't called promptly, proceed anyway.
+    // Prevents indefinite spinners due to platform map delays.
+    Timer(const Duration(seconds: 6), () {
+      if (!completer.isCompleted) {
+        try {
+          completer.complete();
+        } catch (_) {}
+        _warmCompleters.remove(id);
+      }
+    });
+
     await completer.future;
     _mapPages[id] = page;
     _entries[id] = entry;
@@ -48,6 +61,8 @@ class JobMapCache {
   static Future<void> showMap(BuildContext context, JobInstance job) async {
     final String id = job.instanceId;
     final navigator = Navigator.of(context);
+    cancelEvict(id);
+    final overlay = Overlay.of(context);
     final mapPage = await warmMap(context, job);
 
     final oldEntry = _entries[id];
@@ -55,8 +70,41 @@ class JobMapCache {
     _entries.remove(id);
 
     final popupRoute = CachedMapPopupRoute(mapPage: mapPage, instanceId: id);
-    await navigator.push(popupRoute);
-    await popupRoute.completed;
+    // Use captured overlay for any post-route reparenting.
+    try {
+      await navigator.push(popupRoute);
+      await popupRoute.completed;
+    } finally {
+      // If the route was dismissed unusually and we lost the overlay entry,
+      // ensure a hidden entry is re-created so cache is consistent.
+      if (!_entries.containsKey(id)) {
+        final entry = OverlayEntry(
+          maintainState: true,
+          builder: (_) => Offstage(child: mapPage),
+        );
+        overlay.insert(entry);
+        _entries[id] = entry;
+      }
+    }
+  }
+
+  /// Opens the warmed map route without awaiting its dismissal.
+  /// Ensures warm-up, detaches the hidden overlay, then pushes the popup route.
+  static Future<void> showMapInstant(BuildContext context, JobInstance job) async {
+    final String id = job.instanceId;
+    cancelEvict(id);
+    final navigator = Navigator.of(context);
+    // Ensure warmed
+    final mapPage = await warmMap(context, job);
+    // Detach current hidden overlay before pushing
+    final oldEntry = _entries[id];
+    if (oldEntry != null && oldEntry.mounted) oldEntry.remove();
+    _entries.remove(id);
+    // Push and return immediately; route handles reparenting on dismiss
+    final route = CachedMapPopupRoute(mapPage: mapPage, instanceId: id);
+    // Intentionally not awaiting
+    // ignore: unawaited_futures
+    navigator.push(route);
   }
 
   static void cancelEvict(String id) {
@@ -67,12 +115,19 @@ class JobMapCache {
   static void scheduleEvict(String id) {
     _evictTimers[id]?.cancel();
     _evictTimers[id] = Timer(const Duration(seconds: 30), () {
-      final entry = _entries[id];
-      if (entry != null && entry.mounted) entry.remove();
-      _mapPages.remove(id);
-      _entries.remove(id);
-      _evictTimers.remove(id);
-      _warmCompleters.remove(id);
+      try {
+        final entry = _entries[id];
+        if (entry != null && entry.mounted) {
+          // Hide it first to prevent rebuilds/racing builder references.
+          entry.remove();
+        }
+      } finally {
+        // Always clear internal references to avoid stale state.
+        _entries.remove(id);
+        _mapPages.remove(id);
+        _warmCompleters.remove(id);
+        _evictTimers.remove(id);
+      }
     });
   }
 
