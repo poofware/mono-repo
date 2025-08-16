@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
-import 'package:poof_worker/features/jobs/presentation/pages/job_map_page.dart';
+// job_map_page is referenced by JobMapCache; no direct use here.
+import 'job_map_cache.dart';
+import 'view_job_map_button.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/job_in_progress_page.dart'; // Import the page
 import 'info_widgets.dart';
 import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
@@ -15,11 +17,7 @@ class AcceptedJobDetailsSheet extends ConsumerStatefulWidget {
 
   const AcceptedJobDetailsSheet({super.key, required this.job});
 
-  // ─── Manual static caches ────────────────────────────────────────────
-  static final mapPages = <String, JobMapPage>{};
-  static final entries = <String, OverlayEntry>{};
-  static final _evictTimers = <String, Timer>{};
-  static final _warmCompleters = <String, Completer<void>>{};
+  // (shared map caching utilities are provided by JobMapCache)
 
   @override
   ConsumerState<AcceptedJobDetailsSheet> createState() =>
@@ -30,8 +28,6 @@ class _AcceptedJobDetailsSheetState
     extends ConsumerState<AcceptedJobDetailsSheet> {
   bool _isExpanded = false;
   bool _isUnaccepting = false;
-  bool _isShowingMap = false;
-  bool _isWarming = false;
   bool _isStartingJob = false;
 
   /// A getter to simplify checking if any async operation is in progress.
@@ -40,78 +36,17 @@ class _AcceptedJobDetailsSheetState
   @override
   void initState() {
     super.initState();
-    final id = widget.job.instanceId;
-    AcceptedJobDetailsSheet._evictTimers[id]?.cancel();
-    AcceptedJobDetailsSheet._evictTimers.remove(id);
+    JobMapCache.cancelEvict(widget.job.instanceId);
   }
 
   @override
   void dispose() {
-    final id = widget.job.instanceId;
-    AcceptedJobDetailsSheet._evictTimers[id]?.cancel();
-    AcceptedJobDetailsSheet._evictTimers[id] = Timer(
-      const Duration(seconds: 30),
-      () {
-        final entry = AcceptedJobDetailsSheet.entries[id];
-        if (entry != null && entry.mounted) entry.remove();
-        AcceptedJobDetailsSheet.mapPages.remove(id);
-        AcceptedJobDetailsSheet.entries.remove(id);
-        AcceptedJobDetailsSheet._evictTimers.remove(id);
-        AcceptedJobDetailsSheet._warmCompleters.remove(id);
-      },
-    );
+    // When a sheet hosting the cached map is closed, schedule eviction.
+    JobMapCache.scheduleEvict(widget.job.instanceId);
     super.dispose();
   }
 
-  Future<JobMapPage> _getOrWarmMap() async {
-    final id = widget.job.instanceId;
-    if (AcceptedJobDetailsSheet.mapPages.containsKey(id)) {
-      final existingCompleter = AcceptedJobDetailsSheet._warmCompleters[id];
-      if (existingCompleter != null) await existingCompleter.future;
-      return AcceptedJobDetailsSheet.mapPages[id]!;
-    }
-    final completer = Completer<void>();
-    AcceptedJobDetailsSheet._warmCompleters[id] = completer;
-    final page = JobMapPage(
-      key: GlobalObjectKey('map-$id'),
-      job: widget.job,
-      isForWarmup: true,
-      buildAsScaffold: false, // MODIFIED: Always build without a scaffold.
-      onReady: () {
-        if (!completer.isCompleted) completer.complete();
-        AcceptedJobDetailsSheet._warmCompleters.remove(id);
-      },
-    );
-    final entry = OverlayEntry(
-      maintainState: true,
-      builder: (_) => Offstage(child: page),
-    );
-    Overlay.of(context).insert(entry);
-    await completer.future;
-    AcceptedJobDetailsSheet.mapPages[id] = page;
-    AcceptedJobDetailsSheet.entries[id] = entry;
-    return page;
-  }
-
-  Future<void> _handleViewJobMap() async {
-    if (_isShowingMap) return;
-    setState(() {
-      _isShowingMap = true;
-      _isWarming = true;
-    });
-    final mapPage = await _getOrWarmMap();
-    if (!mounted) return;
-    setState(() => _isWarming = false);
-    final id = widget.job.instanceId;
-    final oldEntry = AcceptedJobDetailsSheet.entries[id];
-    if (oldEntry != null && oldEntry.mounted) oldEntry.remove();
-    AcceptedJobDetailsSheet.entries.remove(id);
-    final popupRoute = CachedMapPopupRoute(mapPage: mapPage, instanceId: id);
-    await Navigator.of(context).push(popupRoute);
-    await popupRoute.completed;
-    if (!mounted) return;
-    setState(() => _isShowingMap = false);
-  }
+  // Deprecated local warm/show map handlers removed in favor of shared ViewJobMapButton
 
   DateTime? _parseJobServiceWindowEnd(JobInstance job) {
     try {
@@ -229,7 +164,7 @@ class _AcceptedJobDetailsSheetState
 
     // This block is now only reached on success.
     if (mounted) {
-      final warmedMap = await _getOrWarmMap();
+      final warmedMap = await JobMapCache.warmMap(context, updatedJob);
       if (!mounted) {
         setState(() => _isStartingJob = false);
         return;
@@ -241,11 +176,7 @@ class _AcceptedJobDetailsSheetState
       );
 
       final id = widget.job.instanceId;
-      final oldMapEntry = AcceptedJobDetailsSheet.entries[id];
-      if (oldMapEntry != null && oldMapEntry.mounted) {
-        oldMapEntry.remove();
-        AcceptedJobDetailsSheet.entries.remove(id);
-      }
+      JobMapCache.detachOverlayFor(id);
 
       final completer = Completer<void>();
       final entry = OverlayEntry(builder: (_) => Offstage(child: pageToPush));
@@ -453,26 +384,7 @@ class _AcceptedJobDetailsSheetState
           value: '$formattedWindowStart - $formattedWindowEnd',
         ),
         const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _isWarming ? null : _handleViewJobMap,
-            icon: const Icon(Icons.map_outlined),
-            label: Text(
-              _isWarming
-                  ? 'Preparing map…'
-                  : appLocalizations.acceptedJobsBottomSheetViewJobMap,
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: theme.primaryColor,
-              side: BorderSide(color: theme.primaryColor.withAlpha(127)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
+        ViewJobMapButton(job: widget.job),
       ],
     );
   }
@@ -650,7 +562,8 @@ class CachedMapPopupRoute extends PopupRoute<void> {
           builder: (_) => Offstage(child: mapPage),
         );
         Overlay.of(context).insert(entry);
-        AcceptedJobDetailsSheet.entries[instanceId] = entry;
+        // Reparent warmed map overlay back into cache to maintain state
+        JobMapCache.setReparentedEntry(instanceId, entry);
         _reparented = true;
       }
     });

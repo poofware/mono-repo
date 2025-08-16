@@ -22,6 +22,8 @@ import 'package:poof_worker/features/jobs/presentation/widgets/date_carousel_wid
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'info_widgets.dart';
+import 'job_map_cache.dart';
+import 'view_job_map_button.dart';
 
 class JobAcceptSheet extends ConsumerStatefulWidget {
   final DefinitionGroup definition;
@@ -42,6 +44,21 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     super.initState();
     final now = DateTime.now();
     _carouselInitialDate = DateTime(now.year, now.month, now.day);
+    // Cancel any pending eviction for the representative instance on open.
+    if (widget.definition.instances.isNotEmpty) {
+      final rep = widget.definition.instances.first;
+      JobMapCache.cancelEvict(rep.instanceId);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Schedule eviction on close for representative instance, matching accepted sheet.
+    if (widget.definition.instances.isNotEmpty) {
+      final rep = widget.definition.instances.first;
+      JobMapCache.scheduleEvict(rep.instanceId);
+    }
+    super.dispose();
   }
 
   void _updateSelectedInstance(DateTime day) {
@@ -193,8 +210,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
               _isSameDate(parseYmd(inst.serviceDate), _carouselInitialDate),
         );
 
-    // Hide top definition stats when a date (instance) is selected
-    final bool showDefinitionStats = _selectedInstance == null;
+    // Note: Buildings and units info now always visible
 
     // Determine dates for carousel.
     final now = DateTime.now();
@@ -295,9 +311,11 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                16,
+                                20,
+                                10, // slightly tighter bottom padding to reduce gap to carousel
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,56 +350,20 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                                       ],
                                     ),
                                   ),
-                                  // Instant show/hide of definition stats (no animation)
-                                  if (showDefinitionStats)
-                                    Column(
-                                      key: const ValueKey('definition_stats'),
-                                      children: [
-                                        const Divider(height: 24),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceAround,
-                                          children: [
-                                            Expanded(
-                                              child: _statTile(
-                                                icon: Icons.attach_money,
-                                                label: appLocalizations
-                                                    .jobAcceptSheetHeaderAvgPay,
-                                                value:
-                                                    '${liveDefinition.pay.toStringAsFixed(0)} USD',
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: _statTile(
-                                                icon: Icons.timer_outlined,
-                                                label: appLocalizations
-                                                    .jobAcceptSheetHeaderAvgTime,
-                                                value: liveDefinition.displayAvgTime,
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: _statTile(
-                                                icon: Icons.directions_car_outlined,
-                                                label: appLocalizations
-                                                    .jobAcceptSheetHeaderDriveTime,
-                                                value: liveDefinition.displayAvgTravelTime,
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: _statTile(
-                                                icon: Icons.location_on_outlined,
-                                                label: appLocalizations
-                                                    .jobAcceptSheetHeaderDistance,
-                                                value:
-                                                    '${liveDefinition.distanceMiles.toStringAsFixed(1)} mi',
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    )
-                                  else
-                                    const SizedBox.shrink(),
+                                  // Compact definition-level tiles (no dividing line)
+                                  const SizedBox(height: 12),
+                                  _DefinitionStatTiles(
+                                    definition: liveDefinition,
+                                    appLocalizations: appLocalizations,
+                                    showAvgPay: _selectedInstance == null,
+                                    showAvgTime: _selectedInstance == null,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ViewJobMapButton(
+                                    job: liveDefinition.instances.isNotEmpty
+                                        ? liveDefinition.instances.first
+                                        : null,
+                                  ),
                                 ],
                               ),
                             ),
@@ -390,8 +372,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                       ),
                       // Date carousel should go edge-to-edge (no horizontal padding)
                       Padding(
-                        // Instant spacing change; no animated slide
-                        padding: EdgeInsets.only(top: showDefinitionStats ? 24 : 8),
+                        // Consistent spacing after buildings/units info
+                        padding: const EdgeInsets.only(top: 8),
                         child: DateCarousel(
                           availableDates: carouselDates,
                           selectedDate: isCarouselDateActuallySelected
@@ -401,7 +383,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                           isDayEnabled: (day) => liveDefinition.instances.any(
                             (inst) => _isSameDate(parseYmd(inst.serviceDate), day),
                           ),
-                          leftPadding: 12.0,
+                          leftPadding: 14.0,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -464,29 +446,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     );
   }
 
-  Widget _statTile({
-    IconData? icon,
-    required String label,
-    required String value,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null)
-          Icon(icon, size: 26, color: Colors.black87.withAlpha(178))
-        else
-          const SizedBox(height: 26, width: 26),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 13)),
-      ],
-    );
-  }
+
 }
 
 class _InstanceDetails extends StatelessWidget {
@@ -502,253 +462,257 @@ class _InstanceDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final payLabel = appLocalizations.acceptedJobsBottomSheetPayLabel;
-    final estTimeLabel = appLocalizations.jobAcceptSheetHeaderAvgTime;
-    final driveTimeLabel = appLocalizations.jobAcceptSheetHeaderDriveTime;
-    final recommendedStartLabel =
-        appLocalizations.jobAcceptSheetRecommendedStart;
-    final serviceWindowLabel = appLocalizations.jobAcceptSheetServiceWindow;
-    final buildingsLabel = appLocalizations.jobAcceptSheetBuildings;
-    final floorsLabel = appLocalizations.jobAcceptSheetFloors;
-    final unitsLabel = appLocalizations.jobAcceptSheetUnits;
-
+    final estTimeLabel = appLocalizations.jobAcceptSheetHeaderAvgCompletion;
     return GestureDetector(
-      onTap: () {}, // swallow taps so background doesn't clear selection
+      onTap: () {},
       child: Card(
         elevation: 2,
         margin: const EdgeInsets.symmetric(horizontal: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-            // First Row of details
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _detailItem(
-                    icon: Icons.attach_money,
-                    text: '${instance.pay.toStringAsFixed(0)} USD',
-                    color: Colors.green,
-                    label: payLabel,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _detailItem(
-                    icon: Icons.timer_outlined,
-                    text: instance.displayTime,
-                    color: Colors.black87,
-                    label: estTimeLabel,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _detailItem(
-                    icon: Icons.directions_car_outlined,
-                    text: instance.displayTravelTime,
-                    color: Colors.black87,
-                    label: driveTimeLabel,
-                  ),
-                ),
-              ],
+          child: _TwoColumnTiles(tiles: [
+            _TileData(
+              icon: Icons.attach_money,
+              label: payLabel,
+              value: '${instance.pay.toStringAsFixed(0)} USD',
+              color: Colors.green,
             ),
-            const SizedBox(height: 24),
-            // Second Row of details
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _TimeInfoTile(
-                    icon: Icons.access_time_outlined,
-                    label: recommendedStartLabel,
-                    workerTime: instance.workerStartTimeHint,
-                    propertyTime: instance.startTimeHint,
-                    appLocalizations: appLocalizations,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _TimeInfoTile(
-                    icon: Icons.hourglass_empty_outlined,
-                    label: serviceWindowLabel,
-                    workerTime: instance.workerServiceWindowStart,
-                    workerEndTime: instance.workerServiceWindowEnd,
-                    propertyTime: instance.propertyServiceWindowStart,
-                    propertyEndTime: instance.propertyServiceWindowEnd,
-                    appLocalizations: appLocalizations,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _detailItem(
-                    icon: Icons.apartment_outlined,
-                    text:
-                        '${instance.numberOfBuildings} bldg${instance.numberOfBuildings == 1 ? "" : "s"}',
-                    color: Colors.black87,
-                    label: buildingsLabel,
-                  ),
-                ),
-              ],
+            _TileData(
+              icon: Icons.timer_outlined,
+              label: estTimeLabel,
+              value: instance.displayTime,
             ),
-            const SizedBox(height: 24),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _detailItem(
-                    icon: Icons.stairs_outlined,
-                    text: instance.floorsLabel,
-                    color: Colors.black87,
-                    label: floorsLabel,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _detailItem(
-                    icon: Icons.home_outlined,
-                    text: instance.totalUnitsLabel,
-                    color: Colors.black87,
-                    label: unitsLabel,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Expanded(child: SizedBox()),
-              ],
-            ),
-            ],
-          ),
+            // Definition-level stats omitted here to avoid redundancy
+            // Consolidated: Remove definition-level items from instance tiles
+          ]),
         ),
       ),
     );
   }
 
-  Widget _detailItem({
-    IconData? icon,
-    required String text,
-    required Color color,
-    required String label,
-  }) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade700,
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 8),
-        if (icon != null)
-          Icon(icon, size: 24, color: color.withAlpha(225))
-        else
-          const SizedBox(height: 24, width: 24),
-        const SizedBox(height: 8),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
+  // (removed) unused helper
 }
 
-// A specialized tile for displaying time ranges with timezone differences.
-class _TimeInfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String workerTime;
-  final String? workerEndTime;
-  final String propertyTime;
-  final String? propertyEndTime;
+// Definition-level compact stats (base state)
+class _DefinitionStatTiles extends StatelessWidget {
+  final DefinitionGroup definition;
   final AppLocalizations appLocalizations;
-
-  const _TimeInfoTile({
-    required this.icon,
-    required this.label,
-    required this.workerTime,
-    required this.propertyTime,
-    this.workerEndTime,
-    this.propertyEndTime,
+  final bool showAvgPay;
+  final bool showAvgTime;
+  const _DefinitionStatTiles({
+    required this.definition,
     required this.appLocalizations,
+    this.showAvgPay = true,
+    this.showAvgTime = true,
   });
-
   @override
   Widget build(BuildContext context) {
-    final formattedWorkerStart = formatTime(context, workerTime);
-    final formattedWorkerEnd = workerEndTime != null
-        ? formatTime(context, workerEndTime!)
-        : null;
-    final workerDisplay = formattedWorkerEnd != null
-        ? '$formattedWorkerStart - $formattedWorkerEnd'
-        : formattedWorkerStart;
-
-    final formattedPropertyStart = formatTime(context, propertyTime);
-    final formattedPropertyEnd = propertyEndTime != null
-        ? formatTime(context, propertyEndTime!)
-        : null;
-    final propertyDisplay = formattedPropertyEnd != null
-        ? '$formattedPropertyStart - $formattedPropertyEnd'
-        : formattedPropertyStart;
-
-    final showPropertyTime =
-        propertyTime.isNotEmpty && workerDisplay != propertyDisplay;
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade700,
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+    final inst = definition.instances.isNotEmpty ? definition.instances.first : null;
+    final start = inst?.workerStartTimeHint ?? '';
+    final startFormatted = start.isNotEmpty ? formatTime(context, start) : '';
+    final workerWindowStart = inst?.workerServiceWindowStart ?? '';
+    final workerWindowEnd = inst?.workerServiceWindowEnd ?? '';
+    final windowDisplay = (workerWindowStart.isNotEmpty && workerWindowEnd.isNotEmpty)
+        ? '${formatTime(context, workerWindowStart)} - ${formatTime(context, workerWindowEnd)}'
+        : '';
+    final bool isSingleBuilding = definition.instances.isNotEmpty &&
+        definition.instances.every((i) => i.numberOfBuildings == 1);
+    final tiles = <_TileData>[
+      if (showAvgPay)
+        _TileData(
+          icon: Icons.attach_money,
+          label: 'Avg Pay',
+          value: '${definition.pay.toStringAsFixed(0)} USD',
+          color: Colors.green,
         ),
-        const SizedBox(height: 8),
-        Icon(icon, size: 24, color: Colors.black87.withAlpha(225)),
-        const SizedBox(height: 8),
-        Text(
-          workerDisplay,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+      if (showAvgTime)
+        _TileData(
+          icon: Icons.timer_outlined,
+          label: appLocalizations.jobAcceptSheetHeaderAvgCompletion,
+          value: definition.displayAvgTime,
         ),
-        if (showPropertyTime) ...[
-          const SizedBox(height: 2),
-          Text(
-            appLocalizations.jobAcceptSheetPropertyTimeLocal(propertyDisplay),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-            textAlign: TextAlign.center,
+      _TileData(
+        icon: Icons.directions_car_outlined,
+        label: appLocalizations.jobAcceptSheetHeaderDriveTime,
+        value: definition.displayAvgTravelTime,
+      ),
+      if (startFormatted.isNotEmpty)
+        _TileData(
+          icon: Icons.access_time_outlined,
+          label: appLocalizations.jobAcceptSheetRecommendedStart,
+          value: startFormatted,
+        ),
+      if (windowDisplay.isNotEmpty)
+        _TileData(
+          icon: Icons.hourglass_empty_outlined,
+          label: appLocalizations.jobAcceptSheetServiceWindow,
+          value: windowDisplay,
+          spanTwoColumns: true,
+        ),
+      _TileData(
+        icon: Icons.apartment_outlined,
+        label: appLocalizations.jobAcceptSheetBuildings,
+        value: _buildBuildingsLabel(definition.instances),
+      ),
+      if (isSingleBuilding)
+        _TileData(
+          icon: Icons.stairs_outlined,
+          label: appLocalizations.jobAcceptSheetFloors,
+          value: _buildFloorsLabel(definition.instances),
+        ),
+      _TileData(
+        icon: Icons.home_outlined,
+        label: appLocalizations.jobAcceptSheetUnits,
+        value: _buildUnitsLabel(definition.instances),
+      ),
+    ];
+    return _TwoColumnTiles(tiles: tiles);
+  }
+}
+
+// (removed) Replaced with shared ViewJobMapButton
+
+String _buildBuildingsLabel(List<JobInstance> instances) {
+  if (instances.isEmpty) return '—';
+  final counts = instances.map((i) => i.numberOfBuildings).where((c) => c > 0);
+  if (counts.isEmpty) return '—';
+  final minCount = counts.reduce((a, b) => a < b ? a : b);
+  final maxCount = counts.reduce((a, b) => a > b ? a : b);
+  if (minCount == maxCount) {
+    final plural = minCount == 1 ? '' : 's';
+    return '$minCount bldg$plural';
+  }
+  return '$minCount-$maxCount bldgs';
+}
+
+String _buildFloorsLabel(List<JobInstance> instances) {
+  if (instances.isEmpty) return '—';
+  final allFloors = instances.expand((i) => i.buildings).expand((b) => b.floors);
+  final unique = allFloors.toSet().toList()..sort();
+  if (unique.isEmpty) return '—';
+  if (unique.length > 2) return '${unique.length} floors';
+  return 'fl ${unique.join(', ')}';
+}
+
+String _buildUnitsLabel(List<JobInstance> instances) {
+  if (instances.isEmpty) return '—';
+  // Use the first instance's label as representative
+  return instances.first.totalUnitsLabel;
+}
+
+// Generic tile data
+class _TileData {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? color;
+  final bool spanTwoColumns;
+  _TileData({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+    this.spanTwoColumns = false,
+  });
+}
+
+// Two-column responsive tile wrapper
+class _TwoColumnTiles extends StatelessWidget {
+  final List<_TileData> tiles;
+  const _TwoColumnTiles({required this.tiles});
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      const spacing = 10.0;
+      final isNarrow = constraints.maxWidth < 360;
+      final columns = isNarrow ? 1 : 2;
+      final itemWidth =
+          columns == 1 ? constraints.maxWidth : (constraints.maxWidth - spacing) / 2;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: tiles.map((t) {
+          final double width =
+              columns == 2 && t.spanTwoColumns ? constraints.maxWidth : itemWidth;
+          return SizedBox(
+            width: width,
+            child: _StatTile(
+              icon: t.icon,
+              label: t.label,
+              value: t.value,
+              color: t.color,
+            ),
+          );
+        }).toList(),
+      );
+    });
+  }
+}
+
+// Single stat tile
+class _StatTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? color;
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseColor = color ?? Colors.black87;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: baseColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: baseColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
+
+// (removed) previously used time info tile; unified into generic tiles
 
 DateTime parseYmd(String ymd) {
   final parts = ymd.split('-');

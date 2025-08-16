@@ -92,6 +92,7 @@
   "jobAcceptSheetAcceptButton": "Accept Job",
   "jobAcceptSheetHeaderAvgPay": "Avg Pay",
   "jobAcceptSheetHeaderAvgTime": "Avg Time",
+  "jobAcceptSheetHeaderAvgCompletion": "Avg Completion",
   "jobAcceptSheetHeaderDriveTime": "Drive Time",
   "jobAcceptSheetHeaderDistance": "Distance",
   "jobAcceptSheetSnackBarAccepted": "Job \"{jobName}\" accepted.",

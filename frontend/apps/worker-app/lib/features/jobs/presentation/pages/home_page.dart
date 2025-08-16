@@ -1216,7 +1216,7 @@ class _HomePageState extends ConsumerState<HomePage>
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: screenHeight * minSheetSize - 10,
+                    bottom: screenHeight * minSheetSize - 15,
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 250),
                       opacity: _carouselOpacity,

@@ -96,6 +96,7 @@
   "jobAcceptSheetAcceptButton": "Aceptar Trabajo",
   "jobAcceptSheetHeaderAvgPay": "Pago Prom.",
   "jobAcceptSheetHeaderAvgTime": "Tiempo Prom.",
+  "jobAcceptSheetHeaderAvgCompletion": "Completado Prom.",
   "jobAcceptSheetHeaderDriveTime": "Tiempo Conduc.",
   "jobAcceptSheetHeaderDistance": "Distancia",
   "jobAcceptSheetSnackBarAccepted": "Trabajo \"{jobName}\" aceptado.",
