@@ -82,6 +82,7 @@ class _JobDefinitionCarouselState extends State<JobDefinitionCarousel> {
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
+        enableDrag: false,
         useSafeArea: true,
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.0),

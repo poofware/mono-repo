@@ -39,6 +39,7 @@ class DefinitionCard extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          enableDrag: false,
           useSafeArea: true,
           backgroundColor:
               Colors.transparent, // Sheet container will have its own color

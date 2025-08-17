@@ -156,6 +156,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
 
   bool _handleBodyScrollNotification(ScrollNotification notification) {
     if (_isDismissing) return false;
+    // While the user's finger is actively dragging the sheet, avoid applying
+    // scroll-based deltas too (prevents double movement and keeps 1:1 feel).
+    if (_isPointerDown) return false;
 
     // Stop any ongoing reset animation at the start of a new user drag.
     if (notification is ScrollStartNotification) {
@@ -484,6 +487,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                 _bodyScrollController.position.pixels != 0.0) {
               _bodyScrollController.jumpTo(0.0);
             }
+            _pullDownAccumulated += dy;
             setState(() {
               _dragOffset = math.max(0.0, _dragOffset + dy);
             });
@@ -499,6 +503,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                 _bodyScrollController.position.pixels != 0.0) {
               _bodyScrollController.jumpTo(0.0);
             }
+            _pullDownAccumulated = math.max(0.0, _pullDownAccumulated + dy);
             final double newOffset = math.max(0.0, _dragOffset + dy);
             final bool willReleaseToContent = newOffset == 0.0;
             setState(() {
