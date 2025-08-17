@@ -38,6 +38,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
   late DateTime _carouselInitialDate;
   JobInstance? _selectedInstance;
   bool _isAccepting = false;
+  final ScrollController _bodyScrollController = ScrollController();
+  bool _isDismissing = false;
 
   @override
   void initState() {
@@ -53,12 +55,41 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
 
   @override
   void dispose() {
+    _bodyScrollController.dispose();
     // Schedule eviction on close for representative instance, matching accepted sheet.
     if (widget.definition.instances.isNotEmpty) {
       final rep = widget.definition.instances.first;
       JobMapCache.scheduleEvict(rep.instanceId);
     }
     super.dispose();
+  }
+
+  bool _handleBodyScrollNotification(ScrollNotification notification) {
+    if (_isDismissing) return false;
+
+    final bool isAtTop = !_bodyScrollController.hasClients ||
+        _bodyScrollController.position.pixels <= 0;
+
+    // iOS-style bounce overscroll
+    if (notification is OverscrollNotification) {
+      if (isAtTop && notification.overscroll < 0) {
+        _isDismissing = true;
+        Navigator.of(context).maybePop();
+        return true;
+      }
+    }
+
+    // Android clamping: detect downward updates at top
+    if (notification is ScrollUpdateNotification) {
+      final double? delta = notification.scrollDelta;
+      if (isAtTop && (delta != null) && delta < 0) {
+        _isDismissing = true;
+        Navigator.of(context).maybePop();
+        return true;
+      }
+    }
+
+    return false;
   }
 
   void _updateSelectedInstance(DateTime day) {
@@ -294,8 +325,11 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                     });
                   }
                 },
-                child: SingleChildScrollView(
-                  child: Column(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _handleBodyScrollNotification,
+                  child: SingleChildScrollView(
+                    controller: _bodyScrollController,
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -413,6 +447,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                       if (_selectedInstance != null)
                         const SizedBox(height: 16),
                     ],
+                    ),
                   ),
                 ),
               ),
