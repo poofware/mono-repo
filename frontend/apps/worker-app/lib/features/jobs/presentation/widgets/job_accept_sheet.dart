@@ -46,7 +46,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   bool _isDismissing = false;
   double _pullDownAccumulated = 0.0;
   // Dynamic distance threshold is computed per device size; see _dismissDistancePx.
-  static const double _dismissFlingVelocity = 750.0; // px/sec (match JobsSheet flick)
+  static const double _dismissFlingVelocity = 260.0; // px/sec (very light flicks dismiss)
+  static const double _microDismissOffsetPx = 8.0;   // tiny pull distance
+  static const double _microDismissVelocity = 220.0; // moderate quick flick
   double _dragOffset = 0.0; // interactive visual offset for the whole sheet
   late final AnimationController _dragResetController;
   Animation<double>? _dragResetAnimation;
@@ -56,6 +58,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   bool _isDraggingSheetViaPointer = false;
   int? _activePointerId;
   double? _lastPointerY;
+  double? _lastPointerX;
+  Axis? _lockedPointerAxis;
+  int? _lastPointerSampleMs;
+  double _lastPointerVelocityY = 0.0;
 
   @override
   void initState() {
@@ -122,9 +128,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   double _dismissDistancePx(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final maxSheetHeight = screenHeight * 0.95; // match layout constraint
-    final raw = maxSheetHeight * 0.10; // 10% of sheet height
-    if (raw < 36.0) return 36.0;
-    if (raw > 80.0) return 80.0;
+    final raw = maxSheetHeight * 0.08; // 8% of sheet height (previous feel)
+    if (raw < 28.0) return 28.0;
+    if (raw > 72.0) return 72.0;
     return raw;
   }
 
@@ -133,10 +139,19 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   void _handlePointerUpOrCancel() {
     if (!mounted || _isDismissing) return;
     _snapBackDebounce?.cancel();
-    if (_dragOffset > 0.0) {
+    final bool isAtTop = !_bodyScrollController.hasClients ||
+        _bodyScrollController.position.pixels <= 0;
+    final bool shouldDismissByVelocity =
+        isAtTop && _lastPointerVelocityY >= _dismissFlingVelocity;
+    final bool shouldDismissByMicroFlick =
+        isAtTop &&
+        (_dragOffset >= _microDismissOffsetPx ||
+            _pullDownAccumulated >= _microDismissOffsetPx) &&
+        _lastPointerVelocityY >= _microDismissVelocity;
+    if (_dragOffset > 0.0 || shouldDismissByVelocity || shouldDismissByMicroFlick) {
       final bool shouldDismissByOffset =
           _dragOffset >= _dismissDistancePx(context);
-      if (shouldDismissByOffset) {
+      if (shouldDismissByVelocity || shouldDismissByOffset || shouldDismissByMicroFlick) {
         if (_dragResetController.isAnimating) {
           _dragResetController.stop();
         }
@@ -152,10 +167,19 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     _isDraggingSheetViaPointer = false;
     _activePointerId = null;
     _lastPointerY = null;
+    _lastPointerX = null;
+    _lockedPointerAxis = null;
+    _lastPointerSampleMs = null;
+    _lastPointerVelocityY = 0.0;
   }
 
   bool _handleBodyScrollNotification(ScrollNotification notification) {
     if (_isDismissing) return false;
+    // Ignore horizontal scroll notifications (e.g., from DateCarousel)
+    final dir = notification.metrics.axisDirection;
+    if (dir == AxisDirection.left || dir == AxisDirection.right) {
+      return false;
+    }
     // While the user's finger is actively dragging the sheet, avoid applying
     // scroll-based deltas too (prevents double movement and keeps 1:1 feel).
     if (_isPointerDown) return false;
@@ -459,6 +483,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
           _isDraggingSheetViaPointer = false;
           _activePointerId = e.pointer;
           _lastPointerY = e.position.dy;
+          _lastPointerX = e.position.dx;
+          _lockedPointerAxis = null;
+          _lastPointerSampleMs = DateTime.now().millisecondsSinceEpoch;
+          _lastPointerVelocityY = 0.0;
           if (_dragResetController.isAnimating) {
             _dragResetController.stop();
           }
@@ -471,8 +499,32 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
             _lastPointerY = e.position.dy;
             return;
           }
+          final dx = _lastPointerX != null ? e.position.dx - _lastPointerX! : 0.0;
           final dy = e.position.dy - _lastPointerY!;
+          _lastPointerX = e.position.dx;
           _lastPointerY = e.position.dy;
+          // Track simple velocity for flick-to-dismiss
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
+          final int? lastMs = _lastPointerSampleMs;
+          if (lastMs != null) {
+            final int dtMs = nowMs - lastMs;
+            if (dtMs > 0) {
+              _lastPointerVelocityY = dy / dtMs * 1000.0; // px/s
+            }
+          }
+          _lastPointerSampleMs = nowMs;
+
+          // Lock gesture axis after a small slop so horizontal drags never move the sheet.
+          if (_lockedPointerAxis == null) {
+            final adx = dx.abs();
+            final ady = dy.abs();
+            if (adx > 6 || ady > 6) {
+              _lockedPointerAxis = adx > ady ? Axis.horizontal : Axis.vertical;
+            }
+          }
+          if (_lockedPointerAxis == Axis.horizontal) {
+            return;
+          }
           if (dy == 0) return;
           final bool isAtTop = !_bodyScrollController.hasClients ||
               _bodyScrollController.position.pixels <= 0;
