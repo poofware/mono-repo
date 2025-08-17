@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 // worker-app/lib/features/jobs/presentation/widgets/job_accept_sheet.dart
 // worker-app/lib/features/jobs/presentation/widgets/job_accept_sheet.dart
 //
@@ -44,13 +45,13 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   final ScrollController _bodyScrollController = ScrollController();
   bool _isDismissing = false;
   double _pullDownAccumulated = 0.0;
-  static const double _dismissDragDistance = 64.0; // logical px
-  static const double _dismissFlingVelocity = 900.0; // px/sec
+  // Dynamic distance threshold is computed per device size; see _dismissDistancePx.
+  static const double _dismissFlingVelocity = 750.0; // px/sec (match JobsSheet flick)
   double _dragOffset = 0.0; // interactive visual offset for the whole sheet
   late final AnimationController _dragResetController;
   Animation<double>? _dragResetAnimation;
-  bool _isPointerDown = false;
-  bool _snapBackScheduled = false;
+  bool _isPointerDown = false; // used in pointer handlers to manage snap-back
+  Timer? _snapBackDebounce;
 
   @override
   void initState() {
@@ -77,7 +78,6 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
           if (_dragOffset != 0.0) {
             setState(() => _dragOffset = 0.0);
           }
-          _snapBackScheduled = false;
         }
       });
   }
@@ -90,11 +90,13 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       final rep = widget.definition.instances.first;
       JobMapCache.scheduleEvict(rep.instanceId);
     }
+    _snapBackDebounce?.cancel();
     _dragResetController.dispose();
     super.dispose();
   }
 
   void _animateDragOffsetToZero() {
+    if (_isDismissing) return;
     if (_dragOffset == 0.0) return;
     final begin = _dragOffset;
     _dragResetAnimation = Tween<double>(
@@ -113,15 +115,31 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     });
   }
 
+  double _dismissDistancePx(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxSheetHeight = screenHeight * 0.95; // match layout constraint
+    final raw = maxSheetHeight * 0.10; // 10% of sheet height
+    if (raw < 36.0) return 36.0;
+    if (raw > 80.0) return 80.0;
+    return raw;
+  }
+
+  // Debounce has been disabled in favor of pointer-up decision logic.
+
   void _handlePointerUpOrCancel() {
     if (!mounted || _isDismissing) return;
+    _snapBackDebounce?.cancel();
     if (_dragOffset <= 0.0) return;
-    final bool shouldDismiss = _dragOffset >= _dismissDragDistance;
-    if (shouldDismiss) {
+    final bool shouldDismissByOffset = _dragOffset >= _dismissDistancePx(context);
+    if (shouldDismissByOffset) {
+      if (_dragResetController.isAnimating) {
+        _dragResetController.stop();
+      }
       _isDismissing = true;
       Navigator.of(context).maybePop();
     } else {
-      _animateDragOffsetToZero();
+      // Defer decision to ScrollEndNotification to consider velocity.
+      // Do not snap back here to avoid conflicting animations.
     }
     _pullDownAccumulated = 0.0;
     _isPointerDown = false;
@@ -135,6 +153,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       if (_dragResetController.isAnimating) {
         _dragResetController.stop();
       }
+      _snapBackDebounce?.cancel();
     }
 
     final bool isAtTop = !_bodyScrollController.hasClients ||
@@ -146,10 +165,13 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
         final delta = -notification.overscroll;
         _pullDownAccumulated += delta;
         // Move the whole sheet down with the finger.
-        _dragResetController.stop();
+        if (_dragResetController.isAnimating) {
+          _dragResetController.stop();
+        }
         setState(() {
           _dragOffset = math.max(0.0, _dragOffset + delta);
         });
+        // No snap while finger held; defer to pointer-up
         return false; // keep bounce behavior
       }
     }
@@ -162,33 +184,51 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
           // Pulling down
           final d = -delta;
           _pullDownAccumulated += d;
-          _dragResetController.stop();
+          if (_dragResetController.isAnimating) {
+            _dragResetController.stop();
+          }
           setState(() {
             _dragOffset = math.max(0.0, _dragOffset + d);
           });
+          // No snap while finger held
         } else if (delta > 0 && _dragOffset > 0) {
           // Pushing up while offset is applied: reduce offset
           setState(() {
             _dragOffset = math.max(0.0, _dragOffset - delta);
           });
+          // No snap while finger held
         }
         return false;
       } else if (!isAtTop && _dragOffset != 0.0) {
-        // If we are no longer at top, ensure offset resets
-        setState(() => _dragOffset = 0.0);
+        // If we are no longer at top, reset only when finger is not down
+        if (!_isPointerDown) {
+          setState(() => _dragOffset = 0.0);
+        }
       }
     }
 
     // Decide on end of drag (or ballistic stop).
     if (notification is ScrollEndNotification) {
       final double velocityY = notification.dragDetails?.velocity.pixelsPerSecond.dy ?? 0.0;
-      final bool passedDistance = _pullDownAccumulated >= _dismissDragDistance;
+      final double threshold = _dismissDistancePx(context);
+      final bool passedDistance = _pullDownAccumulated >= threshold;
       final bool passedVelocity = velocityY >= _dismissFlingVelocity;
-      if (isAtTop && (passedDistance || passedVelocity)) {
+      final bool distanceByOffset = _dragOffset >= threshold;
+      // If velocity alone triggers dismissal but offset is tiny, avoid visual snap-up.
+      // In that case, keep the current offset and dismiss immediately.
+      if (isAtTop && (passedVelocity || passedDistance || distanceByOffset)) {
+        _snapBackDebounce?.cancel();
+        if (_dragResetController.isAnimating) {
+          _dragResetController.stop();
+        }
         _isDismissing = true;
         Navigator.of(context).maybePop();
       } else {
-        _animateDragOffsetToZero();
+        // Only snap back if finger is up and velocity is low.
+        _snapBackDebounce?.cancel();
+        if (!_isPointerDown) {
+          _animateDragOffsetToZero();
+        }
       }
       _pullDownAccumulated = 0.0;
       return false;
@@ -393,12 +433,6 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     // Sheet height constraint (original behavior)
     final double maxSheetHeight = screenHeight * 0.95;
 
-    // Safety: if somehow offset is left > 0 without active drag or animation, schedule snap-back
-    if (!_isPointerDown && _dragOffset > 0.0 && !_dragResetController.isAnimating && !_isDismissing && !_snapBackScheduled) {
-      _snapBackScheduled = true;
-      _animateDragOffsetToZero();
-    }
-
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxSheetHeight),
       child: Listener(
@@ -408,6 +442,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
           if (_dragResetController.isAnimating) {
             _dragResetController.stop();
           }
+          _snapBackDebounce?.cancel();
         },
         onPointerUp: (_) => _handlePointerUpOrCancel(),
         onPointerCancel: (_) => _handlePointerUpOrCancel(),
