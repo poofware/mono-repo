@@ -52,6 +52,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   Animation<double>? _dragResetAnimation;
   bool _isPointerDown = false; // used in pointer handlers to manage snap-back
   Timer? _snapBackDebounce;
+  // Pointer-driven capture to ensure reversing direction moves the sheet, not content.
+  bool _isDraggingSheetViaPointer = false;
+  int? _activePointerId;
+  double? _lastPointerY;
 
   @override
   void initState() {
@@ -129,20 +133,25 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   void _handlePointerUpOrCancel() {
     if (!mounted || _isDismissing) return;
     _snapBackDebounce?.cancel();
-    if (_dragOffset <= 0.0) return;
-    final bool shouldDismissByOffset = _dragOffset >= _dismissDistancePx(context);
-    if (shouldDismissByOffset) {
-      if (_dragResetController.isAnimating) {
-        _dragResetController.stop();
+    if (_dragOffset > 0.0) {
+      final bool shouldDismissByOffset =
+          _dragOffset >= _dismissDistancePx(context);
+      if (shouldDismissByOffset) {
+        if (_dragResetController.isAnimating) {
+          _dragResetController.stop();
+        }
+        _isDismissing = true;
+        Navigator.of(context).maybePop();
+      } else {
+        // Snap back immediately since we may have suppressed scroll notifications.
+        _animateDragOffsetToZero();
       }
-      _isDismissing = true;
-      Navigator.of(context).maybePop();
-    } else {
-      // Defer decision to ScrollEndNotification to consider velocity.
-      // Do not snap back here to avoid conflicting animations.
     }
     _pullDownAccumulated = 0.0;
     _isPointerDown = false;
+    _isDraggingSheetViaPointer = false;
+    _activePointerId = null;
+    _lastPointerY = null;
   }
 
   bool _handleBodyScrollNotification(ScrollNotification notification) {
@@ -193,6 +202,11 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
           // No snap while finger held
         } else if (delta > 0 && _dragOffset > 0) {
           // Pushing up while offset is applied: reduce offset
+          // Keep inner content pinned at the top while we track the finger back up.
+          if (_bodyScrollController.hasClients &&
+              _bodyScrollController.position.pixels != 0.0) {
+            _bodyScrollController.jumpTo(0.0);
+          }
           setState(() {
             _dragOffset = math.max(0.0, _dragOffset - delta);
           });
@@ -437,12 +451,62 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       constraints: BoxConstraints(maxHeight: maxSheetHeight),
       child: Listener(
         behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) {
+        onPointerDown: (e) {
           _isPointerDown = true;
+          _isDraggingSheetViaPointer = false;
+          _activePointerId = e.pointer;
+          _lastPointerY = e.position.dy;
           if (_dragResetController.isAnimating) {
             _dragResetController.stop();
           }
           _snapBackDebounce?.cancel();
+        },
+        onPointerMove: (e) {
+          if (_isDismissing) return;
+          if (_activePointerId == null || e.pointer != _activePointerId) return;
+          if (_lastPointerY == null) {
+            _lastPointerY = e.position.dy;
+            return;
+          }
+          final dy = e.position.dy - _lastPointerY!;
+          _lastPointerY = e.position.dy;
+          if (dy == 0) return;
+          final bool isAtTop = !_bodyScrollController.hasClients ||
+              _bodyScrollController.position.pixels <= 0;
+
+          // Capture downward drags at top to move the whole sheet.
+          if (dy > 0 && isAtTop) {
+            if (_dragResetController.isAnimating) {
+              _dragResetController.stop();
+            }
+            _isDraggingSheetViaPointer = true;
+            if (_bodyScrollController.hasClients &&
+                _bodyScrollController.position.pixels != 0.0) {
+              _bodyScrollController.jumpTo(0.0);
+            }
+            setState(() {
+              _dragOffset = math.max(0.0, _dragOffset + dy);
+            });
+            return;
+          }
+
+          // While the sheet is offset, reversing upward should reduce the offset first.
+          if (dy < 0 && _dragOffset > 0) {
+            if (_dragResetController.isAnimating) {
+              _dragResetController.stop();
+            }
+            if (_bodyScrollController.hasClients &&
+                _bodyScrollController.position.pixels != 0.0) {
+              _bodyScrollController.jumpTo(0.0);
+            }
+            final double newOffset = math.max(0.0, _dragOffset + dy);
+            final bool willReleaseToContent = newOffset == 0.0;
+            setState(() {
+              _isDraggingSheetViaPointer = !willReleaseToContent;
+              _dragOffset = newOffset;
+            });
+            return;
+          }
         },
         onPointerUp: (_) => _handlePointerUpOrCancel(),
         onPointerCancel: (_) => _handlePointerUpOrCancel(),
@@ -495,9 +559,12 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                   onNotification: _handleBodyScrollNotification,
                   child: SingleChildScrollView(
                     controller: _bodyScrollController,
-                    physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
-                    ),
+                    physics: (_isDraggingSheetViaPointer ||
+                            (_dragOffset > 0 && _isPointerDown))
+                        ? const NeverScrollableScrollPhysics()
+                        : const BouncingScrollPhysics(
+                            parent: AlwaysScrollableScrollPhysics(),
+                          ),
                     child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
