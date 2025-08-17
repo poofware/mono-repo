@@ -1,0 +1,6 @@
+---
+description: Always include AGENT.md for this project
+alwaysApply: true
+---
+
+@AGENT.md

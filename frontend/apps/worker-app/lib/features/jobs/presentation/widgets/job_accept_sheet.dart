@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 // worker-app/lib/features/jobs/presentation/widgets/job_accept_sheet.dart
 // worker-app/lib/features/jobs/presentation/widgets/job_accept_sheet.dart
 //
@@ -14,6 +15,7 @@
 // Sheet now closes only if the accepted job was the last available instance in the group.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
@@ -34,12 +36,21 @@ class JobAcceptSheet extends ConsumerStatefulWidget {
   ConsumerState<JobAcceptSheet> createState() => _JobAcceptSheetState();
 }
 
-class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
+class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
+    with SingleTickerProviderStateMixin {
   late DateTime _carouselInitialDate;
   JobInstance? _selectedInstance;
   bool _isAccepting = false;
   final ScrollController _bodyScrollController = ScrollController();
   bool _isDismissing = false;
+  double _pullDownAccumulated = 0.0;
+  static const double _dismissDragDistance = 64.0; // logical px
+  static const double _dismissFlingVelocity = 900.0; // px/sec
+  double _dragOffset = 0.0; // interactive visual offset for the whole sheet
+  late final AnimationController _dragResetController;
+  Animation<double>? _dragResetAnimation;
+  bool _isPointerDown = false;
+  bool _snapBackScheduled = false;
 
   @override
   void initState() {
@@ -51,6 +62,24 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
       final rep = widget.definition.instances.first;
       JobMapCache.cancelEvict(rep.instanceId);
     }
+    _dragResetController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    )..addListener(() {
+        if (!mounted) return;
+        final value = _dragResetAnimation?.value ?? 0.0;
+        setState(() => _dragOffset = value);
+      })
+      ..addStatusListener((status) {
+        if (!mounted) return;
+        if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
+          // Ensure we end exactly at zero; prevents half-open residue.
+          if (_dragOffset != 0.0) {
+            setState(() => _dragOffset = 0.0);
+          }
+          _snapBackScheduled = false;
+        }
+      });
   }
 
   @override
@@ -61,31 +90,115 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
       final rep = widget.definition.instances.first;
       JobMapCache.scheduleEvict(rep.instanceId);
     }
+    _dragResetController.dispose();
     super.dispose();
+  }
+
+  void _animateDragOffsetToZero() {
+    if (_dragOffset == 0.0) return;
+    final begin = _dragOffset;
+    _dragResetAnimation = Tween<double>(
+      begin: begin,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _dragResetController,
+      curve: Curves.easeOutCubic,
+    ));
+    // Start the animation on the next frame to avoid setState during layout.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _dragResetController.stop();
+      _dragResetController.value = 0.0;
+      _dragResetController.forward();
+    });
+  }
+
+  void _handlePointerUpOrCancel() {
+    if (!mounted || _isDismissing) return;
+    if (_dragOffset <= 0.0) return;
+    final bool shouldDismiss = _dragOffset >= _dismissDragDistance;
+    if (shouldDismiss) {
+      _isDismissing = true;
+      Navigator.of(context).maybePop();
+    } else {
+      _animateDragOffsetToZero();
+    }
+    _pullDownAccumulated = 0.0;
+    _isPointerDown = false;
   }
 
   bool _handleBodyScrollNotification(ScrollNotification notification) {
     if (_isDismissing) return false;
 
-    final bool isAtTop = !_bodyScrollController.hasClients ||
-        _bodyScrollController.position.pixels <= 0;
-
-    // iOS-style bounce overscroll
-    if (notification is OverscrollNotification) {
-      if (isAtTop && notification.overscroll < 0) {
-        _isDismissing = true;
-        Navigator.of(context).maybePop();
-        return true;
+    // Stop any ongoing reset animation at the start of a new user drag.
+    if (notification is ScrollStartNotification) {
+      if (_dragResetController.isAnimating) {
+        _dragResetController.stop();
       }
     }
 
-    // Android clamping: detect downward updates at top
+    final bool isAtTop = !_bodyScrollController.hasClients ||
+        _bodyScrollController.position.pixels <= 0;
+
+    // iOS-style bounce overscroll accumulates distance while pulling down.
+    if (notification is OverscrollNotification) {
+      if (isAtTop && notification.overscroll < 0) {
+        final delta = -notification.overscroll;
+        _pullDownAccumulated += delta;
+        // Move the whole sheet down with the finger.
+        _dragResetController.stop();
+        setState(() {
+          _dragOffset = math.max(0.0, _dragOffset + delta);
+        });
+        return false; // keep bounce behavior
+      }
+    }
+
+    // Android clamping: accumulate downward delta at top.
     if (notification is ScrollUpdateNotification) {
       final double? delta = notification.scrollDelta;
-      if (isAtTop && (delta != null) && delta < 0) {
+      if (isAtTop && (delta != null)) {
+        if (delta < 0) {
+          // Pulling down
+          final d = -delta;
+          _pullDownAccumulated += d;
+          _dragResetController.stop();
+          setState(() {
+            _dragOffset = math.max(0.0, _dragOffset + d);
+          });
+        } else if (delta > 0 && _dragOffset > 0) {
+          // Pushing up while offset is applied: reduce offset
+          setState(() {
+            _dragOffset = math.max(0.0, _dragOffset - delta);
+          });
+        }
+        return false;
+      } else if (!isAtTop && _dragOffset != 0.0) {
+        // If we are no longer at top, ensure offset resets
+        setState(() => _dragOffset = 0.0);
+      }
+    }
+
+    // Decide on end of drag (or ballistic stop).
+    if (notification is ScrollEndNotification) {
+      final double velocityY = notification.dragDetails?.velocity.pixelsPerSecond.dy ?? 0.0;
+      final bool passedDistance = _pullDownAccumulated >= _dismissDragDistance;
+      final bool passedVelocity = velocityY >= _dismissFlingVelocity;
+      if (isAtTop && (passedDistance || passedVelocity)) {
         _isDismissing = true;
         Navigator.of(context).maybePop();
-        return true;
+      } else {
+        _animateDragOffsetToZero();
+      }
+      _pullDownAccumulated = 0.0;
+      return false;
+    }
+
+    // Reset accumulation when scrolling up away from the top.
+    if (notification is ScrollUpdateNotification) {
+      final double? delta = notification.scrollDelta;
+      if (delta != null && delta > 0) {
+        _pullDownAccumulated = 0.0;
       }
     }
 
@@ -280,9 +393,27 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
     // Sheet height constraint (original behavior)
     final double maxSheetHeight = screenHeight * 0.95;
 
+    // Safety: if somehow offset is left > 0 without active drag or animation, schedule snap-back
+    if (!_isPointerDown && _dragOffset > 0.0 && !_dragResetController.isAnimating && !_isDismissing && !_snapBackScheduled) {
+      _snapBackScheduled = true;
+      _animateDragOffsetToZero();
+    }
+
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxSheetHeight),
-      child: Container(
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) {
+          _isPointerDown = true;
+          if (_dragResetController.isAnimating) {
+            _dragResetController.stop();
+          }
+        },
+        onPointerUp: (_) => _handlePointerUpOrCancel(),
+        onPointerCancel: (_) => _handlePointerUpOrCancel(),
+        child: Transform.translate(
+          offset: Offset(0, _dragOffset),
+          child: Container(
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -329,6 +460,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
                   onNotification: _handleBodyScrollNotification,
                   child: SingleChildScrollView(
                     controller: _bodyScrollController,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
                     child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -477,7 +611,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet> {
             ),
           ],
           ),
+          ),
         ),
+      ),
     );
   }
 
