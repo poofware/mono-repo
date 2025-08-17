@@ -7,7 +7,7 @@ import 'job_accept_sheet.dart';
 // import 'snappy_scroll_physics.dart'; // REMOVED SnappyScrollPhysics
 
 /// A horizontally-scrolling page-style carousel of [DefinitionGroup] cards.
-class JobDefinitionCarousel extends StatelessWidget {
+class JobDefinitionCarousel extends StatefulWidget {
   final List<DefinitionGroup> definitions;
   final ValueChanged<int>? onPageChanged;
   final PageController? pageController;
@@ -22,9 +22,61 @@ class JobDefinitionCarousel extends StatelessWidget {
   });
 
   @override
+  State<JobDefinitionCarousel> createState() => _JobDefinitionCarouselState();
+}
+
+class _JobDefinitionCarouselState extends State<JobDefinitionCarousel> {
+  late final PageController _controller;
+  late final bool _ownsController;
+  bool _isScrolling = false;
+  VoidCallback? _scrollingListener;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.pageController != null) {
+      _controller = widget.pageController!;
+      _ownsController = false;
+    } else {
+      _controller = PageController(viewportFraction: widget.viewportFraction);
+      _ownsController = true;
+    }
+    // Bind after first layout so position is available.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bindScrollNotifier());
+  }
+
+  void _bindScrollNotifier() {
+    if (!_controller.hasClients) return;
+    if (_scrollingListener != null) {
+      _controller.position.isScrollingNotifier
+          .removeListener(_scrollingListener!);
+    }
+    _scrollingListener = () {
+      final current = _controller.position.isScrollingNotifier.value;
+      // Buffer updates to next frame to avoid scheduling builds mid-layout.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _isScrolling = current);
+      });
+    };
+    _controller.position.isScrollingNotifier.addListener(_scrollingListener!);
+    // Seed local state without forcing an immediate rebuild.
+    _isScrolling = _controller.position.isScrollingNotifier.value;
+  }
+
+  @override
+  void dispose() {
+    if (_scrollingListener != null && _controller.hasClients) {
+      _controller.position.isScrollingNotifier
+          .removeListener(_scrollingListener!);
+    }
+    if (_ownsController) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final effectiveController =
-        pageController ?? PageController(viewportFraction: viewportFraction);
 
     void openSheetFor(DefinitionGroup def) {
       showModalBottomSheet(
@@ -48,7 +100,7 @@ class JobDefinitionCarousel extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final vf = effectiveController.viewportFraction;
+        final vf = _controller.viewportFraction;
         final sideGutter = (1 - vf) * width / 2;
 
         return SizedBox(
@@ -56,71 +108,84 @@ class JobDefinitionCarousel extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              PageView.builder(
-                controller: effectiveController,
+              PageView.custom(
+                controller: _controller,
                 physics: const PageScrollPhysics(),
-                itemCount: definitions.length,
-                onPageChanged: onPageChanged,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: CarouselDefinitionCard(
-                      definition: definitions[index],
-                      onTap: () => openSheetFor(definitions[index]),
-                    ),
-                  );
+                onPageChanged: (index) {
+                  // Only propagate page changes that occur due to user scroll.
+                  if (_isScrolling) {
+                    widget.onPageChanged?.call(index);
+                  }
                 },
+                childrenDelegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final def = widget.definitions[index];
+                    return Padding(
+                      key: ValueKey(def.definitionId),
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: CarouselDefinitionCard(
+                        definition: def,
+                        onTap: () => openSheetFor(def),
+                      ),
+                    );
+                  },
+                  childCount: widget.definitions.length,
+                  findChildIndexCallback: (Key key) {
+                    final value = key is ValueKey ? key.value : null;
+                    if (value is String) {
+                      final i = widget.definitions
+                          .indexWhere((d) => d.definitionId == value);
+                      return i == -1 ? null : i;
+                    }
+                    return null;
+                  },
+                ),
               ),
               // Transparent tap overlay to allow single-tap during ballistic scrolls
               Builder(
                 builder: (context) {
-                  if (!effectiveController.hasClients) {
+                  if (!_controller.hasClients) {
                     return const SizedBox.shrink();
                   }
-                  return ValueListenableBuilder<bool>(
-                    valueListenable: effectiveController.position.isScrollingNotifier,
-                    builder: (context, isScrolling, _) {
-                      return IgnorePointer(
-                        ignoring: !isScrolling,
-                        child: GestureDetector(
+                  return IgnorePointer(
+                    ignoring: !_isScrolling,
+                    child: GestureDetector(
                           behavior: HitTestBehavior.translucent,
                           onTapUp: (details) {
-                            if (definitions.isEmpty) return;
+                            if (widget.definitions.isEmpty) return;
                             final dx = details.localPosition.dx;
 
-                            final p = effectiveController.page ??
-                                effectiveController.initialPage.toDouble();
+                            final p = _controller.page ??
+                                _controller.initialPage.toDouble();
                             int currentIndex =
-                                p.round().clamp(0, definitions.length - 1);
+                                p.round().clamp(0, widget.definitions.length - 1);
 
                             int targetIndex = currentIndex;
                             if (dx <= sideGutter) {
                               targetIndex = (currentIndex - 1)
-                                  .clamp(0, definitions.length - 1);
+                                  .clamp(0, widget.definitions.length - 1);
                             } else if (dx >= width - sideGutter) {
                               targetIndex = (currentIndex + 1)
-                                  .clamp(0, definitions.length - 1);
+                                  .clamp(0, widget.definitions.length - 1);
                             }
 
                             // Snap the carousel to the tapped card for visual consistency
-                            if (effectiveController.hasClients) {
+                            if (_controller.hasClients) {
                               try {
-                                effectiveController.animateToPage(
+                                _controller.animateToPage(
                                   targetIndex,
                                   duration: const Duration(milliseconds: 180),
                                   curve: Curves.easeOut,
                                 );
                               } catch (_) {
                                 // Fallback if controller isn't ready
-                                effectiveController.jumpToPage(targetIndex);
+                                _controller.jumpToPage(targetIndex);
                               }
                             }
 
-                            openSheetFor(definitions[targetIndex]);
+                            openSheetFor(widget.definitions[targetIndex]);
                           },
                         ),
-                      );
-                    },
                   );
                 },
               ),

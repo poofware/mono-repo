@@ -28,11 +28,15 @@ class _ViewJobMapButtonState extends ConsumerState<ViewJobMapButton> {
     if (_isWarming || widget.job == null) return;
     setState(() => _isWarming = true);
     try {
-      // Warm + push without awaiting route so we can reset button immediately.
+      // Capture navigator BEFORE any awaits to avoid using context across async gaps.
+      final navigator = Navigator.of(context);
       await JobMapCache.warmMap(context, widget.job!);
       if (!mounted) return;
       setState(() => _isWarming = false);
-      await JobMapCache.showMapInstant(context, widget.job!);
+      if (!mounted) return;
+      // Fire-and-forget using captured navigator.
+      // ignore: unawaited_futures
+      JobMapCache.showMapInstantWithNavigator(navigator, widget.job!);
       return;
     } finally {
       if (mounted) setState(() => _isWarming = false);

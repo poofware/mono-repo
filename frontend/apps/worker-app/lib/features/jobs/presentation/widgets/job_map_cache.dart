@@ -107,6 +107,26 @@ class JobMapCache {
     navigator.push(route);
   }
 
+  /// Variant that avoids using a [BuildContext] in the caller after an async gap.
+  /// Capture the [NavigatorState] before awaiting, then call this method.
+  static Future<void> showMapInstantWithNavigator(
+    NavigatorState navigator,
+    JobInstance job,
+  ) async {
+    final String id = job.instanceId;
+    cancelEvict(id);
+    // Ensure warmed using the navigator's context for overlay access
+    final mapPage = await warmMap(navigator.context, job);
+    // Detach current hidden overlay before pushing
+    final oldEntry = _entries[id];
+    if (oldEntry != null && oldEntry.mounted) oldEntry.remove();
+    _entries.remove(id);
+    // Push and return immediately
+    final route = CachedMapPopupRoute(mapPage: mapPage, instanceId: id);
+    // ignore: unawaited_futures
+    navigator.push(route);
+  }
+
   static void cancelEvict(String id) {
     _evictTimers[id]?.cancel();
     _evictTimers.remove(id);

@@ -783,20 +783,7 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
-  void _syncCarouselPage(List<DefinitionGroup> defs) {
-    if (!mounted) return;
-    final selectedId = _selectedDefId();
-    if (selectedId == null ||
-        !_carouselPageController.hasClients ||
-        defs.isEmpty) {
-      return;
-    }
-    final idx = defs.indexWhere((d) => d.definitionId == selectedId);
-    if (idx != -1 && _carouselPageController.page?.round() != idx) {
-      _ignoreNextPageChange = true;
-      _carouselPageController.jumpToPage(idx);
-    }
-  }
+  // Removed legacy per-frame page sync; selection listener now handles this.
 
   // Listener for sheet size changes; also handles hiding the search bar.
   void _onSheetSizeChanged() {
@@ -905,13 +892,42 @@ class _HomePageState extends ConsumerState<HomePage>
       _updateMarkerCacheForAllDefsThrottled();
     });
 
+    // Keep the visible carousel page aligned to the current selection whenever
+    // the carousel's ordering changes (e.g., as pages load or sorts update).
+    ref.listen<List<DefinitionGroup>>(carouselDefinitionsProvider, (
+      previous,
+      next,
+    ) {
+      final selectedId = ref.read(selectedDefinitionIdProvider);
+      if (selectedId == null || !_carouselPageController.hasClients) return;
+      final idx = next.indexWhere((d) => d.definitionId == selectedId);
+      if (idx != -1 && _carouselPageController.page?.round() != idx) {
+        _ignoreNextPageChange = true;
+        _carouselPageController.jumpToPage(idx);
+      }
+    });
+
     ref.listen<String?>(selectedDefinitionIdProvider, (
       previousSelectedId,
       newSelectedId,
     ) {
+      // Keep marker highlight in sync
       ref
           .read(jobMarkerCacheProvider.notifier)
           .updateSelection(newSelectedId, previousSelectedId);
+
+      // Also keep the carousel page aligned to the selected definition, but
+      // only when an actual selection change occurs.
+      if (newSelectedId != null && _carouselPageController.hasClients) {
+        final defsForSync = ref.read(carouselDefinitionsProvider);
+        final targetIdx =
+            defsForSync.indexWhere((d) => d.definitionId == newSelectedId);
+        if (targetIdx != -1 &&
+            _carouselPageController.page?.round() != targetIdx) {
+          _ignoreNextPageChange = true;
+          _carouselPageController.jumpToPage(targetIdx);
+        }
+      }
     });
 
     final jobsState = ref.watch(jobsNotifierProvider);
@@ -930,17 +946,21 @@ class _HomePageState extends ConsumerState<HomePage>
 
     if ((openJobsListActuallyChanged || isFirstTimeLoadingJobs) &&
         newOpenJobs.isNotEmpty) {
-      final currentCarouselDefsForRecenter = ref.read(
-        carouselDefinitionsProvider,
-      );
-      if (currentCarouselDefsForRecenter.isNotEmpty) {
+      // Choose initial selection from the distance-sorted filtered list (closest first)
+      final distanceSortedDefs = ref.read(filteredDefinitionsProvider);
+      if (distanceSortedDefs.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             // Auto-select first def and ensure overlay appears immediately
-            final firstDef = currentCarouselDefsForRecenter.first;
+            final firstDef = distanceSortedDefs.first;
+            // Find its index in the carousel ordering to align the page.
+            final carouselDefsNow = ref.read(carouselDefinitionsProvider);
+            final idxInCarousel = carouselDefsNow
+                .indexWhere((d) => d.definitionId == firstDef.definitionId);
+            final safeIdx = idxInCarousel == -1 ? 0 : idxInCarousel;
             _selectDefinition(
               firstDef,
-              0,
+              safeIdx,
               fromUserInteraction: false,
               animateMap: true,
             );
@@ -1047,9 +1067,9 @@ class _HomePageState extends ConsumerState<HomePage>
     _cachedMinSheetSize = minSheetSize;
     _cachedMaxSheetSize = maxSheetSize;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncCarouselPage(carouselDefs);
-    });
+    // Removed automatic per-frame page syncing. With stable PageView keys,
+    // the currently visible item remains stable across reorders. Page moves
+    // now happen only in response to selection changes above.
 
     return Scaffold(
       key: _scaffoldKey,

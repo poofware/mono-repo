@@ -39,6 +39,8 @@ class DateCarousel extends StatefulWidget {
 
 class _DateCarouselState extends State<DateCarousel> {
   late final ScrollController _scrollController;
+  bool _isScrolling = false;
+  VoidCallback? _scrollingListener;
 
   static const double _cardWidth = 80.0;
   static const double _cardSpacing = 8.0;
@@ -47,15 +49,19 @@ class _DateCarouselState extends State<DateCarousel> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-
-    // Scroll to the selected day if it's in the date list
+    // Bind notifier and then perform initial scroll in the next frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bindScrollNotifier();
       _scrollToSelectedDay(widget.selectedDate, animate: false);
     });
   }
 
   @override
   void dispose() {
+    if (_scrollingListener != null && _scrollController.hasClients) {
+      _scrollController.position.isScrollingNotifier
+          .removeListener(_scrollingListener!);
+    }
     _scrollController.dispose();
     super.dispose();
   }
@@ -99,6 +105,24 @@ class _DateCarouselState extends State<DateCarousel> {
     }
   }
 
+  void _bindScrollNotifier() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollingListener != null) {
+      _scrollController.position.isScrollingNotifier
+          .removeListener(_scrollingListener!);
+    }
+    _scrollingListener = () {
+      final current = _scrollController.position.isScrollingNotifier.value;
+      // Defer state change to post-frame to avoid mid-layout builds.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _isScrolling = current);
+      });
+    };
+    _scrollController.position.isScrollingNotifier
+        .addListener(_scrollingListener!);
+    _isScrolling = _scrollController.position.isScrollingNotifier.value;
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -127,33 +151,28 @@ class _DateCarouselState extends State<DateCarousel> {
               if (!_scrollController.hasClients) {
                 return const SizedBox.shrink();
               }
-              return ValueListenableBuilder<bool>(
-                valueListenable: _scrollController.position.isScrollingNotifier,
-                builder: (context, isScrolling, _) {
-                  return IgnorePointer(
-                    ignoring: !isScrolling,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTapUp: (details) {
-                        if (!_scrollController.hasClients) return;
-                        // Stop the ongoing ballistic scroll for a crisp selection
-                        try {
-                          _scrollController.jumpTo(_scrollController.offset);
-                        } catch (_) {}
+              return IgnorePointer(
+                ignoring: !_isScrolling,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTapUp: (details) {
+                    if (!_scrollController.hasClients) return;
+                    // Stop the ongoing ballistic scroll for a crisp selection
+                    try {
+                      _scrollController.jumpTo(_scrollController.offset);
+                    } catch (_) {}
 
-                        final tapX = details.localPosition.dx;
-                        final absoluteX = _scrollController.offset + tapX - widget.leftPadding;
-                        final double itemWidth = _cardWidth + _cardSpacing;
-                        int tappedIndex = (absoluteX / itemWidth).floor();
-                        tappedIndex = tappedIndex.clamp(0, widget.availableDates.length - 1);
-                        final tappedDay = widget.availableDates[tappedIndex];
-                        final isEnabled = widget.isDayEnabled?.call(tappedDay) ?? true;
-                        if (!isEnabled) return;
-                        widget.onDateSelected(tappedDay);
-                      },
-                    ),
-                  );
-                },
+                    final tapX = details.localPosition.dx;
+                    final absoluteX = _scrollController.offset + tapX - widget.leftPadding;
+                    final double itemWidth = _cardWidth + _cardSpacing;
+                    int tappedIndex = (absoluteX / itemWidth).floor();
+                    tappedIndex = tappedIndex.clamp(0, widget.availableDates.length - 1);
+                    final tappedDay = widget.availableDates[tappedIndex];
+                    final isEnabled = widget.isDayEnabled?.call(tappedDay) ?? true;
+                    if (!isEnabled) return;
+                    widget.onDateSelected(tappedDay);
+                  },
+                ),
               );
             },
           ),
