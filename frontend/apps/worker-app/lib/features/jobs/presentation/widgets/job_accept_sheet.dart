@@ -221,8 +221,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       _dismissOverlayEntry = OverlayEntry(
         maintainState: false,
         builder: (ctx) {
-          return AbsorbPointer(
-            absorbing: true,
+          return IgnorePointer(
+            ignoring: true,
             child: AnimatedBuilder(
               animation: animation,
               builder: (BuildContext context, Widget? child) {
@@ -544,10 +544,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cardColor = theme.cardColor;
-    final screenHeight = MediaQuery.of(context).size.height;
     final appLocalizations = AppLocalizations.of(context);
     final mediaQueryPadding = MediaQuery.of(context).padding;
-    final mq = MediaQuery.of(context);
     // Revert: remove dynamic bottom gap behavior
 
     final currentOpenJobs = ref.watch(
