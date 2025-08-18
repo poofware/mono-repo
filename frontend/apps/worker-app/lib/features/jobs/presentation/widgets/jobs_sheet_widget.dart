@@ -245,6 +245,11 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                   /* ── Header (drag handle, title, controls) ── */
                   GestureDetector(
                     behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      if (widget.searchFocusNode.hasFocus) {
+                        widget.searchFocusNode.unfocus();
+                      }
+                    },
                     onVerticalDragUpdate: _onDragUpdate,
                     onVerticalDragEnd: _onDragEnd,
                     child: Column(
