@@ -9,13 +9,12 @@ alwaysApply: true
 # Non‑negotiables (enforced every chat)
 
 * Treat this document as the authoritative operating protocol for the Agent in this repo.
-* Show a **diff preview and request confirmation before making any code change** (see §11).
-* **Never** run Git operations or touch repo settings (see §10).
+* After making code edits, ALWAYS validate them through one of the methods below. Default to static analysis with staticcheck/go vet/flutter analyze as shown below unless told otherwise.
+* **Never** run write Git operations or touch repo settings (see §10).
 * **Migrations:** modify the **latest migration file in place**; **never** create a new one; **never** run migration/DB commands or connect to databases (see §3 ▸ Agent‑Specific Migration Guidelines).
 * **Secrets:** do not call `bws` directly; rely on Makefiles/Dockerfiles to fetch secrets via `BWS_ACCESS_TOKEN` (see §3).
 * **Logging:** tee outputs to log files named `<model-name>-*.log` as specified (see §9).
 * Prefer **integration tests**; keep unit tests out for now (see §4.1, §5.1).
-* Respect `ENV`, `AUTO_LAUNCH_BACKEND`, and `PARA_DEPS` semantics (see §3).
 * When unsure about environment or safety, ask for clarification **before** executing risky operations.
 
 ---
