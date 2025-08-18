@@ -204,12 +204,13 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       _dismissOverlayController?.dispose();
       _dismissOverlayController = AnimationController(vsync: this);
       final screenHeight = MediaQuery.of(context).size.height;
-      // Derive duration from velocity, clamp to a pleasing range
+      // Derive duration from velocity, clamp to a slightly slower, pleasing range
       final double v = releaseVelocityY.isFinite ? releaseVelocityY.abs() : 0.0;
       final double effectiveV = v > 0.0 ? v : _dismissFlingVelocity;
       double durationMs = (screenHeight / (effectiveV + 300.0)) * 1000.0;
-      if (durationMs < 140.0) durationMs = 140.0;
-      if (durationMs > 260.0) durationMs = 260.0;
+      durationMs *= 1.12; // tiny slow-down for a less "vanishy" feel
+      if (durationMs < 160.0) durationMs = 160.0; // was 140ms
+      if (durationMs > 280.0) durationMs = 280.0; // was 260ms
       _dismissOverlayController!.duration = Duration(milliseconds: durationMs.round());
 
       final animation = CurvedAnimation(
@@ -418,7 +419,14 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   }
 
   void _updateSelectedInstance(DateTime day) {
-    final match = widget.definition.instances.where(
+    // Use live definition data so newly paginated instances are included
+    final currentOpenJobs = ref.read(jobsNotifierProvider).openJobs;
+    final currentDefinitionGroups = groupOpenJobs(currentOpenJobs);
+    final liveDefinition = currentDefinitionGroups.firstWhere(
+      (dg) => dg.definitionId == widget.definition.definitionId,
+      orElse: () => widget.definition,
+    );
+    final match = liveDefinition.instances.where(
       (inst) => _isSameDate(parseYmd(inst.serviceDate), day),
     );
     _selectedInstance = match.isEmpty ? null : match.first;
@@ -841,6 +849,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                                   _DefinitionStatTiles(
                                     definition: liveDefinition,
                                     appLocalizations: appLocalizations,
+                                    selectedInstance: _selectedInstance,
                                     showAvgPay: _selectedInstance == null,
                                     showAvgTime: _selectedInstance == null,
                                   ),
@@ -892,14 +901,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                                   textAlign: TextAlign.center,
                                 ),
                               )
-                            : _InstanceDetails(
-                                key: ValueKey(_selectedInstance!.instanceId),
-                                instance: _selectedInstance!,
-                                appLocalizations: appLocalizations,
-                              ),
+                            : const SizedBox.shrink(),
                       ),
-                      if (_selectedInstance != null)
-                        const SizedBox(height: 16),
+                      // No extra bottom card; keep layout compact
                     ],
                     ),
                   ),
@@ -943,57 +947,19 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
 
 }
 
-class _InstanceDetails extends StatelessWidget {
-  final JobInstance instance;
-  final AppLocalizations appLocalizations;
-
-  const _InstanceDetails({
-    super.key,
-    required this.instance,
-    required this.appLocalizations,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final payLabel = appLocalizations.acceptedJobsBottomSheetPayLabel;
-    final estTimeLabel = appLocalizations.jobAcceptSheetHeaderAvgCompletion;
-    return Card(
-        elevation: 2,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: _TwoColumnTiles(tiles: [
-            _TileData(
-              icon: Icons.attach_money,
-              label: payLabel,
-              value: '${instance.pay.toStringAsFixed(0)} USD',
-              color: Colors.green,
-            ),
-            _TileData(
-              icon: Icons.timer_outlined,
-              label: estTimeLabel,
-              value: instance.displayTime,
-            ),
-            // Definition-level stats omitted here to avoid redundancy
-            // Consolidated: Remove definition-level items from instance tiles
-          ]),
-        ),
-    );
-  }
-
-  // (removed) unused helper
-}
+// (removed) _InstanceDetails: merged into header tiles when a date is selected
 
 // Definition-level compact stats (base state)
 class _DefinitionStatTiles extends StatelessWidget {
   final DefinitionGroup definition;
   final AppLocalizations appLocalizations;
+  final JobInstance? selectedInstance;
   final bool showAvgPay;
   final bool showAvgTime;
   const _DefinitionStatTiles({
     required this.definition,
     required this.appLocalizations,
+    this.selectedInstance,
     this.showAvgPay = true,
     this.showAvgTime = true,
   });
@@ -1010,14 +976,27 @@ class _DefinitionStatTiles extends StatelessWidget {
     final bool isSingleBuilding = definition.instances.isNotEmpty &&
         definition.instances.every((i) => i.numberOfBuildings == 1);
     final tiles = <_TileData>[
-      if (showAvgPay)
+      if (selectedInstance != null)
+        _TileData(
+          icon: Icons.attach_money,
+          label: appLocalizations.acceptedJobsBottomSheetPayLabel,
+          value: '${selectedInstance!.pay.toStringAsFixed(0)} USD',
+          color: Colors.green,
+        )
+      else if (showAvgPay)
         _TileData(
           icon: Icons.attach_money,
           label: 'Avg Pay',
           value: '${definition.pay.toStringAsFixed(0)} USD',
           color: Colors.green,
         ),
-      if (showAvgTime)
+      if (selectedInstance != null)
+        _TileData(
+          icon: Icons.timer_outlined,
+          label: appLocalizations.jobAcceptSheetHeaderAvgCompletion,
+          value: selectedInstance!.displayTime,
+        )
+      else if (showAvgTime)
         _TileData(
           icon: Icons.timer_outlined,
           label: appLocalizations.jobAcceptSheetHeaderAvgCompletion,
