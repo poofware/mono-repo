@@ -39,6 +39,7 @@ class CarouselDefinitionCard extends StatelessWidget {
           isScrollControlled: true,
           enableDrag: false,
           useSafeArea: false, // Sheet manages its own safe area
+          useRootNavigator: true,
           backgroundColor: Colors.transparent,
           barrierColor: Colors.black.withValues(alpha: 0.0),
           builder: (BuildContext context) {

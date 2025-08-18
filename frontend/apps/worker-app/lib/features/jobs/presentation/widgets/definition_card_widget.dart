@@ -41,6 +41,7 @@ class DefinitionCard extends StatelessWidget {
           isScrollControlled: true,
           enableDrag: false,
           useSafeArea: true,
+          useRootNavigator: true,
           backgroundColor:
               Colors.transparent, // Sheet container will have its own color
           barrierColor:

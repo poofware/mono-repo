@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 import 'dart:async';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 // worker-app/lib/features/jobs/presentation/widgets/job_accept_sheet.dart
 // worker-app/lib/features/jobs/presentation/widgets/job_accept_sheet.dart
 //
@@ -30,7 +32,6 @@ import 'view_job_map_button.dart';
 
 class JobAcceptSheet extends ConsumerStatefulWidget {
   final DefinitionGroup definition;
-
   const JobAcceptSheet({super.key, required this.definition});
 
   @override
@@ -38,7 +39,8 @@ class JobAcceptSheet extends ConsumerStatefulWidget {
 }
 
 class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
+  final GlobalKey _sheetBoundaryKey = GlobalKey();
   late DateTime _carouselInitialDate;
   JobInstance? _selectedInstance;
   bool _isAccepting = false;
@@ -62,6 +64,12 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   Axis? _lockedPointerAxis;
   int? _lastPointerSampleMs;
   double _lastPointerVelocityY = 0.0;
+  bool _isAnimatingDismissOut = false;
+  bool _isRoutePopping = false;
+  bool _didRequestRoutePop = false;
+  Timer? _dismissSafetyTimer;
+  OverlayEntry? _dismissOverlayEntry;
+  AnimationController? _dismissOverlayController;
 
   @override
   void initState() {
@@ -84,10 +92,13 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       ..addStatusListener((status) {
         if (!mounted) return;
         if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
-          // Ensure we end exactly at zero; prevents half-open residue.
-          if (_dragOffset != 0.0) {
-            setState(() => _dragOffset = 0.0);
+          if (!_isAnimatingDismissOut) {
+            // Ensure we end exactly at zero; prevents half-open residue.
+            if (_dragOffset != 0.0) {
+              setState(() => _dragOffset = 0.0);
+            }
           }
+          _isAnimatingDismissOut = false;
         }
       });
   }
@@ -101,8 +112,25 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       JobMapCache.scheduleEvict(rep.instanceId);
     }
     _snapBackDebounce?.cancel();
+    _dismissSafetyTimer?.cancel();
+    try {
+      _dismissOverlayController?.dispose();
+    } catch (_) {}
+    try {
+      _dismissOverlayEntry?.remove();
+    } catch (_) {}
     _dragResetController.dispose();
     super.dispose();
+  }
+
+  void _requestPopOnce() {
+    if (_didRequestRoutePop) return;
+    _didRequestRoutePop = true;
+    try {
+      Navigator.of(context, rootNavigator: true).pop();
+    } catch (_) {
+      Navigator.of(context, rootNavigator: true).maybePop();
+    }
   }
 
   void _animateDragOffsetToZero() {
@@ -125,6 +153,86 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     });
   }
 
+  void _animateDismissWithVelocityAndPop(double releaseVelocityY) {
+    if (_isDismissing) return;
+    _isDismissing = true;
+    _dismissWithOverlay(releaseVelocityY);
+  }
+
+  Future<void> _dismissWithOverlay(double releaseVelocityY) async {
+    final BuildContext? boundaryContext = _sheetBoundaryKey.currentContext;
+    if (boundaryContext == null) {
+      if (mounted && !_isRoutePopping) setState(() => _isRoutePopping = true);
+      _requestPopOnce();
+      return;
+    }
+    ui.Image? image;
+    try {
+      final boundary = boundaryContext.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary != null) {
+        final dpr = MediaQuery.of(context).devicePixelRatio;
+        image = await boundary.toImage(pixelRatio: dpr);
+      }
+    } catch (_) {}
+
+    // Insert overlay with captured image (non-interactive), then pop route immediately.
+    if (mounted && !_isRoutePopping) setState(() => _isRoutePopping = true);
+
+    if (image != null && mounted) {
+      _dismissOverlayController?.dispose();
+      _dismissOverlayController = AnimationController(vsync: this);
+      final screenHeight = MediaQuery.of(context).size.height;
+      // Derive duration from velocity, clamp to a pleasing range
+      final double v = releaseVelocityY.isFinite ? releaseVelocityY.abs() : 0.0;
+      final double effectiveV = v > 0.0 ? v : _dismissFlingVelocity;
+      double durationMs = (screenHeight / (effectiveV + 300.0)) * 1000.0;
+      if (durationMs < 140.0) durationMs = 140.0;
+      if (durationMs > 260.0) durationMs = 260.0;
+      _dismissOverlayController!.duration = Duration(milliseconds: durationMs.round());
+
+      final animation = CurvedAnimation(
+        parent: _dismissOverlayController!,
+        curve: Curves.linearToEaseOut,
+      );
+
+      _dismissOverlayEntry?.remove();
+      _dismissOverlayEntry = OverlayEntry(
+        maintainState: false,
+        builder: (ctx) {
+          return AbsorbPointer(
+            absorbing: true,
+            child: AnimatedBuilder(
+              animation: animation,
+              builder: (_, __) {
+                final dy = animation.value * (screenHeight + 60.0);
+                return Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Transform.translate(
+                    offset: Offset(0, dy),
+                    child: RawImage(image: image),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      );
+      Overlay.of(context).insert(_dismissOverlayEntry!);
+    }
+
+    _requestPopOnce();
+
+    if (_dismissOverlayController != null) {
+      try {
+        await _dismissOverlayController!.forward();
+      } catch (_) {}
+      try {
+        _dismissOverlayEntry?.remove();
+        _dismissOverlayEntry = null;
+      } catch (_) {}
+    }
+  }
+
   double _dismissDistancePx(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final maxSheetHeight = screenHeight * 0.95; // match layout constraint
@@ -142,9 +250,12 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     final bool isAtTop = !_bodyScrollController.hasClients ||
         _bodyScrollController.position.pixels <= 0;
     final bool shouldDismissByVelocity =
-        isAtTop && _lastPointerVelocityY >= _dismissFlingVelocity;
+        isAtTop &&
+        _lockedPointerAxis != Axis.horizontal &&
+        _lastPointerVelocityY >= _dismissFlingVelocity;
     final bool shouldDismissByMicroFlick =
         isAtTop &&
+        _lockedPointerAxis != Axis.horizontal &&
         (_dragOffset >= _microDismissOffsetPx ||
             _pullDownAccumulated >= _microDismissOffsetPx) &&
         _lastPointerVelocityY >= _microDismissVelocity;
@@ -155,8 +266,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
         if (_dragResetController.isAnimating) {
           _dragResetController.stop();
         }
-        _isDismissing = true;
-        Navigator.of(context).maybePop();
+        _animateDismissWithVelocityAndPop(_lastPointerVelocityY);
       } else {
         // Snap back immediately since we may have suppressed scroll notifications.
         _animateDragOffsetToZero();
@@ -262,8 +372,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
         if (_dragResetController.isAnimating) {
           _dragResetController.stop();
         }
-        _isDismissing = true;
-        Navigator.of(context).maybePop();
+        _animateDismissWithVelocityAndPop(velocityY);
       } else {
         // Only snap back if finger is up and velocity is low.
         _snapBackDebounce?.cancel();
@@ -523,6 +632,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
             }
           }
           if (_lockedPointerAxis == Axis.horizontal) {
+            // Ensure horizontal swipes can't produce a stale vertical velocity.
+            _lastPointerVelocityY = 0.0;
             return;
           }
           if (dy == 0) return;
@@ -567,9 +678,13 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
         },
         onPointerUp: (_) => _handlePointerUpOrCancel(),
         onPointerCancel: (_) => _handlePointerUpOrCancel(),
-        child: Transform.translate(
-          offset: Offset(0, _dragOffset),
-          child: Container(
+        child: Opacity(
+          opacity: _isRoutePopping ? 0.0 : 1.0,
+          child: RepaintBoundary(
+            key: _sheetBoundaryKey,
+            child: Transform.translate(
+              offset: Offset(0, _dragOffset),
+              child: Container(
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -616,7 +731,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                   onNotification: _handleBodyScrollNotification,
                   child: SingleChildScrollView(
                     controller: _bodyScrollController,
-                    physics: (_isDraggingSheetViaPointer ||
+                    physics: (_isDismissing || _isDraggingSheetViaPointer ||
                             (_dragOffset > 0 && _isPointerDown))
                         ? const NeverScrollableScrollPhysics()
                         : const BouncingScrollPhysics(
@@ -770,7 +885,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
             ),
           ],
           ),
-          ),
+        ),
+      ),
+    ),
         ),
       ),
     );

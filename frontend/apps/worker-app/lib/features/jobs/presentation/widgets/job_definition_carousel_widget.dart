@@ -84,6 +84,7 @@ class _JobDefinitionCarouselState extends State<JobDefinitionCarousel> {
         isScrollControlled: true,
         enableDrag: false,
         useSafeArea: true,
+        useRootNavigator: true,
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.0),
         builder: (BuildContext context) {
