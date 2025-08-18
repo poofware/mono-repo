@@ -67,6 +67,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   Timer? _snapBackDebounce;
   // Pointer-driven capture to ensure reversing direction moves the sheet, not content.
   bool _isDraggingSheetViaPointer = false;
+  // Only allow sheet drag/dismiss if the gesture BEGAN at the top of the content
+  bool _gestureBeganAtTop = false;
+  bool _lastGestureBeganAtTop = false;
   int? _activePointerId;
   double? _lastPointerY;
   double? _lastPointerX;
@@ -285,11 +288,11 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
         !_bodyScrollController.hasClients ||
         _bodyScrollController.position.pixels <= 0;
     final bool shouldDismissByVelocity =
-        isAtTop &&
+        isAtTop && _gestureBeganAtTop &&
         _lockedPointerAxis != Axis.horizontal &&
         _lastPointerVelocityY >= _dismissFlingVelocity;
     final bool shouldDismissByMicroFlick =
-        isAtTop &&
+        isAtTop && _gestureBeganAtTop &&
         _lockedPointerAxis != Axis.horizontal &&
         (_dragOffset >= _microDismissOffsetPx ||
             _pullDownAccumulated >= _microDismissOffsetPx) &&
@@ -314,6 +317,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     _pullDownAccumulated = 0.0;
     _isPointerDown = false;
     _isDraggingSheetViaPointer = false;
+    // Capture the gesture-top state for any trailing scroll notifications,
+    // then clear the live flag.
+    _lastGestureBeganAtTop = _gestureBeganAtTop;
+    _gestureBeganAtTop = false;
     _activePointerId = null;
     _lastPointerY = null;
     _lastPointerX = null;
@@ -347,7 +354,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
 
     // iOS-style bounce overscroll accumulates distance while pulling down.
     if (notification is OverscrollNotification) {
-      if (isAtTop && notification.overscroll < 0) {
+      if (_lastGestureBeganAtTop && isAtTop && notification.overscroll < 0) {
         final delta = -notification.overscroll;
         _pullDownAccumulated += delta;
         // Move the whole sheet down with the finger.
@@ -366,7 +373,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     if (notification is ScrollUpdateNotification) {
       final double? delta = notification.scrollDelta;
       if (isAtTop && (delta != null)) {
-        if (delta < 0) {
+        if (_lastGestureBeganAtTop && delta < 0) {
           // Pulling down
           final d = -delta;
           _pullDownAccumulated += d;
@@ -377,7 +384,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
             _dragOffset = math.max(0.0, _dragOffset + d);
           });
           // No snap while finger held
-        } else if (delta > 0 && _dragOffset > 0) {
+        } else if (_lastGestureBeganAtTop && delta > 0 && _dragOffset > 0) {
           // Pushing up while offset is applied: reduce offset
           // Keep inner content pinned at the top while we track the finger back up.
           if (_bodyScrollController.hasClients &&
@@ -408,7 +415,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       final bool distanceByOffset = _dragOffset >= threshold;
       // If velocity alone triggers dismissal but offset is tiny, avoid visual snap-up.
       // In that case, keep the current offset and dismiss immediately.
-      if (isAtTop && (passedVelocity || passedDistance || distanceByOffset)) {
+      if (_lastGestureBeganAtTop && isAtTop && (passedVelocity || passedDistance || distanceByOffset)) {
         _snapBackDebounce?.cancel();
         if (_dragResetController.isAnimating) {
           _dragResetController.stop();
@@ -422,6 +429,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
         }
       }
       _pullDownAccumulated = 0.0;
+      // Clear the gesture gate at the end of this scroll sequence.
+      _lastGestureBeganAtTop = false;
       return false;
     }
 
@@ -644,6 +653,12 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
             _lockedPointerAxis = null;
             _lastPointerSampleMs = DateTime.now().millisecondsSinceEpoch;
             _lastPointerVelocityY = 0.0;
+            // Record whether this gesture started at content top
+            final bool isAtTopOnDown =
+                !_bodyScrollController.hasClients ||
+                _bodyScrollController.position.pixels <= 0;
+            _gestureBeganAtTop = isAtTopOnDown;
+            _lastGestureBeganAtTop = isAtTopOnDown;
             if (_dragResetController.isAnimating) {
               _dragResetController.stop();
             }
@@ -696,7 +711,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                 _bodyScrollController.position.pixels <= 0;
 
             // Capture downward drags at top to move the whole sheet.
-            if (dy > 0 && isAtTop) {
+            if (dy > 0 && isAtTop && _gestureBeganAtTop) {
               if (_dragResetController.isAnimating) {
                 _dragResetController.stop();
               }
