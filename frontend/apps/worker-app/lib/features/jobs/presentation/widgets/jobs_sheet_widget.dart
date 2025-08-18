@@ -240,7 +240,7 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
       initialChildSize: initialSize,
       minChildSize: widget.minChildSize,
       maxChildSize: widget.maxChildSize,
-      snap: true,
+      snap: false,
       snapSizes: widget.snapSizes,
       builder: (context, scrollController) {
         // Dummy scroller so the outer DraggableScrollableSheet works.

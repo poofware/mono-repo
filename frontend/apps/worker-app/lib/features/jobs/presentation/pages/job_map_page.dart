@@ -145,8 +145,8 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
   }
 
   Future<void> _waitUntilTilesRender(GoogleMapController controller) async {
-    // This logic is unchanged
-    final deadline = DateTime.now().add(const Duration(seconds: 3));
+    // Strengthen tile readiness for flaky Android devices
+    final deadline = DateTime.now().add(const Duration(seconds: 6));
     while (DateTime.now().isBefore(deadline)) {
       final bytes = await controller.takeSnapshot();
       if (bytes != null && bytes.isNotEmpty) {
@@ -168,47 +168,56 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      final GoogleMapController mapController =
-          await _internalMapController.future;
-      if (_savedCameraPosition != null) {
-        await mapController.moveCamera(
-          CameraUpdate.newCameraPosition(_savedCameraPosition!),
-        );
-        return;
-      }
-
       final bool isAlreadyWarmed =
           JobMapPage._warmedJobIds.contains(widget.job.instanceId);
-      if (_markers.isNotEmpty && (!isAlreadyWarmed || widget.isForWarmup)) {
-        final bounds = _calculateBounds();
-
-        if (widget.isForWarmup) {
+      try {
+        final GoogleMapController mapController =
+            await _internalMapController.future;
+        if (_savedCameraPosition != null) {
           await mapController.moveCamera(
-            CameraUpdate.newLatLngBounds(bounds, 60.0),
+            CameraUpdate.newCameraPosition(_savedCameraPosition!),
           );
-          await _waitUntilTilesRender(mapController);
-          await Future.delayed(const Duration(milliseconds: 300));
-          if (defaultTargetPlatform == TargetPlatform.android) {
-          }
-        } else {
-          await mapController.animateCamera(
-            CameraUpdate.newLatLngBounds(bounds, 60.0),
-          );
-          await Future.delayed(const Duration(milliseconds: 250));
+          return;
         }
 
-        final zoom = await mapController.getZoomLevel();
-        final center = LatLng(
-          (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
-          (bounds.northeast.longitude + bounds.southwest.longitude) / 2,
-        );
-        _savedCameraPosition = CameraPosition(target: center, zoom: zoom);
-      }
+        if (_markers.isNotEmpty && (!isAlreadyWarmed || widget.isForWarmup)) {
+          final bounds = _calculateBounds();
 
-      if (!isAlreadyWarmed) {
-        setState(() => _isMapReady = true);
-        JobMapPage._warmedJobIds.add(widget.job.instanceId);
-        widget.onReady?.call();
+          try {
+            if (widget.isForWarmup) {
+              await mapController.moveCamera(
+                CameraUpdate.newLatLngBounds(bounds, 60.0),
+              );
+              await _waitUntilTilesRender(mapController);
+            } else {
+              await mapController.animateCamera(
+                CameraUpdate.newLatLngBounds(bounds, 60.0),
+              );
+              await Future.delayed(const Duration(milliseconds: 250));
+            }
+          } catch (e, s) {
+            debugPrint('JobMapPage: camera update failed: $e\n$s');
+          }
+
+          try {
+            final zoom = await mapController.getZoomLevel();
+            final center = LatLng(
+              (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
+              (bounds.northeast.longitude + bounds.southwest.longitude) / 2,
+            );
+            _savedCameraPosition = CameraPosition(target: center, zoom: zoom);
+          } catch (e, s) {
+            debugPrint('JobMapPage: read zoom failed: $e\n$s');
+          }
+        }
+      } catch (e, s) {
+        debugPrint('JobMapPage: onMapCreated post-frame error: $e\n$s');
+      } finally {
+        if (mounted && !isAlreadyWarmed) {
+          setState(() => _isMapReady = true);
+          JobMapPage._warmedJobIds.add(widget.job.instanceId);
+          widget.onReady?.call();
+        }
       }
     });
   }

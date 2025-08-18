@@ -1,6 +1,7 @@
 // worker-app/lib/main/main.dart
 
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:flutter_flavor/flutter_flavor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -393,6 +394,11 @@ class _GlobalMapWarmUp extends ConsumerWidget {
   const _GlobalMapWarmUp();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (Platform.isAndroid) {
+      // Avoid keeping a second GoogleMap alive on Android; it can cause rendering
+      // conflicts/blank maps on some devices. iOS keeps the tiny warm-up.
+      return const SizedBox.shrink();
+    }
     final mainMapMounted = ref.watch(homeMapMountedProvider);
     if (mainMapMounted) return const SizedBox.shrink();
     final initialCam = ref.watch(initialBootCameraPositionProvider) ??

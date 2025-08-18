@@ -491,7 +491,7 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
                   .toDouble();
               return SizedBox(height: h, child: widget.preWarmedMap);
             }),
-            SizedBox.expand(
+            Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _openFullMap,
