@@ -41,6 +41,12 @@ class JobAcceptSheet extends ConsumerStatefulWidget {
 class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     with TickerProviderStateMixin {
   final GlobalKey _sheetBoundaryKey = GlobalKey();
+  // Track the date carousel's bounds to exclude it from background taps
+  final GlobalKey _carouselKey = GlobalKey();
+  // Exclude other tappable controls (e.g., map button)
+  final GlobalKey _viewMapButtonKey = GlobalKey();
+  bool _lastTapWasInsideCarousel = false;
+  bool _lastTapWasInsideExcluded = false;
   late DateTime _carouselInitialDate;
   JobInstance? _selectedInstance;
   bool _isAccepting = false;
@@ -101,6 +107,21 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
           _isAnimatingDismissOut = false;
         }
       });
+  }
+
+  bool _isGlobalPositionInside(GlobalKey key, Offset globalPosition) {
+    final RenderBox? box = key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return false;
+    final Offset topLeft = box.localToGlobal(Offset.zero);
+    final Rect rect = topLeft & box.size;
+    return rect.contains(globalPosition);
+  }
+
+  void _updateTapInsideCarouselFromGlobal(Offset globalPosition) {
+    final bool inCarousel = _isGlobalPositionInside(_carouselKey, globalPosition);
+    final bool inViewMap = _isGlobalPositionInside(_viewMapButtonKey, globalPosition);
+    _lastTapWasInsideCarousel = inCarousel;
+    _lastTapWasInsideExcluded = inCarousel || inViewMap;
   }
 
   @override
@@ -236,9 +257,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   double _dismissDistancePx(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final maxSheetHeight = screenHeight * 0.95; // match layout constraint
-    final raw = maxSheetHeight * 0.09; // 9% of sheet height (slightly less aggressive)
-    if (raw < 32.0) return 32.0;
-    if (raw > 80.0) return 80.0;
+    final raw = maxSheetHeight * 0.10; // 10% of sheet height (slightly less aggressive)
+    if (raw < 36.0) return 36.0;
+    if (raw > 84.0) return 84.0;
     return raw;
   }
 
@@ -696,9 +717,22 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTapDown: (details) {
+            _updateTapInsideCarouselFromGlobal(details.globalPosition);
+          },
+          onTap: () {
+            if (_lastTapWasInsideExcluded) return;
+            if (_selectedInstance != null) {
+              setState(() {
+                _selectedInstance = null;
+              });
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Header / Drag Handle
             Padding(
               padding: const EdgeInsets.only(top: 12.0),
@@ -719,8 +753,11 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
             Flexible(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
+                onTapDown: (details) {
+                  _updateTapInsideCarouselFromGlobal(details.globalPosition);
+                },
                 onTap: () {
-                  // Background tap clears selection when a date is selected
+                  if (_lastTapWasInsideCarousel) return;
                   if (_selectedInstance != null) {
                     setState(() {
                       _selectedInstance = null;
@@ -745,7 +782,14 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: GestureDetector(
-                          onTap: () {}, // swallow taps on the card body
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () {
+                            if (_selectedInstance != null) {
+                              setState(() {
+                                _selectedInstance = null;
+                              });
+                            }
+                          },
                           child: Card(
                             color: cardColor,
                             elevation: 0,
@@ -802,6 +846,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                                   ),
                                   const SizedBox(height: 12),
                                   ViewJobMapButton(
+                                    key: _viewMapButtonKey,
                                     job: liveDefinition.instances.isNotEmpty
                                         ? liveDefinition.instances.first
                                         : null,
@@ -817,6 +862,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                         // Consistent spacing after buildings/units info
                         padding: const EdgeInsets.only(top: 8),
                         child: DateCarousel(
+                          key: _carouselKey,
                           availableDates: carouselDates,
                           selectedDate: isCarouselDateActuallySelected
                               ? _carouselInitialDate
@@ -883,8 +929,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                     : _acceptSelectedInstance,
               ),
             ),
-          ],
+            ],
           ),
+        ),
         ),
       ),
     ),
@@ -910,9 +957,7 @@ class _InstanceDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final payLabel = appLocalizations.acceptedJobsBottomSheetPayLabel;
     final estTimeLabel = appLocalizations.jobAcceptSheetHeaderAvgCompletion;
-    return GestureDetector(
-      onTap: () {},
-      child: Card(
+    return Card(
         elevation: 2,
         margin: const EdgeInsets.symmetric(horizontal: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -934,7 +979,6 @@ class _InstanceDetails extends StatelessWidget {
             // Consolidated: Remove definition-level items from instance tiles
           ]),
         ),
-      ),
     );
   }
 

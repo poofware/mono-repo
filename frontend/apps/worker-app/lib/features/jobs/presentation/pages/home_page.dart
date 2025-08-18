@@ -1057,7 +1057,7 @@ class _HomePageState extends ConsumerState<HomePage>
 
     final screenHeight = MediaQuery.of(context).size.height;
     final minSheetSize = _computeMinSheetSize(context);
-    const maxSheetSize = 0.85;
+    const maxSheetSize = 0.95;
     final sheetSnapSizes = [minSheetSize, 0.4, maxSheetSize];
     final isOnline = jobsState.isOnline;
     final isTest = PoofWorkerFlavorConfig.instance.testMode;
