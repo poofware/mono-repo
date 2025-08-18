@@ -485,32 +485,36 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Stack(
           children: [
-            SizedBox(height: 180, child: widget.preWarmedMap),
-            Positioned.fill(
+            Builder(builder: (context) {
+              final h = (MediaQuery.of(context).size.width * 0.28)
+                  .clamp(140.0, 220.0)
+                  .toDouble();
+              return SizedBox(height: h, child: widget.preWarmedMap);
+            }),
+            SizedBox.expand(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _openFullMap,
-                child: const SizedBox.expand(),
+                child: const SizedBox.shrink(),
               ),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap:
-                    _openFullMap, // Add tap handler specifically for the button
-                child: Container(
-                  padding: const EdgeInsets.all(
-                    4,
-                  ), // Increased padding for a better tap target
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.open_in_full,
-                    color: Colors.white,
-                    size: 20,
+            Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: GestureDetector(
+                  onTap: _openFullMap,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.open_in_full,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
               ),

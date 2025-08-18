@@ -32,6 +32,7 @@ import 'package:poof_worker/features/jobs/providers/tap_ripple_provider.dart';
 import 'package:poof_worker/features/jobs/presentation/widgets/tap_ripple_overlay.dart';
 import 'package:poof_worker/core/providers/ui_messaging_provider.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
+// removed dynamic overlay provider usage
 
 /// ─────────────────────────────────────────────────────────────────────────
 ///  P R O V I D E R S (Jobs List Related)
@@ -159,6 +160,10 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  // Keys to measure overlay heights for dynamic max sheet size
+  final GlobalKey _goOnlineKey = GlobalKey();
+  final GlobalKey _menuButtonKey = GlobalKey();
+  final GlobalKey _locButtonKey = GlobalKey();
 
   // Reverted back to Flutter's native DraggableScrollableController
   final DraggableScrollableController _sheetController =
@@ -203,6 +208,7 @@ class _HomePageState extends ConsumerState<HomePage>
   // Cached sheet size bounds for fraction calculations
   double _cachedMinSheetSize = 0.0;
   double _cachedMaxSheetSize = 1.0;
+  // removed dynamic overlay/sheet metrics
 
   List<DefinitionGroup> _defs() => ref.read(carouselDefinitionsProvider);
   String? _selectedDefId() => ref.read(selectedDefinitionIdProvider);
@@ -227,6 +233,7 @@ class _HomePageState extends ConsumerState<HomePage>
           );
       _lastCameraMove = ref.read(currentMapCameraPositionProvider);
       _initializePage();
+      // removed dynamic overlay computation
     });
 
     _sheetController.addListener(_onSheetSizeChanged);
@@ -264,6 +271,8 @@ class _HomePageState extends ConsumerState<HomePage>
       // Ignore stream errors; on-demand fetch will handle errors.
     });
   }
+  // removed _recomputeOverlayConstraints
+
 
   CameraPosition _currentLiveCameraPos() =>
       ref.read(currentMapCameraPositionProvider);
@@ -865,6 +874,7 @@ class _HomePageState extends ConsumerState<HomePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // removed dynamic recompute
 
     // --- Post-Boot Error Listener ---
     ref.listen<List<Object>>(postBootErrorProvider, (previous, next) {
@@ -1057,7 +1067,9 @@ class _HomePageState extends ConsumerState<HomePage>
 
     final screenHeight = MediaQuery.of(context).size.height;
     final minSheetSize = _computeMinSheetSize(context);
-    const maxSheetSize = 0.95;
+    // Fallback guess until post-frame measurement runs
+    // Set static max size as requested
+    const maxSheetSize = 0.98;
     final sheetSnapSizes = [minSheetSize, 0.4, maxSheetSize];
     final isOnline = jobsState.isOnline;
     final isTest = PoofWorkerFlavorConfig.instance.testMode;
@@ -1151,56 +1163,24 @@ class _HomePageState extends ConsumerState<HomePage>
           SafeArea(
             child: Stack(
               children: [
-                Positioned(
-                  top: 16,
-                  left: 0,
-                  right: 0,
-                  child: Center(child: GoOnlineButton()),
-                ),
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).cardColor.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.10),
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.menu,
-                          size: 28,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: GoOnlineButton(key: _goOnlineKey),
                   ),
                 ),
-                if (_locationPermissionOK)
-                  Positioned(
-                    top: 16,
-                    right: 16,
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 16, left: 16),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: _isSnappingToLocation
-                            ? null
-                            : _snapToUserLocation,
+                        onTap: () => _scaffoldKey.currentState?.openDrawer(),
                         borderRadius: BorderRadius.circular(24),
                         child: Container(
+                          key: _menuButtonKey,
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: Theme.of(
@@ -1215,48 +1195,90 @@ class _HomePageState extends ConsumerState<HomePage>
                               ),
                             ],
                           ),
-                          child: _isSnappingToLocation
-                              ? const SizedBox(
-                                  width: 28,
-                                  height: 28,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.my_location,
-                                  size: 28,
-                                  color: Colors.black87,
+                          child: const Icon(
+                            Icons.menu,
+                            size: 28,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (_locationPermissionOK)
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16, right: 16),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _isSnappingToLocation
+                              ? null
+                              : _snapToUserLocation,
+                          borderRadius: BorderRadius.circular(24),
+                          child: Container(
+                            key: _locButtonKey,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).cardColor.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 2),
                                 ),
+                              ],
+                            ),
+                            child: _isSnappingToLocation
+                                ? const SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.my_location,
+                                    size: 28,
+                                    color: Colors.black87,
+                                  ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 if (carouselDefs.isNotEmpty)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: screenHeight * minSheetSize - 15,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 250),
-                      opacity: _carouselOpacity,
-                      child: JobDefinitionCarousel(
-                        definitions: carouselDefs,
-                        pageController: _carouselPageController,
-                        onPageChanged: (idx) {
-                          if (_ignoreNextPageChange) {
-                            _ignoreNextPageChange = false;
-                            return;
-                          }
-                          if (idx < carouselDefs.length) {
-                            _selectDefinition(
-                              carouselDefs[idx],
-                              idx,
-                              fromUserInteraction: true,
-                              animateMap: true,
-                            );
-                          }
-                        },
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: (screenHeight * minSheetSize) - 15,
+                      ),
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 250),
+                        opacity: _carouselOpacity,
+                        child: JobDefinitionCarousel(
+                          definitions: carouselDefs,
+                          pageController: _carouselPageController,
+                          onPageChanged: (idx) {
+                            if (_ignoreNextPageChange) {
+                              _ignoreNextPageChange = false;
+                              return;
+                            }
+                            if (idx < carouselDefs.length) {
+                              _selectDefinition(
+                                carouselDefs[idx],
+                                idx,
+                                fromUserInteraction: true,
+                                animateMap: true,
+                              );
+                            }
+                          },
+                        ),
                       ),
                     ),
                   ),

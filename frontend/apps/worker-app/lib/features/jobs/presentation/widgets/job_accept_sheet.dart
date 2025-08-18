@@ -23,6 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
+// removed dynamic overlay provider usage
 import 'package:poof_worker/features/jobs/presentation/widgets/date_carousel_widget.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
@@ -601,11 +602,13 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       (i) => carouselStartDate.add(Duration(days: i)),
     );
 
-    // Sheet height constraint (original behavior)
-    final double maxSheetHeight = screenHeight * 0.95;
+    // Sheet height constraint: stop just below the Home overlays if available.
+    // Static height: 98% of SafeArea height to match Jobs sheet behavior
+    final double safeHeight = screenHeight - mediaQueryPadding.top - mediaQueryPadding.bottom;
+    final double targetSheetHeight = safeHeight * 0.98;
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxSheetHeight),
+    return SizedBox(
+      height: targetSheetHeight,
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (e) {

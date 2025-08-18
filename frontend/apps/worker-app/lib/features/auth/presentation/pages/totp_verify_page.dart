@@ -177,9 +177,8 @@ class _TotpVerifyPageState extends ConsumerState<TotpVerifyPage> {
 
             // Invisible warm-up Google Map, only while main Home Map hasn't mounted
             if (!mainMapMounted)
-              Positioned(
-                right: 0,
-                bottom: 0,
+              Align(
+                alignment: Alignment.bottomRight,
                 child: IgnorePointer(
                   child: Opacity(
                     opacity: 0.01,

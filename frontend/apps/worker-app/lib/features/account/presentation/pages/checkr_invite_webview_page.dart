@@ -99,27 +99,31 @@ class _CheckrInviteWebViewPageState
         // The WebView fills the entire space.
         WebViewWidget(controller: _controller),
 
-        // A loading indicator is positioned at the top.
+        // A loading indicator positioned at the top, safe area aware.
         if (_isLoading)
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: LinearProgressIndicator(minHeight: 2),
+          const SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
           ),
 
-        // A floating close button is positioned at the top-right.
-        Positioned(
-          top: 16,
-          right: 16,
-          child: CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.black.withValues(alpha: 0.6),
-            child: IconButton(
-              tooltip: 'Close',
-              padding: EdgeInsets.zero,
-              icon: const Icon(Icons.close, color: Colors.white, size: 20),
-              onPressed: _close,
+        // A floating close button at the top-right, safe area aware.
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.black.withValues(alpha: 0.6),
+                child: IconButton(
+                  tooltip: 'Close',
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  onPressed: _close,
+                ),
+              ),
             ),
           ),
         ),
