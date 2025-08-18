@@ -131,10 +131,12 @@ class JobsNotifier extends StateNotifier<JobsState> {
             initialCount: openJobs.length,
             pageSize: pageSize,
             onPage: (results) {
+              if (!state.isOnline) return;
               openJobs.addAll(results);
               state = state.copyWith(openJobs: [...openJobs]);
             },
           ).whenComplete(() {
+            if (!state.isOnline) return;
             state = state.copyWith(
               isLoadingOpenJobs: false,
               hasLoadedInitialJobs: !state.isLoadingAcceptedJobs,
@@ -156,6 +158,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
             initialCount: myJobs.length,
             pageSize: pageSize,
             onPage: (results) {
+              if (!state.isOnline) return;
               myJobs.addAll(results);
               final inProg = myJobs.firstWhereOrNull(
                 (j) => j.status == JobInstanceStatus.inProgress,
@@ -170,6 +173,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
               );
             },
           ).whenComplete(() {
+            if (!state.isOnline) return;
             state = state.copyWith(
               isLoadingAcceptedJobs: false,
               hasLoadedInitialJobs: !state.isLoadingOpenJobs,
@@ -320,10 +324,12 @@ class JobsNotifier extends StateNotifier<JobsState> {
             initialCount: openJobs.length,
             pageSize: pageSize,
             onPage: (results) {
+              if (!state.isOnline) return;
               openJobs.addAll(results);
               state = state.copyWith(openJobs: [...openJobs]);
             },
           ).whenComplete(() {
+            if (!state.isOnline) return;
             state = state.copyWith(isLoadingOpenJobs: false);
           }),
         );
@@ -342,6 +348,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
             initialCount: myJobs.length,
             pageSize: pageSize,
             onPage: (results) {
+              if (!state.isOnline) return;
               myJobs.addAll(results);
               final inProg = myJobs.firstWhereOrNull(
                 (j) => j.status == JobInstanceStatus.inProgress,
@@ -356,6 +363,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
               );
             },
           ).whenComplete(() {
+            if (!state.isOnline) return;
             state = state.copyWith(isLoadingAcceptedJobs: false);
           }),
         );
@@ -440,6 +448,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
             initialCount: myJobs.length,
             pageSize: pageSize,
             onPage: (results) {
+              if (!state.isOnline) return;
               myJobs.addAll(results);
               inProgressJob = myJobs.firstWhereOrNull(
                 (j) => j.status == JobInstanceStatus.inProgress,
@@ -454,6 +463,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
               );
             },
           ).whenComplete(() {
+            if (!state.isOnline) return;
             state = state.copyWith(isLoadingAcceptedJobs: false);
           }),
         );

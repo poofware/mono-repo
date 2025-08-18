@@ -547,6 +547,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     final screenHeight = MediaQuery.of(context).size.height;
     final appLocalizations = AppLocalizations.of(context);
     final mediaQueryPadding = MediaQuery.of(context).padding;
+    final mq = MediaQuery.of(context);
     // Revert: remove dynamic bottom gap behavior
 
     final currentOpenJobs = ref.watch(
@@ -603,12 +604,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     );
 
     // Sheet height constraint: stop just below the Home overlays if available.
-    // Static height: 98% of SafeArea height to match Jobs sheet behavior
-    final double safeHeight = screenHeight - mediaQueryPadding.top - mediaQueryPadding.bottom;
-    final double targetSheetHeight = safeHeight * 0.98;
-
-    return SizedBox(
-      height: targetSheetHeight,
+    // Static height: 98% of available parent height to match Jobs sheet behavior
+    return FractionallySizedBox(
+      heightFactor: 0.98,
+      alignment: Alignment.bottomCenter,
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (e) {
@@ -711,7 +710,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
               child: Container(
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withAlpha(38),

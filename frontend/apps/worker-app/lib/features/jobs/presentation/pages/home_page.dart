@@ -1251,7 +1251,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       ),
                     ),
                   ),
-                if (carouselDefs.isNotEmpty)
+                if (isOnline && carouselDefs.isNotEmpty)
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: Padding(
