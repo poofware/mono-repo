@@ -636,12 +636,12 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       (i) => carouselStartDate.add(Duration(days: i)),
     );
 
-    // Sheet height: dynamic with a cap (max 98% of screen)
-    final double maxSheetHeight = MediaQuery.of(context).size.height * 0.98;
+    // Sheet height: cap at 98% of screen via fractional sizing
     return Align(
       alignment: Alignment.bottomCenter,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+      child: FractionallySizedBox(
+        heightFactor: 0.98,
+        widthFactor: 1.0,
         child: Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: (e) {
@@ -1033,6 +1033,43 @@ class _DefinitionStatTiles extends StatelessWidget {
         definition.instances.isNotEmpty &&
         definition.instances.every((i) => i.numberOfBuildings == 1);
     final tiles = <_TileData>[
+      // Upper rows
+      _TileData(
+        icon: Icons.directions_car_outlined,
+        label: appLocalizations.jobAcceptSheetHeaderDriveTime,
+        value: definition.displayAvgTravelTime,
+      ),
+      if (startFormatted.isNotEmpty)
+        _TileData(
+          icon: Icons.access_time_outlined,
+          label: appLocalizations.jobAcceptSheetRecommendedStart,
+          value: startFormatted,
+          spanTwoColumns: true,
+        ),
+      if (windowDisplay.isNotEmpty)
+        _TileData(
+          icon: Icons.hourglass_empty_outlined,
+          label: appLocalizations.jobAcceptSheetServiceWindow,
+          value: windowDisplay,
+          spanTwoColumns: true,
+        ),
+      _TileData(
+        icon: Icons.apartment_outlined,
+        label: appLocalizations.jobAcceptSheetBuildings,
+        value: _buildBuildingsLabel(definition.instances),
+      ),
+      if (isSingleBuilding)
+        _TileData(
+          icon: Icons.stairs_outlined,
+          label: appLocalizations.jobAcceptSheetFloors,
+          value: _buildFloorsLabel(definition.instances),
+        ),
+      _TileData(
+        icon: Icons.home_outlined,
+        label: appLocalizations.jobAcceptSheetUnits,
+        value: _buildUnitsLabel(definition.instances),
+      ),
+      // Bottom-most row (closest to date carousel), but still above View Job Map
       if (selectedInstance != null)
         _TileData(
           icon: Icons.attach_money,
@@ -1059,40 +1096,6 @@ class _DefinitionStatTiles extends StatelessWidget {
           label: appLocalizations.jobAcceptSheetHeaderAvgCompletion,
           value: definition.displayAvgTime,
         ),
-      _TileData(
-        icon: Icons.directions_car_outlined,
-        label: appLocalizations.jobAcceptSheetHeaderDriveTime,
-        value: definition.displayAvgTravelTime,
-      ),
-      if (startFormatted.isNotEmpty)
-        _TileData(
-          icon: Icons.access_time_outlined,
-          label: appLocalizations.jobAcceptSheetRecommendedStart,
-          value: startFormatted,
-        ),
-      if (windowDisplay.isNotEmpty)
-        _TileData(
-          icon: Icons.hourglass_empty_outlined,
-          label: appLocalizations.jobAcceptSheetServiceWindow,
-          value: windowDisplay,
-          spanTwoColumns: true,
-        ),
-      _TileData(
-        icon: Icons.apartment_outlined,
-        label: appLocalizations.jobAcceptSheetBuildings,
-        value: _buildBuildingsLabel(definition.instances),
-      ),
-      if (isSingleBuilding)
-        _TileData(
-          icon: Icons.stairs_outlined,
-          label: appLocalizations.jobAcceptSheetFloors,
-          value: _buildFloorsLabel(definition.instances),
-        ),
-      _TileData(
-        icon: Icons.home_outlined,
-        label: appLocalizations.jobAcceptSheetUnits,
-        value: _buildUnitsLabel(definition.instances),
-      ),
     ];
     return _TwoColumnTiles(tiles: tiles);
   }
@@ -1155,7 +1158,9 @@ class _TwoColumnTiles extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 10.0;
-        final isNarrow = constraints.maxWidth < 360;
+        // Allow two columns on smaller phones; only fall back to one column
+        // when the available width is extremely tight (e.g., under ~260px).
+        final isNarrow = constraints.maxWidth < 260;
         final columns = isNarrow ? 1 : 2;
         final itemWidth = columns == 1
             ? constraints.maxWidth

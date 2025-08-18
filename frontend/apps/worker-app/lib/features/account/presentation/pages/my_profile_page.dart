@@ -43,6 +43,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   String _vehicleMake = '';
   String _vehicleModel = '';
 
+  Worker? _originalWorker;
+
   bool _hasInitializedFields = false;
   bool _isSaving = false;
   bool _isEditing = false;
@@ -59,6 +61,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _firstNameController.addListener(_validateForm);
     _lastNameController.addListener(_validateForm);
     _emailController.addListener(_validateForm);
+    _phoneController.addListener(_validateForm);
+    _tenantTokenController.addListener(_validateForm);
   }
 
   @override
@@ -66,6 +70,8 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _firstNameController.removeListener(_validateForm);
     _lastNameController.removeListener(_validateForm);
     _emailController.removeListener(_validateForm);
+    _phoneController.removeListener(_validateForm);
+    _tenantTokenController.removeListener(_validateForm);
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
@@ -75,7 +81,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   }
 
   void _validateForm() {
-    final isValid =
+    final areRequiredFieldsFilled =
         _firstNameController.text.trim().isNotEmpty &&
         _lastNameController.text.trim().isNotEmpty &&
         _emailController.text.trim().isNotEmpty &&
@@ -85,9 +91,32 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
         _vehicleMake.isNotEmpty &&
         _vehicleModel.isNotEmpty;
 
-    if (isValid != _isFormValid) {
+    bool hasChanges = false;
+    final w = _originalWorker;
+    if (w != null) {
+      final tokenText = _tenantTokenController.text.trim();
+      hasChanges =
+          _firstNameController.text.trim() != w.firstName ||
+          _lastNameController.text.trim() != w.lastName ||
+          _emailController.text.trim() != w.email ||
+          _phoneController.text.trim() != w.phoneNumber ||
+          (_addressState != null &&
+              (_addressState!.street != w.streetAddress ||
+                  _addressState!.city != w.city ||
+                  _addressState!.state != w.state ||
+                  _addressState!.postalCode != w.zipCode)) ||
+          _aptSuite != (w.aptSuite ?? '') ||
+          _vehicleYear != w.vehicleYear ||
+          _vehicleMake != w.vehicleMake ||
+          _vehicleModel != w.vehicleModel ||
+          tokenText != (w.tenantToken ?? '');
+    }
+
+    final shouldEnableSave = areRequiredFieldsFilled && hasChanges;
+
+    if (shouldEnableSave != _isFormValid) {
       setState(() {
-        _isFormValid = isValid;
+        _isFormValid = shouldEnableSave;
       });
     }
   }
@@ -177,138 +206,144 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
     final profileScaffold = Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => context.pop(),
-                  ),
-                  Text(
-                    t.myProfilePageTitle,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(
-                    width: 80,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _isEditing
-                          ? TextButton(
-                              onPressed: () => _cancelEdit(worker!),
-                              child: Text(t.myProfilePageCancelButton),
-                            )
-                          : TextButton(
-                              onPressed: () =>
-                                  setState(() => _isEditing = true),
-                              child: Text(t.myProfilePageEditButton),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
+        child: GestureDetector(
+          behavior: HitTestBehavior.deferToChild,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildProfileHeader(theme, worker!, fullName, t),
-                    _buildSection(
-                      title: t.myProfilePageContactSection,
-                      children: [
-                        _buildEditableProfileField(
-                          controller: _firstNameController,
-                          label: t.myProfilePageFirstNameLabel,
-                          icon: Icons.person_outline,
-                          isEditing: _isEditing,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _lastNameController,
-                          label: t.myProfilePageLastNameLabel,
-                          icon: Icons.person_outline,
-                          isEditing: _isEditing,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _emailController,
-                          label: t.myProfilePageEmailLabel,
-                          icon: Icons.email_outlined,
-                          isEditing: _isEditing,
-                          keyboardType: TextInputType.emailAddress,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _phoneController,
-                          label: t.myProfilePagePhoneLabel,
-                          icon: Icons.phone_outlined,
-                          isEditing: _isEditing,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        AddressFormField(
-                          initialStreet: worker.streetAddress,
-                          initialAptSuite: worker.aptSuite ?? '',
-                          initialCity: worker.city,
-                          initialState: worker.state,
-                          initialZip: worker.zipCode,
-                          isEditing: _isEditing,
-                          onChanged: (resolved, apt) {
-                            setState(() {
-                              _addressState = resolved;
-                              _aptSuite = apt;
-                              _validateForm();
-                            });
-                          },
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => context.pop(),
                     ),
-                    _buildSection(
-                      title: t.myProfilePageVehicleSection,
-                      children: [
-                        VehicleFormField(
-                          initialYear: worker.vehicleYear,
-                          initialMake: worker.vehicleMake,
-                          initialModel: worker.vehicleModel,
-                          isEditing: _isEditing,
-                          onChanged: (year, make, model) {
-                            setState(() {
-                              _vehicleYear = year;
-                              _vehicleMake = make;
-                              _vehicleModel = model;
-                              _validateForm();
-                            });
-                          },
-                        ),
-                      ],
+                    Text(
+                      t.myProfilePageTitle,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    _buildSection(
-                      title: t.myProfilePageResidentProgramTitle,
-                      children: [_buildTenantTokenSectionContent(worker, t)],
-                    ),
-                    _buildSection(
-                      title: t.myProfilePageAccountManagementSection,
-                      children: accountManagementTiles,
+                    SizedBox(
+                      width: 80,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: _isEditing
+                            ? TextButton(
+                                onPressed: () => _cancelEdit(worker!),
+                                child: Text(t.myProfilePageCancelButton),
+                              )
+                            : TextButton(
+                                onPressed: () =>
+                                    setState(() => _isEditing = true),
+                                child: Text(t.myProfilePageEditButton),
+                              ),
+                      ),
                     ),
                   ],
-                ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
-              ),
-            ),
-            if (_isEditing)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: WelcomeButton(
-                  text: _isSaving
-                      ? t.myProfilePageSavingButton
-                      : t.myProfilePageSaveChangesButton,
-                  isLoading: _isSaving,
-                  showSpinner: false,
-                  onPressed: _isFormValid ? () => _saveProfile(worker) : null,
                 ),
               ),
-          ],
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      _buildProfileHeader(theme, worker!, fullName, t),
+                      _buildSection(
+                        title: t.myProfilePageContactSection,
+                        children: [
+                          _buildEditableProfileField(
+                            controller: _firstNameController,
+                            label: t.myProfilePageFirstNameLabel,
+                            icon: Icons.person_outline,
+                            isEditing: _isEditing,
+                          ),
+                          _buildEditableProfileField(
+                            controller: _lastNameController,
+                            label: t.myProfilePageLastNameLabel,
+                            icon: Icons.person_outline,
+                            isEditing: _isEditing,
+                          ),
+                          _buildEditableProfileField(
+                            controller: _emailController,
+                            label: t.myProfilePageEmailLabel,
+                            icon: Icons.email_outlined,
+                            isEditing: _isEditing,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          _buildEditableProfileField(
+                            controller: _phoneController,
+                            label: t.myProfilePagePhoneLabel,
+                            icon: Icons.phone_outlined,
+                            isEditing: _isEditing,
+                            keyboardType: TextInputType.phone,
+                          ),
+                          AddressFormField(
+                            initialStreet: worker.streetAddress,
+                            initialAptSuite: worker.aptSuite ?? '',
+                            initialCity: worker.city,
+                            initialState: worker.state,
+                            initialZip: worker.zipCode,
+                            isEditing: _isEditing,
+                            onChanged: (resolved, apt) {
+                              setState(() {
+                                _addressState = resolved;
+                                _aptSuite = apt;
+                                _validateForm();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      _buildSection(
+                        title: t.myProfilePageVehicleSection,
+                        children: [
+                          VehicleFormField(
+                            initialYear: worker.vehicleYear,
+                            initialMake: worker.vehicleMake,
+                            initialModel: worker.vehicleModel,
+                            isEditing: _isEditing,
+                            onChanged: (year, make, model) {
+                              setState(() {
+                                _vehicleYear = year;
+                                _vehicleMake = make;
+                                _vehicleModel = model;
+                                _validateForm();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      _buildSection(
+                        title: t.myProfilePageResidentProgramTitle,
+                        children: [_buildTenantTokenSectionContent(worker, t)],
+                      ),
+                      _buildSection(
+                        title: t.myProfilePageAccountManagementSection,
+                        children: accountManagementTiles,
+                      ),
+                    ],
+                  ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
+                ),
+              ),
+              if (_isEditing)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: WelcomeButton(
+                    text: _isSaving
+                        ? t.myProfilePageSavingButton
+                        : t.myProfilePageSaveChangesButton,
+                    isLoading: _isSaving,
+                    showSpinner: false,
+                    onPressed: _isFormValid ? () => _saveProfile(worker) : null,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -577,6 +612,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   }
 
   void _populateControllers(Worker w) {
+    _originalWorker = w;
     _firstNameController.text = w.firstName;
     _lastNameController.text = w.lastName;
     _emailController.text = w.email;
@@ -592,6 +628,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     _vehicleMake = w.vehicleMake;
     _vehicleModel = w.vehicleModel;
     _tenantTokenController.text = w.tenantToken ?? '';
+    _validateForm();
   }
 
   void _cancelEdit(Worker worker) {

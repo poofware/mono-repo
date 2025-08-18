@@ -74,6 +74,62 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
   // A special, non-snappable height to reveal messages.
   static const double _messageSnapHeight = 0.23;
 
+  // Compute a dynamic snap height that fits the given message without truncation
+  // by estimating the wrapped text height at runtime and converting to a sheet size fraction.
+  double _computeDynamicMessageSnapSize(BuildContext context, String message) {
+    final double screenHeight = widget.screenHeight;
+    final double screenWidth = MediaQuery.of(context).size.width;
+
+    // Match draggableMessage layout: Center -> Padding(all: 20) -> Text(..., fontSize: 16)
+    const double horizontalPadding = 20.0 * 2; // left + right
+    const double verticalPadding = 20.0 * 2;   // top + bottom
+    final double maxTextWidth = (screenWidth - horizontalPadding).clamp(0.0, screenWidth);
+
+    final TextPainter painter = TextPainter(
+      text: TextSpan(
+        text: message,
+        style: TextStyle(
+          fontSize: 16,
+          color: Colors.grey.shade600,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: Directionality.of(context),
+      maxLines: null,
+    )
+      ..layout(maxWidth: maxTextWidth);
+
+    // Account for line metrics and text scale to avoid clipping descenders.
+    final List<LineMetrics> lines = painter.computeLineMetrics();
+    final int lineCount = lines.length;
+    final TextScaler textScaler = MediaQuery.textScalerOf(context);
+    final double scaledFontSize = textScaler.scale(16);
+    final double textScale = scaledFontSize / 16.0;
+    final double baseMessageHeight = painter.size.height + verticalPadding;
+    final double safetyMarginPerLine = 10.0; // extra room per line
+    final double multiLineBonus = (lineCount > 1) ? 12.0 : 0.0; // extra for second+ line
+    final double scaleMargin = (textScale > 1.0) ? (textScale - 1.0) * 16.0 : 0.0;
+    final double messageContentHeight = baseMessageHeight +
+        (lineCount * safetyMarginPerLine) +
+        multiLineBonus +
+        scaleMargin;
+
+    // Base header height: use the actual configured min sheet size to ensure
+    // consistency with how the sheet is laid out at runtime.
+    final double headerHeightPx = widget.minChildSize * screenHeight;
+
+    // Add a bit more general margin to cover rounding/layout differences.
+    const double safetyMargin = 36.0;
+
+    final double totalDesiredHeightPx = headerHeightPx + messageContentHeight + safetyMargin;
+    final double fraction = (totalDesiredHeightPx / screenHeight)
+        .clamp(widget.minChildSize, widget.maxChildSize);
+
+    // Fallback to legacy constant if anything goes sideways.
+    if (!fraction.isFinite) return _messageSnapHeight;
+    return fraction;
+  }
+
   // Controller for the list, to check its scroll position.
   final ScrollController _listScrollController = ScrollController();
 
@@ -158,8 +214,12 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
 
       if (justFinishedLoading) {
         if (next.isOnline && next.openJobs.isEmpty) {
+          final String message = widget.searchQuery.isNotEmpty
+              ? widget.appLocalizations.homePageNoJobsMatchSearch
+              : widget.appLocalizations.homePageNoJobsAvailable;
+          final double dynamicSize = _computeDynamicMessageSnapSize(context, message);
           widget.sheetController.animateTo(
-            _messageSnapHeight,
+            dynamicSize,
             duration: const Duration(milliseconds: 350),
             curve: Curves.easeOutCubic,
           );
@@ -169,7 +229,10 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
 
     final bool isOffline = !widget.isOnline;
     final double initialSize = isOffline
-        ? _messageSnapHeight
+        ? _computeDynamicMessageSnapSize(
+            context,
+            widget.appLocalizations.homePageOfflineMessage,
+          )
         : widget.minChildSize;
 
     return DraggableScrollableSheet(
