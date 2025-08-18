@@ -651,8 +651,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
           },
           onPointerMove: (e) {
             if (_isDismissing) return;
-            if (_activePointerId == null || e.pointer != _activePointerId)
+            if (_activePointerId == null || e.pointer != _activePointerId) {
               return;
+            }
             if (_lastPointerY == null) {
               _lastPointerY = e.position.dy;
               return;
@@ -819,23 +820,15 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Header card and stats with standard horizontal padding
+                                    // Header card and stats: stretch edge-to-edge; manage in-card padding
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.translucent,
-                                        onTap: () {
-                                          if (_selectedInstance != null) {
-                                            setState(() {
-                                              _selectedInstance = null;
-                                            });
-                                          }
-                                        },
+                                      padding: EdgeInsets.zero,
+                                      child: SizedBox(
+                                        width: double.infinity,
                                         child: Card(
                                           color: cardColor,
                                           elevation: 0,
+                                          margin: EdgeInsets.zero,
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(
                                               16,
@@ -843,10 +836,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                                           ),
                                           child: Padding(
                                             padding: const EdgeInsets.fromLTRB(
-                                              20,
+                                              24,
                                               16,
-                                              20,
-                                              10, // slightly tighter bottom padding to reduce gap to carousel
+                                              24,
+                                              24, // slightly tighter bottom padding to reduce gap to carousel
                                             ),
                                             child: Column(
                                               crossAxisAlignment:
@@ -942,7 +935,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                                                 day,
                                               ),
                                             ),
-                                        leftPadding: 14.0,
+                                        leftPadding: 24.0,
                                       ),
                                     ),
                                     const SizedBox(height: 24),
@@ -958,7 +951,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                         // Sticky button at the bottom
                         Padding(
                           padding: EdgeInsets.fromLTRB(
-                            16,
+                            14,
                             8,
                             16,
                             mediaQueryPadding.bottom + 16.0,
