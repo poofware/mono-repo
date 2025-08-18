@@ -48,9 +48,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   bool _isDismissing = false;
   double _pullDownAccumulated = 0.0;
   // Dynamic distance threshold is computed per device size; see _dismissDistancePx.
-  static const double _dismissFlingVelocity = 260.0; // px/sec (very light flicks dismiss)
-  static const double _microDismissOffsetPx = 8.0;   // tiny pull distance
-  static const double _microDismissVelocity = 220.0; // moderate quick flick
+  static const double _dismissFlingVelocity = 340.0; // px/sec (still light, less aggressive)
+  static const double _microDismissOffsetPx = 12.0;  // tiny pull, slightly higher
+  static const double _microDismissVelocity = 260.0; // moderate quick flick
   double _dragOffset = 0.0; // interactive visual offset for the whole sheet
   late final AnimationController _dragResetController;
   Animation<double>? _dragResetAnimation;
@@ -203,7 +203,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
             absorbing: true,
             child: AnimatedBuilder(
               animation: animation,
-              builder: (_, __) {
+              builder: (BuildContext context, Widget? child) {
                 final dy = animation.value * (screenHeight + 60.0);
                 return Align(
                   alignment: Alignment.bottomCenter,
@@ -236,9 +236,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   double _dismissDistancePx(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final maxSheetHeight = screenHeight * 0.95; // match layout constraint
-    final raw = maxSheetHeight * 0.08; // 8% of sheet height (previous feel)
-    if (raw < 28.0) return 28.0;
-    if (raw > 72.0) return 72.0;
+    final raw = maxSheetHeight * 0.09; // 9% of sheet height (slightly less aggressive)
+    if (raw < 32.0) return 32.0;
+    if (raw > 80.0) return 80.0;
     return raw;
   }
 
