@@ -55,8 +55,10 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   bool _isDismissing = false;
   double _pullDownAccumulated = 0.0;
   // Dynamic distance threshold is computed per device size; see _dismissDistancePx.
-  static const double _dismissFlingVelocity = 340.0; // px/sec (still light, less aggressive)
-  static const double _microDismissOffsetPx = 12.0;  // tiny pull, slightly higher
+  static const double _dismissFlingVelocity =
+      340.0; // px/sec (still light, less aggressive)
+  static const double _microDismissOffsetPx =
+      12.0; // tiny pull, slightly higher
   static const double _microDismissVelocity = 260.0; // moderate quick flick
   double _dragOffset = 0.0; // interactive visual offset for the whole sheet
   late final AnimationController _dragResetController;
@@ -88,26 +90,29 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       final rep = widget.definition.instances.first;
       JobMapCache.cancelEvict(rep.instanceId);
     }
-    _dragResetController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 180),
-    )..addListener(() {
-        if (!mounted) return;
-        final value = _dragResetAnimation?.value ?? 0.0;
-        setState(() => _dragOffset = value);
-      })
-      ..addStatusListener((status) {
-        if (!mounted) return;
-        if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
-          if (!_isAnimatingDismissOut) {
-            // Ensure we end exactly at zero; prevents half-open residue.
-            if (_dragOffset != 0.0) {
-              setState(() => _dragOffset = 0.0);
+    _dragResetController =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 180),
+          )
+          ..addListener(() {
+            if (!mounted) return;
+            final value = _dragResetAnimation?.value ?? 0.0;
+            setState(() => _dragOffset = value);
+          })
+          ..addStatusListener((status) {
+            if (!mounted) return;
+            if (status == AnimationStatus.completed ||
+                status == AnimationStatus.dismissed) {
+              if (!_isAnimatingDismissOut) {
+                // Ensure we end exactly at zero; prevents half-open residue.
+                if (_dragOffset != 0.0) {
+                  setState(() => _dragOffset = 0.0);
+                }
+              }
+              _isAnimatingDismissOut = false;
             }
-          }
-          _isAnimatingDismissOut = false;
-        }
-      });
+          });
   }
 
   bool _isGlobalPositionInside(GlobalKey key, Offset globalPosition) {
@@ -119,8 +124,14 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   }
 
   void _updateTapInsideCarouselFromGlobal(Offset globalPosition) {
-    final bool inCarousel = _isGlobalPositionInside(_carouselKey, globalPosition);
-    final bool inViewMap = _isGlobalPositionInside(_viewMapButtonKey, globalPosition);
+    final bool inCarousel = _isGlobalPositionInside(
+      _carouselKey,
+      globalPosition,
+    );
+    final bool inViewMap = _isGlobalPositionInside(
+      _viewMapButtonKey,
+      globalPosition,
+    );
     _lastTapWasInsideCarousel = inCarousel;
     _lastTapWasInsideExcluded = inCarousel || inViewMap;
   }
@@ -159,13 +170,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     if (_isDismissing) return;
     if (_dragOffset == 0.0) return;
     final begin = _dragOffset;
-    _dragResetAnimation = Tween<double>(
-      begin: begin,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _dragResetController,
-      curve: Curves.easeOutCubic,
-    ));
+    _dragResetAnimation = Tween<double>(begin: begin, end: 0.0).animate(
+      CurvedAnimation(parent: _dragResetController, curve: Curves.easeOutCubic),
+    );
     // Start the animation on the next frame to avoid setState during layout.
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -190,7 +197,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
     }
     ui.Image? image;
     try {
-      final boundary = boundaryContext.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          boundaryContext.findRenderObject() as RenderRepaintBoundary?;
       if (boundary != null) {
         final dpr = MediaQuery.of(context).devicePixelRatio;
         image = await boundary.toImage(pixelRatio: dpr);
@@ -211,7 +219,9 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       durationMs *= 1.12; // tiny slow-down for a less "vanishy" feel
       if (durationMs < 160.0) durationMs = 160.0; // was 140ms
       if (durationMs > 280.0) durationMs = 280.0; // was 260ms
-      _dismissOverlayController!.duration = Duration(milliseconds: durationMs.round());
+      _dismissOverlayController!.duration = Duration(
+        milliseconds: durationMs.round(),
+      );
 
       final animation = CurvedAnimation(
         parent: _dismissOverlayController!,
@@ -259,7 +269,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   double _dismissDistancePx(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final maxSheetHeight = screenHeight * 0.95; // match layout constraint
-    final raw = maxSheetHeight * 0.10; // 10% of sheet height (slightly less aggressive)
+    final raw =
+        maxSheetHeight * 0.10; // 10% of sheet height (slightly less aggressive)
     if (raw < 36.0) return 36.0;
     if (raw > 84.0) return 84.0;
     return raw;
@@ -270,7 +281,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
   void _handlePointerUpOrCancel() {
     if (!mounted || _isDismissing) return;
     _snapBackDebounce?.cancel();
-    final bool isAtTop = !_bodyScrollController.hasClients ||
+    final bool isAtTop =
+        !_bodyScrollController.hasClients ||
         _bodyScrollController.position.pixels <= 0;
     final bool shouldDismissByVelocity =
         isAtTop &&
@@ -282,10 +294,14 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
         (_dragOffset >= _microDismissOffsetPx ||
             _pullDownAccumulated >= _microDismissOffsetPx) &&
         _lastPointerVelocityY >= _microDismissVelocity;
-    if (_dragOffset > 0.0 || shouldDismissByVelocity || shouldDismissByMicroFlick) {
+    if (_dragOffset > 0.0 ||
+        shouldDismissByVelocity ||
+        shouldDismissByMicroFlick) {
       final bool shouldDismissByOffset =
           _dragOffset >= _dismissDistancePx(context);
-      if (shouldDismissByVelocity || shouldDismissByOffset || shouldDismissByMicroFlick) {
+      if (shouldDismissByVelocity ||
+          shouldDismissByOffset ||
+          shouldDismissByMicroFlick) {
         if (_dragResetController.isAnimating) {
           _dragResetController.stop();
         }
@@ -325,7 +341,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       _snapBackDebounce?.cancel();
     }
 
-    final bool isAtTop = !_bodyScrollController.hasClients ||
+    final bool isAtTop =
+        !_bodyScrollController.hasClients ||
         _bodyScrollController.position.pixels <= 0;
 
     // iOS-style bounce overscroll accumulates distance while pulling down.
@@ -383,7 +400,8 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
 
     // Decide on end of drag (or ballistic stop).
     if (notification is ScrollEndNotification) {
-      final double velocityY = notification.dragDetails?.velocity.pixelsPerSecond.dy ?? 0.0;
+      final double velocityY =
+          notification.dragDetails?.velocity.pixelsPerSecond.dy ?? 0.0;
       final double threshold = _dismissDistancePx(context);
       final bool passedDistance = _pullDownAccumulated >= threshold;
       final bool passedVelocity = velocityY >= _dismissFlingVelocity;
@@ -609,342 +627,369 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
       (i) => carouselStartDate.add(Duration(days: i)),
     );
 
-    // Sheet height constraint: stop just below the Home overlays if available.
-    // Static height: 98% of available parent height to match Jobs sheet behavior
-    return FractionallySizedBox(
-      heightFactor: 0.98,
+    // Sheet height: dynamic with a cap (max 98% of screen)
+    final double maxSheetHeight = MediaQuery.of(context).size.height * 0.98;
+    return Align(
       alignment: Alignment.bottomCenter,
-      child: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (e) {
-          _isPointerDown = true;
-          _isDraggingSheetViaPointer = false;
-          _activePointerId = e.pointer;
-          _lastPointerY = e.position.dy;
-          _lastPointerX = e.position.dx;
-          _lockedPointerAxis = null;
-          _lastPointerSampleMs = DateTime.now().millisecondsSinceEpoch;
-          _lastPointerVelocityY = 0.0;
-          if (_dragResetController.isAnimating) {
-            _dragResetController.stop();
-          }
-          _snapBackDebounce?.cancel();
-        },
-        onPointerMove: (e) {
-          if (_isDismissing) return;
-          if (_activePointerId == null || e.pointer != _activePointerId) return;
-          if (_lastPointerY == null) {
-            _lastPointerY = e.position.dy;
-            return;
-          }
-          final dx = _lastPointerX != null ? e.position.dx - _lastPointerX! : 0.0;
-          final dy = e.position.dy - _lastPointerY!;
-          _lastPointerX = e.position.dx;
-          _lastPointerY = e.position.dy;
-          // Track simple velocity for flick-to-dismiss
-          final nowMs = DateTime.now().millisecondsSinceEpoch;
-          final int? lastMs = _lastPointerSampleMs;
-          if (lastMs != null) {
-            final int dtMs = nowMs - lastMs;
-            if (dtMs > 0) {
-              _lastPointerVelocityY = dy / dtMs * 1000.0; // px/s
-            }
-          }
-          _lastPointerSampleMs = nowMs;
-
-          // Lock gesture axis after a small slop so horizontal drags never move the sheet.
-          if (_lockedPointerAxis == null) {
-            final adx = dx.abs();
-            final ady = dy.abs();
-            if (adx > 6 || ady > 6) {
-              _lockedPointerAxis = adx > ady ? Axis.horizontal : Axis.vertical;
-            }
-          }
-          if (_lockedPointerAxis == Axis.horizontal) {
-            // Ensure horizontal swipes can't produce a stale vertical velocity.
-            _lastPointerVelocityY = 0.0;
-            return;
-          }
-          if (dy == 0) return;
-          final bool isAtTop = !_bodyScrollController.hasClients ||
-              _bodyScrollController.position.pixels <= 0;
-
-          // Capture downward drags at top to move the whole sheet.
-          if (dy > 0 && isAtTop) {
-            if (_dragResetController.isAnimating) {
-              _dragResetController.stop();
-            }
-            _isDraggingSheetViaPointer = true;
-            if (_bodyScrollController.hasClients &&
-                _bodyScrollController.position.pixels != 0.0) {
-              _bodyScrollController.jumpTo(0.0);
-            }
-            _pullDownAccumulated += dy;
-            setState(() {
-              _dragOffset = math.max(0.0, _dragOffset + dy);
-            });
-            return;
-          }
-
-          // While the sheet is offset, reversing upward should reduce the offset first.
-          if (dy < 0 && _dragOffset > 0) {
-            if (_dragResetController.isAnimating) {
-              _dragResetController.stop();
-            }
-            if (_bodyScrollController.hasClients &&
-                _bodyScrollController.position.pixels != 0.0) {
-              _bodyScrollController.jumpTo(0.0);
-            }
-            _pullDownAccumulated = math.max(0.0, _pullDownAccumulated + dy);
-            final double newOffset = math.max(0.0, _dragOffset + dy);
-            final bool willReleaseToContent = newOffset == 0.0;
-            setState(() {
-              _isDraggingSheetViaPointer = !willReleaseToContent;
-              _dragOffset = newOffset;
-            });
-            return;
-          }
-        },
-        onPointerUp: (_) => _handlePointerUpOrCancel(),
-        onPointerCancel: (_) => _handlePointerUpOrCancel(),
-        child: Opacity(
-          opacity: _isRoutePopping ? 0.0 : 1.0,
-          child: RepaintBoundary(
-            key: _sheetBoundaryKey,
-            child: Transform.translate(
-              offset: Offset(0, _dragOffset),
-              child: Container(
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(38),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: GestureDetector(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+        child: Listener(
           behavior: HitTestBehavior.translucent,
-          onTapDown: (details) {
-            _updateTapInsideCarouselFromGlobal(details.globalPosition);
+          onPointerDown: (e) {
+            _isPointerDown = true;
+            _isDraggingSheetViaPointer = false;
+            _activePointerId = e.pointer;
+            _lastPointerY = e.position.dy;
+            _lastPointerX = e.position.dx;
+            _lockedPointerAxis = null;
+            _lastPointerSampleMs = DateTime.now().millisecondsSinceEpoch;
+            _lastPointerVelocityY = 0.0;
+            if (_dragResetController.isAnimating) {
+              _dragResetController.stop();
+            }
+            _snapBackDebounce?.cancel();
           },
-          onTap: () {
-            if (_lastTapWasInsideExcluded) return;
-            if (_selectedInstance != null) {
+          onPointerMove: (e) {
+            if (_isDismissing) return;
+            if (_activePointerId == null || e.pointer != _activePointerId)
+              return;
+            if (_lastPointerY == null) {
+              _lastPointerY = e.position.dy;
+              return;
+            }
+            final dx = _lastPointerX != null
+                ? e.position.dx - _lastPointerX!
+                : 0.0;
+            final dy = e.position.dy - _lastPointerY!;
+            _lastPointerX = e.position.dx;
+            _lastPointerY = e.position.dy;
+            // Track simple velocity for flick-to-dismiss
+            final nowMs = DateTime.now().millisecondsSinceEpoch;
+            final int? lastMs = _lastPointerSampleMs;
+            if (lastMs != null) {
+              final int dtMs = nowMs - lastMs;
+              if (dtMs > 0) {
+                _lastPointerVelocityY = dy / dtMs * 1000.0; // px/s
+              }
+            }
+            _lastPointerSampleMs = nowMs;
+
+            // Lock gesture axis after a small slop so horizontal drags never move the sheet.
+            if (_lockedPointerAxis == null) {
+              final adx = dx.abs();
+              final ady = dy.abs();
+              if (adx > 6 || ady > 6) {
+                _lockedPointerAxis = adx > ady
+                    ? Axis.horizontal
+                    : Axis.vertical;
+              }
+            }
+            if (_lockedPointerAxis == Axis.horizontal) {
+              // Ensure horizontal swipes can't produce a stale vertical velocity.
+              _lastPointerVelocityY = 0.0;
+              return;
+            }
+            if (dy == 0) return;
+            final bool isAtTop =
+                !_bodyScrollController.hasClients ||
+                _bodyScrollController.position.pixels <= 0;
+
+            // Capture downward drags at top to move the whole sheet.
+            if (dy > 0 && isAtTop) {
+              if (_dragResetController.isAnimating) {
+                _dragResetController.stop();
+              }
+              _isDraggingSheetViaPointer = true;
+              if (_bodyScrollController.hasClients &&
+                  _bodyScrollController.position.pixels != 0.0) {
+                _bodyScrollController.jumpTo(0.0);
+              }
+              _pullDownAccumulated += dy;
               setState(() {
-                _selectedInstance = null;
+                _dragOffset = math.max(0.0, _dragOffset + dy);
               });
+              return;
+            }
+
+            // While the sheet is offset, reversing upward should reduce the offset first.
+            if (dy < 0 && _dragOffset > 0) {
+              if (_dragResetController.isAnimating) {
+                _dragResetController.stop();
+              }
+              if (_bodyScrollController.hasClients &&
+                  _bodyScrollController.position.pixels != 0.0) {
+                _bodyScrollController.jumpTo(0.0);
+              }
+              _pullDownAccumulated = math.max(0.0, _pullDownAccumulated + dy);
+              final double newOffset = math.max(0.0, _dragOffset + dy);
+              final bool willReleaseToContent = newOffset == 0.0;
+              setState(() {
+                _isDraggingSheetViaPointer = !willReleaseToContent;
+                _dragOffset = newOffset;
+              });
+              return;
             }
           },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-            // Header / Drag Handle
-            Padding(
-              padding: const EdgeInsets.only(top: 12.0),
-              child: Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // This flexible + scroll view holds all content EXCEPT the bottom button.
-            // It will only scroll if the content inside exceeds the space given to it
-            // by the parent Column, which is constrained by the ConstrainedBox.
-            Flexible(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTapDown: (details) {
-                  _updateTapInsideCarouselFromGlobal(details.globalPosition);
-                },
-                onTap: () {
-                  if (_lastTapWasInsideCarousel) return;
-                  if (_selectedInstance != null) {
-                    setState(() {
-                      _selectedInstance = null;
-                    });
-                  }
-                },
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: _handleBodyScrollNotification,
-                  child: SingleChildScrollView(
-                    controller: _bodyScrollController,
-                    physics: (_isDismissing || _isDraggingSheetViaPointer ||
-                            (_dragOffset > 0 && _isPointerDown))
-                        ? const NeverScrollableScrollPhysics()
-                        : const BouncingScrollPhysics(
-                            parent: AlwaysScrollableScrollPhysics(),
-                          ),
-                    child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Header card and stats with standard horizontal padding
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTap: () {
-                            if (_selectedInstance != null) {
-                              setState(() {
-                                _selectedInstance = null;
-                              });
-                            }
-                          },
-                          child: Card(
-                            color: cardColor,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                20,
-                                16,
-                                20,
-                                10, // slightly tighter bottom padding to reduce gap to carousel
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onTap: () {
-                                      if (_selectedInstance != null) {
-                                        setState(() {
-                                          _selectedInstance = null;
-                                        });
-                                      }
-                                    },
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          liveDefinition.propertyName,
-                                          style: const TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          liveDefinition.propertyAddress,
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            color: Colors.grey.shade700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Compact definition-level tiles (no dividing line)
-                                  const SizedBox(height: 12),
-                                  _DefinitionStatTiles(
-                                    definition: liveDefinition,
-                                    appLocalizations: appLocalizations,
-                                    selectedInstance: _selectedInstance,
-                                    showAvgPay: _selectedInstance == null,
-                                    showAvgTime: _selectedInstance == null,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  ViewJobMapButton(
-                                    key: _viewMapButtonKey,
-                                    job: liveDefinition.instances.isNotEmpty
-                                        ? liveDefinition.instances.first
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+          onPointerUp: (_) => _handlePointerUpOrCancel(),
+          onPointerCancel: (_) => _handlePointerUpOrCancel(),
+          child: Opacity(
+            opacity: _isRoutePopping ? 0.0 : 1.0,
+            child: RepaintBoundary(
+              key: _sheetBoundaryKey,
+              child: Transform.translate(
+                offset: Offset(0, _dragOffset),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(38),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
                       ),
-                      // Date carousel should go edge-to-edge (no horizontal padding)
-                      Padding(
-                        // Consistent spacing after buildings/units info
-                        padding: const EdgeInsets.only(top: 8),
-                        child: DateCarousel(
-                          key: _carouselKey,
-                          availableDates: carouselDates,
-                          selectedDate: isCarouselDateActuallySelected
-                              ? _carouselInitialDate
-                              : DateTime(0),
-                          onDateSelected: _handleDateSelected,
-                          isDayEnabled: (day) => liveDefinition.instances.any(
-                            (inst) => _isSameDate(parseYmd(inst.serviceDate), day),
-                          ),
-                          leftPadding: 14.0,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // Post-carousel content with horizontal padding restored
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: (_selectedInstance == null ||
-                                !liveDefinition.instances.any(
-                                  (i) => i.instanceId == _selectedInstance!.instanceId,
-                                ))
-                            ? Container(
-                                key: const ValueKey('no_instance_selected_or_accepted'),
-                                alignment: Alignment.center,
-                                padding: const EdgeInsets.symmetric(vertical: 20),
-                                child: Text(
-                                  appLocalizations.jobAcceptSheetSelectDayPrompt,
-                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
-                                  textAlign: TextAlign.center,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                      // No extra bottom card; keep layout compact
                     ],
+                  ),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTapDown: (details) {
+                      _updateTapInsideCarouselFromGlobal(
+                        details.globalPosition,
+                      );
+                    },
+                    onTap: () {
+                      if (_lastTapWasInsideExcluded) return;
+                      if (_selectedInstance != null) {
+                        setState(() {
+                          _selectedInstance = null;
+                        });
+                      }
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Header / Drag Handle
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: Container(
+                            width: 40,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // This flexible + scroll view holds all content EXCEPT the bottom button.
+                        // It will only scroll if the content inside exceeds the space given to it
+                        // by the parent Column, which is constrained by the ConstrainedBox.
+                        Flexible(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTapDown: (details) {
+                              _updateTapInsideCarouselFromGlobal(
+                                details.globalPosition,
+                              );
+                            },
+                            onTap: () {
+                              if (_lastTapWasInsideCarousel) return;
+                              if (_selectedInstance != null) {
+                                setState(() {
+                                  _selectedInstance = null;
+                                });
+                              }
+                            },
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: _handleBodyScrollNotification,
+                              child: SingleChildScrollView(
+                                controller: _bodyScrollController,
+                                physics:
+                                    (_isDismissing ||
+                                        _isDraggingSheetViaPointer ||
+                                        (_dragOffset > 0 && _isPointerDown))
+                                    ? const NeverScrollableScrollPhysics()
+                                    : const BouncingScrollPhysics(
+                                        parent: AlwaysScrollableScrollPhysics(),
+                                      ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Header card and stats with standard horizontal padding
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.translucent,
+                                        onTap: () {
+                                          if (_selectedInstance != null) {
+                                            setState(() {
+                                              _selectedInstance = null;
+                                            });
+                                          }
+                                        },
+                                        child: Card(
+                                          color: cardColor,
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                              20,
+                                              16,
+                                              20,
+                                              10, // slightly tighter bottom padding to reduce gap to carousel
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                GestureDetector(
+                                                  behavior: HitTestBehavior
+                                                      .translucent,
+                                                  onTap: () {
+                                                    if (_selectedInstance !=
+                                                        null) {
+                                                      setState(() {
+                                                        _selectedInstance =
+                                                            null;
+                                                      });
+                                                    }
+                                                  },
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        liveDefinition
+                                                            .propertyName,
+                                                        style: const TextStyle(
+                                                          fontSize: 24,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        liveDefinition
+                                                            .propertyAddress,
+                                                        style: TextStyle(
+                                                          fontSize: 15,
+                                                          color: Colors
+                                                              .grey
+                                                              .shade700,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                // Compact definition-level tiles (no dividing line)
+                                                const SizedBox(height: 12),
+                                                _DefinitionStatTiles(
+                                                  definition: liveDefinition,
+                                                  appLocalizations:
+                                                      appLocalizations,
+                                                  selectedInstance:
+                                                      _selectedInstance,
+                                                  showAvgPay:
+                                                      _selectedInstance == null,
+                                                  showAvgTime:
+                                                      _selectedInstance == null,
+                                                ),
+                                                const SizedBox(height: 12),
+                                                ViewJobMapButton(
+                                                  key: _viewMapButtonKey,
+                                                  job:
+                                                      liveDefinition
+                                                          .instances
+                                                          .isNotEmpty
+                                                      ? liveDefinition
+                                                            .instances
+                                                            .first
+                                                      : null,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Date carousel should go edge-to-edge (no horizontal padding)
+                                    Padding(
+                                      // Consistent spacing after buildings/units info
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: DateCarousel(
+                                        key: _carouselKey,
+                                        availableDates: carouselDates,
+                                        selectedDate:
+                                            isCarouselDateActuallySelected
+                                            ? _carouselInitialDate
+                                            : DateTime(0),
+                                        onDateSelected: _handleDateSelected,
+                                        isDayEnabled: (day) =>
+                                            liveDefinition.instances.any(
+                                              (inst) => _isSameDate(
+                                                parseYmd(inst.serviceDate),
+                                                day,
+                                              ),
+                                            ),
+                                        leftPadding: 14.0,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    // Removed select-date prompt card
+                                    // No extra bottom card; keep layout compact
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Sticky button at the bottom
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            8,
+                            16,
+                            mediaQueryPadding.bottom + 16.0,
+                          ),
+                          child: WelcomeButton(
+                            text: _isAccepting
+                                ? appLocalizations.jobAcceptSheetAcceptingButton
+                                : appLocalizations.jobAcceptSheetAcceptButton,
+                            isLoading: _isAccepting,
+                            onPressed:
+                                (_selectedInstance == null ||
+                                    !liveDefinition.instances.any(
+                                      (i) =>
+                                          i.instanceId ==
+                                          _selectedInstance!.instanceId,
+                                    ))
+                                ? null
+                                : _acceptSelectedInstance,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
-
-            // Sticky button at the bottom
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                mediaQueryPadding.bottom + 16.0,
-              ),
-              child: WelcomeButton(
-                text: _isAccepting
-                    ? appLocalizations.jobAcceptSheetAcceptingButton
-                    : appLocalizations.jobAcceptSheetAcceptButton,
-                isLoading: _isAccepting,
-                onPressed:
-                    (_selectedInstance == null ||
-                        !liveDefinition.instances.any(
-                          (i) => i.instanceId == _selectedInstance!.instanceId,
-                        ))
-                    ? null
-                    : _acceptSelectedInstance,
-              ),
-            ),
-            ],
           ),
-        ),
-        ),
-      ),
-    ),
         ),
       ),
     );
   }
-
-
 }
 
 // (removed) _InstanceDetails: merged into header tiles when a date is selected
@@ -965,15 +1010,19 @@ class _DefinitionStatTiles extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    final inst = definition.instances.isNotEmpty ? definition.instances.first : null;
+    final inst = definition.instances.isNotEmpty
+        ? definition.instances.first
+        : null;
     final start = inst?.workerStartTimeHint ?? '';
     final startFormatted = start.isNotEmpty ? formatTime(context, start) : '';
     final workerWindowStart = inst?.workerServiceWindowStart ?? '';
     final workerWindowEnd = inst?.workerServiceWindowEnd ?? '';
-    final windowDisplay = (workerWindowStart.isNotEmpty && workerWindowEnd.isNotEmpty)
+    final windowDisplay =
+        (workerWindowStart.isNotEmpty && workerWindowEnd.isNotEmpty)
         ? '${formatTime(context, workerWindowStart)} - ${formatTime(context, workerWindowEnd)}'
         : '';
-    final bool isSingleBuilding = definition.instances.isNotEmpty &&
+    final bool isSingleBuilding =
+        definition.instances.isNotEmpty &&
         definition.instances.every((i) => i.numberOfBuildings == 1);
     final tiles = <_TileData>[
       if (selectedInstance != null)
@@ -1058,7 +1107,9 @@ String _buildBuildingsLabel(List<JobInstance> instances) {
 
 String _buildFloorsLabel(List<JobInstance> instances) {
   if (instances.isEmpty) return '—';
-  final allFloors = instances.expand((i) => i.buildings).expand((b) => b.floors);
+  final allFloors = instances
+      .expand((i) => i.buildings)
+      .expand((b) => b.floors);
   final unique = allFloors.toSet().toList()..sort();
   if (unique.isEmpty) return '—';
   if (unique.length > 2) return '${unique.length} floors';
@@ -1093,30 +1144,34 @@ class _TwoColumnTiles extends StatelessWidget {
   const _TwoColumnTiles({required this.tiles});
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      const spacing = 10.0;
-      final isNarrow = constraints.maxWidth < 360;
-      final columns = isNarrow ? 1 : 2;
-      final itemWidth =
-          columns == 1 ? constraints.maxWidth : (constraints.maxWidth - spacing) / 2;
-      return Wrap(
-        spacing: spacing,
-        runSpacing: spacing,
-        children: tiles.map((t) {
-          final double width =
-              columns == 2 && t.spanTwoColumns ? constraints.maxWidth : itemWidth;
-          return SizedBox(
-            width: width,
-            child: _StatTile(
-              icon: t.icon,
-              label: t.label,
-              value: t.value,
-              color: t.color,
-            ),
-          );
-        }).toList(),
-      );
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 10.0;
+        final isNarrow = constraints.maxWidth < 360;
+        final columns = isNarrow ? 1 : 2;
+        final itemWidth = columns == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - spacing) / 2;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: tiles.map((t) {
+            final double width = columns == 2 && t.spanTwoColumns
+                ? constraints.maxWidth
+                : itemWidth;
+            return SizedBox(
+              width: width,
+              child: _StatTile(
+                icon: t.icon,
+                label: t.label,
+                value: t.value,
+                color: t.color,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
   }
 }
 
