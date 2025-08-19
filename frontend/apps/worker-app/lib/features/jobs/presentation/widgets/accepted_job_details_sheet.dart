@@ -267,29 +267,44 @@ class _AcceptedJobDetailsSheetState
                   style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                   textAlign: TextAlign.center,
                 ),
-                const Divider(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _infoItem(
-                      icon: Icons.attach_money,
-                      label: appLocalizations.acceptedJobsBottomSheetPayLabel,
-                      value: '\$${widget.job.pay.toStringAsFixed(0)}',
-                    ),
-                    _infoItem(
-                      icon: Icons.location_on,
-                      label:
-                          appLocalizations.acceptedJobsBottomSheetDistanceLabel,
-                      value: widget.job.distanceLabel,
-                    ),
-                    _infoItem(
-                      icon: Icons.timer,
-                      label:
-                          appLocalizations.acceptedJobsBottomSheetEstTimeLabel,
-                      value: widget.job.displayTime,
-                    ),
-                  ],
+                const SizedBox(height: 12),
+                // Primary focus tiles (match Job Accept sheet vocabulary)
+                Builder(
+                  builder: (context) {
+                    final formattedStartTime =
+                        formatTime(context, widget.job.workerStartTimeHint);
+                    final formattedWindowStart =
+                        formatTime(context, widget.job.workerServiceWindowStart);
+                    final formattedWindowEnd =
+                        formatTime(context, widget.job.workerServiceWindowEnd);
+                    final List<_TileData> headerTiles = [
+                      if (formattedStartTime.isNotEmpty)
+                        _TileData(
+                          icon: Icons.access_time_outlined,
+                          label: appLocalizations.jobAcceptSheetRecommendedStart,
+                          value: formattedStartTime,
+                          spanTwoColumns: true,
+                        ),
+                      if (formattedWindowStart.isNotEmpty &&
+                          formattedWindowEnd.isNotEmpty)
+                        _TileData(
+                          icon: Icons.hourglass_empty_outlined,
+                          label: appLocalizations.jobAcceptSheetServiceWindow,
+                          value:
+                              '$formattedWindowStart - $formattedWindowEnd',
+                          spanTwoColumns: true,
+                        ),
+                      _TileData(
+                        icon: Icons.directions_car_outlined,
+                        label: appLocalizations.jobAcceptSheetHeaderDriveTime,
+                        value: widget.job.displayTravelTime,
+                      ),
+                    ];
+                    return _TwoColumnTiles(tiles: headerTiles);
+                  },
                 ),
+                const SizedBox(height: 12),
+                ViewJobMapButton(job: widget.job),
                 const SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: () => setState(() => _isExpanded = !_isExpanded),
@@ -329,7 +344,11 @@ class _AcceptedJobDetailsSheetState
                   duration: const Duration(milliseconds: 200),
                 ),
                 const SizedBox(height: 12),
-                _buildActionButtons(appLocalizations),
+                // Disable any highlight/splash by wrapping row with AbsorbPointer when processing
+                AbsorbPointer(
+                  absorbing: _isProcessing,
+                  child: _buildActionButtons(appLocalizations),
+                ),
               ],
             ),
           ),
@@ -343,49 +362,45 @@ class _AcceptedJobDetailsSheetState
     AppLocalizations appLocalizations,
     ThemeData theme,
   ) {
-    final formattedStartTime = formatTime(context, widget.job.startTimeHint);
-    final formattedWindowStart = formatTime(
-      context,
-      widget.job.workerServiceWindowStart,
-    );
-    final formattedWindowEnd = formatTime(
-      context,
-      widget.job.workerServiceWindowEnd,
-    );
-
-    return Column(
-      children: [
-        const Divider(height: 1),
-        const SizedBox(height: 16),
-        _detailRow(
-          icon: Icons.apartment_outlined,
-          label: appLocalizations.jobAcceptSheetBuildings,
-          value:
-              '${widget.job.numberOfBuildings} bldg${widget.job.numberOfBuildings == 1 ? "" : "s"}',
-        ),
-        _detailRow(
+    final List<_TileData> detailTiles = [
+      _TileData(
+        icon: Icons.attach_money,
+        label: appLocalizations.acceptedJobsBottomSheetPayLabel,
+        value: '${widget.job.pay.toStringAsFixed(0)} USD',
+        color: Colors.green,
+      ),
+      _TileData(
+        icon: Icons.timer_outlined,
+        label: appLocalizations.jobAcceptSheetHeaderAvgCompletion,
+        value: widget.job.displayTime,
+      ),
+      _TileData(
+        icon: Icons.location_on_outlined,
+        label: appLocalizations.acceptedJobsBottomSheetDistanceLabel,
+        value: widget.job.distanceLabel,
+      ),
+      _TileData(
+        icon: Icons.apartment_outlined,
+        label: appLocalizations.jobAcceptSheetBuildings,
+        value:
+            '${widget.job.numberOfBuildings} bldg${widget.job.numberOfBuildings == 1 ? '' : 's'}',
+      ),
+      if (widget.job.numberOfBuildings == 1)
+        _TileData(
           icon: Icons.stairs_outlined,
           label: appLocalizations.jobAcceptSheetFloors,
           value: widget.job.floorsLabel,
         ),
-        _detailRow(
-          icon: Icons.home_outlined,
-          label: appLocalizations.jobAcceptSheetUnits,
-          value: widget.job.totalUnitsLabel,
-        ),
-        _detailRow(
-          icon: Icons.access_time_outlined,
-          label: appLocalizations.jobAcceptSheetRecommendedStart,
-          value: formattedStartTime,
-        ),
-        _detailRow(
-          icon: Icons.hourglass_empty_outlined,
-          label: appLocalizations.jobAcceptSheetServiceWindow,
-          value: '$formattedWindowStart - $formattedWindowEnd',
-        ),
-        const SizedBox(height: 20),
-        ViewJobMapButton(job: widget.job),
-      ],
+      _TileData(
+        icon: Icons.home_outlined,
+        label: appLocalizations.jobAcceptSheetUnits,
+        value: widget.job.totalUnitsLabel,
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: _TwoColumnTiles(tiles: detailTiles),
     );
   }
 
@@ -402,6 +417,13 @@ class _AcceptedJobDetailsSheetState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              disabledBackgroundColor: Colors.grey.shade300,
+              disabledForegroundColor: Colors.white70,
+            ).copyWith(
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              splashFactory: NoSplash.splashFactory,
+              animationDuration: const Duration(milliseconds: 0),
+              enableFeedback: false,
             ),
             icon: _isStartingJob
                 ? const SizedBox(
@@ -428,6 +450,13 @@ class _AcceptedJobDetailsSheetState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              disabledBackgroundColor: Colors.grey.shade200,
+              disabledForegroundColor: Colors.black38,
+            ).copyWith(
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              splashFactory: NoSplash.splashFactory,
+              animationDuration: const Duration(milliseconds: 0),
+              enableFeedback: false,
             ),
             icon: _isUnaccepting
                 ? const SizedBox(
@@ -450,44 +479,120 @@ class _AcceptedJobDetailsSheetState
     );
   }
 
-  Widget _infoItem({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, size: 28, color: Colors.black87),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 14)),
-      ],
+  // Removed unused helpers _infoItem and _detailRow
+}
+
+// ────────────────────────────────────────────────────────────────────────
+//  Tile components (mirroring Job Accept sheet styling)
+// ────────────────────────────────────────────────────────────────────────
+// Generic tile data
+class _TileData {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? color;
+  final bool spanTwoColumns;
+  _TileData({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+    this.spanTwoColumns = false,
+  });
+}
+
+// Two-column responsive tile wrapper
+class _TwoColumnTiles extends StatelessWidget {
+  final List<_TileData> tiles;
+  const _TwoColumnTiles({required this.tiles});
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 10.0;
+        final isNarrow = constraints.maxWidth < 260;
+        final columns = isNarrow ? 1 : 2;
+        final itemWidth = columns == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - spacing) / 2;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: tiles.map((t) {
+            final double width = columns == 2 && t.spanTwoColumns
+                ? constraints.maxWidth
+                : itemWidth;
+            return SizedBox(
+              width: width,
+              child: _StatTile(
+                icon: t.icon,
+                label: t.label,
+                value: t.value,
+                color: t.color,
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
+}
 
-  Widget _detailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+// Single stat tile
+class _StatTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? color;
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseColor = color ?? Colors.black87;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey.shade600, size: 20),
-          const SizedBox(width: 16),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(fontSize: 15, color: Colors.grey.shade800),
+          Icon(icon, size: 22, color: baseColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: baseColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),

@@ -952,12 +952,23 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                                             ),
                                           ),
                                         ),
+                                        // Always show the prompt message above the date carousel (left-aligned)
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                                          child: Text(
+                                            appLocalizations.jobAcceptSheetSelectDayPrompt,
+                                            textAlign: TextAlign.left,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
                                         // Date carousel should go edge-to-edge (no horizontal padding)
                                         Padding(
-                                          // Consistent spacing after buildings/units info
-                                          padding: const EdgeInsets.only(
-                                            top: 8,
-                                          ),
+                                          // Spacing between the message and the carousel
+                                          padding: const EdgeInsets.only(top: 8),
                                           child: DateCarousel(
                                             key: _carouselKey,
                                             availableDates: carouselDates,

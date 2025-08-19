@@ -87,7 +87,7 @@
   "mainTabsJobs": "Jobs",
   "mainTabsEarnings": "Earnings",
   "myAppOfflineBanner": "You are offline",
-  "jobAcceptSheetSelectDayPrompt": "Select a day above to see job details.",
+  "jobAcceptSheetSelectDayPrompt": "Select a day below",
   "jobAcceptSheetAcceptingButton": "Accepting...",
   "jobAcceptSheetAcceptButton": "Accept Job",
   "jobAcceptSheetHeaderAvgPay": "Avg Pay",

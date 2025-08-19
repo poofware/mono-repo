@@ -91,7 +91,7 @@
   "mainTabsJobs": "Trabajos",
   "mainTabsEarnings": "Ganancias",
   "myAppOfflineBanner": "Estás desconectado",
-  "jobAcceptSheetSelectDayPrompt": "Selecciona un día arriba para ver los detalles del trabajo.",
+  "jobAcceptSheetSelectDayPrompt": "Selecciona un día abajo",
   "jobAcceptSheetAcceptingButton": "Aceptando...",
   "jobAcceptSheetAcceptButton": "Aceptar Trabajo",
   "jobAcceptSheetHeaderAvgPay": "Pago Prom.",
