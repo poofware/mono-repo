@@ -147,6 +147,9 @@ class JobMapCache {
         _mapPages.remove(id);
         _warmCompleters.remove(id);
         _evictTimers.remove(id);
+        // Also clear warmed flag so next warm-up completes promptly
+        // and does not rely on the safety timeout due to an already-warmed short-circuit.
+        JobMapPage.clearWarmed(id);
       }
     });
   }

@@ -31,6 +31,15 @@ class JobMapPage extends ConsumerStatefulWidget {
 
   static final _warmedJobIds = <String>{};
 
+  /// Clears the warmed flag for a specific job instance.
+  ///
+  /// This is used by the cache eviction logic so that subsequent warm-ups
+  /// can complete promptly (i.e., invoke onReady) instead of waiting for
+  /// a safety timeout due to an already-warmed short-circuit.
+  static void clearWarmed(String instanceId) {
+    _warmedJobIds.remove(instanceId);
+  }
+
   @override
   ConsumerState<JobMapPage> createState() => _JobMapPageState();
 }
