@@ -302,7 +302,7 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
                     () => EagerGestureRecognizer(),
                   ),
                 },
-                myLocationEnabled: widget.isForWarmup ? false : true,
+                myLocationEnabled: true,
                 myLocationButtonEnabled: false,
                 mapToolbarEnabled: false,
                 zoomControlsEnabled: false,

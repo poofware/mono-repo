@@ -984,7 +984,7 @@ class _JobAcceptSheetState extends ConsumerState<JobAcceptSheet>
                                                     day,
                                                   ),
                                                 ),
-                                            leftPadding: 24.0,
+                                            leftPadding: 20.0,
                                           ),
                                         ),
                                         const SizedBox(height: 24),
