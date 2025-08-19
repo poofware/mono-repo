@@ -335,6 +335,12 @@ class _HomePageState extends ConsumerState<HomePage>
         args,
       );
       if (mounted) {
+        // If we've gone offline while the isolate was computing, do not apply markers.
+        final stillOnline = ref.read(jobsNotifierProvider).isOnline;
+        if (!stillOnline) {
+          ref.read(jobMarkerCacheProvider.notifier).clearAllMarkers();
+          return;
+        }
         // Build dedupe maps: definition -> location key, and location -> ids
         final defToLoc = <String, String>{};
         final locToPos = <String, LatLng>{};
@@ -1016,9 +1022,16 @@ class _HomePageState extends ConsumerState<HomePage>
       prev,
       next,
     ) {
+      // Immediately clear markers when going offline to keep UI in sync
+      if (!next) {
+        _markerUpdateThrottleTimer?.cancel();
+        ref.read(jobMarkerCacheProvider.notifier).clearAllMarkers();
+        return;
+      }
+
       _updateMarkerCacheForAllDefsThrottled();
       // When going online, ensure a visible selection exists for current defs
-      if (next && mounted) {
+      if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           final currentSelectedId = ref.read(selectedDefinitionIdProvider);
@@ -1069,7 +1082,7 @@ class _HomePageState extends ConsumerState<HomePage>
     final minSheetSize = _computeMinSheetSize(context);
     // Fallback guess until post-frame measurement runs
     // Set static max size as requested
-    const maxSheetSize = 0.98;
+    const maxSheetSize = 0.90;
     final sheetSnapSizes = [minSheetSize, 0.4, maxSheetSize];
     final isOnline = jobsState.isOnline;
     final isTest = PoofWorkerFlavorConfig.instance.testMode;

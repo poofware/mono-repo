@@ -200,7 +200,6 @@ class JobsNotifier extends StateNotifier<JobsState> {
     logger.d('goOffline() called.');
 
     try {
-      await Future.delayed(const Duration(milliseconds: 100));
       state = state.copyWith(
         isOnline: false,
         isLoadingOpenJobs: false,

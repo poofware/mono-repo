@@ -106,6 +106,9 @@ class _WelcomeButtonState extends State<WelcomeButton> {
               splashFactory: InkSparkle.splashFactory,
               backgroundColor: activeBg,
               foregroundColor: activeFg,
+              // Ensure stable height across label/spinner states to prevent
+              // parent layout (e.g., bottom sheets) from subtly resizing.
+              minimumSize: const Size.fromHeight(56),
               disabledBackgroundColor:
                   effectiveLoading ? loadingBg : disabledBg,
               disabledForegroundColor:
