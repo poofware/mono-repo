@@ -15,6 +15,7 @@ import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_flutter_widgets/poof_flutter_widgets.dart'
     show SixDigitField;
 import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
@@ -26,7 +27,14 @@ class VerifyNumberArgs {
   /// The optional `onSuccess` callback is now passed here.
   final Future<void> Function()? onSuccess;
 
-  const VerifyNumberArgs({required this.phoneNumber, this.onSuccess});
+  /// If true, treat this as part of sign-up and navigate to TOTP setup on success.
+  final bool goToTotpAfterSuccess;
+
+  const VerifyNumberArgs({
+    required this.phoneNumber,
+    this.onSuccess,
+    this.goToTotpAfterSuccess = false,
+  });
 }
 
 class VerifyNumberPage extends ConsumerStatefulWidget {
@@ -93,6 +101,7 @@ class _VerifyNumberPageState extends ConsumerState<VerifyNumberPage> {
     }
 
     final navigator = Navigator.of(context);
+    final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
 
     final config = PoofWorkerFlavorConfig.instance;
@@ -100,16 +109,31 @@ class _VerifyNumberPageState extends ConsumerState<VerifyNumberPage> {
     setState(() => _isLoading = true);
 
     final workerAuthRepo = ref.read(workerAuthRepositoryProvider);
+    final signUpNotifier = ref.read(signUpProvider.notifier);
     try {
       if (!config.testMode) {
         await workerAuthRepo.verifySMSCode(phone, _sixDigitCode);
       }
+      // First, run any caller-provided success callback.
       if (widget.args.onSuccess != null) {
         await widget.args.onSuccess!();
-      } else {
-        if (navigator.canPop()) {
-          navigator.pop(true);
+      }
+      // If part of sign-up, generate TOTP secret, then go forward to TOTP and
+      // drop verify from the stack so back-swipe reveals CreateAccount.
+      if (widget.args.goToTotpAfterSuccess) {
+        try {
+          final totpResp = await workerAuthRepo.generateTOTPSecret();
+          signUpNotifier.setTotpSecret(totpResp.secret);
+        } catch (_) {
+          // Ignore; TOTP page will handle empty/failed secret gracefully.
         }
+        if (!mounted) return;
+        router.replaceNamed(AppRouteNames.totpSignUpPage);
+        return;
+      }
+      // Otherwise, return success to caller (e.g., MyProfile flow).
+      if (navigator.canPop()) {
+        navigator.pop(true);
       }
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;

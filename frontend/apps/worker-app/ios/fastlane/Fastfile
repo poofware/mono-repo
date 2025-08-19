@@ -168,13 +168,42 @@ platform :ios do
         || { echo "❌  Associated-Domains entitlement missing – aborting"; exit 1; }
     BASH
 
-    # Upload to TestFlight
-    pilot(
-      skip_waiting_for_build_processing: true,
-      verbose: true,
-      api_key: api_key,
-      app_identifier: ENV['APP_IDENTIFIER']
-    )
+    # Convention: require RELEASE_NOTES for TestFlight (What to Test)
+    ios_tf_changelog = ENV['RELEASE_NOTES']
+    UI.user_error!("RELEASE_NOTES environment variable is required") if (ENV['MAKE_ENV'].to_s != 'prod' && ios_tf_changelog.to_s.strip.empty?)
+
+    # Decide destination: TestFlight (default) or App Store (for prod)
+    destination_env = (ENV['MAKE_ENV'] || '').to_s
+    if destination_env == 'prod'
+      # Convention: require RELEASE_NOTES (en-US only)
+      ios_release_notes = { 'default' => ENV['RELEASE_NOTES'] }
+      UI.user_error!("RELEASE_NOTES environment variable is required") if ios_release_notes['default'].to_s.strip.empty?
+
+      automatic_release = ENV['IOS_AUTOMATIC_RELEASE'].to_s == '1'
+
+      UI.message("Uploading IPA directly to App Store Connect for App Store submission…")
+      deliver_options = {
+        ipa: ipa_path,
+        api_key: api_key,
+        app_identifier: ENV['APP_IDENTIFIER'],
+        skip_screenshots: true,
+        submit_for_review: true,
+        automatic_release: automatic_release
+      }
+      deliver_options[:release_notes] = ios_release_notes
+      deliver_options[:skip_metadata] = false
+      deliver(deliver_options)
+    else
+      # Upload to TestFlight
+      pilot_options = {
+        skip_waiting_for_build_processing: true,
+        verbose: true,
+        api_key: api_key,
+        app_identifier: ENV['APP_IDENTIFIER']
+      }
+      pilot_options[:changelog] = ios_tf_changelog
+      pilot(pilot_options)
+    end
   end
 end
 

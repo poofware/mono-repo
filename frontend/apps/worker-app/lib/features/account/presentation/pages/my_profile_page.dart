@@ -817,7 +817,11 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     if (!mounted) return false;
     final result = await context.pushNamed<bool>(
       AppRouteNames.phoneVerificationInfoPage,
-      extra: PhoneVerificationInfoArgs(phoneNumber: phone, onSuccess: null),
+      extra: PhoneVerificationInfoArgs(
+        phoneNumber: phone,
+        onSuccess: null,
+        goToTotpAfterSuccess: false,
+      ),
     );
     return result == true;
   }

@@ -24,8 +24,15 @@ import 'verify_number_page.dart' show VerifyNumberArgs;
 class PhoneVerificationInfoArgs {
   final String phoneNumber;
   final Future<void> Function()? onSuccess;
+  // If true, this flow is part of sign-up and should lead to TOTP setup.
+  // Defaults to false for MyProfile and other flows.
+  final bool goToTotpAfterSuccess;
 
-  const PhoneVerificationInfoArgs({required this.phoneNumber, this.onSuccess});
+  const PhoneVerificationInfoArgs({
+    required this.phoneNumber,
+    this.onSuccess,
+    this.goToTotpAfterSuccess = false,
+  });
 }
 
 /// A page that explains why we’re verifying the phone number,
@@ -52,7 +59,6 @@ class _PhoneVerificationInfoPageState
   Future<void> _onSendCodeAndVerify() async {
     // Capture context before async gaps
     final router = GoRouter.of(context);
-    final navigator = Navigator.of(context);
     final BuildContext capturedContext = context;
 
     final config = PoofWorkerFlavorConfig.instance;
@@ -67,33 +73,51 @@ class _PhoneVerificationInfoPageState
         await authRepo.requestSMSCode(phone);
       }
 
-      // Step 2: Push the verification page and wait for its result.
-      // THE FIX: We now pass the onSuccess callback down to VerifyNumberPage.
+      // Step 2: Navigate to VerifyNumberPage.
+      // - Sign-up flow (goToTotpAfterSuccess=true): replace to avoid flicker and
+      //   to ensure back-swipe shows CreateAccount.
+      // - MyProfile or other flows: push and await result so caller receives a
+      //   boolean and can proceed (no TOTP navigation).
+      if (widget.args.goToTotpAfterSuccess) {
+        if (mounted) setState(() => _isLoading = false);
+        router.replaceNamed(
+          AppRouteNames.verifyNumberPage,
+          extra: VerifyNumberArgs(
+            phoneNumber: phone,
+            onSuccess: widget.args.onSuccess,
+            goToTotpAfterSuccess: true,
+          ),
+        );
+        return;
+      }
+
       final result = await router.pushNamed<bool>(
         AppRouteNames.verifyNumberPage,
         extra: VerifyNumberArgs(
           phoneNumber: phone,
           onSuccess: widget.args.onSuccess,
+          goToTotpAfterSuccess: false,
         ),
       );
 
-      // Step 3: If verification was not successful, stop here.
-      // This path is now only taken if the user manually hits "back" on VerifyNumberPage.
+      // If verification not successful, stop here.
       if (result != true) {
         if (mounted) setState(() => _isLoading = false);
         return;
       }
 
-      // Step 4: Verification succeeded. This block is now only reached for the profile update flow,
-      // because the signup flow is handled inside VerifyNumberPage.
+      // Success for non-signup flows: optional callback then pop(true) so
+      // the caller (e.g., MyProfile) can proceed and clear loading.
       if (widget.args.onSuccess != null) {
         await widget.args.onSuccess!();
-      } else {
-        // If no callback is provided, pop back to the previous screen with success.
-        if (navigator.canPop()) {
-          navigator.pop(true);
-        }
       }
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      final nav = Navigator.of(context);
+      if (nav.canPop()) {
+        nav.pop(true);
+      }
+      return;
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
       showAppSnackBar(

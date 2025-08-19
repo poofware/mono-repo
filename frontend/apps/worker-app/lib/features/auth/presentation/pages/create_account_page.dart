@@ -139,24 +139,19 @@ class _CreateAccountPageState extends ConsumerState<CreateAccountPage> {
         phoneNumber: phone,
       );
 
-      // Define the success callback for the sign-up flow.
-      // This function will be executed by PhoneVerificationInfoPage.
-      Future<void> handleSuccess() async {
-        final totpResp = await workerAuthRepo.generateTOTPSecret();
-        signUpNotifier.setTotpSecret(totpResp.secret);
-        // Using `go` here replaces the verification pages from the history stack.
-        router.goNamed(AppRouteNames.totpSignUpPage);
-      }
+      // No callback needed; we'll proceed after the verification flow returns.
 
       // Await the push and reset loading state when it returns.
       // This robustly handles the user pressing the back button.
-      await router.pushNamed(
+      router.pushNamed<bool>(
         AppRouteNames.phoneVerificationInfoPage,
         extra: PhoneVerificationInfoArgs(
           phoneNumber: phone,
-          onSuccess: handleSuccess,
+          goToTotpAfterSuccess: true,
         ),
       );
+      if (mounted) setState(() => _isLoading = false);
+      return;
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
       showAppSnackBar(

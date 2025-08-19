@@ -25,8 +25,9 @@ end
 platform :android do
   desc "Build the Android app, increment the version code, and upload to the Play Store."
   lane :build_and_upload_to_playstore do |options|
-    # Determine the release track from lane options or environment variables.
-    track = options[:track] || ENV.fetch("ANDROID_RELEASE_TRACK", "internal")
+    # Convention over configuration: derive track from MAKE_ENV
+    # prod → beta (open testing), otherwise → internal
+    track = (ENV['MAKE_ENV'].to_s == 'prod') ? 'beta' : 'internal'
     UI.header("Starting build and upload to track: #{track}")
 
     # Fetch the highest existing version code from the specified track to avoid collisions.
@@ -63,29 +64,9 @@ platform :android do
     # Upload the AAB to the Google Play Store using the `supply` action.
     UI.message("Uploading AAB to Google Play Store...")
 
-    # Prepare changelogs / release notes if provided via environment variables
-    # Supported env vars (priority order):
-    # - ANDROID_CHANGELOG_JSON: JSON object of { "en-US": "notes", ... }
-    # - ANDROID_CHANGELOG_FILE: Absolute/relative path to a file containing notes (defaults to en-US)
-    # - ANDROID_CHANGELOG: Raw string for notes (defaults to en-US)
-    release_notes = nil
-    begin
-      if ENV["ANDROID_CHANGELOG_JSON"] && !ENV["ANDROID_CHANGELOG_JSON"].empty?
-        release_notes = JSON.parse(ENV["ANDROID_CHANGELOG_JSON"])
-        UI.message("Using release notes from ANDROID_CHANGELOG_JSON")
-      elsif ENV["ANDROID_CHANGELOG_FILE"] && !ENV["ANDROID_CHANGELOG_FILE"].empty?
-        path = File.expand_path(ENV["ANDROID_CHANGELOG_FILE"]) 
-        contents = File.read(path)
-        release_notes = { "en-US" => contents }
-        UI.message("Using release notes from ANDROID_CHANGELOG_FILE at #{path}")
-      elsif ENV["ANDROID_CHANGELOG"] && !ENV["ANDROID_CHANGELOG"].empty?
-        release_notes = { "en-US" => ENV["ANDROID_CHANGELOG"] }
-        UI.message("Using release notes from ANDROID_CHANGELOG")
-      end
-    rescue => e
-      UI.important("Failed to prepare release notes: #{e.class}: #{e.message}. Continuing without changelogs.")
-      release_notes = nil
-    end
+    # Convention: require RELEASE_NOTES and apply to en-US
+    notes = ENV['RELEASE_NOTES']
+    UI.user_error!("RELEASE_NOTES environment variable is required") if notes.to_s.strip.empty?
 
     supply_options = {
       package_name: ENV["APP_IDENTIFIER_ANDROID"],
@@ -96,7 +77,7 @@ platform :android do
       skip_upload_images: true,
       skip_upload_screenshots: true
     }
-    supply_options[:changelogs] = release_notes if release_notes
+    supply_options[:changelogs] = { 'en-US' => notes }
 
     supply(supply_options)
     UI.success("Successfully uploaded to track: #{track}")

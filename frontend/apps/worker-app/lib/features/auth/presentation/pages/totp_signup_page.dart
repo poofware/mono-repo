@@ -163,8 +163,7 @@ class TotpSignUpPage extends ConsumerWidget {
                         alignment: Alignment.topLeft,
                         child: IconButton(
                           icon: const Icon(Icons.arrow_back),
-                          onPressed: () =>
-                              context.goNamed(AppRouteNames.createAccountPage),
+                          onPressed: () => context.pop(),
                         ),
                       ),
                       const SizedBox(height: 16),
