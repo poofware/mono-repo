@@ -72,72 +72,66 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
   static const _flickDown = 750;
 
   // A special, non-snappable height to reveal messages.
-  static const double _messageSnapHeight = 0.23;
+  static const double _messageSnapHeight = 0.225;
 
   // Compute a dynamic snap height that fits the given message without truncation
   // by estimating the wrapped text height at runtime and converting to a sheet size fraction.
   double _computeDynamicMessageSnapSize(BuildContext context, String message) {
-    final double screenHeight = widget.screenHeight;
-    final double screenWidth = MediaQuery.of(context).size.width;
+    // Simple, robust heuristic:
+    // - If the message fits on one line at the actual text scale and typical
+    //   padding width, use a compact snap height.
+    // - If it wraps (2+ lines), use a slightly taller fixed snap height that
+    //   comfortably fits up to a single wrap.
+    final media = MediaQuery.of(context);
+    final double screenWidth = media.size.width;
+    // Account for device safe areas (e.g., iPhone landscape), our own padding,
+    // and a small gutter to match real-world layout constraints.
+    const double horizontalPadding = 20.0 * 2; // matches draggableMessage padding
+    final double safeHorizontal = media.padding.left + media.padding.right;
+    const double extraGutter = 24.0; // conservative fudge factor
+    final double maxTextWidth =
+        (screenWidth - safeHorizontal - horizontalPadding - extraGutter)
+            .clamp(0.0, screenWidth);
 
-    // Match draggableMessage layout: Center -> Padding(all: 20) -> Text(..., fontSize: 16)
-    const double horizontalPadding = 20.0 * 2; // left + right
-    const double verticalPadding = 20.0 * 2;   // top + bottom
-    final double maxTextWidth = (screenWidth - horizontalPadding).clamp(0.0, screenWidth);
+    final TextScaler textScaler = MediaQuery.textScalerOf(context);
+    final double scaledFontSize = textScaler.scale(16);
 
     final TextPainter painter = TextPainter(
       text: TextSpan(
         text: message,
         style: TextStyle(
-          fontSize: 16,
+          fontSize: scaledFontSize,
           color: Colors.grey.shade600,
         ),
       ),
       textAlign: TextAlign.center,
       textDirection: Directionality.of(context),
       maxLines: null,
-    )
-      ..layout(maxWidth: maxTextWidth);
+    )..layout(maxWidth: maxTextWidth);
 
-    // Account for line metrics and text scale to avoid clipping descenders.
-    final List<LineMetrics> lines = painter.computeLineMetrics();
-    final int lineCount = lines.length;
-    final TextScaler textScaler = MediaQuery.textScalerOf(context);
-    final double scaledFontSize = textScaler.scale(16);
-    final double textScale = scaledFontSize / 16.0;
-    final double lineHeight = lines.isNotEmpty
-        ? lines.first.height
-        : painter.preferredLineHeight;
-    final double baseMessageHeight = painter.size.height + verticalPadding;
-    final int additionalLines = lineCount > 1 ? (lineCount - 1) : 0;
-    final double perAdditionalLineSafety = scaledFontSize * 0.25; // relative per extra line
-    final double singleLineLift = additionalLines == 0 ? lineHeight * 0.30 : 0.0; // lift to avoid clipping
-    final double multiLineBonus = additionalLines > 0 ? scaledFontSize * 0.75 : 0.0; // ~12px at 16sp
-    final double scaleMargin = (textScale > 1.0)
-        ? (textScale - 1.0) * scaledFontSize
-        : 0.0;
-    final double messageContentHeight = baseMessageHeight +
-        singleLineLift +
-        (additionalLines * perAdditionalLineSafety) +
-        multiLineBonus +
-        scaleMargin;
+    final int lineCount = painter.computeLineMetrics().length;
+    final bool wrapped = lineCount > 1;
 
-    // Base header height: use the actual configured min sheet size to ensure
-    // consistency with how the sheet is laid out at runtime.
-    final double headerHeightPx = widget.minChildSize * screenHeight;
+    // Quick diagnostic log
+    try {
+      final logger = ref.read(appLoggerProvider);
+      logger.d(
+        'JobsSheet: message wrap ${wrapped ? 'detected' : 'not detected'} '
+        '(lines=$lineCount, maxTextWidth=${maxTextWidth.toStringAsFixed(1)}, '
+        'screenWidth=${screenWidth.toStringAsFixed(1)})',
+      );
+    } catch (_) {}
 
-    // Add a bit more general margin to cover rounding/layout differences.
-    final double safetyMargin = (additionalLines > 0)
-        ? scaledFontSize * 2.25 // ~36px at 16sp
-        : scaledFontSize * 0.50; // ~8px at 16sp
+    // Base sizes chosen to work with the current header layout.
+    // _messageSnapHeight = 0.23 for single line; bump for wrapped text.
+    double target = wrapped ? 0.29 : _messageSnapHeight;
 
-    final double totalDesiredHeightPx = headerHeightPx + messageContentHeight + safetyMargin;
-    final double fraction = (totalDesiredHeightPx / screenHeight)
-        .clamp(widget.minChildSize, widget.maxChildSize);
+    // If the user has large text enabled, give a little extra room.
+    if (wrapped && (scaledFontSize / 16.0) > 1.2) {
+      target = 0.31;
+    }
 
-    // Fallback to legacy constant if anything goes sideways.
-    if (!fraction.isFinite) return _messageSnapHeight;
-    return fraction;
+    return target.clamp(widget.minChildSize, widget.maxChildSize);
   }
 
   // Controller for the list, to check its scroll position.
