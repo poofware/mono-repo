@@ -12,7 +12,7 @@ void configureDevFlavor() {
   }
 
   PoofWorkerFlavorConfig(
-    name: "DEV",
+    name: "",
     color: Colors.red,
     location: BannerLocation.topStart,
     authServiceURL: 'https://$baseUrl/auth',

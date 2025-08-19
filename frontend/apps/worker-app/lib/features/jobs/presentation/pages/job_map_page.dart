@@ -3,11 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io' show Platform;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/features/jobs/providers/providers.dart';
 import 'package:poof_worker/features/jobs/presentation/widgets/tap_ripple_overlay.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:poof_worker/core/providers/initial_setup_providers.dart';
 
 class JobMapPage extends ConsumerStatefulWidget {
   final JobInstance job;
@@ -56,11 +58,17 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
     // This now correctly sets the initial state if the map was already warmed.
     _isMapReady = JobMapPage._warmedJobIds.contains(widget.job.instanceId);
     _createMarkers();
-    rootBundle.loadString('assets/jsons/map_style.json').then((style) {
-      if (mounted) {
-        setState(() => _mapStyle = style);
-      }
-    });
+    // Prefer preloaded style (from app boot) to avoid disk IO during map init.
+    final preloadedStyle = ref.read(mapStyleJsonProvider);
+    if (preloadedStyle != null) {
+      _mapStyle = preloadedStyle;
+    } else {
+      rootBundle.loadString('assets/jsons/map_style.json').then((style) {
+        if (mounted) {
+          setState(() => _mapStyle = style);
+        }
+      });
+    }
   }
 
   void _createMarkers() {
@@ -145,6 +153,10 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
   }
 
   Future<void> _waitUntilTilesRender(GoogleMapController controller) async {
+    // On iOS, avoid expensive snapshot polling during warm-up to reduce latency.
+    if (Platform.isIOS) {
+      return;
+    }
     // Strengthen tile readiness for flaky Android devices
     final deadline = DateTime.now().add(const Duration(seconds: 6));
     while (DateTime.now().isBefore(deadline)) {
@@ -279,7 +291,7 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
                 () => EagerGestureRecognizer(),
               ),
             },
-            myLocationEnabled: true,
+            myLocationEnabled: widget.isForWarmup ? false : true,
             myLocationButtonEnabled: false,
             mapToolbarEnabled: false,
             zoomControlsEnabled: false,
