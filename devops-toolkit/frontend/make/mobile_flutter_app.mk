@@ -164,6 +164,7 @@ deploy-ios: logs _ios_app_configuration _ios_fastlane_configuration
 	$(VERBOSE_FLAG) 2>&1 | tee ../logs/deploy_ios_$(ENV).log
 
 ## Deploy the Android app to the Play Store (ENV=staging|prod ANDROID_RELEASE_TRACK=internal|alpha|beta|production)
+## Optional: ANDROID_CHANGELOG (string), ANDROID_CHANGELOG_FILE (path), ANDROID_CHANGELOG_JSON (JSON)
 deploy-android: logs _android_app_configuration _android_fastlane_configuration
 	@echo "[INFO] [Deploy Android] Deploying for ENV=$(ENV) to track $(ANDROID_RELEASE_TRACK)..."
 	@if [ "$(ENV)" != "$(STAGING_ENV)" ] && [ "$(ENV)" != "$(PROD_ENV)" ]; then \
@@ -173,6 +174,9 @@ deploy-android: logs _android_app_configuration _android_fastlane_configuration
 	@cd android/fastlane && set -eo pipefail && \
 	MAKE_ENV=$(ENV) \
 	ANDROID_RELEASE_TRACK=$(ANDROID_RELEASE_TRACK) \
+	ANDROID_CHANGELOG_JSON=$(ANDROID_CHANGELOG_JSON) \
+	ANDROID_CHANGELOG_FILE=$(ANDROID_CHANGELOG_FILE) \
+	ANDROID_CHANGELOG=$(ANDROID_CHANGELOG) \
 	bundle exec fastlane android build_and_upload_to_playstore \
 	$(VERBOSE_FLAG) 2>&1 | tee ../../logs/deploy_android_$(ENV).log
 

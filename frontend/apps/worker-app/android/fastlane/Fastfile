@@ -5,6 +5,7 @@ before_all do |lane, _|
   # into a temporary JSON file that `supply` can use.
   require "base64"
   require "fileutils"
+  require "json"
   
   UI.message("Decoding Google Play service account key...")
   FileUtils.mkdir_p("tmp")
@@ -62,7 +63,31 @@ platform :android do
     # Upload the AAB to the Google Play Store using the `supply` action.
     UI.message("Uploading AAB to Google Play Store...")
 
-    supply(
+    # Prepare changelogs / release notes if provided via environment variables
+    # Supported env vars (priority order):
+    # - ANDROID_CHANGELOG_JSON: JSON object of { "en-US": "notes", ... }
+    # - ANDROID_CHANGELOG_FILE: Absolute/relative path to a file containing notes (defaults to en-US)
+    # - ANDROID_CHANGELOG: Raw string for notes (defaults to en-US)
+    release_notes = nil
+    begin
+      if ENV["ANDROID_CHANGELOG_JSON"] && !ENV["ANDROID_CHANGELOG_JSON"].empty?
+        release_notes = JSON.parse(ENV["ANDROID_CHANGELOG_JSON"])
+        UI.message("Using release notes from ANDROID_CHANGELOG_JSON")
+      elsif ENV["ANDROID_CHANGELOG_FILE"] && !ENV["ANDROID_CHANGELOG_FILE"].empty?
+        path = File.expand_path(ENV["ANDROID_CHANGELOG_FILE"]) 
+        contents = File.read(path)
+        release_notes = { "en-US" => contents }
+        UI.message("Using release notes from ANDROID_CHANGELOG_FILE at #{path}")
+      elsif ENV["ANDROID_CHANGELOG"] && !ENV["ANDROID_CHANGELOG"].empty?
+        release_notes = { "en-US" => ENV["ANDROID_CHANGELOG"] }
+        UI.message("Using release notes from ANDROID_CHANGELOG")
+      end
+    rescue => e
+      UI.important("Failed to prepare release notes: #{e.class}: #{e.message}. Continuing without changelogs.")
+      release_notes = nil
+    end
+
+    supply_options = {
       package_name: ENV["APP_IDENTIFIER_ANDROID"],
       aab: aab_path,
       track: track,
@@ -70,7 +95,10 @@ platform :android do
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
-    )
+    }
+    supply_options[:changelogs] = release_notes if release_notes
+
+    supply(supply_options)
     UI.success("Successfully uploaded to track: #{track}")
   end
 end
