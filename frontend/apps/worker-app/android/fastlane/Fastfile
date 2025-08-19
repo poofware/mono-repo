@@ -25,7 +25,7 @@ platform :android do
   desc "Build the Android app, increment the version code, and upload to the Play Store."
   lane :build_and_upload_to_playstore do |options|
     # Determine the release track from lane options or environment variables.
-    track = options[:track] || ENV.fetch("ANDROID_RELEASE_TRACK", "internal")
+    track = options[:track] || ENV.fetch("ANDROID_RELEASE_TRACK", "open")
     UI.header("Starting build and upload to track: #{track}")
 
     # Fetch the highest existing version code from the specified track to avoid collisions.
