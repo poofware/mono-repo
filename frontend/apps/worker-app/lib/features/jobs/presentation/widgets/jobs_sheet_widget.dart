@@ -105,12 +105,20 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     final TextScaler textScaler = MediaQuery.textScalerOf(context);
     final double scaledFontSize = textScaler.scale(16);
     final double textScale = scaledFontSize / 16.0;
+    final double lineHeight = lines.isNotEmpty
+        ? lines.first.height
+        : painter.preferredLineHeight;
     final double baseMessageHeight = painter.size.height + verticalPadding;
-    final double safetyMarginPerLine = 10.0; // extra room per line
-    final double multiLineBonus = (lineCount > 1) ? 12.0 : 0.0; // extra for second+ line
-    final double scaleMargin = (textScale > 1.0) ? (textScale - 1.0) * 16.0 : 0.0;
+    final int additionalLines = lineCount > 1 ? (lineCount - 1) : 0;
+    final double perAdditionalLineSafety = scaledFontSize * 0.25; // relative per extra line
+    final double singleLineLift = additionalLines == 0 ? lineHeight * 0.30 : 0.0; // lift to avoid clipping
+    final double multiLineBonus = additionalLines > 0 ? scaledFontSize * 0.75 : 0.0; // ~12px at 16sp
+    final double scaleMargin = (textScale > 1.0)
+        ? (textScale - 1.0) * scaledFontSize
+        : 0.0;
     final double messageContentHeight = baseMessageHeight +
-        (lineCount * safetyMarginPerLine) +
+        singleLineLift +
+        (additionalLines * perAdditionalLineSafety) +
         multiLineBonus +
         scaleMargin;
 
@@ -119,7 +127,9 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     final double headerHeightPx = widget.minChildSize * screenHeight;
 
     // Add a bit more general margin to cover rounding/layout differences.
-    const double safetyMargin = 36.0;
+    final double safetyMargin = (additionalLines > 0)
+        ? scaledFontSize * 2.25 // ~36px at 16sp
+        : scaledFontSize * 0.50; // ~8px at 16sp
 
     final double totalDesiredHeightPx = headerHeightPx + messageContentHeight + safetyMargin;
     final double fraction = (totalDesiredHeightPx / screenHeight)

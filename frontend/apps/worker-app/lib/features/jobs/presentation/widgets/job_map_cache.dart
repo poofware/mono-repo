@@ -176,6 +176,11 @@ class CachedMapPopupRoute extends PopupRoute<void> {
 
   final ValueNotifier<bool> _inRoute = ValueNotifier<bool>(true);
   bool _reparented = false;
+  // iOS-style edge swipe to dismiss support (works around GoogleMap eager gesture)
+  static const double _edgeSwipeWidth = 44.0;
+  static const double _dismissDragThreshold = 90.0;
+  double _dragAccumulation = 0.0;
+  bool _draggingFromEdge = false;
 
   @override
   Color get barrierColor => Colors.black54;
@@ -203,6 +208,38 @@ class CachedMapPopupRoute extends PopupRoute<void> {
             builder: (BuildContext context, bool show, Widget? child) =>
                 show ? mapPage : const SizedBox.shrink(),
           ),
+          // Left-edge swipe zone (iOS-like back gesture), sits ABOVE the map
+          if (Theme.of(context).platform == TargetPlatform.iOS)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: _edgeSwipeWidth,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: (details) {
+                  _draggingFromEdge = details.globalPosition.dx <= _edgeSwipeWidth;
+                  _dragAccumulation = 0.0;
+                },
+                onHorizontalDragUpdate: (details) {
+                  if (!_draggingFromEdge) return;
+                  _dragAccumulation += details.delta.dx;
+                },
+                onHorizontalDragEnd: (details) {
+                  if (!_draggingFromEdge) return;
+                  final double velocity = details.primaryVelocity ?? 0.0;
+                  if (_dragAccumulation > _dismissDragThreshold || velocity > 600.0) {
+                    Navigator.of(context).maybePop();
+                  }
+                  _draggingFromEdge = false;
+                  _dragAccumulation = 0.0;
+                },
+                onHorizontalDragCancel: () {
+                  _draggingFromEdge = false;
+                  _dragAccumulation = 0.0;
+                },
+              ),
+            ),
           SafeArea(
             child: Align(
               alignment: Alignment.topLeft,

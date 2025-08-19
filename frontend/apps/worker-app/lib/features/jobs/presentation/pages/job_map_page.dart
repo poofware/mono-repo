@@ -287,24 +287,29 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
       onPointerCancel: (_) => _tapCancelled = true,
       child: Stack(
         children: [
-          GoogleMap(
-            mapType: MapType.satellite,
-            style: _mapStyle.isEmpty ? null : _mapStyle,
-            initialCameraPosition: initialCameraPosition,
-            onMapCreated: _onMapCreated,
-            onCameraMoveStarted: widget.onCameraMoveStarted,
-            onCameraMove: (position) => _savedCameraPosition = position,
-            markers: _markers,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<OneSequenceGestureRecognizer>(
-                () => EagerGestureRecognizer(),
-              ),
+          Builder(
+            builder: (context) {
+              final map = GoogleMap(
+                mapType: MapType.satellite,
+                style: _mapStyle.isEmpty ? null : _mapStyle,
+                initialCameraPosition: initialCameraPosition,
+                onMapCreated: _onMapCreated,
+                onCameraMoveStarted: widget.onCameraMoveStarted,
+                onCameraMove: (position) => _savedCameraPosition = position,
+                markers: _markers,
+                gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                  Factory<OneSequenceGestureRecognizer>(
+                    () => EagerGestureRecognizer(),
+                  ),
+                },
+                myLocationEnabled: widget.isForWarmup ? false : true,
+                myLocationButtonEnabled: false,
+                mapToolbarEnabled: false,
+                zoomControlsEnabled: false,
+                padding: const EdgeInsets.only(top: 0),
+              );
+              return map;
             },
-            myLocationEnabled: widget.isForWarmup ? false : true,
-            myLocationButtonEnabled: false,
-            mapToolbarEnabled: false,
-            zoomControlsEnabled: false,
-            padding: const EdgeInsets.only(top: 0),
           ),
           const TapRippleOverlay(),
           // This AnimatedOpacity now works correctly because _isMapReady
