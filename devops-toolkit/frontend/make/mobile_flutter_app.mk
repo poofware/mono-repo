@@ -85,7 +85,7 @@ dependencies-android:
 	@echo "[INFO] [Dependencies Android] Installing Flutter packages..."
 	@flutter pub get
 	@echo "[INFO] [Dependencies Android] Installing Bundler and Gems..."
-	@cd android && \
+	@cd android/fastlane && \
 	gem install bundler --no-document && \
 	bundle install
 
@@ -163,17 +163,17 @@ deploy-ios: logs _ios_app_configuration _ios_fastlane_configuration
 	bundle exec fastlane ios build_and_upload_to_testflight \
 	$(VERBOSE_FLAG) 2>&1 | tee ../logs/deploy_ios_$(ENV).log
 
-## Deploy the Android app to the Play Store (ENV=staging|prod ANDROID_RELEASE_TRACK=internal|production)
+## Deploy the Android app to the Play Store (ENV=staging|prod ANDROID_RELEASE_TRACK=internal|alpha|beta|production)
 deploy-android: logs _android_app_configuration _android_fastlane_configuration
 	@echo "[INFO] [Deploy Android] Deploying for ENV=$(ENV) to track $(ANDROID_RELEASE_TRACK)..."
 	@if [ "$(ENV)" != "$(STAGING_ENV)" ] && [ "$(ENV)" != "$(PROD_ENV)" ]; then \
 		echo "[ERROR] [Deploy Android] Invalid ENV: $(ENV). Choose from [$(STAGING_ENV)|$(PROD_ENV)]."; exit 1; \
 	fi
 	@echo "[INFO] [Deploy Android] Running Fastlane to build and upload to Google Play..."
-	@cd android && set -eo pipefail && \
+	@cd android/fastlane && set -eo pipefail && \
 	MAKE_ENV=$(ENV) \
 	ANDROID_RELEASE_TRACK=$(ANDROID_RELEASE_TRACK) \
 	bundle exec fastlane android build_and_upload_to_playstore \
-	$(VERBOSE_FLAG) 2>&1 | tee ../logs/deploy_android_$(ENV).log
+	$(VERBOSE_FLAG) 2>&1 | tee ../../logs/deploy_android_$(ENV).log
 
 INCLUDED_MOBILE_FLUTTER_APP := 1
