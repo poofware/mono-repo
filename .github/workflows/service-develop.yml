@@ -106,6 +106,7 @@ jobs:
           UNIQUE_RUNNER_ID:     ${{ secrets.UNIQUE_RUNNER_ID }}
           UNIQUE_RUN_NUMBER:    ${{ github.run_number }}
           LOG_LEVEL:            debug
+          NGROK_AUTHTOKEN:      ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
           # ubuntu-latest already has jq; if your runner ever lacks it:
           #   sudo apt-get update -qq && sudo apt-get install -y jq
