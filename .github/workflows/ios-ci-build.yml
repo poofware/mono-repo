@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           submodules: recursive
@@ -24,29 +24,18 @@ jobs:
       - name: Select Xcode Version
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2.0'
+          xcode-version: '16.4.0'
 
       - name: Set up Flutter
         uses: flutter-actions/setup-flutter@v3
         with:
-          channel: 'stable'
-          # Use latest stable to ensure Dart >= 3.8.1 as required by pubspec
-          # omit version to get newest stable (macOS arm64 image caches common versions)
+          channel: 'beta'
           cache-sdk: true
-          cache: true
 
-      - name: Install dependencies (worker-app)
-        working-directory: frontend/apps/worker-app
-        env:
-          PUB_CACHE: ${{ runner.temp }}/pub-cache
-        run: flutter pub get
-
-      - name: Install CocoaPods & dependencies
-        working-directory: frontend/apps/worker-app/ios
-        run: |
-          gem install bundler --no-document
-          sudo bundle install --jobs 4 --retry 3
-          bundle exec pod install
+      - name: Set up Ruby and Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
 
       - name: Setup GNU user‑land
         run: |
@@ -93,6 +82,15 @@ jobs:
           echo "make -> $(which make)"
           echo "bash -> $(which bash)"
           echo "ls   -> $(which ls) ($(ls --version | head -n1))"
+
+      - name: Install BWS
+        run: |
+          # Bitwarden BWS CLI
+          curl -sSfL https://bws.bitwarden.com/install | sudo bash
+
+      - name: Install All Dependencies via Makefile
+        working-directory: frontend/apps/worker-app
+        run: make dependencies-ios
 
       - name: Build iOS (no code signing)
         env:
