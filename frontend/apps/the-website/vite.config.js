@@ -21,6 +21,7 @@ export default defineConfig({
         deleteAccountAuth: resolve(__dirname, 'src/delete-account-auth.html'),
         agentJobConfirmed: resolve(__dirname, 'src/agent-job-confirmed.html'),
         agentJobUnavailable: resolve(__dirname, 'src/agent-job-unavailable.html'),
+        support: resolve(__dirname, 'src/support.html'),
       },
       output: {
         assetFileNames: 'assets/[name].[hash][extname]'
