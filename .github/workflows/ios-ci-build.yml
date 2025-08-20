@@ -30,7 +30,8 @@ jobs:
         uses: flutter-actions/setup-flutter@v3
         with:
           channel: 'stable'
-          version: '3.29.2'
+          # Use latest stable to ensure Dart >= 3.8.1 as required by pubspec
+          # omit version to get newest stable (macOS arm64 image caches common versions)
           cache-sdk: true
           cache: true
 
