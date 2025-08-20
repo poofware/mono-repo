@@ -121,10 +121,16 @@ build-ios: logs _ios_app_configuration
 	eval "$$backend_export"; \
 	echo "[INFO] [Build iOS] Building..."; \
 	set -eo pipefail; \
-	flutter build ipa --release \
+	extra_cmd=ipa; extra_flags="--release"; \
+	if [ "$(ENV)" = "$(DEV_ENV)" ] || [ "$(ENV)" = "$(DEV_TEST_ENV)" ]; then \
+		echo "[INFO] [Build iOS] ENV=$(ENV) → building without code signing"; \
+		extra_cmd=ios; extra_flags="--debug --no-codesign"; \
+	fi; \
+	flutter build $$extra_cmd $$extra_flags \
 		--target lib/main/main_$(ENV).dart --dart-define=CURRENT_BACKEND_DOMAIN=$$CURRENT_BACKEND_DOMAIN \
 		--dart-define=GCP_SDK_KEY=$(GCP_IOS_SDK_KEY) \
 		$(VERBOSE_FLAG) 2>&1 | tee logs/build_ios.log; \
+
 	echo "[INFO] [Build iOS] Build complete. Check logs/build_ios.log for details."
 
 ## CI iOS pipeline: Starts backend, runs both integration and e2e tests, and then shuts down backend

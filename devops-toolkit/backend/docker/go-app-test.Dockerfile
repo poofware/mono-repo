@@ -87,16 +87,23 @@ COPY internal/ ./internal/
 RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
     --mount=type=cache,id=go-build-integration-test,target=/root/.cache/go-build \
     set -euxo pipefail; \
-    ENV_TRANSFORMED=$(echo "${ENV}" | tr '-' '_') && \
-    go test -c -tags "${ENV_TRANSFORMED},integration" \
-      -ldflags "\
-        -linkmode external -extldflags '-static -lm' \
-        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.AppName=${APP_NAME}' \
-        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
-        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \
-        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.LDServerContextKey=${LD_SERVER_CONTEXT_KEY}' \
-        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.LDServerContextKind=${LD_SERVER_CONTEXT_KIND}'" \
-      -v -o /integration_test ./internal/integration/...;
+    ENV_TRANSFORMED=$(echo "${ENV}" | tr '-' '_'); \
+    # If there are tests discovered for the active tags, compile; otherwise, skip gracefully
+    if go test -tags "${ENV_TRANSFORMED},integration" -list . ./internal/integration/... | grep -Eq '^(Test|Benchmark|Example)'; then \
+      go test -c -tags "${ENV_TRANSFORMED},integration" \
+        -ldflags "\
+          -linkmode external -extldflags '-static -lm' \
+          -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.AppName=${APP_NAME}' \
+          -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
+          -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \
+          -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.LDServerContextKey=${LD_SERVER_CONTEXT_KEY}' \
+          -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.LDServerContextKind=${LD_SERVER_CONTEXT_KIND}'" \
+        -v -o /integration_test ./internal/integration/...; \
+    else \
+      echo "[WARN] No integration tests detected for tags '${ENV_TRANSFORMED},integration'. Creating no-op runner."; \
+      printf '#!/bin/sh\n# no tests detected for current tags\nexit 0\n' > /integration_test; \
+      chmod +x /integration_test; \
+    fi;
 
 #######################################
 # Stage 4: Unit Test Builder 

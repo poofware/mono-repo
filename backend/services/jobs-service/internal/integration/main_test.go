@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
+	seeding "github.com/poofware/mono-repo/backend/shared/go-seeding"
 	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
@@ -64,6 +65,11 @@ func TestMain(m *testing.M) {
 	require.NoError(t, err, "Failed to create testPM property manager")
 
 	log.Printf("jobs-service integration tests: DB connected, baseURL=%s, env=%s", h.BaseURL, os.Getenv("ENV"))
+
+	// Ensure a default admin exists in this isolated schema for admin endpoint tests
+	if err := seeding.SeedDefaultAdmin(h.AdminRepo); err != nil {
+		require.NoError(t, err, "Failed to seed default admin for integration tests")
+	}
 
 	// Give DB a moment to be fully ready
 	time.Sleep(100 * time.Millisecond)

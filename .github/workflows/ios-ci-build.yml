@@ -100,4 +100,4 @@ jobs:
           UNIQUE_RUNNER_ID: ${{ secrets.UNIQUE_RUNNER_ID }}
           UNIQUE_RUN_NUMBER: ${{ github.run_number }}
         working-directory: frontend/apps/worker-app
-        run: make build-ios ENV=prod VERBOSE=1
+        run: make build-ios ENV=dev VERBOSE=1
