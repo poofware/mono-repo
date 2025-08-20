@@ -120,6 +120,6 @@ jobs:
             esac
 
             echo "➤ running make ci for $dir"
-            make ci PATH="$dir"
+            make -C "$dir" ci
           done
 
