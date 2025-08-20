@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/poofware/interest-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/interest-service/internal/dtos"
 )
 
 // -----------------------------------------------------------------------------

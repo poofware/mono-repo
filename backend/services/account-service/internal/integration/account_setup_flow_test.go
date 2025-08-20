@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 var smsRepo repositories.WorkerSMSVerificationRepository // This is specific to this test file
@@ -55,6 +55,9 @@ func TestIntegrationStripe(t *testing.T) {
 		w, err := h.WorkerRepo.GetByID(ctx, worker.ID)
 		require.NoError(t, err)
 		require.Equal(t, models.SetupProgressAwaitingPersonalInfo, w.SetupProgress)
+
+		_, err = h.DB.Exec(ctx, `UPDATE workers SET on_waitlist=false WHERE id=$1`, worker.ID)
+		require.NoError(t, err)
 
 		// 2) Post with address and vehicle information.
 		postPayload := dtos.SubmitPersonalInfoRequest{

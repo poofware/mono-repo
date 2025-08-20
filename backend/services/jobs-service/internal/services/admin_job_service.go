@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/dtos"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
 	"github.com/sirupsen/logrus"
 )
 
@@ -112,11 +112,17 @@ func (s *AdminJobService) AdminCreateJobDefinition(ctx context.Context, adminID 
 
 	pmUserStr := req.ManagerID.String()
 
+	// Map building IDs to AssignedUnitGroup with empty units/floors
+	var assignedGroups []models.AssignedUnitGroup
+	for _, bID := range req.AssignedBuildingIDs {
+		assignedGroups = append(assignedGroups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}, Floors: []int16{}})
+	}
+
 	createReq := dtos.CreateJobDefinitionRequest{
 		PropertyID:                 req.PropertyID,
 		Title:                      req.Title,
 		Description:                req.Description,
-		AssignedBuildingIDs:        req.AssignedBuildingIDs,
+		AssignedUnitsByBuilding:    assignedGroups,
 		DumpsterIDs:                req.DumpsterIDs,
 		Frequency:                  req.Frequency,
 		Weekdays:                   req.Weekdays,
@@ -184,7 +190,11 @@ func (s *AdminJobService) AdminUpdateJobDefinition(ctx context.Context, adminID 
 			j.Description = req.Description
 		}
 		if req.AssignedBuildingIDs != nil {
-			j.AssignedBuildingIDs = *req.AssignedBuildingIDs
+			var groups []models.AssignedUnitGroup
+			for _, bID := range *req.AssignedBuildingIDs {
+				groups = append(groups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}, Floors: []int16{}})
+			}
+			j.AssignedUnitsByBuilding = groups
 		}
 		if req.DumpsterIDs != nil {
 			j.DumpsterIDs = *req.DumpsterIDs

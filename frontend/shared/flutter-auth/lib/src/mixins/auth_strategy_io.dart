@@ -101,7 +101,7 @@ class IoAuthStrategy implements AuthStrategy {
             final stream = http.ByteStream(f.openRead());
             final filename = f.path.split('/').last;
             request.files.add(
-              http.MultipartFile('photos[]', stream, length, filename: filename),
+              http.MultipartFile('photo', stream, length, filename: filename),
             );
           }
         }

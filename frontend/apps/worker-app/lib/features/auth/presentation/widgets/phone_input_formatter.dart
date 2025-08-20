@@ -1,59 +1,68 @@
 // worker-app/lib/features/auth/presentation/widgets/phone_input_formatter.dart
+//
+// Formats a US / CA phone number:
+//   5551234567        → (555) 123-4567
+//   +1 555-123-4567   → (555) 123-4567   ← accepts autofill chip
+//
+// If the user enters the leading “1” plus 10 other digits, we silently
+// strip the 1 before formatting.
+
 import 'package:flutter/services.dart';
 
-/// Formats the input to a US-style phone number: `(###) ###-####`.
 class PhoneInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final newText = newValue.text;
-    final newDigits = newText.replaceAll(RegExp(r'\D'), '');
+    var oldDigits = oldValue.text.replaceAll(RegExp(r'\D'), '');
+    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
 
-    if (newDigits.length > 10) {
-      return oldValue; // Don't allow more than 10 digits
+    // If the user deleted a formatting character, treat it as deleting the
+    // preceding digit so that backspace works intuitively.
+    if (newValue.text.length < oldValue.text.length &&
+        digits.length == oldDigits.length &&
+        oldDigits.isNotEmpty) {
+      digits = oldDigits.substring(0, oldDigits.length - 1);
     }
 
-    final StringBuffer buffer = StringBuffer();
-    int digitIndex = 0;
+    // Strip a single leading US/CA country code “1”
+    if (digits.length == 11 && digits.startsWith('1')) {
+      digits = digits.substring(1);
+    }
 
-    if (newDigits.isNotEmpty) {
-      buffer.write('(');
-      if (newDigits.length > digitIndex) {
-        buffer.write(newDigits.substring(digitIndex, digitIndex + 1));
-        digitIndex++;
+    // Reject edits that still exceed 10 digits
+    if (digits.length > 10) return oldValue;
+
+    final buf = StringBuffer();
+    int i = 0;
+
+    if (digits.isNotEmpty) {
+      buf.write('(');
+      buf.write(digits.substring(i, ++i)); // first digit
+    }
+    while (i < 3 && i < digits.length) {
+      buf.write(digits[i++]);
+    }
+
+    if (digits.length >= 3) {
+      buf.write(') ');
+      while (i < 6 && i < digits.length) {
+        buf.write(digits[i++]);
       }
     }
-    while (digitIndex < 3 && digitIndex < newDigits.length) {
-      buffer.write(newDigits.substring(digitIndex, digitIndex + 1));
-      digitIndex++;
-    }
 
-    if (newDigits.length > 3) {
-      buffer.write(') ');
-      while (digitIndex < 6 && digitIndex < newDigits.length) {
-        buffer.write(newDigits.substring(digitIndex, digitIndex + 1));
-        digitIndex++;
+    if (digits.length > 6) {
+      buf.write('-');
+      while (i < 10 && i < digits.length) {
+        buf.write(digits[i++]);
       }
     }
-
-    if (newDigits.length > 6) {
-      buffer.write('-');
-      while (digitIndex < 10 && digitIndex < newDigits.length) {
-        buffer.write(newDigits.substring(digitIndex, digitIndex + 1));
-        digitIndex++;
-      }
-    }
-
-    final formattedText = buffer.toString();
-    
-    // Adjust cursor position
-    int selectionIndex = formattedText.length;
 
     return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: selectionIndex),
+      text: buf.toString(),
+      selection: TextSelection.collapsed(offset: buf.length),
     );
   }
 }
+

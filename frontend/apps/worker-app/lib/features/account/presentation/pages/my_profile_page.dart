@@ -1,7 +1,5 @@
-// lib/features/account/presentation/pages/my_profile_page.dart
-
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
@@ -18,9 +16,11 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/config/flavors.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 import 'checkr_outcome_page.dart';
 import 'saving_overlay.dart';
+import '../widgets/profile_form_fields.dart';
 
 class MyProfilePage extends ConsumerStatefulWidget {
   const MyProfilePage({super.key});
@@ -30,92 +30,147 @@ class MyProfilePage extends ConsumerStatefulWidget {
 }
 
 class _MyProfilePageState extends ConsumerState<MyProfilePage> {
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
-  late final TextEditingController _yearController;
-  late final TextEditingController _makeController;
-  late final TextEditingController _modelController;
-  late final TextEditingController _addressController;
+  late final TextEditingController _tenantTokenController;
+
+  AddressResolved? _addressState;
+  String _aptSuite = '';
+  int _vehicleYear = 0;
+  String _vehicleMake = '';
+  String _vehicleModel = '';
+
+  Worker? _originalWorker;
 
   bool _hasInitializedFields = false;
   bool _isSaving = false;
   bool _isEditing = false;
+  bool _isFormValid = true;
 
   @override
   void initState() {
     super.initState();
+    _firstNameController = TextEditingController();
+    _lastNameController = TextEditingController();
     _emailController = TextEditingController();
     _phoneController = TextEditingController();
-    _yearController = TextEditingController();
-    _makeController = TextEditingController();
-    _modelController = TextEditingController();
-    _addressController = TextEditingController();
+    _tenantTokenController = TextEditingController();
+    _firstNameController.addListener(_validateForm);
+    _lastNameController.addListener(_validateForm);
+    _emailController.addListener(_validateForm);
+    _phoneController.addListener(_validateForm);
+    _tenantTokenController.addListener(_validateForm);
   }
 
   @override
   void dispose() {
+    _firstNameController.removeListener(_validateForm);
+    _lastNameController.removeListener(_validateForm);
+    _emailController.removeListener(_validateForm);
+    _phoneController.removeListener(_validateForm);
+    _tenantTokenController.removeListener(_validateForm);
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _yearController.dispose();
-    _makeController.dispose();
-    _modelController.dispose();
-    _addressController.dispose();
+    _tenantTokenController.dispose();
     super.dispose();
   }
 
-  // A helper function to present the CheckrOutcomePage as a modal sheet.
+  void _validateForm() {
+    final areRequiredFieldsFilled =
+        _firstNameController.text.trim().isNotEmpty &&
+        _lastNameController.text.trim().isNotEmpty &&
+        _emailController.text.trim().isNotEmpty &&
+        _phoneController.text.trim().isNotEmpty &&
+        _addressState != null &&
+        _vehicleYear > 0 &&
+        _vehicleMake.isNotEmpty &&
+        _vehicleModel.isNotEmpty;
+
+    bool hasChanges = false;
+    final w = _originalWorker;
+    if (w != null) {
+      final tokenText = _tenantTokenController.text.trim();
+      hasChanges =
+          _firstNameController.text.trim() != w.firstName ||
+          _lastNameController.text.trim() != w.lastName ||
+          _emailController.text.trim() != w.email ||
+          _phoneController.text.trim() != w.phoneNumber ||
+          (_addressState != null &&
+              (_addressState!.street != w.streetAddress ||
+                  _addressState!.city != w.city ||
+                  _addressState!.state != w.state ||
+                  _addressState!.postalCode != w.zipCode)) ||
+          _aptSuite != (w.aptSuite ?? '') ||
+          _vehicleYear != w.vehicleYear ||
+          _vehicleMake != w.vehicleMake ||
+          _vehicleModel != w.vehicleModel ||
+          tokenText != (w.tenantToken ?? '');
+    }
+
+    final shouldEnableSave = areRequiredFieldsFilled && hasChanges;
+
+    if (shouldEnableSave != _isFormValid) {
+      setState(() {
+        _isFormValid = shouldEnableSave;
+      });
+    }
+  }
+
   Future<void> _showCheckrOutcomePage() async {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Checkr Outcome', // Accessibility label for the barrier.
+      barrierLabel: 'Checkr Outcome',
       transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => const CheckrOutcomePage(),
+      pageBuilder: (_, _, _) => const CheckrOutcomePage(),
       transitionBuilder: (context, anim1, anim2, child) {
         return SlideTransition(
           position: Tween(
             begin: const Offset(0, 1),
             end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: anim1,
-            curve: Curves.easeOutCubic,
-          )),
+          ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)),
           child: child,
         );
       },
     );
   }
 
-  // 0. Dummy data used exclusively in test-mode
   Worker get _dummyWorker => Worker(
-        id: 'dummy-worker-id',
-        email: 'jane.doe@example.com',
-        phoneNumber: '+1 555-555-1234',
-        firstName: 'Jane',
-        lastName: 'Doe',
-        streetAddress: '123 Mockingbird Ln, Springfield, IL 62704',
-        aptSuite: 'Apt 4B',
-        city: 'Springfield',
-        state: 'IL',
-        zipCode: '62704',
-        vehicleYear: 2020,
-        vehicleMake: 'Tesla',
-        vehicleModel: 'Model Y',
-        accountStatus: AccountStatusType.active,
-        setupProgress: SetupProgressType.done,
-        checkrReportOutcome: CheckrReportOutcome.approved,
-      );
+    id: 'dummy-worker-id',
+    email: 'jane.doe@example.com',
+    phoneNumber: '+1 555-555-1234',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    streetAddress: '123 Mockingbird Ln',
+    aptSuite: 'Apt 4B',
+    city: 'Springfield',
+    state: 'IL',
+    zipCode: '62704',
+    vehicleYear: 2020,
+    vehicleMake: 'Tesla',
+    vehicleModel: 'Model Y',
+    accountStatus: AccountStatusType.active,
+    setupProgress: SetupProgressType.done,
+    checkrReportOutcome: CheckrReportOutcome.approved,
+    onWaitlist: false,
+    waitlistReason: WaitlistReason.none,
+  );
 
   @override
   Widget build(BuildContext context) {
-    final appLocalizations = AppLocalizations.of(context);
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
-    final Worker? worker =
-        isTestMode ? _dummyWorker : ref.watch(workerStateNotifierProvider).worker;
+    final Worker? worker = isTestMode
+        ? _dummyWorker
+        : ref.watch(workerStateNotifierProvider).worker;
 
     if (!isTestMode && worker == null) {
-      return _LoadingScaffold(appLocalizations: appLocalizations);
+      return _LoadingScaffold(appLocalizations: t);
     }
 
     if (!_hasInitializedFields && worker != null) {
@@ -123,173 +178,312 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
       _hasInitializedFields = true;
     }
 
-    final fullName =
-        '${worker?.firstName ?? ''} ${worker?.lastName ?? ''}'.trim();
+    final fullName = '${worker?.firstName ?? ''} ${worker?.lastName ?? ''}'
+        .trim();
 
-    // Dynamically build the list of account management tiles
     final accountManagementTiles = <Widget>[
-      // Conditionally add the status check tile
       if (worker?.accountStatus == AccountStatusType.backgroundCheckPending)
         _StatefulLinkTile(
           icon: Icons.hourglass_top_outlined,
-          title: appLocalizations.myProfilePageCheckStatusButton,
-          subtitle: appLocalizations.myProfilePageCheckStatusSubtitle,
+          title: t.myProfilePageCheckStatusButton,
+          subtitle: t.myProfilePageCheckStatusSubtitle,
           onTap: _showCheckrOutcomePage,
         ),
-      // The permanent tiles
       _StatefulLinkTile(
         icon: Icons.credit_card_outlined,
-        title: appLocalizations.myProfilePageManagePaymentsButton,
-        subtitle: appLocalizations.myProfilePageManagePaymentsSubtitle,
+        title: t.myProfilePageManagePaymentsButton,
+        subtitle: t.myProfilePageManagePaymentsSubtitle,
         onTap: _handleManagePayouts,
       ),
       _StatefulLinkTile(
         icon: Icons.policy_outlined,
-        title: appLocalizations.myProfilePageManageBackgroundCheckButton,
-        subtitle: appLocalizations.myProfilePageManageBackgroundCheckSubtitle,
+        title: t.myProfilePageManageBackgroundCheckButton,
+        subtitle: t.myProfilePageManageBackgroundCheckSubtitle,
         onTap: () => _launchUrl('https://candidate.checkr.com/'),
       ),
     ];
 
     final profileScaffold = Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            // --- Custom Header ---
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => context.pop(),
-                  ),
-                  Text(
-                    appLocalizations.myProfilePageTitle,
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(
-                    width: 80,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _isEditing
-                          ? TextButton(
-                              onPressed: () => _cancelEdit(worker!),
-                              child: Text(
-                                  appLocalizations.myProfilePageCancelButton))
-                          : TextButton(
-                              onPressed: () => setState(() => _isEditing = true),
-                              child: Text(
-                                  appLocalizations.myProfilePageEditButton)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // --- Scrollable Content Area ---
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
+        child: GestureDetector(
+          behavior: HitTestBehavior.deferToChild,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // --- Avatar & Name Header ---
-                    _buildProfileHeader(theme, worker!, fullName, appLocalizations),
-
-                    // --- Contact Info Section ---
-                    _buildSection(
-                      title: appLocalizations.myProfilePageContactSection,
-                      children: [
-                        _buildEditableProfileField(
-                          controller: _emailController,
-                          label: appLocalizations.myProfilePageEmailLabel,
-                          icon: Icons.email_outlined,
-                          isEditing: _isEditing,
-                          keyboardType: TextInputType.emailAddress,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _phoneController,
-                          label: appLocalizations.myProfilePagePhoneLabel,
-                          icon: Icons.phone_outlined,
-                          isEditing: _isEditing,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _addressController,
-                          label: appLocalizations.myProfilePageAddressLabel,
-                          icon: Icons.location_on_outlined,
-                          isEditing: _isEditing,
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => context.pop(),
                     ),
-
-                    // --- Vehicle Info Section ---
-                    _buildSection(
-                      title: appLocalizations.myProfilePageVehicleSection,
-                      children: [
-                        _buildEditableProfileField(
-                          controller: _yearController,
-                          label: appLocalizations.myProfilePageVehicleYearLabel,
-                          icon: Icons.calendar_today_outlined,
-                          isEditing: _isEditing,
-                          keyboardType: TextInputType.number,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _makeController,
-                          label: appLocalizations.myProfilePageVehicleMakeLabel,
-                          icon: Icons.factory_outlined,
-                          isEditing: _isEditing,
-                        ),
-                        _buildEditableProfileField(
-                          controller: _modelController,
-                          label: appLocalizations.myProfilePageVehicleModelLabel,
-                          icon: Icons.directions_car_outlined,
-                          isEditing: _isEditing,
-                        ),
-                      ],
+                    Text(
+                      t.myProfilePageTitle,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-
-                    // --- Account Management Section ---
-                    _buildSection(
-                      title:
-                          appLocalizations.myProfilePageAccountManagementSection,
-                      children: accountManagementTiles,
+                    SizedBox(
+                      width: 80,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: _isEditing
+                            ? TextButton(
+                                onPressed: () => _cancelEdit(worker!),
+                                child: Text(t.myProfilePageCancelButton),
+                              )
+                            : TextButton(
+                                onPressed: () =>
+                                    setState(() => _isEditing = true),
+                                child: Text(t.myProfilePageEditButton),
+                              ),
+                      ),
                     ),
                   ],
-                ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
-              ),
-            ),
-
-            // --- Sticky Save Button ---
-            if (_isEditing)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: WelcomeButton(
-                  text: _isSaving
-                      ? appLocalizations.myProfilePageSavingButton
-                      : appLocalizations.myProfilePageSaveChangesButton,
-                  isLoading: _isSaving,
-                  showSpinner: false, // Use overlay spinner instead
-                  onPressed: () => _saveProfile(worker),
                 ),
               ),
-          ],
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      _buildProfileHeader(theme, worker!, fullName, t),
+                      _buildSection(
+                        title: t.myProfilePageContactSection,
+                        children: [
+                          _buildEditableProfileField(
+                            controller: _firstNameController,
+                            label: t.myProfilePageFirstNameLabel,
+                            icon: Icons.person_outline,
+                            isEditing: _isEditing,
+                          ),
+                          _buildEditableProfileField(
+                            controller: _lastNameController,
+                            label: t.myProfilePageLastNameLabel,
+                            icon: Icons.person_outline,
+                            isEditing: _isEditing,
+                          ),
+                          _buildEditableProfileField(
+                            controller: _emailController,
+                            label: t.myProfilePageEmailLabel,
+                            icon: Icons.email_outlined,
+                            isEditing: _isEditing,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          _buildEditableProfileField(
+                            controller: _phoneController,
+                            label: t.myProfilePagePhoneLabel,
+                            icon: Icons.phone_outlined,
+                            isEditing: _isEditing,
+                            keyboardType: TextInputType.phone,
+                          ),
+                          AddressFormField(
+                            initialStreet: worker.streetAddress,
+                            initialAptSuite: worker.aptSuite ?? '',
+                            initialCity: worker.city,
+                            initialState: worker.state,
+                            initialZip: worker.zipCode,
+                            isEditing: _isEditing,
+                            onChanged: (resolved, apt) {
+                              setState(() {
+                                _addressState = resolved;
+                                _aptSuite = apt;
+                                _validateForm();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      _buildSection(
+                        title: t.myProfilePageVehicleSection,
+                        children: [
+                          VehicleFormField(
+                            initialYear: worker.vehicleYear,
+                            initialMake: worker.vehicleMake,
+                            initialModel: worker.vehicleModel,
+                            isEditing: _isEditing,
+                            onChanged: (year, make, model) {
+                              setState(() {
+                                _vehicleYear = year;
+                                _vehicleMake = make;
+                                _vehicleModel = model;
+                                _validateForm();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      _buildSection(
+                        title: t.myProfilePageResidentProgramTitle,
+                        children: [_buildTenantTokenSectionContent(worker, t)],
+                      ),
+                      _buildSection(
+                        title: t.myProfilePageAccountManagementSection,
+                        children: accountManagementTiles,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_isEditing)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: WelcomeButton(
+                    text: _isSaving
+                        ? t.myProfilePageSavingButton
+                        : t.myProfilePageSaveChangesButton,
+                    isLoading: _isSaving,
+                    showSpinner: false,
+                    onPressed: _isFormValid ? () => _saveProfile(worker) : null,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
 
     return Stack(
+      children: [profileScaffold, if (_isSaving) const SavingOverlay()],
+    );
+  }
+
+  Widget _buildTenantTokenSectionContent(Worker worker, AppLocalizations t) {
+    final theme = Theme.of(context);
+
+    if (_tenantTokenController.text.isEmpty &&
+        (worker.tenantToken?.isNotEmpty ?? false)) {
+      _tenantTokenController.text = worker.tenantToken!;
+    }
+
+    final token = _tenantTokenController.text;
+    final hasToken = token.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        profileScaffold,
-        if (_isSaving) const SavingOverlay(),
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 8,
+            horizontal: 8,
+          ),
+          minLeadingWidth: 32,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          leading: CircleAvatar(
+            radius: 18,
+            backgroundColor: theme.colorScheme.surfaceContainerHigh,
+            child: const Icon(Icons.key_outlined, size: 20),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t.myProfilePageTokenLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (hasToken && !_isEditing) _buildStatusChip(theme, 'Connected'),
+            ],
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _isEditing
+                ? TextField(
+                    controller: _tenantTokenController,
+                    keyboardType: TextInputType.text,
+                    decoration:
+                        _customInputDecoration(
+                          labelText: t.myProfilePageTokenLabel,
+                        ).copyWith(
+                          // No prefix icon here to avoid duplicating the leading icon
+                          hintText: 'abc123…',
+                          suffixIcon: IconButton(
+                            tooltip: 'Paste',
+                            icon: const Icon(Icons.paste_rounded),
+                            onPressed: () async {
+                              final data = await Clipboard.getData(
+                                'text/plain',
+                              );
+                              final value = data?.text ?? '';
+                              if (value.isNotEmpty) {
+                                setState(
+                                  () => _tenantTokenController.text = value,
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                  )
+                : hasToken
+                ? SelectableText(
+                    token,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
+                  )
+                : Text(
+                    t.myProfilePageResidentProgramDescription,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+          ),
+          trailing: !_isEditing && hasToken
+              ? IconButton(
+                  tooltip: 'Copy',
+                  icon: const Icon(Icons.copy_rounded),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: token));
+                    if (mounted) {
+                      showAppSnackBar(context, const Text('Token copied'));
+                    }
+                  },
+                )
+              : null,
+        ),
       ],
     );
   }
 
-  // --- NEW WIDGET BUILDERS for modern UI ---
+  Widget _buildStatusChip(ThemeData theme, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.verified_rounded,
+            size: 16,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildProfileHeader(ThemeData theme, Worker worker, String fullName, AppLocalizations appLocalizations) {
+  Widget _buildProfileHeader(
+    ThemeData theme,
+    Worker worker,
+    String fullName,
+    AppLocalizations t,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
@@ -298,8 +492,12 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              // Fix: need at least two colors in gradient
               gradient: LinearGradient(
-                colors: [AppColors.poofColor.withAlpha(128), AppColors.poofColor],
+                colors: [
+                  AppColors.poofColor.withAlpha(128),
+                  AppColors.poofColor, // second color added
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -317,15 +515,20 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            fullName.isEmpty ? appLocalizations.myProfilePageYourNameFallback : fullName,
-            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            fullName.isEmpty ? t.myProfilePageYourNameFallback : fullName,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSection({required String title, required List<Widget> children}) {
+  Widget _buildSection({
+    required String title,
+    required List<Widget> children,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -333,7 +536,9 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
           padding: const EdgeInsets.only(top: 16, bottom: 8, left: 8),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
         Container(
@@ -362,13 +567,15 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     bool isEditing = false,
     TextInputType keyboardType = TextInputType.text,
   }) {
-    // Wrap the AnimatedSwitcher with AnimatedSize to fix the "jank".
     return AnimatedSize(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+        layoutBuilder: (currentChild, previousChildren) =>
+            currentChild ?? const SizedBox.shrink(),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
         child: isEditing
             ? TextField(
                 key: ValueKey('${label}_edit'),
@@ -376,7 +583,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                 keyboardType: keyboardType,
                 decoration: _customInputDecoration(labelText: label),
               )
-            : _ProfileReadOnlyField(
+            : ProfileReadOnlyField(
                 key: ValueKey('${label}_view'),
                 icon: icon,
                 label: label,
@@ -403,45 +610,54 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     );
   }
 
-  // --- Helper logic (mostly unchanged) ---
   void _populateControllers(Worker w) {
+    _originalWorker = w;
+    _firstNameController.text = w.firstName;
+    _lastNameController.text = w.lastName;
     _emailController.text = w.email;
     _phoneController.text = w.phoneNumber;
-    _yearController.text = w.vehicleYear.toString();
-    _makeController.text = w.vehicleMake;
-    _modelController.text = w.vehicleModel;
-    _addressController.text = w.streetAddress;
+    _addressState = AddressResolved(
+      street: w.streetAddress,
+      city: w.city,
+      state: w.state,
+      postalCode: w.zipCode,
+    );
+    _aptSuite = w.aptSuite ?? '';
+    _vehicleYear = w.vehicleYear;
+    _vehicleMake = w.vehicleMake;
+    _vehicleModel = w.vehicleModel;
+    _tenantTokenController.text = w.tenantToken ?? '';
+    _validateForm();
   }
 
   void _cancelEdit(Worker worker) {
     _populateControllers(worker);
-    setState(() => _isEditing = false);
+    setState(() {
+      _isEditing = false;
+      _isFormValid = true;
+    });
   }
 
   Future<void> _launchUrl(String url) async {
     final success = await tryLaunchUrl(url);
     if (!mounted) return;
     if (!success) {
-        final appLocalizations = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(appLocalizations.urlLauncherCannotLaunch)),
-        );
+      final t = AppLocalizations.of(context);
+      showAppSnackBar(context, Text(t.urlLauncherCannotLaunch));
     }
-}
+  }
 
   Future<void> _handleManagePayouts() async {
-    // This handler no longer sets the page-level _isSaving flag.
-    // The loading state is now handled entirely within _StatefulLinkTile.
     final BuildContext capturedContext = context;
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       final repo = ref.read(workerAccountRepositoryProvider);
       final loginLinkUrl = await repo.getStripeExpressLoginLink();
       final success = await tryLaunchUrl(loginLinkUrl);
       if (!success && capturedContext.mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch)),
+        showAppSnackBar(
+          capturedContext,
+          Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch),
         );
       }
     } catch (e) {
@@ -453,70 +669,126 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
 
   Future<void> _saveProfile(Worker worker) async {
     setState(() => _isSaving = true);
-
     final BuildContext capturedContext = context;
 
     final patchFields = <String, dynamic>{};
-    final trimmedEmail = _emailController.text.trim();
-    final trimmedPhone = _phoneController.text.trim();
-    final trimmedAddress = _addressController.text.trim();
-    final trimmedMake = _makeController.text.trim();
-    final trimmedModel = _modelController.text.trim();
-    final trimmedYearStr = _yearController.text.trim();
-    final int? parsedYear = int.tryParse(trimmedYearStr.isEmpty ? '0' : trimmedYearStr);
-
-    if (trimmedEmail != worker.email) patchFields['email'] = trimmedEmail;
-    if (trimmedPhone != worker.phoneNumber) patchFields['phone_number'] = trimmedPhone;
-    if (trimmedAddress != worker.streetAddress) patchFields['street_address'] = trimmedAddress;
-    if (parsedYear != null && parsedYear != 0 && parsedYear != worker.vehicleYear) {
-      patchFields['vehicle_year'] = parsedYear;
+    if (_firstNameController.text.trim() != worker.firstName) {
+      patchFields['first_name'] = _firstNameController.text.trim();
     }
-    if (trimmedMake != worker.vehicleMake) patchFields['vehicle_make'] = trimmedMake;
-    if (trimmedModel != worker.vehicleModel) patchFields['vehicle_model'] = trimmedModel;
+    if (_lastNameController.text.trim() != worker.lastName) {
+      patchFields['last_name'] = _lastNameController.text.trim();
+    }
+    if (_emailController.text.trim() != worker.email) {
+      patchFields['email'] = _emailController.text.trim();
+    }
+    if (_phoneController.text.trim() != worker.phoneNumber) {
+      patchFields['phone_number'] = _phoneController.text.trim();
+    }
+
+    if (_addressState != null) {
+      if (_addressState!.street != worker.streetAddress) {
+        patchFields['street_address'] = _addressState!.street;
+      }
+      if (_addressState!.city != worker.city) {
+        patchFields['city'] = _addressState!.city;
+      }
+      if (_addressState!.state != worker.state) {
+        patchFields['state'] = _addressState!.state;
+      }
+      if (_addressState!.postalCode != worker.zipCode) {
+        patchFields['zip_code'] = _addressState!.postalCode;
+      }
+    }
+
+    if (_aptSuite != (worker.aptSuite ?? '')) {
+      patchFields['apt_suite'] = _aptSuite;
+    }
+
+    if (_vehicleYear != worker.vehicleYear) {
+      patchFields['vehicle_year'] = _vehicleYear;
+    }
+    if (_vehicleMake != worker.vehicleMake) {
+      patchFields['vehicle_make'] = _vehicleMake;
+    }
+    if (_vehicleModel != worker.vehicleModel) {
+      patchFields['vehicle_model'] = _vehicleModel;
+    }
+    if (_tenantTokenController.text.trim() != (worker.tenantToken ?? '')) {
+      patchFields['tenant_token'] = _tenantTokenController.text.trim();
+    }
 
     final isTestMode = PoofWorkerFlavorConfig.instance.testMode;
     if (isTestMode) {
       await Future.delayed(const Duration(seconds: 1));
-      if (mounted) setState(() { _isSaving = false; _isEditing = false; });
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _isEditing = false;
+        });
+      }
       return;
     }
 
     if (patchFields.isEmpty) {
-      setState(() { _isSaving = false; _isEditing = false; });
+      setState(() {
+        _isSaving = false;
+        _isEditing = false;
+      });
       return;
     }
 
     final workerAuthRepo = ref.read(workerAuthRepositoryProvider);
     try {
-      if (patchFields.containsKey('phone_number')) await workerAuthRepo.checkPhoneValid(trimmedPhone);
-      if (patchFields.containsKey('email')) await workerAuthRepo.checkEmailValid(trimmedEmail);
+      if (patchFields.containsKey('phone_number')) {
+        await workerAuthRepo.checkPhoneValid(patchFields['phone_number']);
+      }
+      if (patchFields.containsKey('email')) {
+        await workerAuthRepo.checkEmailValid(patchFields['email']);
+      }
       if (!capturedContext.mounted) return;
       await _attemptPatch(patchFields, capturedContext);
     } on Exception catch (e) {
       if (!capturedContext.mounted) return;
       _showError(capturedContext, e);
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
-  Future<void> _attemptPatch(Map<String, dynamic> changedFields, BuildContext context) async {
+  Future<void> _attemptPatch(
+    Map<String, dynamic> changedFields,
+    BuildContext context,
+  ) async {
     final repo = ref.read(workerAccountRepositoryProvider);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final appLocalizations = AppLocalizations.of(context);
 
     final patchRequest = WorkerPatchRequest(
+      firstName: changedFields['first_name'],
+      lastName: changedFields['last_name'],
       email: changedFields['email'],
       phoneNumber: changedFields['phone_number'],
       streetAddress: changedFields['street_address'],
+      aptSuite: changedFields['apt_suite'],
+      city: changedFields['city'],
+      state: changedFields['state'],
+      zipCode: changedFields['zip_code'],
       vehicleYear: changedFields['vehicle_year'],
       vehicleMake: changedFields['vehicle_make'],
       vehicleModel: changedFields['vehicle_model'],
+      tenantToken: changedFields['tenant_token'],
     );
 
     try {
       await repo.patchWorker(patchRequest);
-      scaffoldMessenger.showSnackBar(SnackBar(content: Text(appLocalizations.myProfilePageProfileUpdatedSnackbar)));
-      if (mounted) setState(() { _isSaving = false; _isEditing = false; });
+      if (!context.mounted) return;
+      showAppSnackBar(
+        context,
+        Text(AppLocalizations.of(context).myProfilePageProfileUpdatedSnackbar),
+      );
+      setState(() {
+        _isSaving = false;
+        _isEditing = false;
+      });
     } on ApiException catch (e) {
       if (e.errorCode == 'phone_not_verified') {
         final newPhone = changedFields['phone_number'] as String?;
@@ -545,7 +817,11 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     if (!mounted) return false;
     final result = await context.pushNamed<bool>(
       AppRouteNames.phoneVerificationInfoPage,
-      extra: PhoneVerificationInfoArgs(phoneNumber: phone, onSuccess: null),
+      extra: PhoneVerificationInfoArgs(
+        phoneNumber: phone,
+        onSuccess: null,
+        goToTotpAfterSuccess: false,
+      ),
     );
     return result == true;
   }
@@ -558,7 +834,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     } else {
       message = AppLocalizations.of(context).loginUnexpectedError(e.toString());
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    showAppSnackBar(context, Text(message));
   }
 
   String _initialsFromWorker(Worker w) {
@@ -569,50 +845,6 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   }
 }
 
-/// A clean, read-only display for a profile field.
-class _ProfileReadOnlyField extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  const _ProfileReadOnlyField({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, color: theme.colorScheme.primary, size: 24),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.bodyLarge,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Simple loader scaffold used until Worker data arrives (prod only).
 class _LoadingScaffold extends StatelessWidget {
   final AppLocalizations appLocalizations;
   const _LoadingScaffold({required this.appLocalizations});
@@ -650,7 +882,6 @@ class _LoadingScaffold extends StatelessWidget {
   }
 }
 
-/// A stateful, tappable list tile for launching external links.
 class _StatefulLinkTile extends StatefulWidget {
   final IconData icon;
   final String title;
@@ -691,10 +922,20 @@ class _StatefulLinkTileState extends State<_StatefulLinkTile> {
       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       leading: Icon(widget.icon, size: 32, color: theme.colorScheme.primary),
-      title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(widget.subtitle, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+      title: Text(
+        widget.title,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text(
+        widget.subtitle,
+        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+      ),
       trailing: _isLoading
-          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            )
           : const Icon(Icons.chevron_right),
       onTap: _isLoading ? null : _handleTap,
     );

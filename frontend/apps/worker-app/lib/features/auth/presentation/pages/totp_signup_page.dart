@@ -18,6 +18,7 @@ import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:android_intent_plus/android_intent.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 import 'package:android_intent_plus/flag.dart';
 
 import 'totp_verify_page.dart';
@@ -48,22 +49,21 @@ class TotpSignUpPage extends ConsumerWidget {
     final secret = ref.read(signUpProvider).totpSecret;
     final appLocalizations = AppLocalizations.of(context);
     if (secret.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appLocalizations.totpSignupNoSecretFound)),
-      );
+      showAppSnackBar(context, Text(appLocalizations.totpSignupNoSecretFound));
       return;
     }
     Clipboard.setData(ClipboardData(text: secret));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(appLocalizations.totpSignupKeyCopied)),
-    );
+    showAppSnackBar(context, Text(appLocalizations.totpSignupKeyCopied));
   }
 
   /// Tries to launch the otpauth:// deep link, falling back to the app store.
   Future<void> _openAuthenticator(
-      BuildContext context, String otpAuthUri) async {
-    final storeUrl =
-        Platform.isAndroid ? _googleAuthAndroidUrl : _googleAuthIosUrl;
+    BuildContext context,
+    String otpAuthUri,
+  ) async {
+    final storeUrl = Platform.isAndroid
+        ? _googleAuthAndroidUrl
+        : _googleAuthIosUrl;
 
     if (Platform.isAndroid) {
       // Use android_intent_plus for better control over the task stack.
@@ -92,8 +92,10 @@ class TotpSignUpPage extends ConsumerWidget {
 
   /// The registration logic to be executed on the verification page.
   Future<void> _onVerifyAndRegister(
-      BuildContext context, WidgetRef ref, String totpCode) async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    BuildContext context,
+    WidgetRef ref,
+    String totpCode,
+  ) async {
     final router = GoRouter.of(context);
     final signUpState = ref.read(signUpProvider);
     final authRepo = ref.read(workerAuthRepositoryProvider);
@@ -116,14 +118,14 @@ class TotpSignUpPage extends ConsumerWidget {
       if (e.errorCode == 'phone_not_verified') {
         router.goNamed(AppRouteNames.signupExpiredPage);
       } else if (context.mounted) {
-        scaffoldMessenger
-            .showSnackBar(SnackBar(content: Text(userFacingMessage(context, e))));
+        showAppSnackBar(context, Text(userFacingMessage(context, e)));
       }
     } catch (e) {
       if (context.mounted) {
-        scaffoldMessenger.showSnackBar(SnackBar(
-            content: Text(AppLocalizations.of(context)
-                .loginUnexpectedError(e.toString()))));
+        showAppSnackBar(
+          context,
+          Text(AppLocalizations.of(context).loginUnexpectedError(e.toString())),
+        );
       }
     }
   }
@@ -136,12 +138,15 @@ class TotpSignUpPage extends ConsumerWidget {
     final otpAuthUri =
         'otpauth://totp/Poof%20Worker:${signUpState.phoneNumber}?secret=${signUpState.totpSecret}&issuer=Poof%20Worker';
 
-    final String googleStoreBadgeAsset =
-        Platform.isAndroid ? _kGooglePlayBadge : _kAppStoreBadge;
-    final String googleStoreUrl =
-        Platform.isAndroid ? _googleAuthAndroidUrl : _googleAuthIosUrl;
-    final String authyStoreUrl =
-        Platform.isAndroid ? _authyAndroidUrl : _authyIosUrl;
+    final String googleStoreBadgeAsset = Platform.isAndroid
+        ? _kGooglePlayBadge
+        : _kAppStoreBadge;
+    final String googleStoreUrl = Platform.isAndroid
+        ? _googleAuthAndroidUrl
+        : _googleAuthIosUrl;
+    final String authyStoreUrl = Platform.isAndroid
+        ? _authyAndroidUrl
+        : _authyIosUrl;
 
     return Scaffold(
       body: SafeArea(
@@ -158,126 +163,185 @@ class TotpSignUpPage extends ConsumerWidget {
                         alignment: Alignment.topLeft,
                         child: IconButton(
                           icon: const Icon(Icons.arrow_back),
-                          onPressed: () => context.goNamed(AppRouteNames.createAccountPage),
+                          onPressed: () => context.pop(),
                         ),
                       ),
                       const SizedBox(height: 16),
                       const Icon(
-                        Icons.phonelink_lock_outlined,
-                        size: 80,
-                        color: AppColors.poofColor,
-                      )
+                            Icons.phonelink_lock_outlined,
+                            size: 80,
+                            color: AppColors.poofColor,
+                          )
                           .animate()
                           .fadeIn(delay: 200.ms, duration: 400.ms)
                           .scale(),
                       const SizedBox(height: 24),
                       Text(
-                        appLocalizations.totpSignupTitle,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      )
+                            appLocalizations.totpSignupTitle,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 300.ms, duration: 400.ms)
                           .slideY(begin: 0.2),
                       const SizedBox(height: 8),
                       Text(
-                        appLocalizations.totpSignupSubtitle,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant
-                        ),
-                      ).animate().fadeIn(delay: 350.ms, duration: 400.ms).slideY(begin: 0.2),
+                            appLocalizations.totpSignupSubtitle,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                          .animate()
+                          .fadeIn(delay: 350.ms, duration: 400.ms)
+                          .slideY(begin: 0.2),
                       const SizedBox(height: 24),
-                      
+
                       // --- Combined Interaction Card ---
                       Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // --- Step 1 ---
-                            Text(appLocalizations.totpSignupStep1Title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
-                            Text(
-                              appLocalizations.totpSignupExplanation,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                            const SizedBox(height: 16),
-                            Center(
-                              child: InkWell(
-                                onTap: () => tryLaunchUrl(googleStoreUrl),
-                                child: SvgPicture.asset(googleStoreBadgeAsset, height: 40),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                             Center(
-                               child: Text(
-                                appLocalizations.totpSignupWorksWithLabel,
-                                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                            ),
-                             ),
-                            const SizedBox(height: 8),
-                             Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                InkWell(
-                                  onTap: () => tryLaunchUrl(googleStoreUrl),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Tooltip(
-                                    message: 'Google Authenticator',
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: SvgPicture.asset(_kGoogleAuthIcon, width: 28, height: 28),
+                                // --- Step 1 ---
+                                Text(
+                                  appLocalizations.totpSignupStep1Title,
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  appLocalizations.totpSignupExplanation,
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Center(
+                                  child: InkWell(
+                                    onTap: () => tryLaunchUrl(googleStoreUrl),
+                                    child: SvgPicture.asset(
+                                      googleStoreBadgeAsset,
+                                      height: 40,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 24),
-                                InkWell(
-                                  onTap: () => tryLaunchUrl(authyStoreUrl),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Tooltip(
-                                    message: 'Authy',
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: SvgPicture.asset(_kAuthyIcon, width: 28, height: 28),
+                                const SizedBox(height: 16),
+                                Center(
+                                  child: Text(
+                                    appLocalizations.totpSignupWorksWithLabel,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    InkWell(
+                                      onTap: () => tryLaunchUrl(googleStoreUrl),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Tooltip(
+                                        message: 'Google Authenticator',
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: SvgPicture.asset(
+                                            _kGoogleAuthIcon,
+                                            width: 28,
+                                            height: 28,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 24),
+                                    InkWell(
+                                      onTap: () => tryLaunchUrl(authyStoreUrl),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Tooltip(
+                                        message: 'Authy',
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: SvgPicture.asset(
+                                            _kAuthyIcon,
+                                            width: 28,
+                                            height: 28,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 32),
+
+                                // --- Step 2 ---
+                                Text(
+                                  appLocalizations.totpSignupStep2Title,
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: () =>
+                                      _openAuthenticator(context, otpAuthUri),
+                                  icon: const Icon(Icons.add_link),
+                                  label: Text(
+                                    appLocalizations
+                                        .totpSignupOpenAuthenticatorButton,
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      50,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Center(
+                                  child: Text(
+                                    appLocalizations.totpSignupOrManual,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _copySecretToClipboard(context, ref),
+                                  icon: const Icon(Icons.copy_all_outlined),
+                                  label: Text(
+                                    appLocalizations
+                                        .totpSignupCopyKeyManualTooltip,
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      50,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    side: BorderSide(
+                                      color: theme.colorScheme.outline,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const Divider(height: 32),
-
-                            // --- Step 2 ---
-                            Text(appLocalizations.totpSignupStep2Title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                             const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () => _openAuthenticator(context, otpAuthUri),
-                              icon: const Icon(Icons.add_link),
-                              label: Text(appLocalizations.totpSignupOpenAuthenticatorButton),
-                              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                            ),
-                            const SizedBox(height: 16),
-                            Center(child: Text(appLocalizations.totpSignupOrManual, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant))),
-                            const SizedBox(height: 16),
-                            OutlinedButton.icon(
-                              onPressed: () => _copySecretToClipboard(context, ref),
-                              icon: const Icon(Icons.copy_all_outlined),
-                              label: Text(appLocalizations.totpSignupCopyKeyManualTooltip),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size(double.infinity, 50),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                side: BorderSide(color: theme.colorScheme.outline),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ).animate().fadeIn(delay: 400.ms, duration: 400.ms).slideY(begin: 0.2),
+                          )
+                          .animate()
+                          .fadeIn(delay: 400.ms, duration: 400.ms)
+                          .slideY(begin: 0.2),
                     ],
                   ),
                 ),
@@ -295,18 +359,18 @@ class TotpSignUpPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     WelcomeButton(
-                      text: appLocalizations.loginContinueButton,
-                      onPressed: () {
-                        context.pushNamed(
-                          AppRouteNames.totpVerifyPage,
-                          extra: TotpVerifyArgs(
-                            displayIdentifier: signUpState.phoneNumber,
-                            onSuccess: (code) =>
-                                _onVerifyAndRegister(context, ref, code),
-                          ),
-                        );
-                      },
-                    )
+                          text: appLocalizations.loginContinueButton,
+                          onPressed: () {
+                            context.pushNamed(
+                              AppRouteNames.totpVerifyPage,
+                              extra: TotpVerifyArgs(
+                                displayIdentifier: signUpState.phoneNumber,
+                                onSuccess: (code) =>
+                                    _onVerifyAndRegister(context, ref, code),
+                              ),
+                            );
+                          },
+                        )
                         .animate()
                         .fadeIn(delay: 500.ms, duration: 400.ms)
                         .slideY(begin: 0.5),

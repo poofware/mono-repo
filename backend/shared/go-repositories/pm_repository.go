@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 /* ------------------------------------------------------------------
@@ -71,17 +71,14 @@ func (r *pmRepo) Create(ctx context.Context, pm *models.PropertyManager) error {
 		INSERT INTO property_managers (
 			id,email,phone_number,totp_secret,
 			business_name,business_address,city,state,zip_code,
-			account_status, setup_progress,
 			created_at,updated_at,row_version
 		) VALUES (
 			$1,$2,$3,$4,
 			$5,$6,$7,$8,$9,
-			$10, $11,
 			NOW(),NOW(),1
 		)`,
 		pm.ID, pm.Email, pm.PhoneNumber, encTOTP,
 		pm.BusinessName, pm.BusinessAddress, pm.City, pm.State, pm.ZipCode,
-		string(pm.AccountStatus), string(pm.SetupProgress),
 	)
 	return err
 }
@@ -254,11 +251,10 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 		&acc, &prog,
 		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &deletedAt,
 	)
-
-	utils.Logger.Infof("[scanPM] row.Scan returned error: %v", err)
-
 	if err != nil {
-		// The caller is responsible for interpreting the error (e.g., pgx.ErrNoRows).
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 

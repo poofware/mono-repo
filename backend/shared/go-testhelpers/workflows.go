@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/stretchr/testify/require"
 	stripe "github.com/stripe/stripe-go/v82"
 )
@@ -112,9 +112,4 @@ func (h *TestHelper) CompleteCheckrReport(reportID, candidateID, webhookURL stri
     }`, uuid.NewString()[:6], time.Now().UTC().Format(time.RFC3339), reportID, candidateID, h.AppName, h.UniqueRunnerID, h.UniqueRunNumber)
 	h.PostCheckrWebhook(webhookURL, payload)
 	h.T.Log("Mocked Checkr report.completed event posted.")
-}
-
-// StrPtr is a simple helper to get a pointer to a string literal.
-func StrPtr(s string) *string {
-	return &s
 }

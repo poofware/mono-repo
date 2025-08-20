@@ -21,6 +21,7 @@ type Candidate struct {
 	Zipcode                     string            `json:"zipcode,omitempty"`
 	Dob                         string            `json:"dob,omitempty"` // "YYYY-MM-DD"
 	SSN                         string            `json:"ssn,omitempty"`
+	WorkLocations               []WorkLocation    `json:"work_locations,omitempty"`
 	DriverLicenseNumber         string            `json:"driver_license_number,omitempty"`
 	DriverLicenseState          string            `json:"driver_license_state,omitempty"`
 	PreviousDriverLicenseNumber string            `json:"previous_driver_license_number,omitempty"`

@@ -13,12 +13,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/account-service/internal/routes"
-	account_dtos "github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/go-dtos"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/go-middleware"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	account_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
 )
 
 // TestWorkerCreateAndFetch creates a worker via repository and fetches it back via repo and REST.

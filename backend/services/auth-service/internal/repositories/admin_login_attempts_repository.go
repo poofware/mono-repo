@@ -6,7 +6,7 @@ import (
     "time"
 
     "github.com/google/uuid"
-    . "github.com/poofware/go-repositories"
+    sharedrepos "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 type AdminLoginAttempts struct {
@@ -25,10 +25,10 @@ type AdminLoginAttemptsRepository interface {
 }
 
 type adminLoginAttemptsRepository struct {
-    db DB
+    db sharedrepos.DB
 }
 
-func NewAdminLoginAttemptsRepository(db DB) AdminLoginAttemptsRepository {
+func NewAdminLoginAttemptsRepository(db sharedrepos.DB) AdminLoginAttemptsRepository {
     return &adminLoginAttemptsRepository{db: db}
 }
 

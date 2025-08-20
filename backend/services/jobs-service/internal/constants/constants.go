@@ -8,18 +8,22 @@ import (
 const (
 	RadiusMiles                    = 75
 	LocationRadiusMeters           = 200
+	RadiusMilesToNotifyAgents      = 50
 	MaxAssignUnassignCountForFlag  = 2
 	DaysToListOpenJobsRange        = 8 // Query window is [yesterday...today+7] = 9 days total
 	DaysToSeedAhead                = 7 // How many days ahead to seed new instances
-	CrowFliesDriveTimeMultiplier   = 2.0
 	MinJobDefinitionStartWindowMinutes       = 90 // Min duration between earliest/latest start
 	MinTimeBeforeLatestStartForHintMinutes = 50 // Hint must be at least this many mins before latest start
 )
 
 // Time windows relative to a job's LATEST_START_TIME
 const (
-	NoShowCutoffBeforeLatestStart = 30 * time.Minute
-	OnCallEscalationBeforeLatest  = 20 * time.Minute
+	NoShowCutoffBeforeLatestStart = 20 * time.Minute
+	// A worker cannot accept a job if it's within 20 minutes of the no-show cutoff time.
+	AcceptanceCutoffBeforeNoShow = 20 * time.Minute
+	OnCallEscalationBeforeLatest = 20 * time.Minute
+	Warning90MinBeforeLatestStart = 90 * time.Minute
+	Warning40MinBeforeLatestStart = 40 * time.Minute
 )
 
 // Worker Penalty Tiers (negative values)
@@ -32,7 +36,7 @@ const (
 	WorkerPenalty24h             = -1  // Un-assigns more than 7h before no-show, but < 24h before earliest_start
 )
 
-// Time windows for penalties, all relative to the NO_SHOW_TIME (LatestStartTime - 30m)
+// Time windows for penalties, all relative to the NO_SHOW_TIME (LatestStartTime - 20m)
 const (
 	LateUnassignCutoff         = 90 * time.Minute // T-90m before no-show
 	MidUnassignCutoff          = 3 * time.Hour    // T-3h before no-show
@@ -52,8 +56,8 @@ const (
 const (
 	SurgeWindowStage1 = 6 * time.Hour    // T-6h -> T-3h
 	SurgeWindowStage2 = 3 * time.Hour    // T-3h -> T-90m
-	SurgeWindowStage3 = 90 * time.Minute // T-90m -> T-30m
-	SurgeWindowStage4 = 30 * time.Minute // T-30m -> no-show time
+	SurgeWindowStage3 = 90 * time.Minute // T-90m -> T-45m
+	SurgeWindowStage4 = 45 * time.Minute // T-45m -> no-show time (SURGE STOPS HERE)
 )
 
 // Common concurrency conflict / row-version conflict messages
@@ -62,4 +66,3 @@ const (
 	ErrMsgRowVersionConflictRefresh        = "The job has changed, please refresh"
 	ErrMsgRowVersionConflictAnotherUpdated = "Another update occurred, please refresh"
 )
-

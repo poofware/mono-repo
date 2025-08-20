@@ -5,6 +5,8 @@ import 'package:poof_worker/features/account/data/models/models.dart';
 
 import '../models/models.dart';
 
+const String _v1 = '/v1';
+
 /// Concrete implementation of the Worker Auth API.
 /// Inherits from [BaseAuthApi], providing real or dummy attestation
 /// based on [useRealAttestation].
@@ -29,10 +31,10 @@ class WorkerAuthApi
   String get baseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
-  String get refreshTokenPath => '/worker/refresh_token';
+  String get refreshTokenPath => '$_v1/worker/refresh_token';
 
   @override
-  String get attestationChallengePath => '/worker/challenge';
+  String get attestationChallengePath => '$_v1/worker/challenge';
 
   WorkerAuthApi({
     required this.tokenStorage,
@@ -49,7 +51,7 @@ class WorkerAuthApi
   Future<LoginResponseBase<Worker>> login(LoginWorkerRequest request) async {
     final resp = await sendPublicRequest(
       method: 'POST',
-      path: '/worker/login',
+      path: '$_v1/worker/login',
       body: request,
       requireAttestation: true, // <--- only for this endpoint
     );
@@ -73,7 +75,7 @@ class WorkerAuthApi
     // No attestation needed here, so `requireAttestation: false` is fine.
     await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/worker/logout',
+      path: '$_v1/worker/logout',
       body: request,
       attemptRefreshOn401: false,
       requireAttestation: false,
@@ -89,7 +91,7 @@ class WorkerAuthApi
   Future<void> register(RegisterWorkerRequest request) async {
     await sendPublicRequest(
       method: 'POST',
-      path: '/worker/register',
+      path: '$_v1/worker/register',
       body: request,
       requireAttestation: false,
     );
@@ -102,7 +104,7 @@ class WorkerAuthApi
   Future<void> checkEmailValid(CheckEmailRequest request) async {
     await sendPublicRequest(
       method: 'POST',
-      path: '/worker/email/valid',
+      path: '$_v1/worker/email/valid',
       body: request,
       requireAttestation: false,
     );
@@ -112,7 +114,7 @@ class WorkerAuthApi
   Future<void> checkPhoneValid(CheckPhoneRequest request) async {
     await sendPublicRequest(
       method: 'POST',
-      path: '/worker/phone/valid',
+      path: '$_v1/worker/phone/valid',
       body: request,
       requireAttestation: false,
     );
@@ -125,7 +127,7 @@ class WorkerAuthApi
   Future<TOTPSecretResponse> generateTOTPSecret() async {
     final resp = await sendPublicRequest(
       method: 'POST',
-      path: '/register/totp_secret',
+      path: '/$_v1/register/totp_secret',
       requireAttestation: false,
     );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -141,13 +143,13 @@ class WorkerAuthApi
       // User is likely logged in, send an authenticated request.
       await sendAuthenticatedRequest(
         method: 'POST',
-        path: '/worker/request_email_code',
+        path: '$_v1/worker/request_email_code',
         body: request,
       );
     } else {
       // User is not logged in, send a public request.
       await sendPublicRequest(
-          method: 'POST', path: '/worker/request_email_code', body: request);
+          method: 'POST', path: '$_v1/worker/request_email_code', body: request);
     }
   }
 
@@ -160,14 +162,14 @@ class WorkerAuthApi
       // User is likely logged in, send an authenticated request.
       await sendAuthenticatedRequest(
         method: 'POST',
-        path: '/worker/verify_email_code',
+        path: '$_v1/worker/verify_email_code',
         body: request,
       );
     } else {
       // User is not logged in, send a public request.
       await sendPublicRequest(
         method: 'POST',
-        path: '/worker/verify_email_code',
+        path: '$_v1/worker/verify_email_code',
         body: request,
       );
     }
@@ -182,13 +184,13 @@ class WorkerAuthApi
       // User is likely logged in, send an authenticated request.
       await sendAuthenticatedRequest(
         method: 'POST',
-        path: '/worker/request_sms_code',
+        path: '$_v1/worker/request_sms_code',
         body: request,
       );
     } else {
       // User is not logged in, send a public request.
       await sendPublicRequest(
-          method: 'POST', path: '/worker/request_sms_code', body: request);
+          method: 'POST', path: '$_v1/worker/request_sms_code', body: request);
     }
   }
 
@@ -201,14 +203,14 @@ class WorkerAuthApi
       // User is likely logged in, send an authenticated request.
       await sendAuthenticatedRequest(
         method: 'POST',
-        path: '/worker/verify_sms_code',
+        path: '$_v1/worker/verify_sms_code',
         body: request,
       );
     } else {
       // User is not logged in, send a public request.
       await sendPublicRequest(
         method: 'POST',
-        path: '/worker/verify_sms_code',
+        path: '$_v1/worker/verify_sms_code',
         body: request,
       );
     }

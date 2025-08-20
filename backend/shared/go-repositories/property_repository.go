@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
 
 /* ------------------------------------------------------------------
@@ -19,6 +19,7 @@ type PropertyRepository interface {
 
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Property, error)
 	ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*models.Property, error)
+	ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Property, error)
 
 	Update(ctx context.Context, p *models.Property) error
 	UpdateIfVersion(ctx context.Context, p *models.Property, expected int64) (pgconn.CommandTag, error)
@@ -73,6 +74,27 @@ func (r *propertyRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Prope
 
 func (r *propertyRepo) ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*models.Property, error) {
 	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE manager_id=$1 AND deleted_at IS NULL ORDER BY created_at", managerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.Property
+	for rows.Next() {
+		p, err := scanProperty(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (r *propertyRepo) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Property, error) {
+	if len(ids) == 0 {
+		return []*models.Property{}, nil
+	}
+	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE id = ANY($1)", ids)
 	if err != nil {
 		return nil, err
 	}

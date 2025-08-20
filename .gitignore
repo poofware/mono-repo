@@ -66,8 +66,6 @@
 **/android/app/profile
 **/android/app/release
 **/android/fastlane/.bundle
-**/android/fastlane/README.md
-**/android/fastlane/report.xml
 **/android/fastlane/tmp
 
 # Apple build
@@ -78,3 +76,13 @@
 **/pubspec_overrides.yaml
 **/ephemeral/
 
+*.generated
+*.null*
+
+.codex.env
+
+Gemfile.lock
+*.zip
+*.ipa
+**/fastlane/README.md
+**/fastlane/report.xml

@@ -1,9 +1,11 @@
 // worker-app/lib/features/auth/presentation/widgets/flag_widget.dart
+//
+// Renders a high-quality vector flag for an ISO-3166 alpha-2 code.
+// Falls back to a grey placeholder when the code isn’t recognised.
+
 import 'package:flutter/material.dart';
 import 'package:world_flags/world_flags.dart';
 
-/// Renders a high-quality vector flag for an ISO-3166 alpha-2 code (e.g. “US”).
-/// Falls back to the grey placeholder when the code isn’t recognised.
 class FlagWidget extends StatelessWidget {
   final String countryCode;
   final double width;
@@ -20,14 +22,10 @@ class FlagWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sanitise input once
     final code = countryCode.toUpperCase();
-
-    // `maybeFromCodeShort` returns null if the code is not valid
     final WorldCountry? country = WorldCountry.maybeFromCodeShort(code);
 
     if (country != null) {
-      // Draw the flag with a tiny border-radius to match your UI
       return CountryFlag.simplified(
         country,
         height: height,
@@ -38,7 +36,7 @@ class FlagWidget extends StatelessWidget {
       );
     }
 
-    // Graceful fallback – identical to your old placeholder
+    // Placeholder for unknown codes
     return Container(
       width: width,
       height: height,

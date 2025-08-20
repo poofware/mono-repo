@@ -3,28 +3,34 @@ package services
 import (
 	"context"
 	"time"
+	"fmt"
 
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/config"
-	"github.com/poofware/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/twilio/twilio-go"
 )
 
+// MODIFIED: Added building and unit repos for detailed notifications.
 type JobEscalationService struct {
-	cfg            *config.Config
-	jobDefRepo     repositories.JobDefinitionRepository
-	jobInstRepo    repositories.JobInstanceRepository
-	workerRepo     repositories.WorkerRepository
-	propRepo       repositories.PropertyRepository
-	repRepo        repositories.AgentRepository
-	twilioClient   *twilio.RestClient
-	sendgridClient *sendgrid.Client
-	jobService     *JobService
+	cfg                    *config.Config
+	jobDefRepo             repositories.JobDefinitionRepository
+	jobInstRepo            repositories.JobInstanceRepository
+	workerRepo             repositories.WorkerRepository
+	propRepo               repositories.PropertyRepository
+	repRepo                repositories.AgentRepository
+	agentJobCompletionRepo repositories.AgentJobCompletionRepository
+	bldgRepo               repositories.PropertyBuildingRepository
+	unitRepo               repositories.UnitRepository
+	twilioClient           *twilio.RestClient
+	sendgridClient         *sendgrid.Client
+	jobService             *JobService
 }
 
+// MODIFIED: Updated constructor to accept new repository dependencies.
 func NewJobEscalationService(
 	cfg *config.Config,
 	defRepo repositories.JobDefinitionRepository,
@@ -32,6 +38,9 @@ func NewJobEscalationService(
 	workerRepo repositories.WorkerRepository,
 	propRepo repositories.PropertyRepository,
 	repRepo repositories.AgentRepository,
+	ajcRepo repositories.AgentJobCompletionRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	unitRepo repositories.UnitRepository,
 	jobService *JobService,
 ) *JobEscalationService {
 	twClient := twilio.NewRestClientWithParams(twilio.ClientParams{
@@ -41,15 +50,18 @@ func NewJobEscalationService(
 	sgClient := sendgrid.NewSendClient(cfg.SendGridAPIKey)
 
 	return &JobEscalationService{
-		cfg:            cfg,
-		jobDefRepo:     defRepo,
-		jobInstRepo:    instRepo,
-		workerRepo:     workerRepo,
-		propRepo:       propRepo,
-		repRepo:        repRepo,
-		twilioClient:   twClient,
-		sendgridClient: sgClient,
-		jobService:     jobService,
+		cfg:                    cfg,
+		jobDefRepo:             defRepo,
+		jobInstRepo:            instRepo,
+		workerRepo:             workerRepo,
+		propRepo:               propRepo,
+		repRepo:                repRepo,
+		agentJobCompletionRepo: ajcRepo,
+		bldgRepo:               bldgRepo,
+		unitRepo:               unitRepo,
+		twilioClient:           twClient,
+		sendgridClient:         sgClient,
+		jobService:             jobService,
 	}
 }
 
@@ -86,7 +98,7 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 		if locErr != nil {
 			propLoc = time.UTC // Fallback
 		}
-		
+
 		lStart := time.Date(inst.ServiceDate.Year(), inst.ServiceDate.Month(), inst.ServiceDate.Day(), defn.LatestStartTime.Hour(), defn.LatestStartTime.Minute(), 0, 0, propLoc)
 
 		// Possibly apply surge multipliers to any open job, comparing against the consistent UTC `now`.
@@ -96,16 +108,46 @@ func (s *JobEscalationService) RunEscalationCheck(ctx context.Context) error {
 		if inst.Status == models.InstanceStatusAssigned && inst.CheckInAt == nil {
 			cutoff := lStart.Add(-constants.NoShowCutoffBeforeLatestStart)
 			if nowUTC.After(cutoff) {
-				s.forceReopenNoShow(ctx, inst)
+				s.forceReopenNoShow(ctx, inst, defn, prop) // MODIFIED: Pass defn and prop
+				// Update local status to OPEN for subsequent checks
+				inst.Status = models.InstanceStatusOpen
 			}
 		}
 
-		// If still open at T-20 => forcibly cancel job
+		// If the job is still open, check for 90- and 40-minute warnings.
 		if inst.Status == models.InstanceStatusOpen {
-			cutoff20 := lStart.Add(-constants.OnCallEscalationBeforeLatest)
-			if nowUTC.After(cutoff20) && nowUTC.Before(lStart) {
-				s.forceCancelAtDispatchTime(ctx, inst, defn)
+			// Check for 90-minute warning (internal team only)
+			warning90MinCutoff := lStart.Add(-constants.Warning90MinBeforeLatestStart)
+			if nowUTC.After(warning90MinCutoff) && inst.Warning90MinSentAt == nil {
+				msgBody := fmt.Sprintf("This job at %s is unassigned and is approaching its latest start time of %s.", prop.PropertyName, lStart.Format("3:04 PM MST"))
+				s.notifyInternalTeam(ctx, defn, inst, "[Warning] Unassigned Job (90 Min)", msgBody)
+				s.jobInstRepo.SetWarning90MinSent(ctx, inst.ID)
 			}
+
+			// Check for 40-minute warning (all-call)
+			warning40MinCutoff := lStart.Add(-constants.Warning40MinBeforeLatestStart)
+			if nowUTC.After(warning40MinCutoff) && inst.Warning40MinSentAt == nil {
+				msgBody := fmt.Sprintf("This job at %s is unassigned and is approaching its latest start time of %s. This is the final warning.", prop.PropertyName, lStart.Format("3:04 PM MST"))
+				s.notifyOnCallStaff(ctx, defn, inst, "[Urgent] Unassigned Job (40 Min)", msgBody)
+				s.jobInstRepo.SetWarning40MinSent(ctx, inst.ID)
+			}
+		}
+
+		// Cancel any job whose latest start time has passed
+		if (inst.Status == models.InstanceStatusOpen || inst.Status == models.InstanceStatusAssigned) && nowUTC.After(lStart) {
+			rowVersion := inst.RowVersion
+			canceled, err := s.jobInstRepo.UpdateStatusToCancelled(ctx, inst.ID, rowVersion)
+			if err != nil {
+				utils.Logger.WithError(err).Error("RunEscalationCheck: auto-cancel failed")
+				continue
+			}
+			if canceled == nil {
+				utils.Logger.Warnf("RunEscalationCheck: no rows updated for job=%s", inst.ID)
+				continue
+			}
+			// MODIFIED: More descriptive message body.
+			msgBody := fmt.Sprintf("This job at %s exceeded its latest start time of %s and has been automatically canceled.", prop.PropertyName, lStart.Format("3:04 PM MST"))
+			s.notifyInternalTeam(ctx, defn, inst, "Job Auto-Canceled After Expiry", msgBody)
 		}
 	}
 	return nil
@@ -148,55 +190,35 @@ func (s *JobEscalationService) applySurgeIfNeeded(
 	}
 }
 
-// forceReopenNoShow is invoked if assigned job not started by lStart - 30m
-func (s *JobEscalationService) forceReopenNoShow(ctx context.Context, inst *models.JobInstance) {
+// MODIFIED: Now triggers a notification for the no-show event.
+func (s *JobEscalationService) forceReopenNoShow(ctx context.Context, inst *models.JobInstance, defn *models.JobDefinition, prop *models.Property) {
 	if inst.Status != models.InstanceStatusAssigned || inst.AssignedWorkerID == nil {
 		return
 	}
-	err := s.workerRepo.AdjustWorkerScoreAtomic(ctx, *inst.AssignedWorkerID, constants.WorkerPenaltyNoShow, "NOSHOW")
+	assignedWorkerID := *inst.AssignedWorkerID
+	err := s.workerRepo.AdjustWorkerScoreAtomic(ctx, assignedWorkerID, constants.WorkerPenaltyNoShow, "NOSHOW")
 	if err != nil {
-		utils.Logger.WithError(err).Errorf("Failed to penalize no-show for worker=%s job=%s", inst.AssignedWorkerID, inst.ID)
+		utils.Logger.WithError(err).Errorf("Failed to penalize no-show for worker=%s job=%s", assignedWorkerID, inst.ID)
 	}
-	_, err2 := s.jobService.ForceReopenNoShow(ctx, inst.ID, *inst.AssignedWorkerID)
+	_, err2 := s.jobService.ForceReopenNoShow(ctx, inst.ID, assignedWorkerID)
 	if err2 != nil {
 		utils.Logger.WithError(err2).Error("forceReopenNoShow: Unassign failed")
+		return // Do not notify if the unassign failed
 	}
+
+	// NEW: Send notification after successfully reopening the job.
+	messageBody := fmt.Sprintf(
+		"The worker assigned to this job at %s was a no-show. The job has been reopened and requires immediate coverage.",
+		prop.PropertyName,
+	)
+	s.notifyOnCallStaff(ctx, defn, inst, "[Escalation] Worker No-Show", messageBody)
 }
 
-// forceCancelAtDispatchTime transitions the job from OPEN => CANCELED
-// and notifies on-call staff that it was never claimed before T-20 cutoff.
-func (s *JobEscalationService) forceCancelAtDispatchTime(
-	ctx context.Context,
-	inst *models.JobInstance,
-	defn *models.JobDefinition,
-) {
-	rowVersion := inst.RowVersion
-	canceled, err := s.jobInstRepo.UpdateStatusToCancelled(ctx, inst.ID, rowVersion)
-	if err != nil {
-		utils.Logger.WithError(err).Error("forceCancelAtDispatchTime: concurrency or DB error")
-		return
-	}
-	if canceled == nil {
-		utils.Logger.Warnf("forceCancelAtDispatchTime: no rows updated for job=%s", inst.ID)
-		return
-	}
-
-	// There's no assigned worker => no penalty logic
-	utils.Logger.Infof("forceCancelAtDispatchTime: forcibly canceled job=%s at T-20", inst.ID)
-
-	// Notify on-call staff
-	prop, pErr := s.propRepo.GetByID(ctx, defn.PropertyID)
-	if pErr != nil || prop == nil {
-		utils.Logger.WithError(pErr).Warn("forceCancelAtDispatchTime: property not found or nil")
-	}
-	msgBody := "Job was never claimed before T-20. It has been automatically canceled. No coverage found."
-	s.notifyOnCallStaff(ctx, defn, "Open job auto-canceled at T-20", msgBody)
-}
-
-// notifyOnCallStaff uses the shared helpers.go method
+// MODIFIED: Updated to pass building and unit repos to the notification helper.
 func (s *JobEscalationService) notifyOnCallStaff(
 	ctx context.Context,
 	defn *models.JobDefinition,
+	inst *models.JobInstance,
 	title string,
 	msgBody string,
 ) {
@@ -207,16 +229,44 @@ func (s *JobEscalationService) notifyOnCallStaff(
 
 	NotifyOnCallAgents(
 		ctx,
+		s.cfg.AppUrl,
 		prop,
-		defn.ID.String(),
+		defn,
+		inst,
 		title,
 		msgBody,
 		s.repRepo,
+		s.agentJobCompletionRepo,
+		s.bldgRepo,
+		s.unitRepo,
 		s.twilioClient,
 		s.sendgridClient,
-		s.cfg.LDFlag_TwilioFromPhone,
-		s.cfg.LDFlag_SendgridFromEmail,
-		s.cfg.OrganizationName,
-		s.cfg.LDFlag_SendgridSandboxMode,
+		s.cfg,
+	)
+}
+
+func (s *JobEscalationService) notifyInternalTeam(
+	ctx context.Context,
+	defn *models.JobDefinition,
+	inst *models.JobInstance,
+	title string,
+	msgBody string,
+) {
+	prop, err := s.propRepo.GetByID(ctx, defn.PropertyID)
+	if err != nil || prop == nil {
+		utils.Logger.WithError(err).Warn("notifyInternalTeam: property not found or nil")
+	}
+
+	NotifyInternalTeamOnly(
+		ctx,
+		prop,
+		defn,
+		inst,
+		title,
+		msgBody,
+		s.bldgRepo,
+		s.unitRepo,
+		s.sendgridClient,
+		s.cfg,
 	)
 }

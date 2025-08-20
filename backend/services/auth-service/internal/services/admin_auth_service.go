@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/poofware/auth-service/internal/config"
-	auth_repositories "github.com/poofware/auth-service/internal/repositories"
-	internal_utils "github.com/poofware/auth-service/internal/utils"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	auth_repositories "github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	internal_utils "github.com/poofware/mono-repo/backend/services/auth-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // AdminAuthService defines the interface for admin authentication logic.
@@ -85,7 +85,7 @@ func (s *adminAuthService) Login(
 
 	locked, lockedUntil, err := s.adminLoginRepo.IsLocked(ctx, admin.ID)
 	if err == nil && locked {
-		return nil, "", "", fmt.Errorf("Admin account locked until %s", lockedUntil.Format(time.RFC3339))
+		return nil, "", "", fmt.Errorf("admin account locked until %s", lockedUntil.Format(time.RFC3339))
 	}
 
 	if !utils.CheckPasswordHash(password, admin.PasswordHash) {

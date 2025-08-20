@@ -1,4 +1,4 @@
-module github.com/poofware/go-testhelpers
+module github.com/poofware/mono-repo/backend/shared/go-testhelpers
 
 go 1.24.3
 

@@ -8,15 +8,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/earnings-service/internal/config"
-	"github.com/poofware/earnings-service/internal/constants"
-	"github.com/poofware/earnings-service/internal/dtos"
-	internal_models "github.com/poofware/earnings-service/internal/models"
-	internal_repositories "github.com/poofware/earnings-service/internal/repositories"
-	internal_utils "github.com/poofware/earnings-service/internal/utils"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/dtos"
+	internal_models "github.com/poofware/mono-repo/backend/services/earnings-service/internal/models"
+	internal_repositories "github.com/poofware/mono-repo/backend/services/earnings-service/internal/repositories"
+	internal_utils "github.com/poofware/mono-repo/backend/services/earnings-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 const (
@@ -25,19 +25,21 @@ const (
 )
 
 type EarningsService struct {
-	jobInstRepo repositories.JobInstanceRepository
-	payoutRepo  internal_repositories.WorkerPayoutRepository
-	defRepo     repositories.JobDefinitionRepository
-	propRepo    repositories.PropertyRepository
-	cfg         *config.Config
+	jobInstRepo  repositories.JobInstanceRepository
+	payoutRepo   internal_repositories.WorkerPayoutRepository
+	defRepo      repositories.JobDefinitionRepository
+	propRepo     repositories.PropertyRepository
+	payoutSvc    *PayoutService // NEW: Dependency on PayoutService
+	cfg          *config.Config
 }
 
-func NewEarningsService(cfg *config.Config, jobInstRepo repositories.JobInstanceRepository, payoutRepo internal_repositories.WorkerPayoutRepository, defRepo repositories.JobDefinitionRepository, propRepo repositories.PropertyRepository) *EarningsService {
+func NewEarningsService(cfg *config.Config, jobInstRepo repositories.JobInstanceRepository, payoutRepo internal_repositories.WorkerPayoutRepository, defRepo repositories.JobDefinitionRepository, propRepo repositories.PropertyRepository, payoutSvc *PayoutService) *EarningsService {
 	return &EarningsService{
 		jobInstRepo: jobInstRepo,
 		payoutRepo:  payoutRepo,
 		defRepo:     defRepo,
 		propRepo:    propRepo,
+		payoutSvc:   payoutSvc, // NEW
 		cfg:         cfg,
 	}
 }
@@ -65,6 +67,24 @@ func (s *EarningsService) GetEarningsSummary(ctx context.Context, workerIDStr st
 		return nil, err
 	}
 
+	// --- NEW: Reconcile stale payouts ---
+	var reconciledPayouts []*internal_models.WorkerPayout
+	for _, p := range payouts {
+		// If payout is stuck in PROCESSING for more than 48 hours, poll Stripe for its status.
+		if p.Status == internal_models.PayoutStatusProcessing && p.UpdatedAt.Before(time.Now().Add(-48*time.Hour)) {
+			reconciled, reconcileErr := s.payoutSvc.ReconcileStalePayout(ctx, p)
+			if reconcileErr != nil {
+				utils.Logger.WithError(reconcileErr).Warnf("Failed to reconcile stale payout %s", p.ID)
+				reconciledPayouts = append(reconciledPayouts, p) // Keep original if reconcile fails
+			} else {
+				reconciledPayouts = append(reconciledPayouts, reconciled)
+			}
+		} else {
+			reconciledPayouts = append(reconciledPayouts, p)
+		}
+	}
+	// --- End of New Logic ---
+
 	// 2. Group jobs by ID for efficient lookup and calculate initial total.
 	jobsByID, twoMonthTotal := s._groupJobsByIDAndCalcTotal(completedJobs)
 
@@ -75,7 +95,7 @@ func (s *EarningsService) GetEarningsSummary(ctx context.Context, workerIDStr st
 	}
 
 	// 3. Process existing payouts to build the "Earnings History".
-	pastWeeksDTOs, processedJobIDs := s._processPaidHistory(payouts, jobsByID, defMap, propMap)
+	pastWeeksDTOs, processedJobIDs := s._processPaidHistory(reconciledPayouts, jobsByID, defMap, propMap)
 
 	// 4. Build the "Current Period" DTO from all jobs that have NOT been processed in a payout.
 	currentPeriodDTO := s._buildCurrentPeriodDTO(completedJobs, processedJobIDs, defMap, propMap, nowForLogic)
@@ -231,24 +251,20 @@ func (s *EarningsService) _buildCurrentPeriodDTO(
 	var periodTotal float64
 	var periodJobCount int
 
-	// --- FIX START: Always calculate the date range based on the standard weekly pay period. ---
 	// This ensures the UI always shows a full 7-day week for the "This Week" section,
 	// regardless of whether the pay cycle is daily or weekly.
 	currentPeriodStart := internal_utils.GetPayPeriodStartForDate(nowForLogic)
 	currentPeriodEnd := currentPeriodStart.AddDate(0, 0, 6)
-	// --- FIX END ---
 
 	for _, job := range allCompletedJobs {
 		if processedJobIDs[job.ID] {
 			continue // Skip jobs already part of a past payout
 		}
 
-		// --- FIX START: Add a check to ensure the job's service date is within the current period. ---
 		serviceDateOnly := job.ServiceDate.Truncate(24 * time.Hour)
 		if serviceDateOnly.Before(currentPeriodStart) || serviceDateOnly.After(currentPeriodEnd) {
 			continue // This job is from a past, unpaid week. Ignore it for the "current" total.
 		}
-		// --- FIX END ---
 
 		// All remaining jobs are part of the "current" period's earnings.
 		periodTotal += job.EffectivePay

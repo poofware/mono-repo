@@ -8,15 +8,20 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart';
+
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/providers/app_providers.dart';
 import 'package:poof_worker/features/auth/providers/providers.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
+import 'package:poof_worker/core/utils/location_permissions.dart' as locperm;
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import '../../data/models/checkr.dart';
 import '../../providers/providers.dart';
@@ -39,6 +44,7 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
   late Future<String?> _accessTokenFuture;
   String? _platform;
   String? _deviceId;
+  String? _keyId;
   late final WebViewController _webViewController;
   bool _webViewReady = false;
   bool _webViewAuthFailed = false;
@@ -69,7 +75,7 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
       // --- START OF MODIFICATION ---
 
       if (!cfg.testMode) {
-        final worker = await repo.getWorker();
+        final worker = await repo.getCheckrOutcome();
         if (mounted) {
           setState(() {
             _outcome = worker.checkrReportOutcome;
@@ -105,13 +111,17 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
   // WEB-VIEW PRELOAD LOGIC
   // ---------------------------------------------------------------------------
   Future<void> _prepareWebView() async {
-    final platform = getCurrentPlatform().name;
+    final platformEnum = getCurrentPlatform();
     final deviceId = await DeviceIdManager.getDeviceId();
+    final keyId = await getCachedKeyId(
+      isAndroid: platformEnum == FlutterPlatform.android,
+    );
     if (!mounted) return;
 
     setState(() {
-      _platform = platform;
+      _platform = platformEnum.name;
       _deviceId = deviceId;
+      _keyId = keyId;
       _accessTokenFuture = _refreshAndGetToken();
     });
 
@@ -148,9 +158,16 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
               accessToken: accessToken,
               platform: _platform!,
               deviceId: _deviceId!,
+              keyId: _keyId ?? '',
             ),
             baseUrl: PoofWorkerFlavorConfig.instance.baseUrl,
           );
+
+        if (_webViewController.platform is WebKitWebViewController) {
+          // Enable WKWebView specific features if available
+          final ios = _webViewController.platform as WebKitWebViewController;
+          ios.setInspectable(true);
+        }
 
         if (mounted) setState(() => _webViewReady = true);
       }
@@ -172,12 +189,13 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
     required String accessToken,
     required String platform,
     required String deviceId,
+    required String keyId,
   }) {
     final env = PoofWorkerFlavorConfig.instance.name == 'PROD'
         ? 'production'
         : 'staging';
     final sessionTokenPath =
-        '${PoofWorkerFlavorConfig.instance.apiServiceURL}/account/worker/checkr/session-token';
+        '${PoofWorkerFlavorConfig.instance.apiServiceURL}/v1/account/worker/checkr/session-token';
 
     return '''
 <!doctype html>
@@ -194,32 +212,32 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
       const accessToken = '$accessToken';
       try{
         new Checkr.Embeds.ReportsOverview({
-          env:'$env',
-          sessionTokenPath:'$sessionTokenPath',
-          sessionTokenRequestHeaders:()=>({
-            'Authorization':\`Bearer \${accessToken}\`,
-            'X-Platform':'$platform',
-            'X-Device-ID':'$deviceId'
+          env: '$env',
+          sessionTokenPath: '$sessionTokenPath',
+          sessionTokenRequestHeaders: () => ({
+            'Authorization': `Bearer $accessToken`,
+            'X-Platform'   : '$platform',
+            'X-Device-ID'  : '$deviceId',
+            'X-Key-Id'     : '$keyId',
+            'ngrok-skip-browser-warning': 'true',
           }),
-          candidateId:'$candidateId',
-          styles:{
-            '.bgc-candidate-link':{display:'none'},
-            '.bgc-dashboard-link':{display:'none'}
+          candidateId: '$candidateId',
+          styles: {
+            '.bgc-candidate-link':  { display: 'none' },
+            '.bgc-dashboard-link': { display: 'none' },
+            '.reports-overview .btn.btn-secondary': {'display': 'none !important'},
           },
-          expandScreenings:true,
-          enableLogging:true,
+          expandScreenings: true,
+          enableLogging:   true,
+
+          // New official failure hook
+          onLoadError: err => {
+            // Shape is { message, statusCode, data, … }
+            window.CheckrWebBridge?.postMessage(
+              JSON.stringify({ type: 'HAS_ERRORS', text: err?.message || 'Unknown error' })
+            );
+          }
         }).render('#root');
-        const root=document.querySelector('div[id^="zoid-reports-overview-"]');
-        if(root){
-          const obs=new MutationObserver(()=>{
-            const err=root.querySelector('.form-errors,.checkr-embeds-error,[role="alert"].error');
-            if(err&&window.CheckrWebBridge){
-              window.CheckrWebBridge.postMessage(JSON.stringify({type:'HAS_ERRORS',text:err.textContent.trim()}));
-              obs.disconnect();
-            }
-          });
-          obs.observe(root,{childList:true,subtree:true});
-        }
       }catch(e){
         document.getElementById('root').innerText='Error loading embed: '+e.message;
       }
@@ -233,11 +251,19 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
   // ---------------------------------------------------------------------------
   // NAVIGATION
   // ---------------------------------------------------------------------------
-  void _onContinue() => context.goNamed('MainTab');
+  void _onContinue() async {
+    // Require permission on both platforms; if missing, show disclosure and
+    // keep the user in this flow until granted.
+    final hasPerm = await locperm.hasLocationPermission();
+    if (!hasPerm) {
+      if (mounted) context.goNamed(AppRouteNames.locationDisclosurePage);
+      return;
+    }
+    if (mounted) context.goNamed(AppRouteNames.mainTab);
+  }
 
   Future<void> _showDetailsSheet() async {
     final appLocalizations = AppLocalizations.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     if (!_webViewReady || _webViewAuthFailed) {
       await _prepareWebView();
@@ -252,7 +278,7 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) => FractionallySizedBox(
-        heightFactor: 0.42,
+        heightFactor: 0.50,
         child: _webViewAuthFailed
             ? _buildAuthFailedState(appLocalizations)
             : _webViewReady
@@ -281,12 +307,9 @@ class _CheckrOutcomePageState extends ConsumerState<CheckrOutcomePage> {
                           'https://candidate.checkr.com/',
                         );
                         if (!success && mounted) {
-                          scaffoldMessenger.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                appLocalizations.urlLauncherCannotLaunch,
-                              ),
-                            ),
+                          showAppSnackBar(
+                            context,
+                            Text(appLocalizations.urlLauncherCannotLaunch),
                           );
                         }
                       },

@@ -1,4 +1,4 @@
-// meta-service/services/auth-service/internal/services/worker_auth_service.go
+// backend/services/auth-service/internal/services/worker_auth_service.go
 package services
 
 import (
@@ -18,13 +18,13 @@ import (
 	"github.com/twilio/twilio-go"
 	twilioApi "github.com/twilio/twilio-go/rest/api/v2010"
 
-	"github.com/poofware/auth-service/internal/config"
-	"github.com/poofware/auth-service/internal/dtos"
-	auth_repositories "github.com/poofware/auth-service/internal/repositories"
-	internal_utils "github.com/poofware/auth-service/internal/utils"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
+	auth_repositories "github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	internal_utils "github.com/poofware/mono-repo/backend/services/auth-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // ---------------------------------------------------------------------
@@ -60,6 +60,10 @@ type WorkerAuthService interface {
 
 	CheckPhoneVerifiedBeforeRegistration(ctx context.Context, phoneNumber, clientID string) (bool, *uuid.UUID, error)
 	DeleteSMSVerificationRow(ctx context.Context, verificationID uuid.UUID) error
+
+	InitiateDeletion(ctx context.Context, email string, clientID string) (string, error)
+	ConfirmDeletion(ctx context.Context, req dtos.ConfirmDeletionRequest) error
+	SendDeletionRequestNotification(ctx context.Context, workerEmail string, accountType string) error
 }
 
 // ---------------------------------------------------------------------
@@ -71,6 +75,7 @@ type workerAuthService struct {
 	workerTokenRepo             auth_repositories.WorkerTokenRepository
 	workerEmailVerificationRepo repositories.WorkerEmailVerificationRepository
 	workerSMSVerificationRepo   repositories.WorkerSMSVerificationRepository
+	pendingDeletionRepo         auth_repositories.PendingWorkerDeletionRepository
 	challengeRepo               repositories.AttestationChallengeRepository
 	rateLimiter                 RateLimiterService
 
@@ -86,6 +91,7 @@ func NewWorkerAuthService(
 	workerTokenRepo auth_repositories.WorkerTokenRepository,
 	workerEmailVerificationRepo repositories.WorkerEmailVerificationRepository,
 	workerSMSVerificationRepo repositories.WorkerSMSVerificationRepository,
+	pendingDeletionRepo auth_repositories.PendingWorkerDeletionRepository,
 	rateLimiter RateLimiterService,
 	challengeRepo repositories.AttestationChallengeRepository,
 	cfg *config.Config,
@@ -104,6 +110,7 @@ func NewWorkerAuthService(
 		workerTokenRepo:             workerTokenRepo,
 		workerEmailVerificationRepo: workerEmailVerificationRepo,
 		workerSMSVerificationRepo:   workerSMSVerificationRepo,
+		pendingDeletionRepo:         pendingDeletionRepo,
 		challengeRepo:               challengeRepo,
 		rateLimiter:                 rateLimiter,
 		cfg:                         cfg,
@@ -191,7 +198,7 @@ func (s *workerAuthService) Login(
 
 	locked, lockedUntil, err := s.workerLoginRepo.IsLocked(ctx, w.ID)
 	if err == nil && locked {
-		return nil, "", "", fmt.Errorf("Worker account locked until %s", lockedUntil.Format(time.RFC3339))
+		return nil, "", "", fmt.Errorf("worker account locked until %s", lockedUntil.Format(time.RFC3339))
 	}
 
 	// Special case for Google Play reviewer with a static code
@@ -347,7 +354,7 @@ func (s *workerAuthService) RequestEmailCode(
 	to := mail.NewEmail("", workerEmail)
 	subject := s.cfg.OrganizationName + " - Worker Verification Code"
 	plainTextContent := fmt.Sprintf("Your verification code is %s", code)
-	htmlContent := fmt.Sprintf(verificationEmailHTML, code, time.Now().Year())
+	htmlContent := fmt.Sprintf(verificationEmailHTML, "Verification Code", "Please use the following code to complete your verification. This code will expire in 5 minutes.", code, time.Now().Year())
 	message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
 
 	if s.cfg.LDFlag_SendgridSandboxMode {
@@ -357,7 +364,11 @@ func (s *workerAuthService) RequestEmailCode(
 	}
 
 	_, sendErr := s.sendgridClient.Send(message)
-	return sendErr
+	if sendErr != nil {
+		utils.Logger.WithError(sendErr).Errorf("Failed to send verification email to %s via SendGrid", workerEmail)
+		return fmt.Errorf("%w: failed to send email via sendgrid: %v", utils.ErrExternalServiceFailure, sendErr)
+	}
+	return nil
 }
 
 func (s *workerAuthService) VerifyEmailCode(
@@ -439,7 +450,11 @@ func (s *workerAuthService) RequestSMSCode(
 	params.SetBody(fmt.Sprintf("Your Worker verification code is %s", code))
 
 	_, sendErr := s.twilioClient.Api.CreateMessage(params)
-	return sendErr
+	if sendErr != nil {
+		utils.Logger.WithError(sendErr).Errorf("Failed to send verification SMS to %s via Twilio", workerPhone)
+		return fmt.Errorf("%w: failed to send sms via twilio: %v", utils.ErrExternalServiceFailure, sendErr)
+	}
+	return nil
 }
 
 func (s *workerAuthService) VerifySMSCode(
@@ -488,4 +503,119 @@ func (s *workerAuthService) CheckPhoneVerifiedBeforeRegistration(
 
 func (s *workerAuthService) DeleteSMSVerificationRow(ctx context.Context, verificationID uuid.UUID) error {
 	return s.workerSMSVerificationRepo.DeleteCode(ctx, verificationID)
+}
+
+// ---------------------------------------------------------------------
+// Account Deletion Flow
+// ---------------------------------------------------------------------
+
+// InitiateDeletion sends verification codes and creates a pending deletion token.
+func (s *workerAuthService) InitiateDeletion(ctx context.Context, email string, clientID string) (string, error) {
+	utils.Logger.Infof("Initiating deletion process for email: %s", email)
+	if err := s.rateLimiter.CheckEmailRateLimits(ctx, clientID, email); err != nil {
+		return "", err
+	}
+	if err := s.rateLimiter.CheckSMSRateLimits(ctx, clientID, ""); err != nil {
+		return "", err
+	}
+
+	w, err := s.workerRepo.GetByEmail(ctx, email)
+	if err != nil {
+		// This will catch pgx.ErrNoRows and other DB errors
+		utils.Logger.WithError(err).Errorf("Failed to find worker with email: %s", email)
+		return "", err
+	}
+	// The controller handles pgx.ErrNoRows specifically, so we just propagate it.
+	if w == nil {
+		return "", pgx.ErrNoRows
+	}
+
+	workerID := w.ID
+	deletionClientID := ClientIDWorkerAccountDeletion // A unique identifier for this flow
+
+	// Send email code
+	utils.Logger.Debugf("Requesting email code for worker %s", workerID)
+	if err := s.RequestEmailCode(ctx, email, &workerID, deletionClientID); err != nil {
+		utils.Logger.WithError(err).Errorf("Failed to send email code to %s for deletion", email)
+		return "", fmt.Errorf("%w: failed to send email code: %v", utils.ErrExternalServiceFailure, err)
+	}
+
+	// Send SMS code
+	utils.Logger.Debugf("Requesting SMS code for worker %s", workerID)
+	if err := s.RequestSMSCode(ctx, w.PhoneNumber, &workerID, deletionClientID); err != nil {
+		utils.Logger.WithError(err).Errorf("Failed to send SMS code to %s for deletion", w.PhoneNumber)
+		return "", fmt.Errorf("%w: failed to send sms code: %v", utils.ErrExternalServiceFailure, err)
+	}
+
+	// Create pending deletion token
+	token := uuid.NewString()
+	expires := time.Now().Add(15 * time.Minute)
+	utils.Logger.Debugf("Creating pending deletion record for worker %s", workerID)
+	if err := s.pendingDeletionRepo.Create(ctx, token, workerID, expires); err != nil {
+		utils.Logger.WithError(err).Errorf("Failed to create pending deletion record for worker %s", workerID)
+		return "", err
+	}
+
+	utils.Logger.Infof("Successfully initiated deletion for worker %s. Pending token created.", workerID)
+	return token, nil
+}
+
+// ConfirmDeletion verifies codes/TOTP and notifies operations.
+func (s *workerAuthService) ConfirmDeletion(ctx context.Context, req dtos.ConfirmDeletionRequest) error {
+	pd, err := s.pendingDeletionRepo.Get(ctx, req.PendingToken)
+	if err != nil {
+		return err
+	}
+	if time.Now().After(pd.ExpiresAt) {
+		_ = s.pendingDeletionRepo.Delete(ctx, req.PendingToken)
+		return errors.New("token expired")
+	}
+
+	worker, err := s.workerRepo.GetByID(ctx, pd.WorkerID)
+	if err != nil {
+		return err
+	}
+
+	clientID := ClientIDWorkerAccountDeletion
+
+	if req.TOTPCode != nil {
+		if !internal_utils.ValidateTOTPCode(worker.TOTPSecret, *req.TOTPCode) {
+			return errors.New("invalid totp")
+		}
+	} else {
+		if req.EmailCode == nil || req.SMSCode == nil {
+			return errors.New("missing verification codes")
+		}
+		ok, err := s.VerifyEmailCode(ctx, worker.Email, *req.EmailCode, &worker.ID, clientID)
+		if err != nil || !ok {
+			return errors.New("email verification failed")
+		}
+		ok, err = s.VerifySMSCode(ctx, worker.PhoneNumber, *req.SMSCode, &worker.ID, clientID)
+		if err != nil || !ok {
+			return errors.New("sms verification failed")
+		}
+	}
+
+	if err := s.SendDeletionRequestNotification(ctx, worker.Email, "worker"); err != nil {
+		return err
+	}
+	return s.pendingDeletionRepo.Delete(ctx, req.PendingToken)
+}
+
+// SendDeletionRequestNotification notifies the Poof team of a verified deletion request.
+func (s *workerAuthService) SendDeletionRequestNotification(ctx context.Context, workerEmail string, accountType string) error {
+	from := mail.NewEmail(s.cfg.OrganizationName, s.cfg.LDFlag_SendgridFromEmail)
+	to := mail.NewEmail("", "team@thepoofapp.com")
+	subject := fmt.Sprintf("URGENT: Account Deletion Request for %s", workerEmail)
+	ts := time.Now().Format(time.RFC1123)
+	plain := fmt.Sprintf("A verified deletion request was received for %s (account type: %s) at %s", workerEmail, accountType, ts)
+	html := fmt.Sprintf(internalNotificationEmailHTML, "Account Deletion Request", fmt.Sprintf("A new account deletion request has been submitted by a user. Please process this request promptly.<ul><li><strong>Account Type:</strong> %s</li><li><strong>Email:</strong> %s</li><li><strong>Timestamp (UTC):</strong> %s</li></ul>", accountType, workerEmail, ts), time.Now().Year())
+	msg := mail.NewSingleEmail(from, subject, to, plain, html)
+	if s.cfg.LDFlag_SendgridSandboxMode {
+		ms := mail.NewMailSettings()
+		ms.SetSandboxMode(mail.NewSetting(true))
+		msg.MailSettings = ms
+	}
+	_, err := s.sendgridClient.Send(msg)
+	return err
 }

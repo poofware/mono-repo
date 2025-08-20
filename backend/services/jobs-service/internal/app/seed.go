@@ -1,24 +1,23 @@
-// meta-service/services/jobs-service/internal/app/seed.go
-
 package app
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/jobs-service/internal/services"
-
 	"github.com/jackc/pgx/v4"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	seeding "github.com/poofware/mono-repo/backend/shared/go-seeding"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -64,18 +63,25 @@ func SeedAllTestData(
 	defRepo repositories.JobDefinitionRepository,
 	jobService *services.JobService,
 ) error {
-	pmRepo := repositories.NewPropertyManagerRepository(db, encryptionKey)
-	workerRepo := repositories.NewWorkerRepository(db, encryptionKey) // NEW: Worker Repo
-	unitRepo := repositories.NewUnitRepository(db)
-	// instRepo := repositories.NewJobInstanceRepository(db) // For manual seeding -- no longer needed here
-
-	if err := seedDefaultPMIfNeeded(ctx, pmRepo); err != nil {
-		return fmt.Errorf("seed default PM if needed: %w", err)
+	sentinelPropID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	existing, err := propRepo.GetByID(ctx, sentinelPropID)
+	if err != nil && err != pgx.ErrNoRows {
+		return fmt.Errorf("check existing seed property: %w", err)
+	}
+	if existing != nil {
+		utils.Logger.Info("jobs-service: seed data already present; skipping seeding")
+		return nil
 	}
 
-	// NEW: Seed workers before properties and jobs
-	if err := seedDefaultWorkersIfNeeded(ctx, workerRepo); err != nil {
-		return fmt.Errorf("seed default workers if needed: %w", err)
+	pmRepo := repositories.NewPropertyManagerRepository(db, encryptionKey)
+	workerRepo := repositories.NewWorkerRepository(db, encryptionKey)
+	unitRepo := repositories.NewUnitRepository(db)
+
+	if err := seeding.SeedDefaultPropertyManager(pmRepo); err != nil {
+		return fmt.Errorf("seed default PM: %w", err)
+	}
+	if err := seeding.SeedDefaultWorkers(workerRepo); err != nil {
+		return fmt.Errorf("seed default workers: %w", err)
 	}
 
 	propID, err := seedPropertyDataIfNeeded(ctx, propRepo, bldgRepo, dumpRepo, unitRepo)
@@ -89,11 +95,16 @@ func SeedAllTestData(
 	}
 
 	// Seed the active, ongoing job definitions for the property.
-	if _, err := seedJobDefinitionsIfNeeded(ctx, propRepo, bldgRepo, defRepo, jobService, propID); err != nil {
+	if _, err := seedJobDefinitionsIfNeeded(ctx, propRepo, bldgRepo, defRepo, jobService, unitRepo, propID); err != nil {
 		return fmt.Errorf("seed job definitions if needed: %w", err)
 	}
 
-	// Seed the new "The Station at Clift Farm" property and its associated data.
+	// Seed the small 3-unit demo job for Demo Property 1.
+	if err := seedSmallDemoJobIfNeeded(ctx, defRepo, bldgRepo, unitRepo, jobService, propRepo, propID); err != nil {
+		return fmt.Errorf("seed small demo job if needed: %w", err)
+	}
+
+	// Seed the new "The Station at Clift Farm" property and its associated data. [cite: 1929]
 	if err := seedCliftFarmPropertyIfNeeded(ctx, propRepo, bldgRepo, dumpRepo, unitRepo, jobService, defRepo); err != nil {
 		return fmt.Errorf("seed clift farm property if needed: %w", err)
 	}
@@ -118,124 +129,9 @@ func SeedAllTestData(
 
 /*
 ------------------------------------------------------------------
-	  1) seedDefaultPMIfNeeded
-------------------------------------------------------------------
-*/
-func seedDefaultPMIfNeeded(
-	ctx context.Context,
-	pmRepo repositories.PropertyManagerRepository,
-) error {
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+  2. seedPropertyDataIfNeeded
 
-	pm := &models.PropertyManager{
-		ID:              pmID,
-		Email:           "team@thepoofapp.com",
-		PhoneNumber:     utils.Ptr("+12565550000"),
-		TOTPSecret:      "defaultpmstatusactivestotpsecret",
-		BusinessName:    "Demo Property Management",
-		BusinessAddress: "30 Gates Mill St NW",
-		City:            "Huntsville",
-		State:           "AL",
-		ZipCode:         "35806",
-		AccountStatus:   "ACTIVE",
-		SetupProgress:   "DONE",
-	}
-	if err := pmRepo.Create(ctx, pm); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: PM (id=%s) already exists; skipping creation.", pmID)
-			return nil
-		}
-		return fmt.Errorf("could not create PM (id=%s): %w", pmID, err)
-	}
-
-	utils.Logger.Infof("jobs-service: Created default PM (id=%s).", pmID)
-	return nil
-}
-
-/*
-------------------------------------------------------------------
-	  1.5) seedDefaultWorkersIfNeeded (NEW)
-------------------------------------------------------------------
-*/
-func seedDefaultWorkersIfNeeded(
-	ctx context.Context,
-	workerRepo repositories.WorkerRepository,
-) error {
-	defaultWorkerStatusIncompleteID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa1111")
-	defaultWorkerStatusActiveID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
-
-	// --- Worker 1: INCOMPLETE, at BACKGROUND_CHECK step ---
-	wIncomplete := &models.Worker{
-		ID:          defaultWorkerStatusIncompleteID,
-		Email:       "jlmoors001@gmail.com",
-		PhoneNumber: "+15551110000",
-		TOTPSecret:  "defaultworkerstatusincompletestotpsecret",
-		FirstName:   "DefaultWorker",
-		LastName:    "SetupIncomplete",
-	}
-	if err := workerRepo.Create(ctx, wIncomplete); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: Default Worker (incomplete) already present (id=%s); skipping.", wIncomplete.ID)
-		} else {
-			return fmt.Errorf("insert default worker (incomplete): %w", err)
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: Created default Worker (incomplete) id=%s, now updating status.", wIncomplete.ID)
-		if err := workerRepo.UpdateWithRetry(ctx, wIncomplete.ID, func(stored *models.Worker) error {
-			stored.StreetAddress = "123 Default Status Incomplete St"
-			stored.City = "SeedCity"
-			stored.State = "AL"
-			stored.ZipCode = "90000"
-			stored.VehicleYear = 2022
-			stored.VehicleMake = "Toyota"
-			stored.VehicleModel = "Corolla"
-			stored.SetupProgress = models.SetupProgressBackgroundCheck
-			return nil
-		}); err != nil {
-			return fmt.Errorf("update default worker (incomplete) status: %w", err)
-		}
-	}
-
-	// --- Worker 2: ACTIVE, setup DONE ---
-	wActive := &models.Worker{
-		ID:          defaultWorkerStatusActiveID,
-		Email:       "team@thepoofapp.com",
-		PhoneNumber: "+15552220000",
-		TOTPSecret:  "defaultworkerstatusactivestotpsecretokay",
-		FirstName:   "DefaultWorker",
-		LastName:    "SetupActive",
-	}
-	if err := workerRepo.Create(ctx, wActive); err != nil {
-		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: Default Worker (active) already present (id=%s); skipping.", wActive.ID)
-		} else {
-			return fmt.Errorf("insert default worker (active): %w", err)
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: Created default Worker (active) id=%s, now updating status.", wActive.ID)
-		if err := workerRepo.UpdateWithRetry(ctx, wActive.ID, func(stored *models.Worker) error {
-			stored.StreetAddress = "123 Default Status Active St"
-			stored.City = "SeedCity"
-			stored.State = "AL"
-			stored.ZipCode = "90000"
-			stored.VehicleYear = 2022
-			stored.VehicleMake = "Toyota"
-			stored.VehicleModel = "Camry"
-			stored.AccountStatus = models.AccountStatusActive
-			stored.SetupProgress = models.SetupProgressDone
-			stored.StripeConnectAccountID = utils.Ptr("acct_1RZHahCLd3ZjFFWN") // Happy Path Connect ID
-			return nil
-		}); err != nil {
-			return fmt.Errorf("update default worker (active) status: %w", err)
-		}
-	}
-	return nil
-}
-
-/*
-------------------------------------------------------------------
-	  2) seedPropertyDataIfNeeded
-------------------------------------------------------------------
+    ------------------------------------------------------------------
 */
 func seedPropertyDataIfNeeded(
 	ctx context.Context,
@@ -248,7 +144,7 @@ func seedPropertyDataIfNeeded(
 
 	p := &models.Property{
 		ID:           propID,
-		ManagerID:    uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		ManagerID:    uuid.MustParse(seeding.DefaultPropertyManagerID),
 		PropertyName: "Demo Property 1",
 		Address:      "30 Gates Mill St NW",
 		City:         "Huntsville",
@@ -373,9 +269,87 @@ func ensureDumpster(
 	return nil
 }
 
+// buildAssignedUnitGroups returns groups of unit IDs per building. If floor>0,
+// only units on that floor are included. Units are generated with sequential
+// numbers 01-30, so floors are derived by position: 1-10 => floor 1, 11-20 =>
+// floor 2, 21-30 => floor 3.
+// If maxUnits>0, the total number of units returned across all buildings is
+// limited to maxUnits.
+
+// buildAssignedUnitChunks retrieves units for the given building IDs and breaks
+// them into slices where each slice contains at most maxUnits unit IDs total.
+// Each returned slice represents units for a single job definition.
+func buildAssignedUnitChunks(
+	ctx context.Context,
+	unitRepo repositories.UnitRepository,
+	bldgIDs []uuid.UUID,
+	floor int,
+	maxUnits int,
+) ([][]models.AssignedUnitGroup, error) {
+	if maxUnits <= 0 {
+		return nil, fmt.Errorf("maxUnits must be positive")
+	}
+
+	var all []*models.Unit
+	for _, bID := range bldgIDs {
+		units, err := unitRepo.ListByBuildingID(ctx, bID)
+		if err != nil {
+			return nil, err
+		}
+		for _, u := range units {
+			num, _ := strconv.Atoi(u.UnitNumber)
+			idx := num % 100
+			fl := (idx-1)/10 + 1
+			if floor == 0 || fl == floor {
+				all = append(all, u)
+			}
+		}
+	}
+
+	var result [][]models.AssignedUnitGroup
+	for i := 0; i < len(all); i += maxUnits {
+		end := i + maxUnits
+		if end > len(all) {
+			end = len(all)
+		}
+
+		type grpInfo struct {
+			ids    []uuid.UUID
+			floors map[int16]struct{}
+		}
+		groupMap := map[uuid.UUID]*grpInfo{}
+		for _, u := range all[i:end] {
+			num, _ := strconv.Atoi(u.UnitNumber)
+			idx := num % 100
+			fl := int16((idx-1)/10 + 1)
+
+			gi, ok := groupMap[u.BuildingID]
+			if !ok {
+				gi = &grpInfo{floors: make(map[int16]struct{})}
+				groupMap[u.BuildingID] = gi
+			}
+			gi.ids = append(gi.ids, u.ID)
+			gi.floors[fl] = struct{}{}
+		}
+
+		var groups []models.AssignedUnitGroup
+		for bID, gi := range groupMap {
+			floors := make([]int16, 0, len(gi.floors))
+			for f := range gi.floors {
+				floors = append(floors, f)
+			}
+			sort.Slice(floors, func(i, j int) bool { return floors[i] < floors[j] })
+			groups = append(groups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: gi.ids, Floors: floors})
+		}
+		result = append(result, groups)
+	}
+	return result, nil
+}
+
 /*
 	------------------------------------------------------------------
 	  3) seedJobDefinitionsIfNeeded
+
 ------------------------------------------------------------------
 */
 func seedJobDefinitionsIfNeeded(
@@ -384,6 +358,7 @@ func seedJobDefinitionsIfNeeded(
 	bldgRepo repositories.PropertyBuildingRepository,
 	defRepo repositories.JobDefinitionRepository,
 	jobSvc *services.JobService,
+	unitRepo repositories.UnitRepository,
 	propID uuid.UUID,
 ) (uuid.UUID, error) {
 	// First, fetch the property to get its timezone for seeding.
@@ -399,20 +374,9 @@ func seedJobDefinitionsIfNeeded(
 		return uuid.Nil, err
 	}
 
-	// Prepare maps to track existence and hold one defID to return
-	titlesToFind := map[string]bool{
-		"Service Buildings 0,2,3":    false,
-		"Service Buildings 4,5,6":    false,
-		"Service Buildings 7,8,9,10": false,
-	}
-	var defID uuid.UUID
+	titles := map[string]uuid.UUID{}
 	for _, d := range existingDefs {
-		if _, exists := titlesToFind[d.Title]; exists {
-			titlesToFind[d.Title] = true
-			if defID == uuid.Nil {
-				defID = d.ID
-			}
-		}
+		titles[d.Title] = d.ID
 	}
 
 	allBldgs, err := bldgRepo.ListByPropertyID(ctx, propID)
@@ -420,89 +384,161 @@ func seedJobDefinitionsIfNeeded(
 		return uuid.Nil, err
 	}
 
-	// Group building IDs based on their number parsed from the name
-	var bldgIDs_0_2_3 []uuid.UUID
-	var bldgIDs_4_5_6 []uuid.UUID
-	var bldgIDs_7_8_9_10 []uuid.UUID
-
+	var defID uuid.UUID
 	for _, bldg := range allBldgs {
-		var num int
-		// Parse building number from name "Building X"
-		if n, err := strconv.Atoi(strings.TrimPrefix(bldg.BuildingName, "Building ")); err == nil {
-			num = n
-		} else {
+		num, err := strconv.Atoi(strings.TrimPrefix(bldg.BuildingName, "Building "))
+		if err != nil {
 			utils.Logger.Warnf("Could not parse building number from name: %s", bldg.BuildingName)
 			continue
 		}
 
-		switch {
-		case num == 0 || num == 2 || num == 3:
-			bldgIDs_0_2_3 = append(bldgIDs_0_2_3, bldg.ID)
-		case num >= 4 && num <= 6:
-			bldgIDs_4_5_6 = append(bldgIDs_4_5_6, bldg.ID)
-		case num >= 7 && num <= 10:
-			bldgIDs_7_8_9_10 = append(bldgIDs_7_8_9_10, bldg.ID)
-		}
-	}
+		for floor := 1; floor <= 3; floor++ {
+			title := fmt.Sprintf("Service Building %d Floor %d", num, floor)
+			if existingID, ok := titles[title]; ok {
+				utils.Logger.Infof("jobs-service: JobDefinition '%s' already exists; skipping.", title)
+				if defID == uuid.Nil {
+					defID = existingID
+				}
+				continue
+			}
 
-	// Create the three job definitions if they don't exist
-	if !titlesToFind["Service Buildings 0,2,3"] && len(bldgIDs_0_2_3) > 0 {
-		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 0,2,3", bldgIDs_0_2_3, timeZone, dumpsterID)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		if defID == uuid.Nil {
-			defID = createdID
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 0,2,3' already exists; skipping.")
-	}
-
-	if !titlesToFind["Service Buildings 4,5,6"] && len(bldgIDs_4_5_6) > 0 {
-		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 4,5,6", bldgIDs_4_5_6, timeZone, dumpsterID)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		if defID == uuid.Nil {
-			defID = createdID
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 4,5,6' already exists; skipping.")
-	}
-
-	if !titlesToFind["Service Buildings 7,8,9,10"] && len(bldgIDs_7_8_9_10) > 0 {
-		createdID, err := createDailyDefinition(ctx, jobSvc, propID, "Service Buildings 7,8,9,10", bldgIDs_7_8_9_10, timeZone, dumpsterID)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		if defID == uuid.Nil {
-			defID = createdID
-		}
-	} else {
-		utils.Logger.Infof("jobs-service: JobDefinition 'Service Buildings 7,8,9,10' already exists; skipping.")
-	}
-
-	// Seed the "all buildings" definition for Demo Property 1 for other purposes.
-	var hasAllBuildings bool
-	for _, d := range existingDefs {
-		if d.Title == "Service All Buildings (Demo Property 1)" {
-			hasAllBuildings = true
-			break
-		}
-	}
-
-	if !hasAllBuildings {
-		var allBldgIDs []uuid.UUID
-		for _, b := range allBldgs {
-			allBldgIDs = append(allBldgIDs, b.ID)
-		}
-		_, err = createRealisticTimeWindowDefinition(ctx, jobSvc, propID, "Service All Buildings (Demo Property 1)", allBldgIDs, 6, 9, timeZone, dumpsterID)
-		if err != nil {
-			return uuid.Nil, err
+			createdID, err := createDailyDefinition(ctx, jobSvc, propID, title, []uuid.UUID{bldg.ID}, timeZone, dumpsterID, unitRepo, floor)
+			if err != nil {
+				return uuid.Nil, err
+			}
+			if defID == uuid.Nil {
+				defID = createdID
+			}
 		}
 	}
 
 	return defID, nil
+}
+
+/*
+------------------------------------------------------------------
+  NEW) seedSmallDemoJobIfNeeded
+------------------------------------------------------------------
+*/
+// seedSmallDemoJobIfNeeded creates a small, specific job for demonstration purposes.
+func seedSmallDemoJobIfNeeded(
+	ctx context.Context,
+	defRepo repositories.JobDefinitionRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	unitRepo repositories.UnitRepository,
+	jobSvc *services.JobService,
+	propRepo repositories.PropertyRepository,
+	propID uuid.UUID,
+) error {
+	title := "Small Demo Job (Bldg 0, Fl 2)"
+
+	// 1. Check if it already exists to make seeding idempotent.
+	existingDefs, err := defRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return fmt.Errorf("listing definitions for prop %s: %w", propID, err)
+	}
+	for _, d := range existingDefs {
+		if d.Title == title {
+			utils.Logger.Infof("jobs-service: Small demo job definition '%s' already exists; skipping.", title)
+			return nil
+		}
+	}
+
+	// 2. Find Building 0.
+	allBldgs, err := bldgRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return fmt.Errorf("listing buildings for prop %s: %w", propID, err)
+	}
+
+	var bldg0 *models.PropertyBuilding
+	for _, b := range allBldgs {
+		if b.BuildingName == "Building 0" {
+			bldg0 = b
+			break
+		}
+	}
+	if bldg0 == nil {
+		utils.Logger.Warnf("jobs-service: Could not find 'Building 0' for prop %s to seed small demo job. Skipping.", propID)
+		return nil // Not an error, just can't proceed.
+	}
+
+	// 3. Find units 115, 116, 117 within that building.
+	bldgUnits, err := unitRepo.ListByBuildingID(ctx, bldg0.ID)
+	if err != nil {
+		return fmt.Errorf("listing units for building %s: %w", bldg0.ID, err)
+	}
+
+	var targetUnitIDs []uuid.UUID
+	targetUnitNumbers := map[string]bool{"115": true, "116": true, "117": true}
+	for _, u := range bldgUnits {
+		if _, ok := targetUnitNumbers[u.UnitNumber]; ok {
+			targetUnitIDs = append(targetUnitIDs, u.ID)
+		}
+	}
+
+	if len(targetUnitIDs) != 3 {
+		utils.Logger.Warnf("jobs-service: Did not find all required units (115, 116, 117) for 'Building 0' on prop %s. Found %d. Skipping small demo job.", propID, len(targetUnitIDs))
+		return nil
+	}
+
+	// 4. Construct the job definition request.
+	assignedGroup := []models.AssignedUnitGroup{
+		{
+			BuildingID: bldg0.ID,
+			UnitIDs:    targetUnitIDs,
+			Floors:     []int16{2},
+		},
+	}
+
+	prop, err := propRepo.GetByID(ctx, propID)
+	if err != nil || prop == nil {
+		return fmt.Errorf("could not fetch property %s for timezone info: %w", propID, err)
+	}
+	timeZone := prop.TimeZone
+	dumpsterID := uuid.MustParse("44444444-4444-4444-4444-444444444444") // Dumpster for Demo Property 1
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
+
+	loc, err := time.LoadLocation(timeZone)
+	if err != nil {
+		loc = time.UTC
+	}
+	earliest := time.Date(0, 1, 1, 0, 0, 0, 0, loc)
+	latest := earliest.Add(23*time.Hour + 59*time.Minute)
+
+	dailyEstimates := make([]dtos.DailyPayEstimateRequest, 7)
+	for i := range 7 {
+		dailyEstimates[i] = dtos.DailyPayEstimateRequest{
+			DayOfWeek:            i,
+			BasePay:              5.00, // smaller job, smaller pay
+			EstimatedTimeMinutes: 10,
+		}
+	}
+
+	req := dtos.CreateJobDefinitionRequest{
+		PropertyID:              propID,
+		Title:                   title,
+		Description:             utils.Ptr("A small, specific demo job with only 3 units."),
+		AssignedUnitsByBuilding: assignedGroup,
+		DumpsterIDs:             []uuid.UUID{dumpsterID},
+		Frequency:               models.JobFreqDaily,
+		StartDate:               time.Now().UTC().AddDate(0, 0, -1),
+		EarliestStartTime:       earliest,
+		LatestStartTime:         latest,
+		SkipHolidays:            false,
+		DailyPayEstimates:       dailyEstimates,
+		CompletionRules: &models.JobCompletionRules{
+			ProofPhotosRequired: true,
+		},
+	}
+
+	// 5. Create the job definition.
+	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+	if err != nil {
+		return fmt.Errorf("failed to create small demo job definition '%s' for prop=%s: %w", title, propID, err)
+	}
+
+	utils.Logger.Infof("jobs-service: Created small demo job definition '%s' (id=%s).", title, defID)
+	return nil
 }
 
 // createDailyDefinition now seeds earliest_start_time=00:00, latest=23:59 => "all day long"
@@ -515,6 +551,8 @@ func createDailyDefinition(
 	assignedBuildingIDs []uuid.UUID,
 	timeZone string, // <-- NEW
 	dumpsterID uuid.UUID, // <-- NEW
+	unitRepo repositories.UnitRepository,
+	floor int,
 ) (uuid.UUID, error) {
 	loc, err := time.LoadLocation(timeZone)
 	if err != nil {
@@ -551,37 +589,49 @@ func createDailyDefinition(
 		}
 	}
 
-	req := dtos.CreateJobDefinitionRequest{
-		PropertyID:          propID,
-		Title:               title,
-		Description:         utils.Ptr("automatic seed job"),
-		AssignedBuildingIDs: assignedBuildingIDs,
-		DumpsterIDs:         []uuid.UUID{dumpsterID},
-		Frequency:           models.JobFreqDaily,
-		// Weekdays not needed for JobFreqDaily, but if it were CUSTOM, it would be like: []int16{1, 2, 3, 4, 5}
-		// FIX: Set StartDate to "yesterday" relative to UTC now. This ensures that when the
-		// instance creation logic runs for the property's local "today", the check `day.Before(StartDate)`
-		// will not fail, preventing the off-by-one error caused by timezone differences.
-		StartDate:         time.Now().UTC().AddDate(0, 0, -1),
-		EarliestStartTime: earliest,
-		LatestStartTime:   latest,
-		SkipHolidays:      false,
-		DailyPayEstimates: dailyEstimates,
-		// THIS IS THE FIX: Explicitly require photos for seeded jobs.
-		CompletionRules: &models.JobCompletionRules{
-			ProofPhotosRequired: true,
-		},
-	}
-
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-
-	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+	chunks, err := buildAssignedUnitChunks(ctx, unitRepo, assignedBuildingIDs, floor, 20)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", title, propID, err)
+		return uuid.Nil, err
 	}
 
-	utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s).", title, defID)
-	return defID, nil
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
+
+	var firstID uuid.UUID
+	for i, groups := range chunks {
+		t := title
+		if len(chunks) > 1 {
+			t = fmt.Sprintf("%s Part %d", title, i+1)
+		}
+		req := dtos.CreateJobDefinitionRequest{
+			PropertyID:              propID,
+			Title:                   t,
+			Description:             utils.Ptr("automatic seed job"),
+			AssignedUnitsByBuilding: groups,
+			DumpsterIDs:             []uuid.UUID{dumpsterID},
+			Frequency:               models.JobFreqDaily,
+			// Set StartDate to "yesterday" in UTC to avoid time-zone
+			// off-by-one issues when seeding job instances. This ensures
+			// today's instance is eligible even if seeding occurs after
+			// a job's local cutoff time.
+			StartDate:         time.Now().UTC().AddDate(0, 0, -1),
+			EarliestStartTime: earliest,
+			LatestStartTime:   latest,
+			SkipHolidays:      false,
+			DailyPayEstimates: dailyEstimates,
+			CompletionRules: &models.JobCompletionRules{
+				ProofPhotosRequired: true,
+			},
+		}
+		defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", t, propID, err)
+		}
+		utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s).", t, defID)
+		if firstID == uuid.Nil {
+			firstID = defID
+		}
+	}
+	return firstID, nil
 }
 
 // createRealisticTimeWindowDefinition seeds a job with a specific local time window (e.g., 6 AM - 9 AM).
@@ -594,6 +644,8 @@ func createRealisticTimeWindowDefinition(
 	startHour, endHour int,
 	timeZone string, // <-- NEW
 	dumpsterID uuid.UUID, // <-- NEW
+	unitRepo repositories.UnitRepository,
+	floor int,
 ) (uuid.UUID, error) {
 	loc, err := time.LoadLocation(timeZone)
 	if err != nil {
@@ -630,36 +682,47 @@ func createRealisticTimeWindowDefinition(
 		}
 	}
 
-	req := dtos.CreateJobDefinitionRequest{
-		PropertyID:          propID,
-		Title:               title,
-		Description:         utils.Ptr("automatic seed job with realistic time window"),
-		AssignedBuildingIDs: assignedBuildingIDs,
-		DumpsterIDs:         []uuid.UUID{dumpsterID},
-		Frequency:           models.JobFreqDaily,
-		// FIX: Set StartDate to "yesterday" relative to UTC now. This ensures that when the
-		// instance creation logic runs for the property's local "today", the check `day.Before(StartDate)`
-		// will not fail, preventing the off-by-one error caused by timezone differences.
-		StartDate:         time.Now().UTC().AddDate(0, 0, -1),
-		EarliestStartTime: earliest,
-		LatestStartTime:   latest,
-		SkipHolidays:      false,
-		DailyPayEstimates: dailyEstimates,
-		// THIS IS THE FIX: Explicitly require photos for seeded jobs.
-		CompletionRules: &models.JobCompletionRules{
-			ProofPhotosRequired: true,
-		},
-	}
-
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-
-	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+	chunks, err := buildAssignedUnitChunks(ctx, unitRepo, assignedBuildingIDs, floor, 20)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", title, propID, err)
+		return uuid.Nil, err
 	}
 
-	utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s) with realistic window.", title, defID)
-	return defID, nil
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
+	var firstID uuid.UUID
+	for i, groups := range chunks {
+		t := title
+		if len(chunks) > 1 {
+			t = fmt.Sprintf("%s Part %d", title, i+1)
+		}
+		req := dtos.CreateJobDefinitionRequest{
+			PropertyID:              propID,
+			Title:                   t,
+			Description:             utils.Ptr("automatic seed job with realistic time window"),
+			AssignedUnitsByBuilding: groups,
+			DumpsterIDs:             []uuid.UUID{dumpsterID},
+			Frequency:               models.JobFreqDaily,
+			// Use "yesterday" in UTC to guarantee the seeding logic
+			// creates a full 7-day window of instances regardless of
+			// when the backend boots relative to local cutoff times.
+			StartDate:         time.Now().UTC().AddDate(0, 0, -1),
+			EarliestStartTime: earliest,
+			LatestStartTime:   latest,
+			SkipHolidays:      false,
+			DailyPayEstimates: dailyEstimates,
+			CompletionRules: &models.JobCompletionRules{
+				ProofPhotosRequired: true,
+			},
+		}
+		defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, "ACTIVE")
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("failed to create job definition '%s' for prop=%s: %w", t, propID, err)
+		}
+		utils.Logger.Infof("jobs-service: Created job definition '%s' (id=%s) with realistic window.", t, defID)
+		if firstID == uuid.Nil {
+			firstID = defID
+		}
+	}
+	return firstID, nil
 }
 
 /*
@@ -707,23 +770,23 @@ func seedHistoricalDefinition(
 	}
 
 	req := dtos.CreateJobDefinitionRequest{
-		PropertyID:          propID,
-		Title:               title,
-		Description:         utils.Ptr("Historical job data for demonstration purposes."),
-		AssignedBuildingIDs: []uuid.UUID{}, // No specific buildings
-		DumpsterIDs:         []uuid.UUID{dumpID},
-		Frequency:           models.JobFreqDaily,
-		StartDate:           time.Now().UTC().AddDate(-1, 0, 0), // Start date a year ago
-		EarliestStartTime:   earliest,
-		LatestStartTime:     latest,
-		SkipHolidays:        true,
-		DailyPayEstimates:   dailyEstimates,
+		PropertyID:              propID,
+		Title:                   title,
+		Description:             utils.Ptr("Historical job data for demonstration purposes."),
+		AssignedUnitsByBuilding: []models.AssignedUnitGroup{},
+		DumpsterIDs:             []uuid.UUID{dumpID},
+		Frequency:               models.JobFreqDaily,
+		StartDate:               time.Now().UTC().AddDate(-1, 0, 0), // Start date a year ago
+		EarliestStartTime:       earliest,
+		LatestStartTime:         latest,
+		SkipHolidays:            true,
+		DailyPayEstimates:       dailyEstimates,
 		CompletionRules: &models.JobCompletionRules{
 			ProofPhotosRequired: true,
 		},
 	}
 
-	pmID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	pmID := uuid.MustParse(seeding.DefaultPropertyManagerID)
 
 	// Create this definition as INACTIVE so it doesn't generate future jobs.
 	defID, err := jobSvc.CreateJobDefinition(ctx, pmID.String(), req, string(models.JobStatusArchived))
@@ -764,7 +827,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 	jobsForWeekBeforeLast := []*models.JobInstance{
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa1"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast1),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 1),
 			EffectivePay: 20.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 1).Add(17 * time.Hour)),
@@ -772,7 +835,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa2"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast2),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 3),
 			EffectivePay: 25.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 3).Add(18 * time.Hour)),
@@ -780,7 +843,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa3"),
+			ID:           uuid.MustParse(seeding.HistoricalJobWeekBeforeLast3),
 			ServiceDate:  weekBeforeLastStart.AddDate(0, 0, 5),
 			EffectivePay: 22.00,
 			CheckInAt:    utils.Ptr(weekBeforeLastStart.AddDate(0, 0, 5).Add(19 * time.Hour)),
@@ -793,7 +856,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 	jobsForLastWeek := []*models.JobInstance{
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb1"),
+			ID:           uuid.MustParse(seeding.HistoricalJobLastWeek1),
 			ServiceDate:  lastWeekStart.AddDate(0, 0, 0),
 			EffectivePay: 30.00,
 			CheckInAt:    utils.Ptr(lastWeekStart.AddDate(0, 0, 0).Add(16 * time.Hour)),
@@ -801,7 +864,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		},
 		{
 			// UPDATED: Use a hardcoded, predictable UUID
-			ID:           uuid.MustParse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb2"),
+			ID:           uuid.MustParse(seeding.HistoricalJobLastWeek2),
 			ServiceDate:  lastWeekStart.AddDate(0, 0, 2),
 			EffectivePay: 28.00,
 			CheckInAt:    utils.Ptr(lastWeekStart.AddDate(0, 0, 2).Add(20 * time.Hour)),
@@ -824,8 +887,8 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 		todayJob,
 	)
 
-	// This is the default active worker ID seeded in seedDefaultWorkersIfNeeded
-	workerID := uuid.MustParse("1d30bfa5-e42f-457e-a21c-6b7e1aaa2222")
+	// This is the default active worker ID seeded in go-seeding
+	workerID := uuid.MustParse(seeding.DefaultActiveWorkerID)
 
 	for _, job := range allJobsToSeed {
 		// Set common properties for all seeded historical/completed jobs
@@ -865,6 +928,7 @@ func seedPastCompletedInstances(ctx context.Context, db repositories.DB, defID u
 /*
 	------------------------------------------------------------------
 	  6) seedCliftFarmPropertyIfNeeded (NEW)
+
 ------------------------------------------------------------------
 */
 func seedCliftFarmPropertyIfNeeded(
@@ -880,7 +944,7 @@ func seedCliftFarmPropertyIfNeeded(
 
 	p := &models.Property{
 		ID:           propID,
-		ManagerID:    uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		ManagerID:    uuid.MustParse(seeding.DefaultPropertyManagerID),
 		PropertyName: "The Station at Clift Farm",
 		Address:      "165 John Thomas Dr",
 		City:         "Madison",
@@ -893,15 +957,20 @@ func seedCliftFarmPropertyIfNeeded(
 
 	if err := propRepo.Create(ctx, p); err != nil {
 		if isUniqueViolation(err) {
-			utils.Logger.Infof("jobs-service: Clift Farm Property (id=%s) already exists; skipping all related seeding.", propID)
-			return nil // If property exists, assume everything else does too.
+			utils.Logger.Infof("jobs-service: Clift Farm Property (id=%s) already exists; continuing with seeding.", propID)
+		} else {
+			return fmt.Errorf("failed to create Clift Farm property id=%s: %w", propID, err)
 		}
-		return fmt.Errorf("failed to create Clift Farm property id=%s: %w", propID, err)
+	} else {
+		utils.Logger.Infof("jobs-service: Created Clift Farm property (id=%s).", propID)
 	}
 
-	utils.Logger.Infof("jobs-service: Created Clift Farm property (id=%s).", propID)
-
 	// -- Seed Buildings & Units for Clift Farm --
+	existingBldgs, err := bldgRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return fmt.Errorf("list clift farm buildings: %w", err)
+	}
+
 	type bldgConf struct {
 		num int
 		lat float64
@@ -914,27 +983,37 @@ func seedCliftFarmPropertyIfNeeded(
 		{4, 34.75337268653752, -86.75804126871314},
 	}
 
-	var newBldgs []models.PropertyBuilding
-	for _, bc := range bldgList {
-		bID := uuid.New()
-		newBldgs = append(newBldgs, models.PropertyBuilding{
-			ID:           bID,
-			PropertyID:   propID,
-			BuildingName: fmt.Sprintf("Building %d", bc.num),
-			Latitude:     bc.lat,
-			Longitude:    bc.lng,
-		})
+	existingMap := make(map[int]*models.PropertyBuilding)
+	for _, b := range existingBldgs {
+		var num int
+		fmt.Sscanf(b.BuildingName, "Building %d", &num)
+		existingMap[num] = b
 	}
-	if err := bldgRepo.CreateMany(ctx, newBldgs); err != nil {
-		return fmt.Errorf("failed to create buildings for Clift Farm prop=%s: %w", propID, err)
-	}
-	utils.Logger.Infof("jobs-service: Created %d buildings for Clift Farm property (id=%s).", len(newBldgs), propID)
 
 	var allBldgIDs []uuid.UUID
-	for idx, b := range newBldgs {
+	for _, bc := range bldgList {
+		b, ok := existingMap[bc.num]
+		if !ok {
+			b = &models.PropertyBuilding{
+				ID:           uuid.New(),
+				PropertyID:   propID,
+				BuildingName: fmt.Sprintf("Building %d", bc.num),
+				Latitude:     bc.lat,
+				Longitude:    bc.lng,
+			}
+			if err := bldgRepo.Create(ctx, b); err != nil {
+				return fmt.Errorf("create building %d for clift farm: %w", bc.num, err)
+			}
+			utils.Logger.Infof("jobs-service: Created building %s for Clift Farm property (id=%s).", b.BuildingName, propID)
+		}
 		allBldgIDs = append(allBldgIDs, b.ID)
-		for u := 1; u <= 30; u++ {
-			unitNum := fmt.Sprintf("%d%02d", idx+1, u)
+
+		units, err := unitRepo.ListByBuildingID(ctx, b.ID)
+		if err != nil {
+			return fmt.Errorf("list units for bldg %s: %w", b.ID, err)
+		}
+		for u := len(units) + 1; u <= 30; u++ {
+			unitNum := fmt.Sprintf("%d%02d", bc.num, u)
 			un := &models.Unit{
 				ID:          uuid.New(),
 				PropertyID:  propID,
@@ -946,8 +1025,10 @@ func seedCliftFarmPropertyIfNeeded(
 				return fmt.Errorf("create unit %s for Clift Farm prop=%s: %w", unitNum, propID, cErr)
 			}
 		}
+		if len(units) < 30 {
+			utils.Logger.Infof("jobs-service: Created %d units for building %s at Clift Farm", 30-len(units), b.BuildingName)
+		}
 	}
-	utils.Logger.Infof("jobs-service: Created 30 units each for %d new buildings at Clift Farm => %d new units total.", len(newBldgs), len(newBldgs)*30)
 
 	// -- Seed Dumpster for Clift Farm --
 	dumpsterID := uuid.MustParse("66666666-6666-6666-6666-666666666666")
@@ -959,10 +1040,14 @@ func seedCliftFarmPropertyIfNeeded(
 		Longitude:      -86.7606387432878,
 	}
 	if err := dumpRepo.Create(ctx, d); err != nil {
-		// This should not be a unique violation if the parent property creation was new.
-		return fmt.Errorf("create dumpster id=%s for Clift Farm prop=%s: %w", dumpsterID, propID, err)
+		if isUniqueViolation(err) {
+			utils.Logger.Infof("jobs-service: Clift Farm dumpster (id=%s) for property (id=%s) already exists; skipping creation.", dumpsterID, propID)
+		} else {
+			return fmt.Errorf("create dumpster id=%s for Clift Farm prop=%s: %w", dumpsterID, propID, err)
+		}
+	} else {
+		utils.Logger.Infof("jobs-service: Created dumpster (id=%s) for Clift Farm property (id=%s).", dumpsterID, propID)
 	}
-	utils.Logger.Infof("jobs-service: Created dumpster (id=%s) for Clift Farm property (id=%s).", dumpsterID, propID)
 
 	// -- Seed Job Definitions for Clift Farm --
 	defTitleAM := "Service The Station at Clift Farm (AM)"
@@ -986,7 +1071,7 @@ func seedCliftFarmPropertyIfNeeded(
 
 	// Morning Job Definition (4 AM - 9 AM)
 	if !amDefExists {
-		if _, err := createRealisticTimeWindowDefinition(ctx, jobSvc, propID, defTitleAM, allBldgIDs, 4, 9, p.TimeZone, dumpsterID); err != nil {
+		if _, err := createRealisticTimeWindowDefinition(ctx, jobSvc, propID, defTitleAM, allBldgIDs, 4, 9, p.TimeZone, dumpsterID, unitRepo, 0); err != nil {
 			return fmt.Errorf("seed AM job definition for clift farm: %w", err)
 		}
 	} else {
@@ -995,11 +1080,32 @@ func seedCliftFarmPropertyIfNeeded(
 
 	// Evening Job Definition (4 PM - 11 PM)
 	if !pmDefExists {
-		if _, err := createRealisticTimeWindowDefinition(ctx, jobSvc, propID, defTitlePM, allBldgIDs, 16, 23, p.TimeZone, dumpsterID); err != nil {
+		if _, err := createRealisticTimeWindowDefinition(ctx, jobSvc, propID, defTitlePM, allBldgIDs, 16, 23, p.TimeZone, dumpsterID, unitRepo, 0); err != nil {
 			return fmt.Errorf("seed PM job definition for clift farm: %w", err)
 		}
 	} else {
 		utils.Logger.Infof("jobs-service: JobDefinition '%s' already exists for Clift Farm; skipping.", defTitlePM)
+	}
+
+	// Single floor definitions
+	existingDefs, err = defRepo.ListByPropertyID(ctx, propID)
+	if err != nil {
+		return fmt.Errorf("listing existing defs for clift farm: %w", err)
+	}
+	for f := 1; f <= 3; f++ {
+		title := fmt.Sprintf("Clift Farm Floor %d", f)
+		exists := false
+		for _, d := range existingDefs {
+			if d.Title == title {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			if _, ferr := createDailyDefinition(ctx, jobSvc, propID, title, allBldgIDs, p.TimeZone, dumpsterID, unitRepo, f); ferr != nil {
+				return ferr
+			}
+		}
 	}
 
 	return nil

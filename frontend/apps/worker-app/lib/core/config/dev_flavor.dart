@@ -6,19 +6,17 @@ void configureDevFlavor() {
   if (baseUrl.isEmpty) {
     throw Exception('CURRENT_BACKEND_DOMAIN is not set. Please set it in your build configuration.');
   }
-  const String apiVersion = 'v1';
-
   const gcpSdkKey = String.fromEnvironment('GCP_SDK_KEY');
   if (gcpSdkKey.isEmpty) {
     throw Exception('GCP_SDK_KEY is not set. Please set it in your build configuration.');
   }
 
   PoofWorkerFlavorConfig(
-    name: "DEV",
+    name: "",
     color: Colors.red,
     location: BannerLocation.topStart,
-    authServiceURL: 'https://$baseUrl/auth/$apiVersion',
-    apiServiceURL: 'https://$baseUrl/api/$apiVersion',
+    authServiceURL: 'https://$baseUrl/auth',
+    apiServiceURL: 'https://$baseUrl/api',
     baseUrl: 'https://$baseUrl',
     gcpSdkKey: gcpSdkKey,
     realDeviceAttestation: false,

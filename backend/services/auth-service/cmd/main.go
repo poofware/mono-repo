@@ -8,14 +8,14 @@ import (
 	cron "github.com/robfig/cron/v3"
 	"github.com/rs/cors"
 
-	"github.com/poofware/auth-service/internal/app"
-	"github.com/poofware/auth-service/internal/config"
-	"github.com/poofware/auth-service/internal/controllers"
-	auth_repositories "github.com/poofware/auth-service/internal/repositories"
-	"github.com/poofware/auth-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/controllers"
+	auth_repositories "github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 func main() {
@@ -57,6 +57,8 @@ func main() {
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	workerLoginRepo := auth_repositories.NewWorkerLoginAttemptsRepository(application.DB)
 	workerTokenRepo := auth_repositories.NewWorkerTokenRepository(application.DB)
+	pendingWorkerDeletionRepo := auth_repositories.NewPendingWorkerDeletionRepository(application.DB)
+	pendingPMDeletionRepo := auth_repositories.NewPendingPMDeletionRepository(application.DB)
 
 	adminRepo := repositories.NewAdminRepository(application.DB, cfg.DBEncryptionKey)
 	adminLoginRepo := auth_repositories.NewAdminLoginAttemptsRepository(application.DB)
@@ -81,6 +83,7 @@ func main() {
 		pmTokenRepo,
 		pmEmailRepo,
 		pmSMSRepo,
+		pendingPMDeletionRepo,
 		rateLimiterService,
 		cfg,
 	)
@@ -91,6 +94,7 @@ func main() {
 		workerTokenRepo,
 		workerEmailRepo,
 		workerSMSRepo,
+		pendingWorkerDeletionRepo,
 		rateLimiterService,
 		challengeRepo,
 		cfg,
@@ -150,6 +154,8 @@ func main() {
 	v1Router.HandleFunc("/pm/email/valid", pmController.ValidatePMEmail).Methods("POST")
 	v1Router.HandleFunc("/pm/phone/valid", pmController.ValidatePMPhone).Methods("POST")
 	v1Router.HandleFunc("/pm/refresh_token", pmController.RefreshTokenPM).Methods("POST")
+	v1Router.HandleFunc("/pm/initiate-deletion", pmController.InitiateDeletion).Methods("POST")   // New
+	v1Router.HandleFunc("/pm/confirm-deletion", pmController.ConfirmDeletion).Methods("POST")
 
 	// Admin endpoints
 	v1Router.HandleFunc("/admin/login", adminController.LoginAdmin).Methods("POST")
@@ -160,6 +166,8 @@ func main() {
 	v1Router.HandleFunc("/worker/email/valid", workerController.ValidateWorkerEmail).Methods("POST")
 	v1Router.HandleFunc("/worker/phone/valid", workerController.ValidateWorkerPhone).Methods("POST")
 	v1Router.HandleFunc("/worker/challenge", workerController.IssueChallenge).Methods("POST")
+	v1Router.HandleFunc("/worker/initiate-deletion", workerController.InitiateDeletion).Methods("POST")
+	v1Router.HandleFunc("/worker/confirm-deletion", workerController.ConfirmDeletion).Methods("POST")
 
 	// Now, for worker login & refresh_token, we apply the MobileAttestationMiddleware:
 	// The parameter cfg.LDFlag_DoRealMobileDeviceAttestation indicates if we do real or dummy calls.

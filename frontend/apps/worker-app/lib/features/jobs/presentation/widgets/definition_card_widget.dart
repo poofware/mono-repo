@@ -30,6 +30,8 @@ class DefinitionCard extends StatelessWidget {
         definition.instances.isNotEmpty ? definition.instances.first : null;
     final bool hasBuildingInfo = definition.instances.isNotEmpty &&
         definition.instances.any((inst) => inst.numberOfBuildings > 0);
+    final bool isSingleBuilding = definition.instances.isNotEmpty &&
+        definition.instances.every((inst) => inst.numberOfBuildings == 1);
 
     return InkWell(
       onTap: () {
@@ -37,7 +39,9 @@ class DefinitionCard extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          enableDrag: false,
           useSafeArea: true,
+          useRootNavigator: true,
           backgroundColor:
               Colors.transparent, // Sheet container will have its own color
           barrierColor:
@@ -56,6 +60,8 @@ class DefinitionCard extends StatelessWidget {
           },
         );
       },
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
       child: Card(
         color: color,
         elevation: 5,
@@ -92,7 +98,6 @@ class DefinitionCard extends StatelessWidget {
                               definition.buildingSubtitle,
                               style: TextStyle(
                                 fontSize: 14,
-                                fontStyle: FontStyle.italic,
                                 color: Colors.grey.shade700,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -171,17 +176,17 @@ class DefinitionCard extends StatelessWidget {
                         ),
                       ),
 
-                      // Second cell: BuildingInfo (centered) or empty if none
+                      // Second cell: BuildingInfo or FloorInfo (centered)
                       SizedBox(
                         width: cellWidth,
-                        child: hasBuildingInfo
-                            ? Align(
-                                alignment: Alignment.center,
-                                child: BuildingInfo(
-                                  instances: definition.instances,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: isSingleBuilding
+                              ? FloorInfo(instances: definition.instances)
+                              : hasBuildingInfo
+                                  ? BuildingInfo(instances: definition.instances)
+                                  : const SizedBox.shrink(),
+                        ),
                       ),
 
                       // Third cell: DriveTimeInfo (right-aligned)

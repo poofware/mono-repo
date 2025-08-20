@@ -1,7 +1,3 @@
-// worker-app/lib/features/jobs/presentation/widgets/jobs_sheet_widget.dart
-//
-// Entire file — drop-in replacement.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/features/jobs/state/jobs_state.dart';
@@ -13,9 +9,8 @@ import 'package:poof_worker/core/providers/app_logger_provider.dart';
 
 /// Draggable / flick-able bottom sheet that shows open jobs.
 /// – Any vertical drag **anywhere on the header _or_ sort / search bar**
-///   will now move / snap the sheet.
-/// – The job list scrolls independently. If scrolled to the top, a *new*
-///   downward drag on the list will also move the sheet.
+///   will move / snap the sheet.
+/// – The job list scrolls independently.
 class JobsSheet extends ConsumerStatefulWidget {
   final AppLocalizations appLocalizations;
   final DraggableScrollableController sheetController;
@@ -27,8 +22,8 @@ class JobsSheet extends ConsumerStatefulWidget {
   final List<DefinitionGroup> allDefinitions;
   final bool isOnline;
   final bool isTestMode;
-  final bool
-      isLoadingJobs; // This is the global loading state from JobsNotifier
+  final bool isLoadingJobs; // Global loading state from JobsNotifier.
+  final bool hasLoadedInitialJobs;
 
   final String sortBy;
   final ValueChanged<String> onSortChanged;
@@ -54,6 +49,7 @@ class JobsSheet extends ConsumerStatefulWidget {
     required this.isOnline,
     required this.isTestMode,
     required this.isLoadingJobs,
+    required this.hasLoadedInitialJobs,
     required this.sortBy,
     required this.onSortChanged,
     required this.showSearchBar,
@@ -76,20 +72,81 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
   static const _flickDown = 750;
 
   // A special, non-snappable height to reveal messages.
-  static const double _messageSnapHeight = 0.23;
+  static const double _messageSnapHeight = 0.225;
+
+  // Compute a dynamic snap height that fits the given message without truncation
+  // by estimating the wrapped text height at runtime and converting to a sheet size fraction.
+  double _computeDynamicMessageSnapSize(BuildContext context, String message) {
+    // Simple, robust heuristic:
+    // - If the message fits on one line at the actual text scale and typical
+    //   padding width, use a compact snap height.
+    // - If it wraps (2+ lines), use a slightly taller fixed snap height that
+    //   comfortably fits up to a single wrap.
+    final media = MediaQuery.of(context);
+    final double screenWidth = media.size.width;
+    // Account for device safe areas (e.g., iPhone landscape), our own padding,
+    // and a small gutter to match real-world layout constraints.
+    const double horizontalPadding = 20.0 * 2; // matches draggableMessage padding
+    final double safeHorizontal = media.padding.left + media.padding.right;
+    const double extraGutter = 24.0; // conservative fudge factor
+    final double maxTextWidth =
+        (screenWidth - safeHorizontal - horizontalPadding - extraGutter)
+            .clamp(0.0, screenWidth);
+
+    final TextScaler textScaler = MediaQuery.textScalerOf(context);
+    final double scaledFontSize = textScaler.scale(16);
+
+    final TextPainter painter = TextPainter(
+      text: TextSpan(
+        text: message,
+        style: TextStyle(
+          fontSize: scaledFontSize,
+          color: Colors.grey.shade600,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: Directionality.of(context),
+      maxLines: null,
+    )..layout(maxWidth: maxTextWidth);
+
+    final int lineCount = painter.computeLineMetrics().length;
+    final bool wrapped = lineCount > 1;
+
+    // Quick diagnostic log
+    try {
+      final logger = ref.read(appLoggerProvider);
+      logger.d(
+        'JobsSheet: message wrap ${wrapped ? 'detected' : 'not detected'} '
+        '(lines=$lineCount, maxTextWidth=${maxTextWidth.toStringAsFixed(1)}, '
+        'screenWidth=${screenWidth.toStringAsFixed(1)})',
+      );
+    } catch (_) {}
+
+    // Base sizes chosen to work with the current header layout.
+    // _messageSnapHeight = 0.23 for single line; bump for wrapped text.
+    double target = wrapped ? 0.29 : _messageSnapHeight;
+
+    // If the user has large text enabled, give a little extra room.
+    if (wrapped && (scaledFontSize / 16.0) > 1.2) {
+      target = 0.31;
+    }
+
+    return target.clamp(widget.minChildSize, widget.maxChildSize);
+  }
 
   // Controller for the list, to check its scroll position.
   final ScrollController _listScrollController = ScrollController();
-  // Flag to decide if a gesture should drag the sheet or scroll the list.
-  bool _isSheetDragGesture = false;
+
+  /* ──────────────────────────── Drag helpers ──────────────────────────── */
 
   void _onDragUpdate(DragUpdateDetails d) {
     if (!widget.sheetController.isAttached) return;
 
-    // Translate the finger movement into a change of sheet size.
     final delta = -d.delta.dy / widget.screenHeight;
-    final newSize = (widget.sheetController.size + delta)
-        .clamp(widget.minChildSize, widget.maxChildSize);
+    final newSize = (widget.sheetController.size + delta).clamp(
+      widget.minChildSize,
+      widget.maxChildSize,
+    );
     widget.sheetController.jumpTo(newSize);
   }
 
@@ -100,11 +157,11 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     double target;
 
     if (v < _hardFlickUp) {
-      target = widget.maxChildSize; // flick hard up → 85 %
+      target = widget.maxChildSize; // Hard flick up → 85 %
     } else if (v < _softFlickUp) {
-      target = 0.40; // flick soft up → 40 %
+      target = 0.40; // Soft flick up → 40 %
     } else if (v > _flickDown) {
-      target = widget.minChildSize; // flick down      → 15 %
+      target = widget.minChildSize; // Flick down     → 15 %
     } else {
       // Snap to the nearest preset size.
       final now = widget.sheetController.size;
@@ -120,43 +177,10 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     );
   }
 
-  bool _handleScrollNotification(ScrollNotification notification) {
-    // Ignore nested scrollables.
-    if (notification.depth > 0) return false;
+  // The list view no longer drives the sheet; always allow the list to scroll.
+  bool _handleScrollNotification(ScrollNotification notification) => false;
 
-    // When the list starts moving and is already at its top,
-    // treat further downward drags as sheet gestures.
-    if (notification is ScrollStartNotification) {
-      final atTop = _listScrollController.position.atEdge &&
-          _listScrollController.position.pixels == 0;
-      if (atTop) _isSheetDragGesture = true;
-    }
-
-    // While dragging down, drive the sheet instead of the list.
-    if (notification is ScrollUpdateNotification && _isSheetDragGesture) {
-      final details = notification.dragDetails;
-      if (details != null && details.delta.dy > 0) {
-        _onDragUpdate(details);
-        return true; // consume the event
-      } else {
-        // An upward move hands control back to the list.
-        _isSheetDragGesture = false;
-      }
-    }
-
-    // Drag finished → snap the sheet.
-    if (notification is ScrollEndNotification) {
-      if (_isSheetDragGesture) {
-        // On iOS the bounce clears dragDetails; fall back to zero velocity.
-        final details = notification.dragDetails ??
-            DragEndDetails(velocity: Velocity.zero);
-        _onDragEnd(details);
-      }
-      _isSheetDragGesture = false;
-    }
-
-    return false; // allow other listeners to run
-  }
+  /* ─────────────────────────────── Build ─────────────────────────────── */
 
   @override
   Widget build(BuildContext context) {
@@ -164,6 +188,11 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     final appLocalizations = widget.appLocalizations;
     final logger = ref.read(appLoggerProvider);
 
+    // Height of onscreen keyboard (0 when hidden). We’ll pad the list with it
+    // so items remain scrollable instead of pushing the whole sheet up.
+    final double bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    /* ── State listeners that can resize the sheet ── */
     ref.listen<JobsState>(jobsNotifierProvider, (previous, next) {
       if (previous == null || !widget.sheetController.isAttached) return;
 
@@ -174,8 +203,9 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
 
       if (justStartedLoading) {
         final currentSize = widget.sheetController.size;
-        final isAtSnapPoint =
-            widget.snapSizes.any((snap) => (currentSize - snap).abs() < 0.01);
+        final isAtSnapPoint = widget.snapSizes.any(
+          (snap) => (currentSize - snap).abs() < 0.01,
+        );
 
         if (!isAtSnapPoint) {
           widget.sheetController.animateTo(
@@ -188,8 +218,12 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
 
       if (justFinishedLoading) {
         if (next.isOnline && next.openJobs.isEmpty) {
+          final String message = widget.searchQuery.isNotEmpty
+              ? widget.appLocalizations.homePageNoJobsMatchSearch
+              : widget.appLocalizations.homePageNoJobsAvailable;
+          final double dynamicSize = _computeDynamicMessageSnapSize(context, message);
           widget.sheetController.animateTo(
-            _messageSnapHeight,
+            dynamicSize,
             duration: const Duration(milliseconds: 350),
             curve: Curves.easeOutCubic,
           );
@@ -198,23 +232,29 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     });
 
     final bool isOffline = !widget.isOnline;
-    final double initialSize =
-        isOffline ? _messageSnapHeight : widget.minChildSize;
+    final double initialSize = isOffline
+        ? _computeDynamicMessageSnapSize(
+            context,
+            widget.appLocalizations.homePageOfflineMessage,
+          )
+        : widget.minChildSize;
 
     return DraggableScrollableSheet(
       controller: widget.sheetController,
       initialChildSize: initialSize,
       minChildSize: widget.minChildSize,
       maxChildSize: widget.maxChildSize,
-      snap: true,
+      snap: false,
       snapSizes: widget.snapSizes,
       builder: (context, scrollController) {
+        // Dummy scroller so the outer DraggableScrollableSheet works.
         final dummyScroller = SingleChildScrollView(
           controller: scrollController,
           physics: const NeverScrollableScrollPhysics(),
           child: const SizedBox(height: 0),
         );
 
+        /* ── Build the list body depending on state ── */
         Widget listBody;
 
         Widget draggableMessage(String message) {
@@ -248,7 +288,7 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
           listBody = ListView.builder(
             controller: _listScrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
+            padding: EdgeInsets.only(bottom: bottomInset),
             itemExtent: 150,
             itemCount: widget.allDefinitions.length,
             itemBuilder: (_, i) => DefinitionCard(
@@ -259,6 +299,7 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
           );
         }
 
+        /* ── Render sheet ── */
         return Material(
           color: sheetColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -268,8 +309,14 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
               dummyScroller,
               Column(
                 children: [
+                  /* ── Header (drag handle, title, controls) ── */
                   GestureDetector(
                     behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      if (widget.searchFocusNode.hasFocus) {
+                        widget.searchFocusNode.unfocus();
+                      }
+                    },
                     onVerticalDragUpdate: _onDragUpdate,
                     onVerticalDragEnd: _onDragEnd,
                     child: Column(
@@ -297,47 +344,78 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                             ],
                           ),
                         ),
+                        /* ── Sort / search / refresh row ── */
                         Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              /* Sort dropdown */
                               Row(
                                 children: [
-                                  Text(appLocalizations.homePageSortByLabel,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 15)),
+                                  Text(
+                                    appLocalizations.homePageSortByLabel,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 15,
+                                      color: widget.isOnline
+                                          ? null
+                                          : Colors.grey.shade400,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   DropdownButtonHideUnderline(
                                     child: DropdownButton<String>(
                                       value: widget.sortBy,
                                       focusColor: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
                                       style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurface,
-                                          fontSize: 15),
+                                        color: widget.isOnline
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface
+                                            : Colors.grey.shade400,
+                                        fontSize: 15,
+                                      ),
                                       items: [
                                         DropdownMenuItem(
                                           value: 'distance',
-                                          child: Text(appLocalizations
-                                              .homePageSortByDistance),
+                                          child: Text(
+                                            appLocalizations
+                                                .homePageSortByDistance,
+                                          ),
                                         ),
                                         DropdownMenuItem(
                                           value: 'pay',
-                                          child: Text(appLocalizations
-                                              .homePageSortByPay),
+                                          child: Text(
+                                            appLocalizations.homePageSortByPay,
+                                          ),
                                         ),
                                       ],
-                                      onChanged: (v) => v != null
-                                          ? widget.onSortChanged(v)
+                                      onChanged: widget.isOnline
+                                          ? (v) => v != null
+                                                ? widget.onSortChanged(v)
+                                                : null
                                           : null,
+                                      disabledHint: Text(
+                                        widget.sortBy == 'distance'
+                                            ? appLocalizations
+                                                  .homePageSortByDistance
+                                            : appLocalizations
+                                                  .homePageSortByPay,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade400,
+                                          fontSize: 15,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
+                              /* Search / refresh icons */
                               Row(
                                 children: [
                                   IconButton(
@@ -345,14 +423,18 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                       widget.showSearchBar
                                           ? Icons.search_off
                                           : Icons.search,
-                                      color: Colors.grey.shade600,
+                                      color: widget.isOnline
+                                          ? Colors.grey.shade600
+                                          : Colors.grey.shade400,
                                     ),
                                     tooltip: widget.showSearchBar
                                         ? appLocalizations
-                                            .homePageSearchCloseTooltip
+                                              .homePageSearchCloseTooltip
                                         : appLocalizations
-                                            .homePageSearchOpenTooltip,
-                                    onPressed: widget.toggleSearchBar,
+                                              .homePageSearchOpenTooltip,
+                                    onPressed: widget.isOnline
+                                        ? widget.toggleSearchBar
+                                        : null,
                                   ),
                                   IconButton(
                                     icon: widget.isLoadingJobs
@@ -363,11 +445,14 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                               strokeWidth: 2.5,
                                               valueColor:
                                                   AlwaysStoppedAnimation<Color>(
-                                                widget.isOnline
-                                                    ? Theme.of(context)
-                                                        .primaryColor
-                                                    : Colors.grey.shade400,
-                                              ),
+                                                    widget.isOnline &&
+                                                            widget
+                                                                .hasLoadedInitialJobs
+                                                        ? Theme.of(
+                                                            context,
+                                                          ).primaryColor
+                                                        : Colors.grey.shade400,
+                                                  ),
                                             ),
                                           )
                                         : Icon(
@@ -378,14 +463,17 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                           ),
                                     tooltip: appLocalizations
                                         .homePageJobsSheetRefreshTooltip,
-                                    onPressed: (widget.isOnline &&
+                                    onPressed:
+                                        (widget.isOnline &&
                                             !widget.isLoadingJobs)
                                         ? () {
                                             logger.d(
-                                                'JobsSheet: Manual refresh triggered.');
+                                              'JobsSheet: Manual refresh triggered.',
+                                            );
                                             ref
-                                                .read(jobsNotifierProvider
-                                                    .notifier)
+                                                .read(
+                                                  jobsNotifierProvider.notifier,
+                                                )
                                                 .refreshOnlineJobsIfActive();
                                           }
                                         : null,
@@ -395,13 +483,18 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                             ],
                           ),
                         ),
+                        /* ── Search bar (optional) ── */
                         AnimatedSize(
                           duration: const Duration(milliseconds: 250),
                           curve: Curves.fastOutSlowIn,
                           child: widget.showSearchBar
                               ? Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    12,
+                                  ),
                                   child: TextField(
                                     controller: widget.searchController,
                                     focusNode: widget.searchFocusNode,
@@ -411,22 +504,27 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                         borderSide: BorderSide(
-                                            color: Colors.grey.shade300),
+                                          color: Colors.grey.shade300,
+                                        ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                         borderSide: BorderSide(
-                                            color:
-                                                Theme.of(context).primaryColor),
+                                          color: Theme.of(context).primaryColor,
+                                        ),
                                       ),
                                       isDense: true,
                                       contentPadding:
                                           const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 10),
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
                                       suffixIcon: widget.searchQuery.isNotEmpty
                                           ? IconButton(
-                                              icon: const Icon(Icons.clear,
-                                                  size: 20),
+                                              icon: const Icon(
+                                                Icons.clear,
+                                                size: 20,
+                                              ),
                                               onPressed: () {
                                                 widget.searchController.clear();
                                                 widget.onSearchChanged('');
@@ -442,6 +540,7 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
                       ],
                     ),
                   ),
+                  /* ── List body ── */
                   Expanded(
                     child: NotificationListener<ScrollNotification>(
                       onNotification: _handleScrollNotification,

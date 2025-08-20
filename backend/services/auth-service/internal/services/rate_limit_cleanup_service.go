@@ -4,8 +4,8 @@ package services
 import (
 	"context"
 
-	"github.com/poofware/auth-service/internal/repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // RateLimitCleanupService removes expired rate limit counter keys from the database.

@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
+	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
 )
 
 // WorkerCheckrController handles Checkr-related endpoints for the Worker role.
@@ -50,6 +51,8 @@ func (c *WorkerCheckrController) CreateInvitationHandler(w http.ResponseWriter, 
 		return
 	}
 
+	utils.Logger.Debugf("Attempting to create Checkr invitation for workerID: %s", ctxUserID.(string))
+
 	// Call the service to create or reuse a Checkr invitation.
 	invURL, invErr := c.checkrService.CreateCheckrInvitation(r.Context(), workerID)
 	if invErr != nil {
@@ -63,8 +66,10 @@ func (c *WorkerCheckrController) CreateInvitationHandler(w http.ResponseWriter, 
 		return
 	}
 
+	utils.Logger.Debugf("Successfully created/reused Checkr invitation for workerID: %s. Invitation URL: %s", workerID, invURL)
+
 	// Construct the response
-	resp := dtos.CheckrInvitationResponse{
+	resp := internal_dtos.CheckrInvitationResponse{
 		Message:       "Checkr invitation (and candidate if needed) created/reused",
 		InvitationURL: invURL,
 	}
@@ -111,8 +116,10 @@ func (c *WorkerCheckrController) GetCheckrStatusHandler(w http.ResponseWriter, r
 		return
 	}
 
+	utils.Logger.Debugf("Checked Checkr status for workerID: %s. Status: %s", workerID, flowStatus)
+
 	// Construct the DTO response
-	resp := dtos.CheckrStatusResponse{
+	resp := internal_dtos.CheckrStatusResponse{
 		Status: flowStatus,
 	}
 	utils.RespondWithJSON(w, http.StatusOK, resp)
@@ -120,8 +127,9 @@ func (c *WorkerCheckrController) GetCheckrStatusHandler(w http.ResponseWriter, r
 
 // ───────────────────────────────────────────────────────────────────
 // GET /api/v1/account/worker/checkr/report-eta      (UPDATED)
-//   • expects query‑param `time_zone` (IANA TZ, e.g. America/Denver)
-//   • returns localised ETA or null
+//   - expects query‑param `time_zone` (IANA TZ, e.g. America/Denver)
+//   - returns localised ETA or null
+//
 // ───────────────────────────────────────────────────────────────────
 func (c *WorkerCheckrController) GetCheckrReportETAHandler(w http.ResponseWriter, r *http.Request) {
 	ctxUserID := r.Context().Value(middleware.ContextKeyUserID)
@@ -191,7 +199,7 @@ func (c *WorkerCheckrController) GetCheckrReportETAHandler(w http.ResponseWriter
 		etaString = &str
 	}
 
-	resp := dtos.CheckrETAResponse{
+	resp := internal_dtos.CheckrETAResponse{
 		ReportETA: etaString,
 	}
 	utils.RespondWithJSON(w, http.StatusOK, resp)
@@ -226,23 +234,32 @@ func (c *WorkerCheckrController) GetCheckrOutcomeHandler(
 		return
 	}
 
-	outcome, svcErr := c.checkrService.GetWorkerCheckrOutcome(r.Context(), workerID)
+	worker, svcErr := c.checkrService.GetWorkerCheckrOutcome(r.Context(), workerID)
 	if svcErr != nil {
 		utils.Logger.WithError(svcErr).Error("Failed to retrieve Checkr outcome")
 		utils.RespondErrorWithCode(
 			w,
 			http.StatusInternalServerError,
 			utils.ErrCodeInternal,
-			"Unable to retrieve background‑check outcome",
+			"Unable to retrieve worker",
 			svcErr,
 		)
 		return
 	}
-
-	resp := dtos.CheckrOutcomeResponse{
-		Outcome: outcome,
+	if worker == nil {
+		utils.RespondErrorWithCode(
+			w,
+			http.StatusNotFound,
+			utils.ErrCodeNotFound,
+			"Worker not found",
+			nil,
+		)
+		return
 	}
-	utils.RespondWithJSON(w, http.StatusOK, resp)
+
+	utils.Logger.Debugf("Retrieved Checkr outcome for workerID: %s. Outcome: %s", workerID, worker.CheckrReportOutcome)
+
+	utils.RespondWithJSON(w, http.StatusOK, dtos.NewWorkerFromModel(*worker))
 }
 
 // NEW: CreateSessionTokenHandler -> GET /api/v1/account/worker/checkr/session-token
@@ -285,7 +302,7 @@ func (c *WorkerCheckrController) CreateSessionTokenHandler(w http.ResponseWriter
 		return
 	}
 
-	resp := dtos.CheckrSessionTokenResponse{
+	resp := internal_dtos.CheckrSessionTokenResponse{
 		Token: token,
 	}
 	utils.RespondWithJSON(w, http.StatusOK, resp)

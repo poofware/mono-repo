@@ -49,7 +49,7 @@ class WorkerSideDrawer extends ConsumerWidget {
                         barrierDismissible: true,
                         barrierLabel: 'Help & Support',
                         transitionDuration: const Duration(milliseconds: 300),
-                        pageBuilder: (_, __, ___) => const HelpAndSupportPage(),
+                        pageBuilder: (_, _, _) => const HelpAndSupportPage(),
                         transitionBuilder: (context, anim1, anim2, child) {
                           return SlideTransition(
                             position: Tween(
@@ -65,14 +65,7 @@ class WorkerSideDrawer extends ConsumerWidget {
                       );
                     },
                   ),
-                  _buildDrawerItem(
-                    icon: Icons.settings_outlined,
-                    text: appLocalizations.workerDrawerSettings,
-                    onTap: () {
-                      context.pop();
-                      context.pushNamed(AppRouteNames.settingsPage);
-                    },
-                  ),
+                  // Settings removed (feature deprecated)
                   const Divider(height: 24, indent: 20, endIndent: 20),
                   _buildDrawerItem(
                     icon: Icons.logout,
@@ -170,4 +163,3 @@ class WorkerSideDrawer extends ConsumerWidget {
     );
   }
 }
-

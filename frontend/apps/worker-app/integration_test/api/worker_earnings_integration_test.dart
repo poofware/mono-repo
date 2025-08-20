@@ -1,4 +1,4 @@
-@Skip('Temporarily disabled – remove this line to re-enable')
+// @Skip('Temporarily disabled – remove this line to re-enable')
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -32,7 +32,7 @@ void main() {
 
   // Credentials for the seeded "active" worker
   const seededWorkerPhone = '+15552220000';
-  const seededWorkerTotpSecret = 'defaultworkerstatusactivestotpsecret';
+  const seededWorkerTotpSecret = 'defaultworkerstatusactivestotpsecretokay';
 
   String generateTOTPCode(String secret) {
     return OTP.generateTOTPCodeString(
@@ -59,6 +59,8 @@ void main() {
     // 2. Initialize auth components
     workerNotifier = WorkerStateNotifier();
     tokenStorage = SecureTokenStorage();
+    // Remove tokens from previous runs to avoid stale authentication state.
+    await tokenStorage.clearTokens();
     final workerAuthApi = WorkerAuthApi(tokenStorage: tokenStorage);
     authRepo = WorkerAuthRepository(
       authApi: workerAuthApi,

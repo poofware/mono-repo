@@ -11,6 +11,7 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart'; // Import AppLocalizations
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 import '../../providers/providers.dart';
 import 'checkr_invite_webview_page.dart';
@@ -179,7 +180,6 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
     if (_isLoading || _isNavigating) return;
 
     // Capture context before async gap
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
 
@@ -205,18 +205,18 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
       }
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            AppLocalizations.of(
-              capturedContext,
-            ).loginUnexpectedError(e.toString()),
-          ),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).loginUnexpectedError(e.toString()),
         ),
       );
     } finally {
@@ -270,4 +270,3 @@ class _CheckrInProgressPageState extends ConsumerState<CheckrInProgressPage> {
     );
   }
 }
-

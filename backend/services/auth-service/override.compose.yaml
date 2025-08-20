@@ -1,5 +1,5 @@
 services:
-  go-integration-test:
+  go-app-integration-test:
     profiles:
       - app_integration_test
 

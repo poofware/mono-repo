@@ -6,16 +6,16 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/poofware/earnings-service/internal/app"
-	"github.com/poofware/earnings-service/internal/config"
-	"github.com/poofware/earnings-service/internal/constants"
-	"github.com/poofware/earnings-service/internal/controllers"
-	internal_repositories "github.com/poofware/earnings-service/internal/repositories"
-	"github.com/poofware/earnings-service/internal/routes"
-	"github.com/poofware/earnings-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/app"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/controllers"
+	internal_repositories "github.com/poofware/mono-repo/backend/services/earnings-service/internal/repositories"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/cors"
 	_ "time/tzdata"
@@ -40,14 +40,15 @@ func main() {
 	propRepo := repositories.NewPropertyRepository(application.DB) // NEW
 
 	if cfg.LDFlag_SeedDbWithTestData {
-		if err := app.SeedAllTestData(context.Background(), workerRepo, payoutRepo); err != nil {
+		if err := app.SeedAllTestData(context.Background(), workerRepo, jobInstRepo, payoutRepo); err != nil {
 			utils.Logger.Fatal("Failed to seed default payouts:", err)
 		}
 	}
 
 	// Services
-	earningsService := services.NewEarningsService(cfg, jobInstRepo, payoutRepo, defRepo, propRepo) // UPDATED
 	payoutService := services.NewPayoutService(cfg, workerRepo, jobInstRepo, payoutRepo)
+	// MODIFIED: Inject PayoutService into EarningsService
+	earningsService := services.NewEarningsService(cfg, jobInstRepo, payoutRepo, defRepo, propRepo, payoutService)
 	webhookCheckService := services.NewStripeWebhookCheckService()
 
 	// Start dynamic webhook manager

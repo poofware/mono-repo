@@ -7,11 +7,11 @@ import (
 	"errors"
 
 	"github.com/go-playground/validator/v10"
-	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/go-dtos"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
+	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // WorkerController contains methods for Worker endpoints.
@@ -73,17 +73,19 @@ func (c *WorkerController) PatchWorkerHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	updatedWorker, err := c.workerService.PatchWorker(context.Background(), ctxUserID.(string), patchReq)
-	if err != nil {
-		switch {
-		case errors.Is(err, utils.ErrPhoneNotVerified):
-			utils.RespondErrorWithCode(w, http.StatusForbidden, utils.ErrCodePhoneNotVerified, "New phone number is not verified. Please verify it before updating.", err)
-		default:
-			utils.Logger.WithError(err).Error("Failed to patch worker record")
-			utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to update worker", err)
-		}
-		return
-	}
+        updatedWorker, err := c.workerService.PatchWorker(context.Background(), ctxUserID.(string), patchReq)
+        if err != nil {
+                switch {
+                case errors.Is(err, utils.ErrPhoneNotVerified):
+                        utils.RespondErrorWithCode(w, http.StatusForbidden, utils.ErrCodePhoneNotVerified, "New phone number is not verified. Please verify it before updating.", err)
+                case errors.Is(err, utils.ErrInvalidTenantToken):
+                        utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidTenantToken, "Invalid tenant token", err)
+                default:
+                        utils.Logger.WithError(err).Error("Failed to patch worker record")
+                        utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to update worker", err)
+                }
+                return
+        }
 
 	// Service returned nil worker but no error.
 	if updatedWorker == nil {

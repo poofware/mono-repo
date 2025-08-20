@@ -16,14 +16,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/poofware/auth-service/internal/config"
-	"github.com/poofware/auth-service/internal/dtos"
-	internal_utils "github.com/poofware/auth-service/internal/utils"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/go-testhelpers"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
+	internal_utils "github.com/poofware/mono-repo/backend/services/auth-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,35 +55,35 @@ func TestMain(m *testing.M) {
 // SHARED HELPER FUNCTIONS
 // =============================================================================
 func createTestAdminWithPassword(t *testing.T, ctx context.Context, username, password string) *models.Admin {
-		t.Helper()
-	
-		adminRepo := repositories.NewAdminRepository(h.DB, cfg.DBEncryptionKey)
-	
-		// Generate a TOTP secret for the admin
-		secret, err := internal_utils.GenerateTOTPSecret(utils.OrganizationName, username)
-		require.NoError(t, err)
-	
-		// Create the admin model
-		admin := &models.Admin{
-			ID:         uuid.New(),
-			Username:   username,
-			TOTPSecret: secret,
-		}
-	
-		// Hash the provided password
-		admin.PasswordHash, err = utils.HashPassword(password)
-		require.NoError(t, err)
-	
-		// Create the admin in the database
-		err = adminRepo.Create(ctx, admin)
-		require.NoError(t, err)
-	
-		// Fetch it back to ensure it was created correctly
-		createdAdmin, err := adminRepo.GetByID(ctx, admin.ID)
-		require.NoError(t, err)
-		require.NotNil(t, createdAdmin)
-		return createdAdmin
+	t.Helper()
+
+	adminRepo := repositories.NewAdminRepository(h.DB, cfg.DBEncryptionKey)
+
+	// Generate a TOTP secret for the admin
+	secret, err := internal_utils.GenerateTOTPSecret(utils.OrganizationName, username)
+	require.NoError(t, err)
+
+	// Create the admin model
+	admin := &models.Admin{
+		ID:         uuid.New(),
+		Username:   username,
+		TOTPSecret: secret,
 	}
+
+	// Hash the provided password
+	admin.PasswordHash, err = utils.HashPassword(password)
+	require.NoError(t, err)
+
+	// Create the admin in the database
+	err = adminRepo.Create(ctx, admin)
+	require.NoError(t, err)
+
+	// Fetch it back to ensure it was created correctly
+	createdAdmin, err := adminRepo.GetByID(ctx, admin.ID)
+	require.NoError(t, err)
+	require.NotNil(t, createdAdmin)
+	return createdAdmin
+}
 // --- Generic Request Helper ---
 
 func doRequest(t *testing.T, method, url string, body []byte, headers map[string]string) *http.Response {
@@ -639,8 +639,35 @@ func doWorkerProtectedLogoutCheckCode(t *testing.T, accessToken, refreshToken, p
 	return resp.StatusCode
 }
 
+// --- Worker Deletion Helpers ---
+
+func initiateWorkerDeletion(t *testing.T, email string) string {
+	req := dtos.InitiateDeletionRequest{Email: email}
+	b, _ := json.Marshal(req)
+	url := h.BaseURL + "/auth/v1/worker/initiate-deletion"
+	resp, err := http.Post(url, "application/json", strings.NewReader(string(b)))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var body dtos.InitiateDeletionResponse
+	data, _ := io.ReadAll(resp.Body)
+	_ = json.Unmarshal(data, &body)
+	return body.PendingToken
+}
+
+func confirmWorkerDeletion(t *testing.T, token, emailCode, smsCode string) int {
+	req := dtos.ConfirmDeletionRequest{PendingToken: token, EmailCode: &emailCode, SMSCode: &smsCode}
+	b, _ := json.Marshal(req)
+	url := h.BaseURL + "/auth/v1/worker/confirm-deletion"
+	resp, err := http.Post(url, "application/json", strings.NewReader(string(b)))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	return resp.StatusCode
+}
+
 // --- Negative Path Verification Helpers ---
 
+//lint:ignore U1000 used in dev-only tests
 func sendPMEmailCodeExpectFailure(t *testing.T, email string) {
 	reqDTO := dtos.RequestEmailCodeRequest{Email: email}
 	b, err := json.Marshal(reqDTO)
@@ -657,6 +684,7 @@ func sendPMEmailCodeExpectFailure(t *testing.T, email string) {
 	)
 }
 
+//lint:ignore U1000 used in dev-only tests
 func sendWorkerEmailCodeExpectFailure(t *testing.T, email string) {
 	reqDTO := dtos.RequestEmailCodeRequest{Email: email}
 	b, err := json.Marshal(reqDTO)
@@ -678,6 +706,7 @@ func sendWorkerEmailCodeExpectFailure(t *testing.T, email string) {
 	)
 }
 
+//lint:ignore U1000 used in dev-only tests
 func sendPMSMSCodeExpectFailure(t *testing.T, phone string) {
 	reqDTO := dtos.RequestSMSCodeRequest{PhoneNumber: phone}
 	b, err := json.Marshal(reqDTO)
@@ -694,6 +723,7 @@ func sendPMSMSCodeExpectFailure(t *testing.T, phone string) {
 	)
 }
 
+//lint:ignore U1000 used in dev-only tests
 func sendWorkerSMSCodeExpectFailure(t *testing.T, phone string) {
 	reqDTO := dtos.RequestSMSCodeRequest{PhoneNumber: phone}
 	b, err := json.Marshal(reqDTO)

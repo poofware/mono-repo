@@ -102,10 +102,29 @@ cat <<'EOF'
 ##########################################################
 # Final stage: Single Alpine w/ NGINX
 ##########################################################
+FROM bitwarden/bws:latest AS bws
 FROM alpine:latest AS meta-service-runner
 WORKDIR /root
 
-RUN apk add --no-cache nginx curl && mkdir -p /run/nginx;
+ARG ENV
+ARG SERVICES
+
+RUN test -n "${ENV}" || ( \
+  echo "Error: ENV is not set! Use --build-arg ENV=xxx" && \
+  exit 1 \
+);
+RUN test -n "${SERVICES}" || ( \
+  echo "Error: SERVICES is not set! Use --build-arg SERVICES=xxx" && \
+  exit 1 \
+);
+
+ENV ENV=${ENV}
+ENV SERVICES="${SERVICES}"
+
+RUN apk add --no-cache nginx curl bash jq gettext && mkdir -p /run/nginx;
+COPY --from=bws /bin/bws /usr/local/bin/bws
+COPY --from=bws /lib64   /lib64
+COPY --from=bws /lib     /lib
 
 ARG APP_PORT
 RUN test -n "${APP_PORT}" || ( \
@@ -130,8 +149,8 @@ done
 
 # ──────────────────────────────  Stage 4b: website assets & nginx config  ─────────────
 cat <<'EOF'
-# Copy nginx configuration and built static site from the website image
-COPY nginx.conf /etc/nginx/nginx.conf
+# Copy nginx template and built static site from the website image
+COPY nginx.template /etc/nginx/templates/nginx.template
 
 COPY --from=the-website /usr/share/nginx/html/     /usr/share/nginx/html/
 COPY --from=pm-app /usr/share/nginx/html/pm/ /usr/share/nginx/html/pm/
@@ -140,19 +159,11 @@ COPY --from=pm-app /usr/share/nginx/html/pm/ /usr/share/nginx/html/pm/
 RUN rm -f /etc/nginx/conf.d/default.conf;
 
 EXPOSE 8080
+
+COPY --from=devops-toolkit backend/scripts/fetch_launchdarkly_flag.sh fetch_launchdarkly_flag.sh
+COPY --from=devops-toolkit shared/scripts/fetch_bws_secret.sh fetch_bws_secret.sh
+COPY meta_runner_entrypoint.sh meta_runner_entrypoint.sh
+RUN chmod +x *.sh
+
+ENTRYPOINT ./meta_runner_entrypoint.sh
 EOF
-
-# ──────────────────────────────  Stage 5: final CMD  ──────────────────────────────
-services_cmd="ulimit -n 65535 && ulimit -u 65535 && "
-
-for svc in $SERVICES; do
-  services_cmd="${services_cmd}(set -a && . /root/${svc}.env && exec /root/${svc}) & "
-done
-
-services_cmd="${services_cmd}/root/health_check & "
-services_cmd="${services_cmd}nginx -g 'daemon off;'"
-
-cat <<EOF
-CMD ["/bin/sh", "-c", "${services_cmd}"]
-EOF
-

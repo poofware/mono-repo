@@ -101,18 +101,6 @@ class CheckrETAResponse {
   }
 }
 
-class CheckrOutcomeResponse {
-  final CheckrReportOutcome outcome;
-
-  const CheckrOutcomeResponse({required this.outcome});
-
-  factory CheckrOutcomeResponse.fromJson(Map<String, dynamic> json) {
-    return CheckrOutcomeResponse(
-      outcome: checkrOutcomeFromString(json['outcome'] as String),
-    );
-  }
-}
-
 // NEW: Session Token for Checkr Embed
 class CheckrSessionTokenResponse {
   final String token;

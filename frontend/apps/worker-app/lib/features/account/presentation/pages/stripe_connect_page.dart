@@ -16,6 +16,11 @@ import 'package:poof_worker/l10n/generated/app_localizations.dart';
 
 import '../../utils/stripe_utils.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart'; // Import URL launcher
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
+
+// Add these constants near the top of the file.
+const String kStripeTermsUrl = 'https://stripe.com/legal/connect-account';
+const String kStripePrivacyUrl = 'https://stripe.com/privacy';
 
 class StripePage extends ConsumerStatefulWidget {
   const StripePage({super.key});
@@ -30,7 +35,6 @@ class _StripePageState extends ConsumerState<StripePage> {
   Future<void> _onConnectWithStripe() async {
     final config = PoofWorkerFlavorConfig.instance;
     if (!mounted) return;
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
 
@@ -45,26 +49,39 @@ class _StripePageState extends ConsumerState<StripePage> {
       final success = await startStripeConnectFlow(router: router, repo: repo);
       if (!success) {
         if (!capturedContext.mounted) return;
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-              content:
-                  Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch)),
+        showAppSnackBar(
+          capturedContext,
+          Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch),
         );
       }
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(
-                AppLocalizations.of(capturedContext).loginUnexpectedError(e.toString()))),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).loginUnexpectedError(e.toString()),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Add this helper function to launch URLs
+  Future<void> _launchUrl(String url) async {
+    final success = await tryLaunchUrl(url);
+    if (!mounted) return;
+    if (!success) {
+      final appLocalizations = AppLocalizations.of(context);
+      showAppSnackBar(context, Text(appLocalizations.urlLauncherCannotLaunch));
     }
   }
 
@@ -107,32 +124,37 @@ class _StripePageState extends ConsumerState<StripePage> {
                         const SizedBox(height: 24),
                         Text(
                           appLocalizations.stripeConnectPageTitle,
-                          style: theme.textTheme.headlineLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                          style: theme.textTheme.headlineLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         )
                             .animate()
                             .fadeIn(delay: 300.ms)
                             .slideX(
-                                begin: -0.1,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic),
+                              begin: -0.1,
+                              duration: 400.ms,
+                              curve: Curves.easeOutCubic,
+                            ),
                         Padding(
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Text(
                             appLocalizations.stripeConnectPageSubtitle,
                             style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant),
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         )
                             .animate()
                             .fadeIn(delay: 400.ms)
                             .slideX(
-                                begin: -0.1,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic),
+                              begin: -0.1,
+                              duration: 400.ms,
+                              curve: Curves.easeOutCubic,
+                            ),
                         Padding(
                           padding: const EdgeInsets.only(
-                              top: AppConstants.kLargeVerticalSpacing),
+                            top: AppConstants.kLargeVerticalSpacing,
+                          ),
                           child: Container(
                             padding: AppConstants.kDefaultPadding,
                             decoration: BoxDecoration(
@@ -143,7 +165,8 @@ class _StripePageState extends ConsumerState<StripePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  appLocalizations.stripeConnectPageHowItWorksTitle,
+                                  appLocalizations
+                                      .stripeConnectPageHowItWorksTitle,
                                   style: const TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
@@ -151,47 +174,74 @@ class _StripePageState extends ConsumerState<StripePage> {
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.only(
-                                      top: AppConstants.kDefaultVerticalSpacing),
+                                    top: AppConstants.kDefaultVerticalSpacing,
+                                  ),
                                   child: _buildStep(
                                     number: '1',
-                                    title:
-                                        appLocalizations.stripeConnectPageStep1Title,
+                                    title: appLocalizations
+                                        .stripeConnectPageStep1Title,
                                     subtitle: appLocalizations
                                         .stripeConnectPageStep1Subtitle,
-                                    circleColor:
-                                        const Color.fromARGB(90, 65, 179, 214),
-                                    numberColor:
-                                        const Color.fromARGB(255, 65, 179, 214),
+                                    circleColor: const Color.fromARGB(
+                                      90,
+                                      65,
+                                      179,
+                                      214,
+                                    ),
+                                    numberColor: const Color.fromARGB(
+                                      255,
+                                      65,
+                                      179,
+                                      214,
+                                    ),
                                   ),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.only(
-                                      top: AppConstants.kDefaultVerticalSpacing),
+                                    top: AppConstants.kDefaultVerticalSpacing,
+                                  ),
                                   child: _buildStep(
                                     number: '2',
-                                    title:
-                                        appLocalizations.stripeConnectPageStep2Title,
+                                    title: appLocalizations
+                                        .stripeConnectPageStep2Title,
                                     subtitle: appLocalizations
                                         .stripeConnectPageStep2Subtitle,
-                                    circleColor:
-                                        const Color.fromARGB(90, 95, 184, 99),
-                                    numberColor:
-                                        const Color.fromARGB(255, 95, 184, 99),
+                                    circleColor: const Color.fromARGB(
+                                      90,
+                                      95,
+                                      184,
+                                      99,
+                                    ),
+                                    numberColor: const Color.fromARGB(
+                                      255,
+                                      95,
+                                      184,
+                                      99,
+                                    ),
                                   ),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.only(
-                                      top: AppConstants.kDefaultVerticalSpacing),
+                                    top: AppConstants.kDefaultVerticalSpacing,
+                                  ),
                                   child: _buildStep(
                                     number: '3',
-                                    title:
-                                        appLocalizations.stripeConnectPageStep3Title,
+                                    title: appLocalizations
+                                        .stripeConnectPageStep3Title,
                                     subtitle: appLocalizations
                                         .stripeConnectPageStep3Subtitle,
-                                    circleColor:
-                                        const Color.fromARGB(90, 239, 91, 12),
-                                    numberColor:
-                                        const Color.fromARGB(255, 239, 91, 12),
+                                    circleColor: const Color.fromARGB(
+                                      90,
+                                      239,
+                                      91,
+                                      12,
+                                    ),
+                                    numberColor: const Color.fromARGB(
+                                      255,
+                                      239,
+                                      91,
+                                      12,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -202,31 +252,23 @@ class _StripePageState extends ConsumerState<StripePage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             TextButton(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(appLocalizations
-                                          .stripeConnectPageTermsSnackbar)),
-                                );
-                              },
+                              onPressed: () => _launchUrl(kStripeTermsUrl),
                               child: Text(
                                 appLocalizations.stripeConnectPageTermsButton,
                                 style: const TextStyle(
-                                    fontSize: 14, color: Colors.blue),
+                                  fontSize: 14,
+                                  color: Colors.blue,
+                                ),
                               ),
                             ),
                             TextButton(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(appLocalizations
-                                          .stripeConnectPagePrivacySnackbar)),
-                                );
-                              },
+                              onPressed: () => _launchUrl(kStripePrivacyUrl),
                               child: Text(
                                 appLocalizations.stripeConnectPagePrivacyButton,
                                 style: const TextStyle(
-                                    fontSize: 14, color: Colors.blue),
+                                  fontSize: 14,
+                                  color: Colors.blue,
+                                ),
                               ),
                             ),
                           ],
@@ -245,9 +287,10 @@ class _StripePageState extends ConsumerState<StripePage> {
                           style: const TextStyle(fontSize: 14),
                         ),
                         _StatefulSupportButton(
-                          text:
-                              appLocalizations.stripeConnectPageContactSupportButton,
-                          onPressed: () => tryLaunchUrl('mailto:team@thepoofapp.com'),
+                          text: appLocalizations
+                              .stripeConnectPageContactSupportButton,
+                          onPressed: () =>
+                              tryLaunchUrl('mailto:team@thepoofapp.com'),
                         ),
                       ],
                     ),
@@ -279,10 +322,7 @@ class _StripePageState extends ConsumerState<StripePage> {
         Container(
           width: 40,
           height: 40,
-          decoration: BoxDecoration(
-            color: circleColor,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: circleColor, shape: BoxShape.circle),
           child: Center(
             child: Text(
               number,
@@ -362,4 +402,3 @@ class _StatefulSupportButtonState extends State<_StatefulSupportButton> {
     );
   }
 }
-

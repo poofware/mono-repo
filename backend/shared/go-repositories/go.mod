@@ -1,4 +1,4 @@
-module github.com/poofware/go-repositories
+module github.com/poofware/mono-repo/backend/shared/go-repositories
 
 go 1.24.0
 

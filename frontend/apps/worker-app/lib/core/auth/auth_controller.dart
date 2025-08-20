@@ -14,6 +14,8 @@ import 'package:poof_worker/core/providers/ui_messaging_provider.dart';
 import 'package:poof_worker/core/providers/welcome_video_provider.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'package:poof_worker/core/routing/router.dart';
+import 'package:poof_worker/core/utils/location_permissions.dart' as locperm;
+import 'package:poof_worker/core/providers/initial_setup_providers.dart';
 
 class AuthController {
   final Ref _ref;
@@ -51,6 +53,10 @@ class AuthController {
     final worker = _ref.read(workerStateNotifierProvider).worker;
     if (worker == null) return; // Should not happen if called correctly
 
+    final logger = _ref.read(appLoggerProvider);
+    logger.d(
+      'Navigating to next step based on worker state: ${worker.accountStatus}, ${worker.setupProgress}',
+    );
     switch (worker.accountStatus) {
       case AccountStatusType.incomplete:
         switch (worker.setupProgress) {
@@ -58,6 +64,10 @@ class AuthController {
             router.goNamed(AppRouteNames.addressInfoPage);
             break;
           case SetupProgressType.idVerify:
+            if (worker.onWaitlist) {
+              router.goNamed(AppRouteNames.waitlistPage);
+              return;
+            }
             router.goNamed(AppRouteNames.stripeIdvPage);
             break;
           case SetupProgressType.achPaymentAccountSetup:
@@ -85,29 +95,47 @@ class AuthController {
   // ─────────────────────────────────────────────────────────────────────
 
   /// Signs the user in, fetches necessary data, and navigates to the correct screen.
-  Future<void> signIn<T extends JsonSerializable>(T creds, GoRouter router) async {
+  Future<void> signIn<T extends JsonSerializable>(
+    T creds,
+    GoRouter router,
+  ) async {
     await _sessionManager.signIn(creds);
 
     final worker = _ref.read(workerStateNotifierProvider).worker;
+    // Gate both platforms: if account is active and permission missing, show
+    // the disclosure first, then resume sign-in flow.
+    if (worker != null &&
+        worker.accountStatus == AccountStatusType.active &&
+        !await locperm.hasLocationPermission()) {
+      await router.pushNamed(AppRouteNames.locationDisclosurePage);
+    }
+
+    // Navigate ASAP to let heavy UI (map) mount while data loads in background.
+    _navigateToNextStep(router);
+
+    // Kick off post-login data fetches after navigation to allow pre-rendering.
     if (worker != null && worker.accountStatus == AccountStatusType.active) {
-      await Future.wait([
+      // ignore: discarded_futures
+      Future.wait([
         _ref.read(jobsNotifierProvider.notifier).fetchAllMyJobs(),
         _ref.read(earningsNotifierProvider.notifier).fetchEarningsSummary(),
-      ]);
-
-      final jobsError = _ref.read(jobsNotifierProvider).error;
-      final earningsError = _ref.read(earningsNotifierProvider).error;
-      final postLoginErrors = <Object>[
-        if (jobsError != null) jobsError,
-        if (earningsError != null) earningsError,
-      ];
-      if (postLoginErrors.isNotEmpty) {
-        _ref.read(postBootErrorProvider.notifier).state = postLoginErrors;
-      }
+      ])
+          .then((_) {
+        final jobsError = _ref.read(jobsNotifierProvider).error;
+        final earningsError = _ref.read(earningsNotifierProvider).error;
+        final postLoginErrors = <Object>[
+          if (jobsError != null) jobsError,
+          if (earningsError != null) earningsError,
+        ];
+        if (postLoginErrors.isNotEmpty) {
+          _ref.read(postBootErrorProvider.notifier).state = postLoginErrors;
+        }
+      })
+          .catchError((Object e, StackTrace s) {
+        // Surface background fetch errors to the UI messaging provider
+        _ref.read(postBootErrorProvider.notifier).state = [e];
+      });
     }
-    
-    // After all data is settled, navigate.
-    _navigateToNextStep(router);
   }
 
   /// Initializes the session on app start and navigates to the correct screen if logged in.
@@ -115,14 +143,25 @@ class AuthController {
     final logger = _ref.read(appLoggerProvider);
     try {
       await _sessionManager.init();
-      
+
       if (_sessionManager.isLoggedIn) {
-        final worker = await _ref.read(workerAccountRepositoryProvider).getWorker();
-        
+        final worker = await _ref
+            .read(workerAccountRepositoryProvider)
+            .getWorker();
+
+        // Gate both platforms: avoid triggering GPS fix before disclosure when
+        // active, then resume session flow after user acknowledges.
+        if (worker.accountStatus == AccountStatusType.active &&
+            !await locperm.hasLocationPermission()) {
+          await router.pushNamed(AppRouteNames.locationDisclosurePage);
+        }
+
         if (worker.accountStatus == AccountStatusType.active) {
           await Future.wait([
             _ref.read(jobsNotifierProvider.notifier).fetchAllMyJobs(),
-            _ref.read(earningsNotifierProvider.notifier).fetchEarningsSummary(),
+            _ref
+                .read(earningsNotifierProvider.notifier)
+                .fetchEarningsSummary(),
           ]);
 
           final jobsError = _ref.read(jobsNotifierProvider).error;
@@ -141,7 +180,11 @@ class AuthController {
     } catch (e, s) {
       // Catch any exception during init, log it, and allow the app to proceed
       // to the welcome screen gracefully.
-      logger.e('Failed to initialize session during boot.', error: e, stackTrace: s);
+      logger.e(
+        'Failed to initialize session during boot.',
+        error: e,
+        stackTrace: s,
+      );
       // The app state will remain `isLoggedIn: false`, so no navigation is needed.
     }
   }
@@ -168,6 +211,8 @@ class AuthController {
     // Clear any persisted home-UI state
     _ref.invalidate(lastMapCameraPositionProvider);
     _ref.invalidate(lastSelectedDefinitionIdProvider);
+    // Ensure map warm-up overlays are allowed again on next app run
+    _ref.read(homeMapMountedProvider.notifier).state = false;
   }
 
   Future<void> handleAuthLost() async {
@@ -189,5 +234,7 @@ class AuthController {
     // Clear any persisted home-UI state
     _ref.invalidate(lastMapCameraPositionProvider);
     _ref.invalidate(lastSelectedDefinitionIdProvider);
+    // Ensure map warm-up overlays are allowed again on next app run
+    _ref.read(homeMapMountedProvider.notifier).state = false;
   }
 }

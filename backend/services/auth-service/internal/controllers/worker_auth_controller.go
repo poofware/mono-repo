@@ -1,3 +1,4 @@
+// backend/services/auth-service/internal/controllers/worker_auth_controller.go
 package controllers
 
 import (
@@ -9,13 +10,14 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
-	"github.com/poofware/auth-service/internal/config"
-	auth_dtos "github.com/poofware/auth-service/internal/dtos"
-	"github.com/poofware/auth-service/internal/services"
-	auth_utils "github.com/poofware/auth-service/internal/utils"
-	"github.com/poofware/go-dtos"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
+	"github.com/jackc/pgx/v4"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	auth_dtos "github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/services"
+	auth_utils "github.com/poofware/mono-repo/backend/services/auth-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type WorkerAuthController struct {
@@ -440,6 +442,70 @@ func (c *WorkerAuthController) ValidateWorkerPhone(w http.ResponseWriter, r *htt
 }
 
 // ---------------------------------------------------------------------
+// Worker Account Deletion
+// ---------------------------------------------------------------------
+
+func (c *WorkerAuthController) InitiateDeletion(w http.ResponseWriter, r *http.Request) {
+	var req auth_dtos.InitiateDeletionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid payload", err)
+		return
+	}
+	if err := workerValidate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Invalid email format", err)
+		return
+	}
+
+	platform := utils.GetClientPlatform(r)
+	clientID := utils.GetClientIdentifier(r, platform).Value
+
+	token, err := c.workerAuthService.InitiateDeletion(r.Context(), req.Email, clientID)
+	if err != nil {
+		switch {
+		case errors.Is(err, utils.ErrRateLimitExceeded):
+			utils.RespondErrorWithCode(
+				w, http.StatusTooManyRequests, utils.ErrCodeRateLimitExceeded, "Too many requests. Please try again later.", nil,
+			)
+		case errors.Is(err, pgx.ErrNoRows):
+			utils.RespondErrorWithCode(w, http.StatusNotFound, utils.ErrCodeNotFound, "Worker not found", err)
+		case errors.Is(err, utils.ErrExternalServiceFailure):
+			// NEW: Handle external service failures with a more specific status code
+			utils.RespondErrorWithCode(w, http.StatusFailedDependency, utils.ErrCodeExternalServiceFailure, "A required service is temporarily unavailable. Please try again later.", err)
+		default:
+			// This was the original generic 500 error
+			utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to initiate deletion", err)
+		}
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, auth_dtos.InitiateDeletionResponse{PendingToken: token})
+}
+
+func (c *WorkerAuthController) ConfirmDeletion(w http.ResponseWriter, r *http.Request) {
+	var req auth_dtos.ConfirmDeletionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid payload", err)
+		return
+	}
+	if err := workerValidate.Struct(req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", err)
+		return
+	}
+
+	if req.TOTPCode == nil && (req.EmailCode == nil || req.SMSCode == nil) {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Missing verification codes", nil)
+		return
+	}
+
+	if err := c.workerAuthService.ConfirmDeletion(r.Context(), req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusUnauthorized, utils.ErrCodeUnauthorized, "Verification failed", err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, auth_dtos.ConfirmDeletionResponse{Message: "Your account deletion request has been successfully submitted for processing."})
+}
+
+// ---------------------------------------------------------------------
 // Refresh + Logout Worker
 // ---------------------------------------------------------------------
 func (c *WorkerAuthController) RefreshTokenWorker(w http.ResponseWriter, r *http.Request) {
@@ -535,4 +601,3 @@ func (c *WorkerAuthController) LogoutWorker(w http.ResponseWriter, r *http.Reque
 
 	utils.RespondWithJSON(w, http.StatusOK, auth_dtos.LogoutResponse{Message: "Logged out successfully"})
 }
-

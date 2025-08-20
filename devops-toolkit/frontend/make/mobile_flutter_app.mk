@@ -23,6 +23,9 @@ ifndef INCLUDED_FLUTTER_APP_CONFIGURATION
   include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/flutter_app_configuration.mk
 endif
 
+# Default to 'internal' track, can be overridden
+ANDROID_RELEASE_TRACK ?= internal
+
 # --------------------------------
 # Targets
 # --------------------------------
@@ -37,6 +40,10 @@ endif
 
 ifndef INCLUDED_IOS_APP_CONFIGURATION_TARGETS
   include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/ios_app_configuration_targets.mk
+endif
+
+ifndef INCLUDED_FASTLANE_CONFIGURATION_TARGETS
+  include $(DEVOPS_TOOLKIT_PATH)/frontend/make/utils/fastlane_configuration_targets.mk
 endif
 
 # Run API integration tests (non-UI logic tests) for iOS
@@ -63,6 +70,25 @@ run-ios: _ios_app_configuration
 run-android: _android_app_configuration
 	@$(MAKE) _run --no-print-directory PLATFORM=android GCP_SDK_KEY=$(GCP_ANDROID_SDK_KEY)
 
+## Install iOS dependencies (Flutter, Gems, and Pods)
+dependencies-ios:
+	@echo "[INFO] [Dependencies iOS] Installing Flutter packages..."
+	@flutter pub get
+	@echo "[INFO] [Dependencies iOS] Installing Bundler, Gems, and CocoaPods..."
+	@cd ios && \
+	gem install bundler --no-document && \
+	bundle install --jobs 4 --retry 3 && \
+	bundle exec pod install
+
+## Install Android dependencies (Flutter and Gems)
+dependencies-android:
+	@echo "[INFO] [Dependencies Android] Installing Flutter packages..."
+	@flutter pub get
+	@echo "[INFO] [Dependencies Android] Installing Bundler and Gems..."
+	@cd android/fastlane && \
+	gem install bundler --no-document && \
+	bundle install
+
 ## Build command for Android
 build-android: logs _android_app_configuration
 	@echo "[INFO] [Build Android] Building for ENV=$(ENV)..."
@@ -70,7 +96,7 @@ build-android: logs _android_app_configuration
 	@if [ "$(ENV)" = "$(DEV_TEST_ENV)" ]; then \
 		echo "[WARN] [Build Android] Running ENV=dev-test, backend is not required, setting the domain to 'example.com'."; \
 		export CURRENT_BACKEND_DOMAIN="example.com"; \
-	fi;	\
+	fi;\
 	backend_export="$$( $(MAKE) _export_current_backend_domain --no-print-directory )"; \
 	rc=$$?; [ $$rc -eq 0 ] || exit $$rc; \
 	eval "$$backend_export"; \
@@ -89,7 +115,7 @@ build-ios: logs _ios_app_configuration
 	@if [ "$(ENV)" = "$(DEV_TEST_ENV)" ]; then \
 		echo "[WARN] [Build iOS] Running ENV=dev-test, backend is not required, setting the domain to 'example.com'."; \
 		export CURRENT_BACKEND_DOMAIN="example.com"; \
-	fi;	\
+	fi;\
 	backend_export="$$( $(MAKE) _export_current_backend_domain --no-print-directory )"; \
 	rc=$$?; [ $$rc -eq 0 ] || exit $$rc; \
 	eval "$$backend_export"; \
@@ -125,5 +151,49 @@ ci-android::
 	@$(MAKE) down-backend --no-print-directory
 	@echo "[INFO] [CI] Pipeline complete."
 
+## Deploy the iOS app (ENV=staging|prod)
+## Convention:
+## - ENV=staging → TestFlight upload
+## - ENV=prod → App Store submission via deliver
+## - RELEASE_NOTES is REQUIRED
+## - When ENV=prod, IOS_AUTOMATIC_RELEASE must be 0 or 1
+deploy-ios: logs _ios_app_configuration _ios_fastlane_configuration
+	@echo "[INFO] [Deploy iOS] Deploying for ENV=$(ENV)..."
+	@if [ "$(ENV)" != "$(STAGING_ENV)" ] && [ "$(ENV)" != "$(PROD_ENV)" ]; then \
+		echo "[ERROR] [Deploy iOS] Invalid ENV: $(ENV). Choose from [$(STAGING_ENV)|$(PROD_ENV)]."; exit 1; \
+	fi
+	@if [ -z "$(RELEASE_NOTES)" ]; then \
+		echo "[ERROR] [Deploy iOS] RELEASE_NOTES is required"; exit 1; \
+	fi
+	@if [ "$(ENV)" = "$(PROD_ENV)" ]; then \
+		if [ -z "$(IOS_AUTOMATIC_RELEASE)" ]; then echo "[ERROR] [Deploy iOS] IOS_AUTOMATIC_RELEASE is required for prod (0 or 1)"; exit 1; fi; \
+		if [ "$(IOS_AUTOMATIC_RELEASE)" != "0" ] && [ "$(IOS_AUTOMATIC_RELEASE)" != "1" ]; then echo "[ERROR] [Deploy iOS] IOS_AUTOMATIC_RELEASE must be 0 or 1"; exit 1; fi; \
+	fi
+	@echo "[INFO] [Deploy iOS] Running Fastlane to build and upload..."
+	@cd ios && set -eo pipefail && \
+	MAKE_ENV=$(ENV) \
+	RELEASE_NOTES=$(RELEASE_NOTES) \
+	IOS_AUTOMATIC_RELEASE=$(IOS_AUTOMATIC_RELEASE) \
+	bundle exec fastlane ios build_and_upload_to_testflight \
+	$(VERBOSE_FLAG) 2>&1 | tee ../logs/deploy_ios_$(ENV).log
+
+## Deploy the Android app to the Play Store (ENV=staging|prod)
+## Convention:
+## - Track is derived from ENV: prod → beta, otherwise → internal
+## - RELEASE_NOTES is REQUIRED (en-US only)
+deploy-android: logs _android_app_configuration _android_fastlane_configuration
+	@echo "[INFO] [Deploy Android] Deploying for ENV=$(ENV)..."
+	@if [ "$(ENV)" != "$(STAGING_ENV)" ] && [ "$(ENV)" != "$(PROD_ENV)" ]; then \
+		echo "[ERROR] [Deploy Android] Invalid ENV: $(ENV). Choose from [$(STAGING_ENV)|$(PROD_ENV)]."; exit 1; \
+	fi
+	@if [ -z "$(RELEASE_NOTES)" ]; then \
+		echo "[ERROR] [Deploy Android] RELEASE_NOTES is required"; exit 1; \
+	fi
+	@echo "[INFO] [Deploy Android] Running Fastlane to build and upload to Google Play..."
+	@cd android/fastlane && set -eo pipefail && \
+	MAKE_ENV=$(ENV) \
+	RELEASE_NOTES=$(RELEASE_NOTES) \
+	bundle exec fastlane android build_and_upload_to_playstore \
+	$(VERBOSE_FLAG) 2>&1 | tee ../../logs/deploy_android_$(ENV).log
 
 INCLUDED_MOBILE_FLUTTER_APP := 1

@@ -6,15 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
-	internal_dtos "github.com/poofware/account-service/internal/dtos"
-	shared_dtos "github.com/poofware/go-dtos"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	shared_dtos "github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type AdminService struct {
@@ -302,7 +303,7 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 		return nil, err
 	}
 	// Check if parent manager exists
-	_, err := s.pmRepo.GetByID(ctx, req.ManagerID)
+	pmCheck, err := s.pmRepo.GetByID(ctx, req.ManagerID)
 	if err != nil {
 		// Diagnostic log
 		utils.Logger.WithError(err).Warnf("Failed to find parent property manager %s during property creation", req.ManagerID)
@@ -313,6 +314,10 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 		}
 		// Any other error from GetByID is unexpected and indicates an internal issue.
 		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for property manager", Err: err}
+	}
+	if pmCheck == nil {
+		// Defensive: repository implementations may return (nil, nil) when not found
+		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
 	}
 
 	prop := &models.Property{
@@ -554,12 +559,17 @@ func (s *AdminService) CreateUnit(ctx context.Context, adminID uuid.UUID, req in
 		}
 	}
 
+	// Generate a tenant token if not provided by admin; allow admin-specified token when present
+	token := strings.TrimSpace(req.TenantToken)
+	if token == "" {
+		token = uuid.NewString()
+	}
 	unit := &models.Unit{
 		ID:          uuid.New(),
 		PropertyID:  req.PropertyID,
 		BuildingID:  req.BuildingID,
 		UnitNumber:  req.UnitNumber,
-		TenantToken: req.TenantToken,
+		TenantToken: token,
 	}
 
 	if err := s.unitRepo.Create(ctx, unit); err != nil {

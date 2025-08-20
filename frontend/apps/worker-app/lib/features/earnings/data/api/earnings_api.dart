@@ -7,6 +7,9 @@ import 'package:poof_worker/core/config/flavors.dart';
 
 import '../models/earnings_models.dart';
 
+const String _v1 = '/v1';
+const String _v1Earnings = '$_v1/earnings';
+
 class EarningsApi with AuthenticatedApiMixin {
   @override
   final BaseTokenStorage tokenStorage;
@@ -22,13 +25,13 @@ class EarningsApi with AuthenticatedApiMixin {
   String get refreshTokenBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
-  String get refreshTokenPath => '/worker/refresh_token';
+  String get refreshTokenPath => '$_v1/worker/refresh_token';
 
   @override
   String get attestationChallengeBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
-  String get attestationChallengePath => '/worker/challenge';
+  String get attestationChallengePath => '$_v1/worker/challenge';
 
   @override
   final bool useRealAttestation;
@@ -42,7 +45,7 @@ class EarningsApi with AuthenticatedApiMixin {
   Future<EarningsSummary> getEarningsSummary() async {
     final resp = await sendAuthenticatedRequest(
       method: 'GET',
-      path: '/earnings/summary',
+      path: '$_v1Earnings/summary',
     );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
     return EarningsSummary.fromJson(decoded);

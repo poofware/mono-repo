@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:poof_worker/features/jobs/state/jobs_state.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
@@ -20,6 +21,8 @@ import 'package:poof_worker/features/jobs/data/repositories/worker_jobs_reposito
 import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_worker/core/providers/app_logger_provider.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
+import 'package:poof_worker/features/jobs/utils/job_photo_persistence.dart';
+import 'package:poof_worker/features/jobs/utils/job_pagination.dart';
 
 // NEW IMPORT for earnings
 import 'package:poof_worker/features/earnings/providers/earnings_providers.dart';
@@ -30,7 +33,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
   final PoofWorkerFlavorConfig _flavor;
 
   JobsNotifier(this.ref, this._repository, this._flavor)
-      : super(const JobsState());
+    : super(const JobsState());
 
   // ─────────────────────────────────────────────────────────────────────────
   //  GO ONLINE
@@ -43,7 +46,11 @@ class JobsNotifier extends StateNotifier<JobsState> {
       return;
     }
     state = state.copyWith(
-        isLoadingOpenJobs: true, isLoadingAcceptedJobs: true, clearError: true);
+      isLoadingOpenJobs: true,
+      isLoadingAcceptedJobs: true,
+      hasLoadedInitialJobs: false,
+      clearError: true,
+    );
 
     if (_flavor.testMode) {
       final logger = ref.read(appLoggerProvider);
@@ -56,6 +63,7 @@ class JobsNotifier extends StateNotifier<JobsState> {
         isLoadingAcceptedJobs: false,
         openJobs: open,
         acceptedJobs: accepted,
+        hasLoadedInitialJobs: true,
       );
       return;
     }
@@ -64,34 +72,115 @@ class JobsNotifier extends StateNotifier<JobsState> {
       final position = await _getHighAccuracyFix();
       final logger = ref.read(appLoggerProvider);
       logger.d(
-          'Fetching open jobs at lat=${position.latitude}, lng=${position.longitude}');
+        'Fetching open jobs at lat=${position.latitude}, lng=${position.longitude}',
+      );
 
-      // Fetch both open and accepted jobs concurrently.
-      final results = await Future.wait([
-        _repository.listJobs(lat: position.latitude, lng: position.longitude),
-        _repository.listMyJobs(lat: position.latitude, lng: position.longitude),
+      const pageSize = 50;
+      final responses = await Future.wait<ListJobsResponse>([
+        _repository.listJobs(
+          lat: position.latitude,
+          lng: position.longitude,
+          page: 1,
+          size: pageSize,
+        ),
+        _repository.listMyJobs(
+          lat: position.latitude,
+          lng: position.longitude,
+          page: 1,
+          size: pageSize,
+        ),
       ]);
 
-      final openResp = results[0];
-      final myJobsResp = results[1];
+      final openResp = responses[0];
+      final myResp = responses[1];
 
-      // Partition the "my jobs" list.
-      final inProgressJob = myJobsResp.results
-          .firstWhereOrNull((j) => j.status == JobInstanceStatus.inProgress);
-      final acceptedJobs = myJobsResp.results
+      final openJobs = [...openResp.results];
+      final myJobs = [...myResp.results];
+
+      final inProgressJob = myJobs.firstWhereOrNull(
+        (j) => j.status == JobInstanceStatus.inProgress,
+      );
+      final acceptedJobs = myJobs
           .where((j) => j.status == JobInstanceStatus.assigned)
           .toList();
 
-      // Update state once with all results and set both loading flags to false.
+      final hasMoreOpen = openJobs.length < openResp.total;
+      final hasMoreMy = myJobs.length < myResp.total;
+
       state = state.copyWith(
         isOnline: true,
-        isLoadingOpenJobs: false,
-        isLoadingAcceptedJobs: false,
-        openJobs: openResp.results,
+        isLoadingOpenJobs: hasMoreOpen,
+        isLoadingAcceptedJobs: hasMoreMy,
+        openJobs: openJobs,
         acceptedJobs: acceptedJobs,
         inProgressJob: inProgressJob,
         clearInProgressJob: inProgressJob == null,
+        hasLoadedInitialJobs: !(hasMoreOpen || hasMoreMy),
       );
+
+      if (hasMoreOpen) {
+        unawaited(
+          fetchJobPages(
+            (page, size) => _repository.listJobs(
+              lat: position.latitude,
+              lng: position.longitude,
+              page: page,
+              size: size,
+            ),
+            startPage: 2,
+            initialCount: openJobs.length,
+            pageSize: pageSize,
+            onPage: (results) {
+              if (!state.isOnline) return;
+              openJobs.addAll(results);
+              state = state.copyWith(openJobs: [...openJobs]);
+            },
+          ).whenComplete(() {
+            if (!state.isOnline) return;
+            state = state.copyWith(
+              isLoadingOpenJobs: false,
+              hasLoadedInitialJobs: !state.isLoadingAcceptedJobs,
+            );
+          }),
+        );
+      }
+
+      if (hasMoreMy) {
+        unawaited(
+          fetchJobPages(
+            (page, size) => _repository.listMyJobs(
+              lat: position.latitude,
+              lng: position.longitude,
+              page: page,
+              size: size,
+            ),
+            startPage: 2,
+            initialCount: myJobs.length,
+            pageSize: pageSize,
+            onPage: (results) {
+              if (!state.isOnline) return;
+              myJobs.addAll(results);
+              final inProg = myJobs.firstWhereOrNull(
+                (j) => j.status == JobInstanceStatus.inProgress,
+              );
+              final accepted = myJobs
+                  .where((j) => j.status == JobInstanceStatus.assigned)
+                  .toList();
+              state = state.copyWith(
+                acceptedJobs: accepted,
+                inProgressJob: inProg,
+                clearInProgressJob: inProg == null,
+              );
+            },
+          ).whenComplete(() {
+            if (!state.isOnline) return;
+            state = state.copyWith(
+              isLoadingAcceptedJobs: false,
+              hasLoadedInitialJobs: !state.isLoadingOpenJobs,
+            );
+          }),
+        );
+      }
     } catch (e) {
       state = state.copyWith(
         isLoadingOpenJobs: false,
@@ -111,13 +200,13 @@ class JobsNotifier extends StateNotifier<JobsState> {
     logger.d('goOffline() called.');
 
     try {
-      await Future.delayed(const Duration(milliseconds: 100));
       state = state.copyWith(
         isOnline: false,
         isLoadingOpenJobs: false,
         isLoadingAcceptedJobs: false,
         openJobs: [],
         clearError: true,
+        hasLoadedInitialJobs: false,
       );
       logger.d('Successfully went offline. Job lists updated.');
     } catch (e) {
@@ -151,7 +240,10 @@ class JobsNotifier extends StateNotifier<JobsState> {
 
     ref.read(appLoggerProvider).d('App resumed and online, refreshing jobs...');
     state = state.copyWith(
-        isLoadingOpenJobs: true, isLoadingAcceptedJobs: true, clearError: true);
+      isLoadingOpenJobs: true,
+      isLoadingAcceptedJobs: true,
+      clearError: true,
+    );
 
     if (_flavor.testMode) {
       final open = DummyJobData.openJobs;
@@ -170,33 +262,111 @@ class JobsNotifier extends StateNotifier<JobsState> {
       final position = await _getHighAccuracyFix();
       final logger = ref.read(appLoggerProvider);
       logger.d(
-          'Refreshing jobs at lat=${position.latitude}, lng=${position.longitude}');
+        'Refreshing jobs at lat=${position.latitude}, lng=${position.longitude}',
+      );
 
-      final results = await Future.wait([
-        _repository.listJobs(lat: position.latitude, lng: position.longitude),
-        _repository.listMyJobs(lat: position.latitude, lng: position.longitude),
+      const pageSize = 50;
+      final responses = await Future.wait<ListJobsResponse>([
+        _repository.listJobs(
+          lat: position.latitude,
+          lng: position.longitude,
+          page: 1,
+          size: pageSize,
+        ),
+        _repository.listMyJobs(
+          lat: position.latitude,
+          lng: position.longitude,
+          page: 1,
+          size: pageSize,
+        ),
       ]);
 
-      final openResp = results[0];
-      final myJobsResp = results[1];
+      final openResp = responses[0];
+      final myResp = responses[1];
 
-      final inProgressJob = myJobsResp.results
-          .firstWhereOrNull((j) => j.status == JobInstanceStatus.inProgress);
-      final acceptedJobs = myJobsResp.results
+      final openJobs = [...openResp.results];
+      final myJobs = [...myResp.results];
+
+      final inProgressJob = myJobs.firstWhereOrNull(
+        (j) => j.status == JobInstanceStatus.inProgress,
+      );
+      final acceptedJobs = myJobs
           .where((j) => j.status == JobInstanceStatus.assigned)
           .toList();
 
+      final hasMoreOpen = openJobs.length < openResp.total;
+      final hasMoreMy = myJobs.length < myResp.total;
+
       state = state.copyWith(
-        isLoadingOpenJobs: false,
-        isLoadingAcceptedJobs: false,
-        openJobs: openResp.results,
+        isLoadingOpenJobs: hasMoreOpen,
+        isLoadingAcceptedJobs: hasMoreMy,
+        openJobs: openJobs,
         acceptedJobs: acceptedJobs,
         inProgressJob: inProgressJob,
         clearInProgressJob: inProgressJob == null,
       );
 
       logger.d(
-          'Successfully refreshed jobs. Open: ${openResp.results.length}, Accepted: ${acceptedJobs.length}, InProgress: ${inProgressJob != null}');
+        'Successfully refreshed jobs. Open: ${openJobs.length}, Accepted: ${acceptedJobs.length}, InProgress: ${inProgressJob != null}',
+      );
+
+      if (hasMoreOpen) {
+        unawaited(
+          fetchJobPages(
+            (page, size) => _repository.listJobs(
+              lat: position.latitude,
+              lng: position.longitude,
+              page: page,
+              size: size,
+            ),
+            startPage: 2,
+            initialCount: openJobs.length,
+            pageSize: pageSize,
+            onPage: (results) {
+              if (!state.isOnline) return;
+              openJobs.addAll(results);
+              state = state.copyWith(openJobs: [...openJobs]);
+            },
+          ).whenComplete(() {
+            if (!state.isOnline) return;
+            state = state.copyWith(isLoadingOpenJobs: false);
+          }),
+        );
+      }
+
+      if (hasMoreMy) {
+        unawaited(
+          fetchJobPages(
+            (page, size) => _repository.listMyJobs(
+              lat: position.latitude,
+              lng: position.longitude,
+              page: page,
+              size: size,
+            ),
+            startPage: 2,
+            initialCount: myJobs.length,
+            pageSize: pageSize,
+            onPage: (results) {
+              if (!state.isOnline) return;
+              myJobs.addAll(results);
+              final inProg = myJobs.firstWhereOrNull(
+                (j) => j.status == JobInstanceStatus.inProgress,
+              );
+              final accepted = myJobs
+                  .where((j) => j.status == JobInstanceStatus.assigned)
+                  .toList();
+              state = state.copyWith(
+                acceptedJobs: accepted,
+                inProgressJob: inProg,
+                clearInProgressJob: inProg == null,
+              );
+            },
+          ).whenComplete(() {
+            if (!state.isOnline) return;
+            state = state.copyWith(isLoadingAcceptedJobs: false);
+          }),
+        );
+      }
     } catch (e) {
       state = state.copyWith(
         isLoadingOpenJobs: false,
@@ -226,41 +396,85 @@ class JobsNotifier extends StateNotifier<JobsState> {
     if (_flavor.testMode) {
       final accepted = DummyJobData.acceptedJobs;
       state = state.copyWith(
-          isLoadingAcceptedJobs: false,
-          acceptedJobs: accepted,
-          clearError: true,
-          clearInProgressJob: true);
+        isLoadingAcceptedJobs: false,
+        acceptedJobs: accepted,
+        clearError: true,
+        clearInProgressJob: true,
+      );
       return;
     }
 
     try {
       final position = await _getHighAccuracyFix();
-      final myJobsResp = await _repository.listMyJobs(
+
+      const pageSize = 50;
+      final firstResp = await _repository.listMyJobs(
         lat: position.latitude,
         lng: position.longitude,
+        page: 1,
+        size: pageSize,
       );
 
-      final inProgressJob = myJobsResp.results
-          .firstWhereOrNull((j) => j.status == JobInstanceStatus.inProgress);
-      final acceptedJobs = myJobsResp.results
+      final myJobs = [...firstResp.results];
+
+      var inProgressJob = myJobs.firstWhereOrNull(
+        (j) => j.status == JobInstanceStatus.inProgress,
+      );
+      var acceptedJobs = myJobs
           .where((j) => j.status == JobInstanceStatus.assigned)
           .toList();
 
+      final hasMore = myJobs.length < firstResp.total;
+
       state = state.copyWith(
-        isLoadingAcceptedJobs: false,
+        isLoadingAcceptedJobs: hasMore,
         acceptedJobs: acceptedJobs,
         inProgressJob: inProgressJob,
         clearInProgressJob: inProgressJob == null,
         clearError: true,
       );
 
-      ref.read(appLoggerProvider).d(
-          'Fetched ${acceptedJobs.length} accepted and ${inProgressJob != null ? 1 : 0} in-progress job.');
+      if (hasMore) {
+        unawaited(
+          fetchJobPages(
+            (page, size) => _repository.listMyJobs(
+              lat: position.latitude,
+              lng: position.longitude,
+              page: page,
+              size: size,
+            ),
+            startPage: 2,
+            initialCount: myJobs.length,
+            pageSize: pageSize,
+            onPage: (results) {
+              if (!state.isOnline) return;
+              myJobs.addAll(results);
+              inProgressJob = myJobs.firstWhereOrNull(
+                (j) => j.status == JobInstanceStatus.inProgress,
+              );
+              acceptedJobs = myJobs
+                  .where((j) => j.status == JobInstanceStatus.assigned)
+                  .toList();
+              state = state.copyWith(
+                acceptedJobs: acceptedJobs,
+                inProgressJob: inProgressJob,
+                clearInProgressJob: inProgressJob == null,
+              );
+            },
+          ).whenComplete(() {
+            if (!state.isOnline) return;
+            state = state.copyWith(isLoadingAcceptedJobs: false);
+          }),
+        );
+      }
+
+      ref
+          .read(appLoggerProvider)
+          .d(
+            'Fetched ${acceptedJobs.length} accepted and ${inProgressJob != null ? 1 : 0} in-progress job.',
+          );
     } catch (e) {
-      state = state.copyWith(
-        isLoadingAcceptedJobs: false,
-        error: e,
-      );
+      state = state.copyWith(isLoadingAcceptedJobs: false, error: e);
       ref.read(appLoggerProvider).e('Error fetching my jobs: $e');
     }
   }
@@ -276,16 +490,23 @@ class JobsNotifier extends StateNotifier<JobsState> {
       final openJob = state.openJobs.firstWhere(
         (j) => j.instanceId == instanceId,
         orElse: () => throw Exception(
-            'Job $instanceId not found in local state for acceptance.'),
+          'Job $instanceId not found in local state for acceptance.',
+        ),
       );
+
+      late final JobInstance acceptedJobInstance;
 
       if (_flavor.testMode) {
         logger.d('Accepting job $instanceId in test mode.');
         await Future.delayed(const Duration(milliseconds: 300));
+        acceptedJobInstance = openJob.copyWith(
+          status: JobInstanceStatus.assigned,
+        );
       } else {
         logger.d('Accepting job $instanceId in real mode.');
         final position = await _getHighAccuracyFix();
-        await _repository.acceptJob(
+        // **FIX:** Capture the complete JobInstance returned by the repository.
+        acceptedJobInstance = await _repository.acceptJob(
           instanceId: instanceId,
           lat: position.latitude,
           lng: position.longitude,
@@ -295,8 +516,6 @@ class JobsNotifier extends StateNotifier<JobsState> {
         );
       }
 
-      final acceptedJobInstance =
-          openJob.copyWith(status: JobInstanceStatus.assigned);
       final newOpenJobs = List<JobInstance>.from(state.openJobs)
         ..removeWhere((j) => j.instanceId == instanceId);
       final newAcceptedJobs = List<JobInstance>.from(state.acceptedJobs)
@@ -309,7 +528,8 @@ class JobsNotifier extends StateNotifier<JobsState> {
         clearError: true,
       );
       logger.d(
-          'Job $instanceId accepted successfully. Open jobs: ${newOpenJobs.length}, Accepted jobs: ${newAcceptedJobs.length}');
+        'Job $instanceId accepted successfully. Open jobs: ${newOpenJobs.length}, Accepted jobs: ${newAcceptedJobs.length}',
+      );
       return true;
     } catch (e) {
       logger.e('Error accepting job $instanceId: $e');
@@ -333,17 +553,18 @@ class JobsNotifier extends StateNotifier<JobsState> {
         logger.d('Unaccepting job $instanceId in real mode.');
         await _repository.unacceptJob(instanceId);
       }
-      
+
       final newAcceptedJobs = List<JobInstance>.from(state.acceptedJobs)
         ..removeWhere((j) => j.instanceId == instanceId);
       state = state.copyWith(acceptedJobs: newAcceptedJobs, clearError: true);
       logger.d(
-          'Job $instanceId unaccepted. Accepted jobs: ${newAcceptedJobs.length}');
+        'Job $instanceId unaccepted. Accepted jobs: ${newAcceptedJobs.length}',
+      );
       return true;
     } catch (e) {
-       logger.e('Error unaccepting job $instanceId: $e');
-       state = state.copyWith(error: e);
-       return false;
+      logger.e('Error unaccepting job $instanceId: $e');
+      state = state.copyWith(error: e);
+      return false;
     }
   }
 
@@ -359,9 +580,13 @@ class JobsNotifier extends StateNotifier<JobsState> {
 
       if (_flavor.testMode) {
         logger.d('Starting job $instanceId in test mode.');
-        final originalJob = state.acceptedJobs.firstWhere((j) => j.instanceId == instanceId);
+        final originalJob = state.acceptedJobs.firstWhere(
+          (j) => j.instanceId == instanceId,
+        );
         updatedJob = originalJob.copyWith(
-            status: JobInstanceStatus.inProgress, checkInAt: DateTime.now());
+          status: JobInstanceStatus.inProgress,
+          checkInAt: DateTime.now(),
+        );
         await Future.delayed(const Duration(milliseconds: 300));
       } else {
         final position = await _getHighAccuracyFix();
@@ -382,7 +607,6 @@ class JobsNotifier extends StateNotifier<JobsState> {
         inProgressJob: updatedJob,
         clearError: true,
       );
-
       logger.d('Job $instanceId started successfully.');
       return updatedJob;
     } catch (e) {
@@ -401,20 +625,22 @@ class JobsNotifier extends StateNotifier<JobsState> {
     try {
       late final JobInstance updatedJob;
       if (_flavor.testMode) {
-        logger
-            .d('Cancelling job $instanceId in test mode (status is now CANCELED).');
-        updatedJob =
-            state.inProgressJob!.copyWith(status: JobInstanceStatus.canceled);
+        logger.d(
+          'Cancelling job $instanceId in test mode (status is now CANCELED).',
+        );
+        updatedJob = state.inProgressJob!.copyWith(
+          status: JobInstanceStatus.canceled,
+        );
         await Future.delayed(const Duration(milliseconds: 300));
       } else {
         updatedJob = await _repository.cancelJob(instanceId);
       }
 
-      state =
-          state.copyWith(clearInProgressJob: true, clearError: true);
+      state = state.copyWith(clearInProgressJob: true, clearError: true);
 
       logger.d(
-          'Job $instanceId cancelled on the client. Final backend status: ${updatedJob.status}');
+        'Job $instanceId cancelled on the client. Final backend status: ${updatedJob.status}',
+      );
       return true;
     } catch (e) {
       logger.e('Error cancelling job $instanceId: $e');
@@ -424,37 +650,121 @@ class JobsNotifier extends StateNotifier<JobsState> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  //  COMPLETE JOB
+  //  VERIFY UNIT PHOTO
   // ─────────────────────────────────────────────────────────────────────────
-  Future<bool> completeJob(String instanceId, List<File> photos) async {
+  Future<bool> verifyUnitPhoto(
+    String unitId,
+    XFile photo, {
+    bool missingTrashCan = false,
+  }) async {
     final logger = ref.read(appLoggerProvider);
-    logger.d(
-        'Attempting to complete job $instanceId with ${photos.length} photos...');
+    final job = state.inProgressJob;
+    if (job == null) return false;
+
+    logger.d('Verifying photo for unit $unitId of job ${job.instanceId}');
+
+    final saved = await JobPhotoPersistence.savePhoto(job.instanceId, photo);
+
     try {
+      late final JobInstance updated;
       if (_flavor.testMode) {
-        logger.d('Completing job $instanceId in test mode.');
-        await Future.delayed(const Duration(milliseconds: 800));
+        await Future.delayed(const Duration(milliseconds: 300));
+        final updatedBuildings = job.buildings.map((b) {
+          final units = b.units.map((u) {
+            if (u.unitId == unitId) {
+              return UnitVerification(
+                unitId: u.unitId,
+                buildingId: u.buildingId,
+                unitNumber: u.unitNumber,
+                status: UnitVerificationStatus.verified,
+                attemptCount: 0,
+                failureReasons: const [],
+                permanentFailure: false,
+                missingTrashCan: missingTrashCan,
+              );
+            }
+            return u;
+          }).toList();
+          return Building(
+            buildingId: b.buildingId,
+            name: b.name,
+            latitude: b.latitude,
+            longitude: b.longitude,
+            units: units,
+          );
+        }).toList();
+        updated = job.copyWith(buildings: updatedBuildings);
       } else {
         final position = await _getHighAccuracyFix();
-        await _repository.completeJob(
-          instanceId: instanceId,
+        updated = await _repository.verifyPhoto(
+          instanceId: job.instanceId,
+          unitId: unitId,
           lat: position.latitude,
           lng: position.longitude,
           accuracy: position.accuracy,
           timestamp: position.timestamp.millisecondsSinceEpoch,
           isMock: position.isMocked,
-          photos: photos,
+          photo: File(saved.path),
+          missingTrashCan: missingTrashCan,
         );
       }
 
-      state = state.copyWith(
-          clearInProgressJob: true, clearError: true);
-      logger.d('Job $instanceId completed successfully.');
-
-      ref.read(earningsNotifierProvider.notifier).fetchEarningsSummary(force: true);
+      state = state.copyWith(inProgressJob: updated, clearError: true);
+      await JobPhotoPersistence.clearPhotos(job.instanceId);
+      logger.d('Unit $unitId verified successfully.');
       return true;
     } catch (e) {
-      logger.e('Error completing job $instanceId: $e');
+      logger.e('Error verifying unit $unitId: $e');
+      state = state.copyWith(error: e);
+      return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  DUMP BAGS
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<bool> dumpBags() async {
+    final logger = ref.read(appLoggerProvider);
+    final job = state.inProgressJob;
+    if (job == null) return false;
+
+    logger.d('Dumping bags for job ${job.instanceId}');
+
+    try {
+      late final JobInstance updated;
+      if (_flavor.testMode) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        updated = job;
+      } else {
+        final position = await _getHighAccuracyFix();
+        updated = await _repository.dumpBags(
+          instanceId: job.instanceId,
+          lat: position.latitude,
+          lng: position.longitude,
+          accuracy: position.accuracy,
+          timestamp: position.timestamp.millisecondsSinceEpoch,
+          isMock: position.isMocked,
+        );
+      }
+
+      final completed = updated.status == JobInstanceStatus.completed;
+      state = state.copyWith(
+        inProgressJob: completed ? null : updated,
+        clearError: true,
+        clearInProgressJob: completed,
+      );
+
+      if (completed) {
+        ref
+            .read(earningsNotifierProvider.notifier)
+            .fetchEarningsSummary(force: true);
+        await JobPhotoPersistence.clearPhotos(job.instanceId);
+      }
+
+      logger.d('Dump trip processed. Job completed: $completed');
+      return true;
+    } catch (e) {
+      logger.e('Error processing dump for job ${job.instanceId}: $e');
       state = state.copyWith(error: e);
       return false;
     }
@@ -485,7 +795,8 @@ class JobsNotifier extends StateNotifier<JobsState> {
         forceLocationManager: true,
       );
       return await Geolocator.getCurrentPosition(
-          locationSettings: androidSettings);
+        locationSettings: androidSettings,
+      );
     } catch (e) {
       return Geolocator.getCurrentPosition(locationSettings: settings);
     }

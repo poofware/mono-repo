@@ -14,13 +14,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/account-service/internal/config"
-	"github.com/poofware/account-service/internal/constants"
-	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/utils/checkr"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/constants"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/utils/checkr"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/sendgrid/sendgrid-go"
+	"github.com/sendgrid/sendgrid-go/helpers/mail" // NEW
 )
 
 // how long we remember a webhook event to avoid duplicates
@@ -38,10 +40,11 @@ const defaultWorkerCountry = "US"
 // CheckrService coordinates background-check invitation logic,
 // status checks, and webhook handling for the Worker role.
 type CheckrService struct {
-	cfg         *config.Config
-	client      *checkr.CheckrClient
-	repo        repositories.WorkerRepository
-	generatedBy string
+	cfg            *config.Config
+	client         *checkr.CheckrClient
+	repo           repositories.WorkerRepository
+	sendgridClient *sendgrid.Client // NEW: For sending alerts
+	generatedBy    string
 
 	webhookID       string
 	mu              sync.Mutex
@@ -49,7 +52,7 @@ type CheckrService struct {
 }
 
 // NewCheckrService constructs a CheckrService with a configured Checkr client.
-func NewCheckrService(cfg *config.Config, repo repositories.WorkerRepository) (*CheckrService, error) {
+func NewCheckrService(cfg *config.Config, repo repositories.WorkerRepository, sg *sendgrid.Client) (*CheckrService, error) {
 	client, err := checkr.NewCheckrClient(
 		cfg.CheckrAPIKey,
 		cfg.LDFlag_CheckrStagingMode,
@@ -64,10 +67,34 @@ func NewCheckrService(cfg *config.Config, repo repositories.WorkerRepository) (*
 		cfg:             cfg,
 		client:          client,
 		repo:            repo,
+		sendgridClient:  sg, // NEW
 		generatedBy:     generated,
 		webhookID:       "",
 		processedEvents: make(map[string]time.Time),
 	}, nil
+}
+
+// sendWebhookMissAlert sends an internal notification about a potential webhook failure.
+func (s *CheckrService) sendWebhookMissAlert(objectType string, objectID string, workerID uuid.UUID) {
+	from := mail.NewEmail(s.cfg.OrganizationName, s.cfg.LDFlag_SendgridFromEmail)
+	to := mail.NewEmail("Poof Dev Team", "team@thepoofapp.com")
+	subject := fmt.Sprintf("[Webhook Resilience] Missed %s Webhook", objectType)
+	plainText := fmt.Sprintf("A %s event for ID %s (Worker ID: %s) was not received. The system self-healed by polling the API. Please investigate potential webhook delivery issues.", objectType, objectID, workerID)
+	htmlContent := fmt.Sprintf("<p>%s</p>", plainText)
+
+	msg := mail.NewSingleEmail(from, subject, to, plainText, htmlContent)
+	if s.cfg.LDFlag_SendgridSandboxMode {
+		ms := mail.NewMailSettings()
+		ms.SetSandboxMode(mail.NewSetting(true))
+		msg.MailSettings = ms
+	}
+
+	_, err := s.sendgridClient.Send(msg)
+	if err != nil {
+		utils.Logger.WithError(err).Errorf("Failed to send webhook miss alert email for %s ID %s", objectType, objectID)
+	} else {
+		utils.Logger.Infof("Sent webhook miss alert for %s ID %s.", objectType, objectID)
+	}
 }
 
 // Start registers a dynamic Checkr webhook if the feature flag is enabled.
@@ -219,7 +246,15 @@ func (s *CheckrService) CreateCheckrInvitation(ctx context.Context, workerID uui
 				constants.WebhookMetadataGeneratedByKey: s.generatedBy,
 			},
 			CustomID: w.ID.String(),
+			WorkLocations: []checkr.WorkLocation{
+				{
+					Country: defaultWorkerCountry,
+					State:   w.State,
+				},
+			},
 		}
+
+		utils.Logger.Debugf("Creating new Checkr candidate for workerID: %s", w.ID)
 		created, cErr := s.client.CreateCandidate(ctx, cand)
 		if cErr != nil {
 			return "", fmt.Errorf("failed to create checkr candidate: %w", cErr)
@@ -265,7 +300,7 @@ func (s *CheckrService) CreateCheckrInvitation(ctx context.Context, workerID uui
 			},
 		},
 	}
-	utils.Logger.Debugf("Creating new Checkr invitation for candidate=%s", *w2.CheckrCandidateID)
+	utils.Logger.Infof("Creating new Checkr invitation for existing candidateID: %s", *w2.CheckrCandidateID)
 	inv, err3 := s.client.CreateInvitation(ctx, newInv)
 	if err3 != nil {
 		return "", fmt.Errorf("failed to create checkr invitation: %w", err3)
@@ -421,7 +456,7 @@ func (s *CheckrService) handleInvitationEvent(ctx context.Context, eventType str
 			Warnf("Failed to fetch candidate for invitation %s event => ignoring", eventType)
 		return nil
 	}
-	gby, _ := cand.Metadata[constants.WebhookMetadataGeneratedByKey]
+	gby := cand.Metadata[constants.WebhookMetadataGeneratedByKey]
 	if gby != s.generatedBy {
 		utils.Logger.Infof("Skipping invitation event %s; unrecognized metadata.generated_by=%q", eventType, gby)
 		return nil
@@ -535,7 +570,7 @@ func (s *CheckrService) handleReportEvent(ctx context.Context, eventType string,
 		utils.Logger.WithError(err).Warnf("Failed to fetch candidate => ignoring report %s event", eventType)
 		return nil
 	}
-	gby, _ := cand.Metadata[constants.WebhookMetadataGeneratedByKey]
+	gby := cand.Metadata[constants.WebhookMetadataGeneratedByKey]
 	if gby != s.generatedBy {
 		utils.Logger.Infof("Skipping report event %s => unrecognized metadata", eventType)
 		return nil
@@ -552,6 +587,7 @@ func (s *CheckrService) handleReportEvent(ctx context.Context, eventType string,
 		return nil
 	}
 
+	var engage bool
 	if err := s.repo.UpdateWithRetry(ctx, w.ID, func(stored *models.Worker) error {
 		// If the worker doesn't already have this reportID, store it
 		if stored.CheckrReportID == nil || *stored.CheckrReportID == "" {
@@ -575,6 +611,9 @@ func (s *CheckrService) handleReportEvent(ctx context.Context, eventType string,
 				stored.AccountStatus == models.AccountStatusBackgroundCheckPending {
 				stored.AccountStatus = models.AccountStatusActive
 				utils.Logger.Infof("report.completed => worker %s => account status set to ACTIVE", stored.ID)
+				if rep.Adjudication == nil || *rep.Adjudication != checkr.ReportAdjudicationEngaged {
+					engage = true
+				}
 			}
 
 		case "report.engaged":
@@ -608,6 +647,15 @@ func (s *CheckrService) handleReportEvent(ctx context.Context, eventType string,
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	if engage {
+		_, err := s.client.UpdateReport(ctx, rep.ID, map[string]any{"adjudication": checkr.ReportAdjudicationEngaged})
+		if err != nil {
+			utils.Logger.WithError(err).Warnf("Failed to engage Checkr report %s", rep.ID)
+		} else {
+			utils.Logger.Infof("Automatically engaged Checkr report %s", rep.ID)
+		}
 	}
 
 	return nil
@@ -714,34 +762,65 @@ func (s *CheckrService) GetCheckrStatus(ctx context.Context, workerID uuid.UUID)
 	}
 
 	// If worker is already done, no need to check anything else.
-	if w.SetupProgress == models.SetupProgressDone {
+	if w.SetupProgress == models.SetupProgressDone && w.AccountStatus != models.AccountStatusBackgroundCheckPending {
 		return dtos.CheckrFlowStatusComplete, nil
 	}
 
-	// --- NEW: Robust Fallback Polling ---
-	// If the worker is in the background check step and has an invitation ID,
-	// poll Checkr directly to see if the invitation is complete.
+	// --- Robust Fallback Polling ---
+
+	// 1. Poll INVITATION status if worker is stuck at BACKGROUND_CHECK.
 	if w.SetupProgress == models.SetupProgressBackgroundCheck && w.CheckrInvitationID != nil && *w.CheckrInvitationID != "" {
+		utils.Logger.Debugf("Polling Checkr API for invitation status for worker %s (invitation ID: %s) due to incomplete state.", w.ID, *w.CheckrInvitationID)
 		utils.Logger.Infof("Worker %s is in BACKGROUND_CHECK. Polling invitation %s status from Checkr API.", w.ID, *w.CheckrInvitationID)
 		inv, invErr := s.client.GetInvitation(ctx, *w.CheckrInvitationID)
 		if invErr != nil {
-			// If we can't fetch the invitation, log it but don't fail the whole check.
-			// The user can try again.
 			utils.Logger.WithError(invErr).Warnf("Failed to poll Checkr invitation status for ID %s", *w.CheckrInvitationID)
 		} else if inv.Status == "completed" {
 			utils.Logger.Infof("Polling found Checkr invitation %s is 'completed'. Triggering self-healing.", inv.ID)
-			// The invitation is complete. We can now self-heal by triggering the same
-			// logic the webhook would have, which moves the worker to the next step.
 			if err := s.handleInvitationCompleted(ctx, inv.ID); err != nil {
 				utils.Logger.WithError(err).Error("Self-healing failed for completed invitation.")
-				// We still return "incomplete" here because the DB update failed.
 				return dtos.CheckrFlowStatusIncomplete, nil
 			}
+			s.sendWebhookMissAlert("Checkr Invitation", inv.ID, w.ID)
 			// After successful self-healing, the worker's state is now advanced.
 			return dtos.CheckrFlowStatusComplete, nil
 		}
 	}
-	// --- END of New Logic ---
+
+	// 2. Poll REPORT status if worker is stuck at BACKGROUND_CHECK_PENDING.
+	if w.AccountStatus == models.AccountStatusBackgroundCheckPending && w.CheckrReportID != nil && *w.CheckrReportID != "" {
+		utils.Logger.Infof("Worker %s is in BACKGROUND_CHECK_PENDING. Polling report %s status from Checkr API.", w.ID, *w.CheckrReportID)
+		report, reportErr := s.client.GetReport(ctx, *w.CheckrReportID)
+		if reportErr != nil {
+			utils.Logger.WithError(reportErr).Warnf("Failed to poll Checkr report status for ID %s", *w.CheckrReportID)
+		} else if report.Status == checkr.ReportStatusComplete {
+			utils.Logger.Infof("Polling found Checkr report %s is 'complete'. Triggering self-healing.", report.ID)
+
+			reportWebhookObj := checkr.ReportWebhookObj{
+				ID:                      report.ID,
+				Object:                  report.Object,
+				URI:                     report.URI,
+				Status:                  report.Status,
+				Result:                  report.Result,
+				Adjudication:            report.Adjudication,
+				Assessment:              report.Assessment,
+				Package:                 report.Package,
+				CandidateID:             report.CandidateID,
+				IncludesCanceled:        report.IncludesCanceled,
+				EstimatedCompletionTime: report.EstimatedTime,
+				CreatedAt:               *report.CreatedAt, // Dereference pointer
+			}
+
+			if err := s.handleReportEvent(ctx, "report.completed", reportWebhookObj); err != nil {
+				utils.Logger.WithError(err).Error("Self-healing failed for completed report.")
+				return dtos.CheckrFlowStatusIncomplete, nil
+			}
+			s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
+
+			// The worker's state should now be updated.
+			return dtos.CheckrFlowStatusComplete, nil
+		}
+	}
 
 	// If none of the above conditions were met, the flow is still incomplete.
 	return dtos.CheckrFlowStatusIncomplete, nil
@@ -759,24 +838,92 @@ func (s *CheckrService) GetWorkerCheckrETA(ctx context.Context, workerID uuid.UU
 	return w.CheckrReportETA, nil
 }
 
-// GetWorkerCheckrOutcome returns the worker's latest stored ReportOutcome.
-// If the worker does not exist, or no outcome has been set yet, it returns
-// ReportOutcomeUnknownStatus.
+// GetWorkerCheckrOutcome retrieves the worker and ensures the background-check
+// outcome is fully up to date. It performs the same "self healing" polling as
+// before but now returns the refreshed *Worker object so callers have a
+// consistent view of the worker state.
 func (s *CheckrService) GetWorkerCheckrOutcome(
 	ctx context.Context,
 	workerID uuid.UUID,
-) (models.ReportOutcomeType, error) {
+) (*models.Worker, error) {
 
 	w, err := s.repo.GetByID(ctx, workerID)
 	if err != nil {
-		return models.ReportOutcomeUnknownStatus, err
+		return nil, err
 	}
 	if w == nil {
-		return models.ReportOutcomeUnknownStatus, nil
+		return nil, fmt.Errorf("worker not found, ID=%s", workerID)
 	}
 
-	// Always return the current value. The zero value is already "UNKNOWN".
-	return w.CheckrReportOutcome, nil
+	// log the statuses
+	utils.Logger.Infof("Worker %s => CheckrReportOutcome=%s, AccountStatus=%s", w.ID,
+		w.CheckrReportOutcome, w.AccountStatus)
+
+	utils.Logger.Debugf("Worker %s => CheckrReportID=%s", w.ID, utils.Val(w.CheckrReportID))
+
+	// --- Robust Fallback Polling ---
+	if w.CheckrReportOutcome == models.ReportOutcomeUnknownStatus &&
+		w.AccountStatus == models.AccountStatusBackgroundCheckPending {
+
+		// If we don't have a report ID yet, attempt to fetch it via the candidate
+		if (w.CheckrReportID == nil || *w.CheckrReportID == "") &&
+			w.CheckrCandidateID != nil && *w.CheckrCandidateID != "" {
+
+			utils.Logger.Infof("Outcome unknown for worker %s with no report ID. Polling candidate %s from Checkr API.", w.ID, *w.CheckrCandidateID)
+			cand, candErr := s.client.GetCandidate(ctx, *w.CheckrCandidateID)
+			if candErr != nil {
+				utils.Logger.WithError(candErr).Warnf("Failed to poll Checkr candidate for ID %s", *w.CheckrCandidateID)
+			} else if len(cand.ReportIDs) > 0 {
+				// Use the most recent report ID
+				rid := cand.ReportIDs[len(cand.ReportIDs)-1]
+				if err := s.repo.UpdateWithRetry(ctx, w.ID, func(stored *models.Worker) error {
+					stored.CheckrReportID = &rid
+					return nil
+				}); err == nil {
+					w.CheckrReportID = &rid
+				}
+			}
+		}
+
+		if w.CheckrReportID != nil && *w.CheckrReportID != "" {
+			utils.Logger.Debugf("Polling Checkr API for report outcome for worker %s (report ID: %s) due to UNKNOWN status.", w.ID, *w.CheckrReportID)
+			utils.Logger.Infof("Outcome unknown for worker %s. Polling report %s from Checkr API.", w.ID, *w.CheckrReportID)
+			report, reportErr := s.client.GetReport(ctx, *w.CheckrReportID)
+
+			if reportErr != nil {
+				utils.Logger.WithError(reportErr).Warnf("Failed to poll Checkr report for ID %s", *w.CheckrReportID)
+			} else if report.Status == checkr.ReportStatusComplete {
+				utils.Logger.Infof("Polling found Checkr report %s is 'complete'. Triggering self-healing.", report.ID)
+
+				reportWebhookObj := checkr.ReportWebhookObj{
+					ID:                      report.ID,
+					Object:                  report.Object,
+					URI:                     report.URI,
+					Status:                  report.Status,
+					Result:                  report.Result,
+					Adjudication:            report.Adjudication,
+					Assessment:              report.Assessment,
+					Package:                 report.Package,
+					CandidateID:             report.CandidateID,
+					IncludesCanceled:        report.IncludesCanceled,
+					EstimatedCompletionTime: report.EstimatedTime,
+					CreatedAt:               *report.CreatedAt,
+				}
+
+				if err := s.handleReportEvent(ctx, "report.completed", reportWebhookObj); err != nil {
+					utils.Logger.WithError(err).Error("Self-healing failed for completed report.")
+				} else {
+					s.sendWebhookMissAlert("Checkr Report", report.ID, w.ID)
+				}
+
+				// Reload worker for updated outcome
+				w, _ = s.repo.GetByID(ctx, workerID)
+			}
+		}
+	}
+
+	// Return the fully refreshed worker
+	return w, nil
 }
 
 // NEW: CreateSessionToken generates a short-lived token for the Checkr Web SDK.

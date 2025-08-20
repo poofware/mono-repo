@@ -5,6 +5,9 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/config/flavors.dart';
 import '../models/job_models.dart';
 
+const String _v1 = '/v1';
+const String _v1Jobs = '$_v1/jobs';
+
 /// A specialized API client for the "jobs-service" endpoints relevant to workers.
 ///
 /// We use [AuthenticatedApiMixin] for normal JSON endpoints (list, accept, start, unaccept).
@@ -22,25 +25,25 @@ class WorkerJobsApi with AuthenticatedApiMixin {
 
   /// For refreshing tokens. We can share the same auth server path or a dedicated route.
   @override
-  String get refreshTokenBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
+  String get refreshTokenBaseUrl =>
+      PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
-  String get refreshTokenPath => '/worker/refresh_token';
+  String get refreshTokenPath => '$_v1/worker/refresh_token';
 
   @override
-  String get attestationChallengeBaseUrl => PoofWorkerFlavorConfig.instance.authServiceURL;
+  String get attestationChallengeBaseUrl =>
+      PoofWorkerFlavorConfig.instance.authServiceURL;
 
   @override
-  String get attestationChallengePath => '/worker/challenge';
+  String get attestationChallengePath => '$_v1/worker/challenge';
 
   @override
   final bool useRealAttestation;
 
-  WorkerJobsApi({
-    required this.tokenStorage,
-    this.onAuthLost,
-  }) : useRealAttestation =
-      PoofWorkerFlavorConfig.instance.realDeviceAttestation;
+  WorkerJobsApi({required this.tokenStorage, this.onAuthLost})
+    : useRealAttestation =
+          PoofWorkerFlavorConfig.instance.realDeviceAttestation;
 
   /// GET /jobs/open?lat=&lng=&page=&size=
   Future<ListJobsResponse> listJobs({
@@ -52,7 +55,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     final queryParams = '?lat=$lat&lng=$lng&page=$page&size=$size';
     final resp = await sendAuthenticatedRequest(
       method: 'GET',
-      path: '/jobs/open$queryParams',
+      path: '$_v1Jobs/open$queryParams',
     );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
     return ListJobsResponse.fromJson(decoded);
@@ -71,7 +74,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     final queryParams = '?lat=$lat&lng=$lng&page=$page&size=$size';
     final resp = await sendAuthenticatedRequest(
       method: 'GET',
-      path: '/jobs/my$queryParams',
+      path: '$_v1Jobs/my$queryParams',
     );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
     return ListJobsResponse.fromJson(decoded);
@@ -98,7 +101,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
 
     final resp = await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/jobs/accept',
+      path: '$_v1Jobs/accept',
       body: req,
       requireAttestation: true,
     );
@@ -128,7 +131,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
 
     final resp = await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/jobs/start',
+      path: '$_v1Jobs/start',
       body: req,
       requireAttestation: true,
     );
@@ -144,7 +147,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
 
     final resp = await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/jobs/unaccept',
+      path: '$_v1Jobs/unaccept',
       body: req,
       requireAttestation: false,
     );
@@ -153,20 +156,18 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     return jar.updated;
   }
 
-  /// POST /jobs/complete (multipart form-data)
-  ///
-  /// `photos` is optional. If empty, no files are attached, but the server might reject
-  /// if the job requires proof photos. `lat` and `lng` must be included as form fields.
-  Future<JobInstance> completeJob({
+  /// POST /jobs/verify-unit-photo (multipart)
+  Future<JobInstance> verifyPhoto({
     required String instanceId,
+    required String unitId,
     required double lat,
     required double lng,
     required double accuracy,
     required int timestamp,
     bool isMock = false,
-    List<File> photos = const [],
+    required File photo,
+    bool missingTrashCan = false,
   }) async {
-    // 1) prepare fields:
     final req = JobLocationActionRequest(
       instanceId: instanceId,
       lat: lat,
@@ -176,17 +177,46 @@ class WorkerJobsApi with AuthenticatedApiMixin {
       isMock: isMock,
     );
     final fields = req.toFormFields();
+    fields['unit_id'] = unitId;
+    if (missingTrashCan) fields['missing_trash_can'] = 'true';
 
-    // 2) call new sendAuthenticatedMultipartRequest
     final resp = await sendAuthenticatedMultipartRequest(
       method: 'POST',
-      path: '/jobs/complete',
+      path: '$_v1Jobs/verify-unit-photo',
       fields: fields,
-      files: photos, // We rely on IoAuthStrategy for actual file uploading
+      files: [photo],
       requireAttestation: true,
     );
 
-    // 3) parse success
+    final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+    final jar = JobInstanceActionResponse.fromJson(decoded);
+    return jar.updated;
+  }
+
+  /// POST /jobs/dump-bags
+  Future<JobInstance> dumpBags({
+    required String instanceId,
+    required double lat,
+    required double lng,
+    required double accuracy,
+    required int timestamp,
+    bool isMock = false,
+  }) async {
+    final req = JobLocationActionRequest(
+      instanceId: instanceId,
+      lat: lat,
+      lng: lng,
+      accuracy: accuracy,
+      timestamp: timestamp,
+      isMock: isMock,
+    );
+
+    final resp = await sendAuthenticatedRequest(
+      method: 'POST',
+      path: '$_v1Jobs/dump-bags',
+      body: req,
+      requireAttestation: true,
+    );
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
     final jar = JobInstanceActionResponse.fromJson(decoded);
     return jar.updated;
@@ -197,7 +227,7 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     final req = JobActionRequest(instanceId);
     final resp = await sendAuthenticatedRequest(
       method: 'POST',
-      path: '/jobs/cancel',
+      path: '$_v1Jobs/cancel',
       body: req,
       requireAttestation: false, // Or true if desired
     );
@@ -206,4 +236,3 @@ class WorkerJobsApi with AuthenticatedApiMixin {
     return jar.updated;
   }
 }
-

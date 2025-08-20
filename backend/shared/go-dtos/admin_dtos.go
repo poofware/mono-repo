@@ -1,6 +1,6 @@
 package dtos
 
-import "github.com/poofware/go-models"
+import "github.com/poofware/mono-repo/backend/shared/go-models"
 
 // AdminDTO is the data transfer object for an admin user,
 // omitting sensitive fields like TOTP secrets and password hashes.

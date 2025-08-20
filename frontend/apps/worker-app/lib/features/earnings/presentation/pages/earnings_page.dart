@@ -10,6 +10,7 @@ import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/features/account/providers/providers.dart';
 
@@ -53,10 +54,13 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
 
     // --- Safe calculations ---
     final currentWeekTotal = summary?.currentWeek?.weeklyTotal ?? 0.0;
-    final pendingPastWeeksTotal = summary?.pastWeeks
-            .where((week) =>
-                week.payoutStatus == PayoutStatus.pending ||
-                week.payoutStatus == PayoutStatus.failed)
+    final pendingPastWeeksTotal =
+        summary?.pastWeeks
+            .where(
+              (week) =>
+                  week.payoutStatus == PayoutStatus.pending ||
+                  week.payoutStatus == PayoutStatus.failed,
+            )
             .fold(0.0, (sum, week) => sum + week.weeklyTotal) ??
         0.0;
 
@@ -103,18 +107,19 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
               // --- Payout Failure Notice ---
               if (failedPayout != null)
                 SliverToBoxAdapter(
-                  child: _PayoutFailedNotice(
-                    week: failedPayout,
-                    appLocalizations: appLocalizations,
-                  )
-                      .animate()
-                      .slideY(
-                        begin: -0.5,
-                        end: 0,
-                        duration: 400.ms,
-                        curve: Curves.easeOutCubic,
-                      )
-                      .fadeIn(),
+                  child:
+                      _PayoutFailedNotice(
+                            week: failedPayout,
+                            appLocalizations: appLocalizations,
+                          )
+                          .animate()
+                          .slideY(
+                            begin: -0.5,
+                            end: 0,
+                            duration: 400.ms,
+                            curve: Curves.easeOutCubic,
+                          )
+                          .fadeIn(),
                 ),
 
               // --- Wallet Card ---
@@ -167,15 +172,20 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
                 )
               else
                 SliverPadding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   sliver: SliverList.separated(
                     itemCount: displayedWeeks.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final week = displayedWeeks[index];
                       return _buildPastWeekTile(
-                          context, week, appLocalizations);
+                        context,
+                        week,
+                        appLocalizations,
+                      );
                     },
                   ),
                 ),
@@ -186,13 +196,17 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
     );
   }
 
-  Widget _buildPastWeekTile(BuildContext context, WeeklyEarnings week,
-      AppLocalizations appLocalizations) {
+  Widget _buildPastWeekTile(
+    BuildContext context,
+    WeeklyEarnings week,
+    AppLocalizations appLocalizations,
+  ) {
     final startStr = DateFormat('MMM d').format(week.weekStartDate);
     final endStr = DateFormat('MMM d').format(week.weekEndDate);
 
     return GestureDetector(
-      onTap: () => context.pushNamed(AppRouteNames.weekEarningsDetailPage, extra: week),
+      onTap: () =>
+          context.pushNamed(AppRouteNames.weekEarningsDetailPage, extra: week),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
         decoration: BoxDecoration(
@@ -207,26 +221,41 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
           ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$startStr ${appLocalizations.weeklyEarningsPageTitleSuffix} $endStr',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                _buildPayoutStatusChip(week.payoutStatus, appLocalizations),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$startStr ${appLocalizations.weeklyEarningsPageTitleSuffix} $endStr',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  _buildPayoutStatusChip(week.payoutStatus, appLocalizations),
+                ],
+              ),
             ),
-            const Spacer(),
-            Text(
-              '\$${week.weeklyTotal.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            const SizedBox(width: 12),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                children: [
+                  Text(
+                    '\$${week.weeklyTotal.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, color: Colors.grey),
+                ],
+              ),
             ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
       ),
@@ -234,7 +263,9 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
   }
 
   Widget _buildPayoutStatusChip(
-      PayoutStatus status, AppLocalizations appLocalizations) {
+    PayoutStatus status,
+    AppLocalizations appLocalizations,
+  ) {
     Color color;
     String text;
     Widget? trailingIcon;
@@ -281,10 +312,7 @@ class _EarningsPageState extends ConsumerState<EarningsPage>
               fontSize: 12,
             ),
           ),
-          if (trailingIcon != null) ...[
-            const SizedBox(width: 4),
-            trailingIcon,
-          ],
+          if (trailingIcon != null) ...[const SizedBox(width: 4), trailingIcon],
         ],
       ),
     );
@@ -333,17 +361,21 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
         return widget.appLocalizations.payoutFailureReason_account_closed;
       case 'bank_account_restricted':
         return widget
-            .appLocalizations.payoutFailureReason_bank_account_restricted;
+            .appLocalizations
+            .payoutFailureReason_bank_account_restricted;
       case 'invalid_account_number':
         return widget
-            .appLocalizations.payoutFailureReason_invalid_account_number;
+            .appLocalizations
+            .payoutFailureReason_invalid_account_number;
       case 'payouts_not_allowed':
         return widget.appLocalizations.payoutFailureReason_payouts_not_allowed;
       case 'worker_missing_stripe_connect_id':
-        return widget.appLocalizations
+        return widget
+            .appLocalizations
             .payoutFailureReason_worker_missing_stripe_connect_id;
       case 'stripe_account_payouts_disabled':
-        return widget.appLocalizations
+        return widget
+            .appLocalizations
             .payoutFailureReason_stripe_account_payouts_disabled;
       case 'account_restricted':
         return widget.appLocalizations.payoutFailureReason_account_restricted;
@@ -357,14 +389,17 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
         return widget.appLocalizations.payoutFailureReason_account_frozen;
       case 'bank_ownership_changed':
         return widget
-            .appLocalizations.payoutFailureReason_bank_ownership_changed;
+            .appLocalizations
+            .payoutFailureReason_bank_ownership_changed;
       case 'declined':
         return widget.appLocalizations.payoutFailureReason_declined;
       case 'incorrect_account_holder_name':
         return widget
-            .appLocalizations.payoutFailureReason_incorrect_account_holder_name;
+            .appLocalizations
+            .payoutFailureReason_incorrect_account_holder_name;
       case 'incorrect_account_holder_tax_id':
-        return widget.appLocalizations
+        return widget
+            .appLocalizations
             .payoutFailureReason_incorrect_account_holder_tax_id;
       default:
         return widget.appLocalizations.payoutFailureReason_unknown;
@@ -376,23 +411,22 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
     setState(() => _isFixingOnStripe = true);
 
     final BuildContext capturedContext = context;
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       final repo = ref.read(workerAccountRepositoryProvider);
       final loginLinkUrl = await repo.getStripeExpressLoginLink();
       final success = await tryLaunchUrl(loginLinkUrl);
       if (!success && capturedContext.mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-              content: Text(widget.appLocalizations.urlLauncherCannotLaunch)),
+        showAppSnackBar(
+          capturedContext,
+          Text(widget.appLocalizations.urlLauncherCannotLaunch),
         );
       }
     } catch (e) {
       if (capturedContext.mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-              content: Text(userFacingMessageFromObject(capturedContext, e))),
+        showAppSnackBar(
+          capturedContext,
+          Text(userFacingMessageFromObject(capturedContext, e)),
         );
       }
     } finally {
@@ -406,8 +440,10 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
   Widget build(BuildContext context) {
     final reasonText = _getTranslatedReason(widget.week.failureReason);
     final weekDate = DateFormat.yMMMd().format(widget.week.weekStartDate);
-    final noticeBody =
-        widget.appLocalizations.payoutFailureNoticeBody(weekDate, reasonText);
+    final noticeBody = widget.appLocalizations.payoutFailureNoticeBody(
+      weekDate,
+      reasonText,
+    );
     const supportEmail = 'team@thepoofapp.com';
 
     return Padding(
@@ -424,8 +460,11 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
           children: [
             Row(
               children: [
-                Icon(Icons.warning_amber_rounded,
-                    color: Colors.red.shade700, size: 28),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.red.shade700,
+                  size: 28,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -454,20 +493,19 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
                       : () async {
                           if (_isContactingSupport) return;
                           setState(() => _isContactingSupport = true);
-                          final scaffoldMessenger =
-                              ScaffoldMessenger.of(context);
                           final BuildContext capturedContext = context;
-                          final localizations =
-                              AppLocalizations.of(capturedContext);
+                          final localizations = AppLocalizations.of(
+                            capturedContext,
+                          );
 
                           try {
-                            final success =
-                                await tryLaunchUrl('mailto:$supportEmail');
+                            final success = await tryLaunchUrl(
+                              'mailto:$supportEmail',
+                            );
                             if (!success && capturedContext.mounted) {
-                              scaffoldMessenger.showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        localizations.urlLauncherCannotLaunch)),
+                              showAppSnackBar(
+                                capturedContext,
+                                Text(localizations.urlLauncherCannotLaunch),
                               );
                             }
                           } finally {
@@ -478,8 +516,10 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
                         },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.red.shade700,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -488,9 +528,13 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(widget
-                          .appLocalizations.payoutFailureContactSupportButton),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          widget
+                              .appLocalizations
+                              .payoutFailureContactSupportButton,
+                        ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
@@ -501,7 +545,9 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
                     backgroundColor: Colors.red.shade700,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -511,16 +557,21 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : Text(widget
-                          .appLocalizations.payoutFailureFixOnStripeButton),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          widget
+                              .appLocalizations
+                              .payoutFailureFixOnStripeButton,
+                        ),
                 ),
               ],
-            )
+            ),
           ],
         ),
       ),
     );
   }
 }
-

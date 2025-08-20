@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -13,19 +14,21 @@ import (
 
 	"github.com/bradfitz/latlong"
 	"github.com/google/uuid"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/jobs-service/internal/services"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/gorilla/mux"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
+	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 type JobsController struct {
-	jobService *services.JobService
+	jobService         *services.JobService
+	agentCompletionSvc *services.AgentCompletionService
 }
 
-func NewJobsController(js *services.JobService) *JobsController {
-	return &JobsController{jobService: js}
+func NewJobsController(js *services.JobService, ac *services.AgentCompletionService) *JobsController {
+	return &JobsController{jobService: js, agentCompletionSvc: ac}
 }
 
 // ----------------------------------------------------------------
@@ -157,33 +160,8 @@ func (c *JobsController) AcceptJobHandler(w http.ResponseWriter, r *http.Request
 		)
 		return
 	}
-	if body.Lat < -90 || body.Lat > 90 || body.Lng < -180 || body.Lng > 180 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"lat/lng out of range", nil, nil,
-		)
-		return
-	}
-	if body.Accuracy > 30 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeLocationInaccurate,
-			"GPS accuracy is too low. Please move to an area with a clearer view of the sky.", nil, nil,
-		)
-		return
-	}
-	nowMS := time.Now().UnixMilli()
-	if math.Abs(float64(nowMS-body.Timestamp)) > 30000 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"location timestamp not within ±30s of server time", nil, nil,
-		)
-		return
-	}
-	if body.IsMock {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"is_mock must be false", nil, nil,
-		)
+	if code, msg := internal_utils.ValidateLocationData(body.Lat, body.Lng, body.Accuracy, body.Timestamp, body.IsMock); code != "" {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
 		return
 	}
 
@@ -387,190 +365,145 @@ func (c *JobsController) StartJobHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // ----------------------------------------------------------------
-// POST /api/v1/jobs/complete
-// device-attested + location + photos
-// ...
+// POST /api/v1/jobs/verify-unit-photo
 // ----------------------------------------------------------------
-func (c *JobsController) CompleteJobHandler(w http.ResponseWriter, r *http.Request) {
+func (c *JobsController) VerifyPhotoHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ctxUserID := ctx.Value(middleware.ContextKeyUserID)
 	if ctxUserID == nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusUnauthorized, utils.ErrCodeUnauthorized,
-			"No userID in context", nil, nil,
-		)
+		utils.RespondErrorWithCode(w, http.StatusUnauthorized, utils.ErrCodeUnauthorized, "No userID in context", nil, nil)
 		return
 	}
 
 	if err := r.ParseMultipartForm(16 << 20); err != nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"Failed to parse multipart form", nil, err,
-		)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Failed to parse form", nil, err)
 		return
 	}
 	form := r.MultipartForm
 
 	instIDStr := form.Value["instance_id"]
+	unitIDStr := form.Value["unit_id"]
 	latStr := form.Value["lat"]
 	lngStr := form.Value["lng"]
 	accStr := form.Value["accuracy"]
 	tsStr := form.Value["timestamp"]
 	mockStr := form.Value["is_mock"]
+	missingStr := form.Value["missing_trash_can"]
 
-	if len(instIDStr) == 0 || len(latStr) == 0 || len(lngStr) == 0 ||
-		len(accStr) == 0 || len(tsStr) == 0 || len(mockStr) == 0 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"instance_id, lat, lng, accuracy, timestamp, and is_mock are required form fields",
-			nil, nil,
-		)
+	if len(instIDStr) == 0 || len(unitIDStr) == 0 || len(latStr) == 0 || len(lngStr) == 0 || len(accStr) == 0 || len(tsStr) == 0 || len(mockStr) == 0 {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "missing required form fields", nil, nil)
 		return
 	}
 
-	instUUID, err := uuid.Parse(instIDStr[0])
+	instID, err := uuid.Parse(instIDStr[0])
 	if err != nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"invalid instance_id", nil, err,
-		)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid instance_id", nil, err)
+		return
+	}
+	unitID, err := uuid.Parse(unitIDStr[0])
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid unit_id", nil, err)
 		return
 	}
 	latVal, err := strconv.ParseFloat(latStr[0], 64)
 	if err != nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"invalid lat param", nil, err,
-		)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid lat", nil, err)
 		return
 	}
 	lngVal, err := strconv.ParseFloat(lngStr[0], 64)
 	if err != nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"invalid lng param", nil, err,
-		)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid lng", nil, err)
 		return
 	}
 	accVal, err := strconv.ParseFloat(accStr[0], 64)
 	if err != nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"invalid accuracy param", nil, err,
-		)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid accuracy", nil, err)
 		return
 	}
 	tsVal, err := strconv.ParseInt(tsStr[0], 10, 64)
 	if err != nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"invalid timestamp", nil, err,
-		)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid timestamp", nil, err)
 		return
 	}
 	mockVal, err := strconv.ParseBool(mockStr[0])
 	if err != nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"invalid is_mock", nil, err,
-		)
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid is_mock", nil, err)
 		return
 	}
-
-	if latVal < -90 || latVal > 90 || lngVal < -180 || lngVal > 180 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"lat/lng out of range", nil, nil,
-		)
-		return
-	}
-	if accVal > 30 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeLocationInaccurate,
-			"GPS accuracy is too low. Please move to an area with a clearer view of the sky.", nil, nil,
-		)
-		return
-	}
-	nowMS := time.Now().UnixMilli()
-	if math.Abs(float64(nowMS-tsVal)) > 30000 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"location timestamp not within ±30s of server time", nil, nil,
-		)
-		return
-	}
-	if mockVal {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"is_mock must be false", nil, nil,
-		)
-		return
-	}
-
-	photoCount := 0
-	if photos := form.File["photos[]"]; photos != nil {
-		photoCount = len(photos)
-	}
-
-	updated, svcErr := c.jobService.CompleteJobInstanceWithLocation(
-		ctx,
-		ctxUserID.(string),
-		instUUID,
-		latVal,
-		lngVal,
-		accVal,
-		tsVal,
-		mockVal,
-		photoCount,
-	)
-	if svcErr != nil {
-		switch e := svcErr.(type) {
-		case *internal_utils.RowVersionConflictError:
-			utils.RespondErrorWithCode(
-				w, http.StatusConflict, utils.ErrCodeRowVersionConflict,
-				"Another update occurred, please refresh",
-				e.Current,
-				svcErr,
-			)
-			return
-		default:
-			if errors.Is(svcErr, internal_utils.ErrWrongStatus) ||
-				errors.Is(svcErr, internal_utils.ErrNotAssignedWorker) ||
-				errors.Is(svcErr, internal_utils.ErrLocationOutOfBounds) ||
-				errors.Is(svcErr, internal_utils.ErrNoPhotosProvided) {
-				utils.RespondErrorWithCode(
-					w, http.StatusBadRequest, svcErr.Error(),
-					"Could not complete job",
-					nil, svcErr,
-				)
-				return
-			}
-			if errors.Is(svcErr, utils.ErrNoRowsUpdated) {
-				utils.RespondErrorWithCode(
-					w, http.StatusConflict, utils.ErrCodeRowVersionConflict,
-					"No rows updated, please refresh", nil, svcErr,
-				)
-				return
-			}
-			utils.Logger.WithError(svcErr).Error("Complete job error")
-			utils.RespondErrorWithCode(
-				w, http.StatusInternalServerError, utils.ErrCodeInternal,
-				"Could not complete job", nil, svcErr,
-			)
+	missingVal := false
+	if len(missingStr) > 0 {
+		missingVal, err = strconv.ParseBool(missingStr[0])
+		if err != nil {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "invalid missing_trash_can", nil, err)
 			return
 		}
 	}
+	if code, msg := internal_utils.ValidateLocationData(latVal, lngVal, accVal, tsVal, mockVal); code != "" {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
+		return
+	}
+	if photoHeaders := form.File["photo"]; len(photoHeaders) == 0 {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "photo is required", nil, nil)
+		return
+	}
+	file, err := form.File["photo"][0].Open()
+	if err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "failed to open photo", nil, err)
+		return
+	}
+	defer file.Close()
+	imgData, _ := io.ReadAll(file)
+
+	updated, svcErr := c.jobService.VerifyUnitPhoto(ctx, ctxUserID.(string), instID, unitID, latVal, lngVal, accVal, tsVal, mockVal, missingVal, imgData)
+	if svcErr != nil {
+		utils.Logger.WithError(svcErr).Error("Verify photo error")
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, svcErr.Error(), "Could not verify photo", nil, svcErr)
+		return
+	}
 	if updated == nil {
-		utils.RespondErrorWithCode(
-			w, http.StatusNotFound, utils.ErrCodeNotFound,
-			"Job instance not found or not in progress", nil, nil,
-		)
+		utils.RespondErrorWithCode(w, http.StatusNotFound, utils.ErrCodeNotFound, "Job not found", nil, nil)
 		return
 	}
 	utils.RespondWithJSON(w, http.StatusOK, dtos.JobInstanceActionResponse{Updated: *updated})
 }
 
 // ----------------------------------------------------------------
+// POST /api/v1/jobs/dump-bags
+// ----------------------------------------------------------------
+func (c *JobsController) DumpBagsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	ctxUserID := ctx.Value(middleware.ContextKeyUserID)
+	if ctxUserID == nil {
+		utils.RespondErrorWithCode(w, http.StatusUnauthorized, utils.ErrCodeUnauthorized, "No userID in context", nil, nil)
+		return
+	}
+	var body dtos.JobLocationActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON", nil, err)
+		return
+	}
+	if body.InstanceID == uuid.Nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "instance_id is required", nil, nil)
+		return
+	}
+	if code, msg := internal_utils.ValidateLocationData(body.Lat, body.Lng, body.Accuracy, body.Timestamp, body.IsMock); code != "" {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
+		return
+	}
+
+	updated, svcErr := c.jobService.ProcessDumpTrip(ctx, ctxUserID.(string), body)
+	if svcErr != nil {
+		utils.Logger.WithError(svcErr).Error("Dump bags error")
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, svcErr.Error(), "Could not dump bags", nil, svcErr)
+		return
+	}
+	if updated == nil {
+		utils.RespondErrorWithCode(w, http.StatusNotFound, utils.ErrCodeNotFound, "Job not found", nil, nil)
+		return
+	}
+	utils.RespondWithJSON(w, http.StatusOK, dtos.JobInstanceActionResponse{Updated: *updated})
+}
+
 // POST /api/v1/jobs/unaccept
 // ...
 // ----------------------------------------------------------------
@@ -716,6 +649,45 @@ func (c *JobsController) CancelJobHandler(w http.ResponseWriter, r *http.Request
 	}
 	utils.RespondWithJSON(w, http.StatusOK, dtos.JobInstanceActionResponse{Updated: *updated})
 }
+
+// ----------------------------------------------------------------
+// GET /api/v1/jobs/agent-complete/{token}
+// ----------------------------------------------------------------
+// MODIFIED: This handler now performs a redirect based on the outcome.
+func (c *JobsController) AgentCompleteHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	token := vars["token"]
+
+	// log that we are here
+	utils.Logger.WithField("token", token).Info("Agent completion request received")
+
+	if token == "" {
+		// Redirect to unavailable page for missing token
+		http.Redirect(w, r, "/agent-job-unavailable.html", http.StatusFound)
+		return
+	}
+
+	_, _, err := c.agentCompletionSvc.CompleteByToken(r.Context(), token)
+
+	// On any error (token not found, used, expired, or job not open),
+	// redirect to the "unavailable" page.
+	if err != nil {
+		if errors.Is(err, services.ErrTokenNotFound) ||
+			errors.Is(err, services.ErrTokenUsed) ||
+			errors.Is(err, services.ErrTokenExpired) ||
+			errors.Is(err, services.ErrJobNotOpen) {
+			http.Redirect(w, r, "/agent-job-unavailable.html", http.StatusFound)
+		} else {
+			// For unexpected internal errors, a generic error is still appropriate.
+			utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "An unexpected error occurred", nil, err)
+		}
+		return
+	}
+
+	// On success, redirect to the "confirmed" page.
+	http.Redirect(w, r, "/agent-job-confirmed.html", http.StatusFound)
+}
+
 
 // ----------------------------------------------------------------
 // parseListQueryAndLocation ...

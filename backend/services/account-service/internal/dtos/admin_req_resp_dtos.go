@@ -2,8 +2,8 @@ package dtos
 
 import (
 	"github.com/google/uuid"
-	shared_dtos "github.com/poofware/go-dtos"
-	"github.com/poofware/go-models"
+	shared_dtos "github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
 
 // NOTE: The local ValidationErrorDetail has been removed. It is now defined in the shared go-dtos package.
@@ -106,7 +106,7 @@ type CreateUnitRequest struct {
 	PropertyID uuid.UUID `json:"property_id" validate:"required"`
 	BuildingID uuid.UUID `json:"building_id" validate:"required"`
 	UnitNumber string    `json:"unit_number" validate:"required"`
-	TenantToken string    `json:"tenant_token" validate:"required,uuid4"`
+	TenantToken string    `json:"tenant_token" validate:"omitempty,uuid4"`
 }
 
 type UpdateUnitRequest struct {

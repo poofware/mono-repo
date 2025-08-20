@@ -1,6 +1,7 @@
 // worker-app/lib/main/main.dart
 
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:flutter_flavor/flutter_flavor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
@@ -20,15 +22,15 @@ import 'package:poof_worker/core/providers/app_providers.dart';
 import 'package:poof_worker/features/account/providers/providers.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/features/earnings/providers/providers.dart';
-import 'package:poof_worker/core/utils/location_permissions.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/home_page.dart'
-    show kDefaultMapZoom, kLosAngelesLatLng; // For map defaults
+    show kDefaultMapZoom, kSanFranciscoLatLng; // For map defaults
 import 'package:poof_worker/features/jobs/utils/job_photo_persistence.dart';
 import 'package:poof_worker/features/account/data/models/worker.dart';
 import 'package:poof_worker/core/presentation/widgets/global_error_listener.dart';
-import 'package:poof_flutter_auth/src/utils/auth_logger.dart';
+import 'package:poof_flutter_auth/poof_flutter_auth.dart';
 import 'package:poof_worker/core/presentation/widgets/global_debug_listener.dart';
 import 'package:poof_worker/core/utils/fresh_install_manager.dart';
+ 
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -107,7 +109,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   /// Refreshes data when the app is resumed.
-  void _refreshDataIfAppropriate() {
+  Future<void> _refreshDataIfAppropriate() async {
     if (!ref.read(appStateProvider).isLoggedIn) return;
     
     final worker = ref.read(workerStateNotifierProvider).worker;
@@ -116,6 +118,12 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     final jobsNotifier = ref.read(jobsNotifierProvider.notifier);
     final earningsNotifier = ref.read(earningsNotifierProvider.notifier);
     final jobsState = ref.read(jobsNotifierProvider);
+
+    // Avoid duplicate refresh if a fetch is already in-flight
+    if (jobsState.isLoadingAcceptedJobs || jobsState.isLoadingOpenJobs) {
+      ref.read(appLoggerProvider).d('App resumed, but jobs are already loading. Skipping refresh.');
+      return;
+    }
 
     if (jobsState.inProgressJob != null) {
       ref.read(appLoggerProvider).d('App resumed, but job is in progress. Skipping refresh.');
@@ -127,6 +135,18 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // Always refresh earnings summary.
     earningsNotifier.fetchEarningsSummary(force: true);
     
+    // Only refresh jobs if we have location permission; otherwise skip.
+    final perm = await Geolocator.checkPermission();
+    final hasLocationPerm =
+        perm == LocationPermission.always || perm == LocationPermission.whileInUse;
+
+    if (!hasLocationPerm) {
+      ref
+          .read(appLoggerProvider)
+          .d('Location permission missing at resume; skipping jobs refresh.');
+      return;
+    }
+
     // Refresh jobs based on online status.
     if (jobsState.isOnline) {
       jobsNotifier.refreshOnlineJobsIfActive();
@@ -148,23 +168,24 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _determineInitialCameraPositionAndPermission() async {
+    // Policy-compliant: do not prompt for permission at app launch.
     final logger = ref.read(appLoggerProvider);
-    logger.d("MyApp: Determining initial camera position and permission...");
+    logger.d("MyApp: Determining initial camera without prompting...");
 
-    final bool permissionGranted =
-        await ensureLocationGranted(background: false);
-    ref.read(bootTimePermissionGrantedProvider.notifier).state =
-        permissionGranted;
-    logger.d("MyApp: Location permission granted at boot: $permissionGranted");
+    // Only check current permission; do NOT request here.
+    final perm = await Geolocator.checkPermission();
+    final permissionGranted =
+        perm == LocationPermission.always || perm == LocationPermission.whileInUse;
+    ref.read(bootTimePermissionGrantedProvider.notifier).state = permissionGranted;
+    logger.d("MyApp: Location permission present at boot: $permissionGranted");
 
     CameraPosition? initialCamera;
-
     if (permissionGranted) {
       try {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high, // Use a reasonable accuracy
-            timeLimit: Duration(seconds: 7), // Shorter timeout for boot
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 7),
           ),
         );
         initialCamera = CameraPosition(
@@ -174,16 +195,29 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         logger.d("MyApp: Initial location fetched: ${initialCamera.target}");
       } catch (e) {
         logger.w(
-            "MyApp: Boot-time location fetch failed despite permission: $e. Initial camera will be null.");
-        initialCamera = null; // Explicitly null if fetch fails with permission
+            "MyApp: Boot-time location fetch failed despite permission: $e. Using default LA.");
+        initialCamera = const CameraPosition(
+          target: kSanFranciscoLatLng,
+          zoom: kDefaultMapZoom,
+        );
       }
     } else {
-      logger.d(
-          "MyApp: Location permission not granted at boot. Defaulting to LA.");
+      logger.d("MyApp: No permission at boot. Using default San Francisco.");
       initialCamera = const CameraPosition(
-          target: kLosAngelesLatLng, zoom: kDefaultMapZoom);
+        target: kSanFranciscoLatLng,
+        zoom: kDefaultMapZoom,
+      );
     }
     ref.read(initialBootCameraPositionProvider.notifier).state = initialCamera;
+  }
+
+  Future<void> _preloadMapStyleJson() async {
+    try {
+      final style = await rootBundle.loadString('assets/jsons/map_style.json');
+      ref.read(mapStyleJsonProvider.notifier).state = style;
+    } catch (_) {
+      // ignore; map can render without style
+    }
   }
 
   Future<void> _boot() async {
@@ -201,11 +235,14 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       }
 
       final inProgressJob = ref.read(jobsNotifierProvider).inProgressJob;
+      await Future.wait([
+        _determineInitialCameraPositionAndPermission(),
+        _preloadMapStyleJson(),
+      ]);
       if (inProgressJob != null) {
         _router.goNamed(AppRouteNames.jobInProgressPage, extra: inProgressJob);
       } else {
         await initAppLinks(ref, _router);
-        await _determineInitialCameraPositionAndPermission();
       }
 
       if (!_welcomeVideoController.value.isInitialized) {
@@ -258,6 +295,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
             child: GlobalErrorListener(
               child: Stack(
                 children: [
+                  const _GlobalMapWarmUp(),
                   child!,
                   if (status == NetworkStatus.offline)
                     Positioned(
@@ -279,9 +317,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
             ),
           );
         },
-        themeMode: ref.watch(settingsStateNotifierProvider).themeMode,
+        themeMode: ThemeMode.light,
         theme: _buildTheme(Brightness.light),
-        darkTheme: _buildTheme(Brightness.dark),
       ),
     );
   }
@@ -353,3 +390,42 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 }
 
+class _GlobalMapWarmUp extends ConsumerWidget {
+  const _GlobalMapWarmUp();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (Platform.isAndroid) {
+      // Avoid keeping a second GoogleMap alive on Android; it can cause rendering
+      // conflicts/blank maps on some devices. iOS keeps the tiny warm-up.
+      return const SizedBox.shrink();
+    }
+    final mainMapMounted = ref.watch(homeMapMountedProvider);
+    if (mainMapMounted) return const SizedBox.shrink();
+    final initialCam = ref.watch(initialBootCameraPositionProvider) ??
+        const CameraPosition(target: kSanFranciscoLatLng, zoom: kDefaultMapZoom);
+    final mapStyle = ref.watch(mapStyleJsonProvider) ?? '';
+    return Positioned(
+      right: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0.01, // ensure platform view actually renders on iOS
+          child: RepaintBoundary(
+            child: SizedBox(
+              width: 120,
+              height: 120,
+              child: GoogleMap(
+              initialCameraPosition: initialCam,
+              style: mapStyle.isEmpty ? null : mapStyle,
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              mapToolbarEnabled: false,
+              zoomControlsEnabled: false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v4"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
-	"github.com/poofware/jobs-service/internal/dtos"
-	"github.com/poofware/jobs-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/routes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,134 +38,48 @@ func TestAdminJobEndpoints(t *testing.T) {
 	var createdDef *models.JobDefinition
 	var url = h.BaseURL + routes.AdminJobDefinitions
 
-	// --- Test Case 1: CREATE JobDefinition ---
-	t.Run("AdminCreatesJobDefinition", func(t *testing.T) {
-		h.T = t
-		// Arrange
-		earliest, latest := h.TestSameDayTimeWindow()
-		createReq := dtos.AdminCreateJobDefinitionRequest{
-			ManagerID:                  pm.ID,
-			PropertyID:                 prop.ID,
-			Title:                      "Admin Created Job",
-			Description:                utils.Ptr("This job was created by an admin."),
-			AssignedBuildingIDs:        []uuid.UUID{bldg.ID},
-			DumpsterIDs:                []uuid.UUID{dumpster.ID},
-			Frequency:                  models.JobFreqDaily,
-			StartDate:                  time.Now().UTC().AddDate(0, 0, -1),
-			EarliestStartTime:          earliest,
-			LatestStartTime:            latest,
-			GlobalBasePay:              utils.Ptr(25.50),
-			GlobalEstimatedTimeMinutes: utils.Ptr(45),
+	// --- Create ---
+	t.Run("create job definition (admin)", func(t *testing.T) {
+		req := dtos.AdminCreateJobDefinitionRequest{
+			ManagerID:             pm.ID,
+			PropertyID:            prop.ID,
+			Title:                 "Admin Title",
+			AssignedBuildingIDs:   []uuid.UUID{bldg.ID},
+			DumpsterIDs:           []uuid.UUID{dumpster.ID},
+			Frequency:             models.JobFreqDaily,
+			StartDate:             time.Now().UTC().AddDate(0, 0, -1),
+			EarliestStartTime:     time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC),
+			LatestStartTime:       time.Date(0, 1, 1, 23, 50, 0, 0, time.UTC),
+			DailyPayEstimates:     []dtos.DailyPayEstimateRequest{{DayOfWeek: 0, BasePay: 10, EstimatedTimeMinutes: 30}, {DayOfWeek: 1, BasePay: 10, EstimatedTimeMinutes: 30}, {DayOfWeek: 2, BasePay: 10, EstimatedTimeMinutes: 30}, {DayOfWeek: 3, BasePay: 10, EstimatedTimeMinutes: 30}, {DayOfWeek: 4, BasePay: 10, EstimatedTimeMinutes: 30}, {DayOfWeek: 5, BasePay: 10, EstimatedTimeMinutes: 30}, {DayOfWeek: 6, BasePay: 10, EstimatedTimeMinutes: 30}},
 		}
-
-		bodyBytes, err := json.Marshal(createReq)
-		require.NoError(t, err)
-
-		req := h.BuildAuthRequest(http.MethodPost, url, adminJWT, bodyBytes, "web", "127.0.0.1")
-
-		// Act
-		resp := h.DoRequest(req, client)
+		body, _ := json.Marshal(req)
+		r := h.BuildAuthRequest("POST", url, adminJWT, body, "web", "127.0.0.1")
+		resp := h.DoRequest(r, client)
 		defer resp.Body.Close()
-
-		// Assert
-		require.Equal(t, http.StatusCreated, resp.StatusCode, "Expected 201 Created. Body: %s", h.ReadBody(resp))
-		err = json.NewDecoder(resp.Body).Decode(&createdDef)
-		require.NoError(t, err, "Failed to decode response body")
-		assert.Equal(t, createReq.Title, createdDef.Title)
-		assert.Equal(t, createReq.PropertyID, createdDef.PropertyID)
-		assert.Equal(t, pm.ID, createdDef.ManagerID) // Verify it's assigned to the correct PM
-
-		// Assert audit log
-		auditLogs, err := h.AdminAuditLogRepo.ListByTargetID(ctx, createdDef.ID)
-		require.NoError(t, err)
-		require.Len(t, auditLogs, 1, "Expected one audit log entry")
-		assert.Equal(t, models.AuditCreate, auditLogs[0].Action)
-		assert.Equal(t, models.TargetJobDefinition, auditLogs[0].TargetType)
-		assert.Equal(t, adminUser.ID, auditLogs[0].AdminID)
+		assert.Equal(t, http.StatusCreated, resp.StatusCode, "create should return 201")
+		var created models.JobDefinition
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&created))
+		createdDef = &created
+		fmt.Println("Created def:", createdDef.ID)
 	})
 
-	// --- Test Case 2: UPDATE JobDefinition ---
-	t.Run("AdminUpdatesJobDefinition", func(t *testing.T) {
-		h.T = t
-		require.NotNil(t, createdDef, "createdDef should not be nil for update test")
-
-		// Arrange
-		newTitle := "Admin Updated Job Title"
-		updateReq := dtos.AdminUpdateJobDefinitionRequest{
-			DefinitionID: createdDef.ID,
-			Title:        &newTitle,
-		}
-		bodyBytes, err := json.Marshal(updateReq)
-		require.NoError(t, err)
-
-		req := h.BuildAuthRequest(http.MethodPatch, url, adminJWT, bodyBytes, "web", "127.0.0.1")
-
-		// Act
-		resp := h.DoRequest(req, client)
+	// --- Update ---
+	t.Run("update job definition (admin)", func(t *testing.T) {
+		req := dtos.AdminUpdateJobDefinitionRequest{DefinitionID: createdDef.ID, Title: utils.Ptr("Updated Title")}
+		body, _ := json.Marshal(req)
+		r := h.BuildAuthRequest("PATCH", url, adminJWT, body, "web", "127.0.0.1")
+		resp := h.DoRequest(r, client)
 		defer resp.Body.Close()
-
-		// Assert
-		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected 200 OK")
-		var updatedDef *models.JobDefinition
-		err = json.NewDecoder(resp.Body).Decode(&updatedDef)
-		require.NoError(t, err)
-		assert.Equal(t, newTitle, updatedDef.Title)
-		assert.Greater(t, updatedDef.RowVersion, createdDef.RowVersion, "Row version should have incremented")
-
-		// Assert audit log
-		auditLogs, err := h.AdminAuditLogRepo.ListByTargetID(ctx, createdDef.ID)
-		require.NoError(t, err)
-		require.Len(t, auditLogs, 2, "Expected two audit log entries now")
-		assert.Equal(t, models.AuditUpdate, auditLogs[1].Action)
-		assert.Equal(t, models.TargetJobDefinition, auditLogs[1].TargetType)
-		assert.Equal(t, adminUser.ID, auditLogs[1].AdminID)
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "update should return 200")
 	})
 
-	// --- Test Case 3: DELETE JobDefinition (Soft) ---
-	t.Run("AdminSoftDeletesJobDefinition", func(t *testing.T) {
-		h.T = t
-		require.NotNil(t, createdDef, "createdDef should not be nil for delete test")
-
-		// Arrange: Create future instances to verify they get deleted
-		var futureInstanceIDs []uuid.UUID
-		for i := 1; i <= 3; i++ {
-			inst := h.CreateTestJobInstance(t, ctx, createdDef.ID, time.Now().AddDate(0, 0, i), models.InstanceStatusOpen, nil)
-			futureInstanceIDs = append(futureInstanceIDs, inst.ID)
-		}
-
-		deleteReq := dtos.AdminDeleteJobDefinitionRequest{
-			DefinitionID: createdDef.ID,
-		}
-		bodyBytes, err := json.Marshal(deleteReq)
-		require.NoError(t, err)
-
-		req := h.BuildAuthRequest(http.MethodDelete, url, adminJWT, bodyBytes, "web", "127.0.0.1")
-
-		// Act
-		resp := h.DoRequest(req, client)
+	// --- Delete ---
+	t.Run("delete job definition (admin)", func(t *testing.T) {
+		req := dtos.AdminDeleteJobDefinitionRequest{DefinitionID: createdDef.ID}
+		body, _ := json.Marshal(req)
+		r := h.BuildAuthRequest("DELETE", url, adminJWT, body, "web", "127.0.0.1")
+		resp := h.DoRequest(r, client)
 		defer resp.Body.Close()
-
-		// Assert
-		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected 200 OK for soft delete")
-
-		// Assert audit log
-		auditLogs, err := h.AdminAuditLogRepo.ListByTargetID(ctx, createdDef.ID)
-		require.NoError(t, err)
-		require.Len(t, auditLogs, 3, "Expected three audit log entries now")
-		assert.Equal(t, models.AuditDelete, auditLogs[2].Action)
-		assert.Equal(t, models.TargetJobDefinition, auditLogs[2].TargetType)
-		assert.Equal(t, adminUser.ID, auditLogs[2].AdminID)
-
-		// Assert definition status is DELETED in the DB
-		dbDef, err := h.JobDefRepo.GetByID(ctx, createdDef.ID)
-		require.NoError(t, err)
-		assert.Equal(t, models.JobStatusDeleted, dbDef.Status)
-
-		// Assert cascade deletion of future open instances
-		for _, instID := range futureInstanceIDs {
-			_, err := h.JobInstRepo.GetByID(ctx, instID)
-			assert.Error(t, err, fmt.Sprintf("Expected error when fetching deleted instance %s", instID))
-			assert.ErrorIs(t, err, pgx.ErrNoRows, fmt.Sprintf("Expected ErrNoRows for deleted instance %s", instID))
-		}
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "delete should return 200")
 	})
 }

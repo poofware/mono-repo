@@ -56,7 +56,7 @@ export APP_PORT := 8080
 APP_IS_GATEWAY := 1
 ENABLE_NGROK_FOR_DEV := 1
 STAGING_FLY_TOML_PATH := deploy/staging.fly.toml
-FLY_TOML_PATH := deploy/fly.toml
+PROD_FLY_TOML_PATH := deploy/fly.toml
 ifndef INCLUDED_APP_CONFIGURATION
   include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_configuration.mk
 endif
@@ -87,5 +87,5 @@ ifndef INCLUDED_COMPOSE_APP_TARGETS
   include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/app/compose_app_targets.mk
 endif
 
-up:: _deps-_up-app-post-check
+up:: _deps-up-app-post-check
 

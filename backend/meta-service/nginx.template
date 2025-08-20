@@ -1,0 +1,171 @@
+# nginx.conf
+
+worker_processes auto;
+env EDGE_AUTH_SECRET;
+env EDGE_AUTH_MAP_DEFAULT;
+env EDGE_AUTH_GUARD;
+worker_rlimit_nofile 65535;
+events
+{
+    worker_connections 16384;
+    multi_accept on;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Ensure map hashing works even with long secrets
+    map_hash_bucket_size 128;
+
+    map $http_x_edge_auth $cf_ok {
+        default ${EDGE_AUTH_MAP_DEFAULT};
+        "${EDGE_AUTH_SECRET}" 1;
+    }
+    
+    types {
+        # ES-module startup code
+        application/javascript        js mjs;
+        text/javascript               js mjs;   # optional fallback
+
+        # Web-Assembly engine
+        application/wasm              wasm;
+
+        # PWA / web-manifest
+        application/manifest+json     webmanifest json;
+    }
+
+    keepalive_timeout 30;
+    client_max_body_size 50m;
+    absolute_redirect off;
+
+    # Configure reverse proxy server on port 8080
+    server {
+        listen 8080;
+        ${EDGE_AUTH_GUARD}
+        large_client_header_buffers 4 16k;
+
+        # Proxy /health requests to the health_check service on port 8081
+        location /health {
+            proxy_pass http://127.0.0.1:8081/health;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ~ ^/auth/(v[0-9]+)/(.+) {
+            # can also pass $request_uri to get the full URI
+            proxy_pass http://127.0.0.1:8082/auth/$1/$2?$args;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ~ ^/api/(v[0-9]+)/account/(.+) {
+            # can also pass $request_uri to get the full URI
+            proxy_pass http://127.0.0.1:8083/api/$1/account/$2?$args;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Forward any routes starting with /poofworker to port 8083
+        location /poofworker {
+            proxy_pass http://127.0.0.1:8083;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Forward routes starting with /.well-known to port 8083
+        location ^~ /.well-known {
+            proxy_pass http://127.0.0.1:8083;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ~ ^/api/(v[0-9]+)/interest/(.+) {
+            # can also pass $request_uri to get the full URI
+            proxy_pass http://127.0.0.1:8084/api/$1/interest/$2?$args;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ~ ^/api/(v[0-9]+)/jobs/(.+) {
+            # can also pass $request_uri to get the full URI
+            proxy_pass http://127.0.0.1:8085/api/$1/jobs/$2?$args;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ~ ^/api/(v[0-9]+)/earnings/(.+) {
+            # can also pass $request_uri to get the full URI
+            proxy_pass http://127.0.0.1:8086/api/$1/earnings/$2?$args;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /pm {
+           return 301 /pm/;
+        }
+
+        # Serve the Flutter pm-app from the /pm/ path
+        location /pm/ {
+            root   /usr/share/nginx/html; # Root still points to the parent
+            try_files $uri $uri/ /pm/index.html;
+        }
+
+        root   /usr/share/nginx/html;   # where Dockerfile copied ./the-website/src/
+        index  index.html;
+
+        location = /favicon.ico {
+            try_files /favicon.ico =404;
+            access_log off;
+            add_header Cache-Control "public, max-age=31536000, immutable";
+        }
+
+        # 1-year immutable cache for any hashed static asset
+        location ~* \.(?:css|js|mjs|json|woff2?|svg|png|jpe?g|gif|webp|ico)$ {
+            try_files $uri =404;
+            access_log off;
+            add_header Cache-Control "public, max-age=31536000, immutable";
+        }
+
+        location ~ \.html$ {
+            try_files $uri =404;
+        }
+
+        # SPA fallback – zero-cache so new deploys propagate immediately
+        location / {
+            try_files $uri $uri/ /index.html;
+            add_header Cache-Control "no-store";
+        }
+    }
+
+    # Internal server used solely for Fly.io health checks
+    server {
+        listen 11111;
+        large_client_header_buffers 4 16k;
+
+        location /health {
+            proxy_pass http://127.0.0.1:8081/health;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+

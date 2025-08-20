@@ -14,6 +14,7 @@ import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 // Enum for the button's internal state to manage transitions and taps.
 enum _ButtonState { idle, goingOnline, goingOffline }
@@ -39,7 +40,6 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
     setState(() => _buttonState = _ButtonState.goingOnline);
 
     // Capture context before async gap
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
     final appLocalizations = AppLocalizations.of(capturedContext);
@@ -52,10 +52,9 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
         await ref.read(jobsNotifierProvider.notifier).goOnline();
       } catch (e) {
         if (capturedContext.mounted) {
-          scaffoldMessenger.showSnackBar(
-            SnackBar(
-                content: Text(
-                    appLocalizations.goOnlineButtonFailedOnline(e.toString()))),
+          showAppSnackBar(
+            capturedContext,
+            Text(appLocalizations.goOnlineButtonFailedOnline(e.toString())),
           );
         }
       } finally {
@@ -69,7 +68,7 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
     // PRODUCTION / STAGING
     try {
       final repo = ref.read(workerAccountRepositoryProvider);
-      final worker = await repo.getWorker();
+      final worker = await repo.getCheckrOutcome();
 
       final isActive = worker.accountStatus == AccountStatusType.active;
       final isApproved =
@@ -81,25 +80,24 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
         router.goNamed(AppRouteNames.checkrOutcomePage);
       } else {
         if (capturedContext.mounted) {
-          scaffoldMessenger.showSnackBar(
-            SnackBar(
-              content: Text(appLocalizations.goOnlineButtonAccountInactive),
-            ),
+          showAppSnackBar(
+            capturedContext,
+            Text(appLocalizations.goOnlineButtonAccountInactive),
           );
         }
       }
     } on ApiException catch (e) {
       if (capturedContext.mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+        showAppSnackBar(
+          capturedContext,
+          Text(userFacingMessage(capturedContext, e)),
         );
       }
     } catch (e) {
       if (capturedContext.mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-              content:
-                  Text(appLocalizations.loginUnexpectedError(e.toString()))),
+        showAppSnackBar(
+          capturedContext,
+          Text(appLocalizations.loginUnexpectedError(e.toString())),
         );
       }
     } finally {
@@ -113,7 +111,6 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
     if (_buttonState != _ButtonState.idle) return;
     setState(() => _buttonState = _ButtonState.goingOffline);
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final appLocalizations = AppLocalizations.of(context);
     final BuildContext capturedContext = context;
 
@@ -123,10 +120,9 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
       await ref.read(jobsNotifierProvider.notifier).goOffline();
     } catch (e) {
       if (capturedContext.mounted) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-              content: Text(
-                  appLocalizations.goOnlineButtonFailedOffline(e.toString()))),
+        showAppSnackBar(
+          capturedContext,
+          Text(appLocalizations.goOnlineButtonFailedOffline(e.toString())),
         );
       }
     } finally {
@@ -138,8 +134,9 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isOnline =
-        ref.watch(jobsNotifierProvider.select((state) => state.isOnline));
+    final bool isOnline = ref.watch(
+      jobsNotifierProvider.select((state) => state.isOnline),
+    );
     final appLocalizations = AppLocalizations.of(context);
 
     // Determine current visual and interaction state
@@ -147,13 +144,16 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
     final bool isDisabled = _buttonState != _ButtonState.idle;
     final bool showPill = !isLoading;
 
-    final Color backgroundColor =
-        isOnline ? Colors.black54.withValues(alpha: 0.45) : AppColors.poofColor;
+    final Color backgroundColor = isOnline
+        ? Colors.black54.withValues(alpha: 0.45)
+        : AppColors.poofColor;
     final double targetWidth = showPill ? _pillWidth : _circleDiameter;
-    final BorderRadius targetBorderRadius =
-        BorderRadius.circular(showPill ? 32.0 : _circleDiameter / 2);
-    final VoidCallback? onTap =
-        isDisabled ? null : (isOnline ? _handleGoOffline : _handleGoOnline);
+    final BorderRadius targetBorderRadius = BorderRadius.circular(
+      showPill ? 32.0 : _circleDiameter / 2,
+    );
+    final VoidCallback? onTap = isDisabled
+        ? null
+        : (isOnline ? _handleGoOffline : _handleGoOnline);
 
     Widget content;
     if (isLoading) {
@@ -167,12 +167,15 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
       final text = isOnline
           ? appLocalizations.goOnlineButtonGoOffline
           : appLocalizations.goOnlineButtonGoOnline;
-      content = Text(text,
-          key: ValueKey(text),
-          style: TextStyle(
-              fontSize: 18,
-              color: Colors.white,
-              fontWeight: isOnline ? FontWeight.w400 : FontWeight.w600));
+      content = Text(
+        text,
+        key: ValueKey(text),
+        style: TextStyle(
+          fontSize: 18,
+          color: Colors.white,
+          fontWeight: isOnline ? FontWeight.w400 : FontWeight.w600,
+        ),
+      );
     }
 
     // The AnimatedContainer is what performs the "shrinking" animation by changing its width.
@@ -209,12 +212,13 @@ class _GoOnlineButtonState extends ConsumerState<GoOnlineButton> {
 
     // Apply shimmer only when offline and not busy
     if (!isOnline && !isDisabled) {
-      button =
-          button.animate(onPlay: (c) => c.repeat(period: 3.seconds)).shimmer(
-                duration: 1.5.seconds,
-                curve: Curves.linear,
-                color: Colors.white.withValues(alpha: 0.3),
-              );
+      button = button
+          .animate(onPlay: (c) => c.repeat(period: 3.seconds))
+          .shimmer(
+            duration: 1.5.seconds,
+            curve: Curves.linear,
+            color: Colors.white.withValues(alpha: 0.3),
+          );
     }
 
     return button;

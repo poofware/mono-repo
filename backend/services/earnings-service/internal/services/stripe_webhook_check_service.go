@@ -3,7 +3,7 @@ package services
 import (
 	"sync"
 
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	stripe "github.com/stripe/stripe-go/v82"
 )
 

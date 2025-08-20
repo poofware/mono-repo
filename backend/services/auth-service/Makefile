@@ -36,7 +36,7 @@ export SHARED_PATH := $(REPO_ROOT)/backend/shared
 PACKAGES := go-middleware go-repositories go-utils go-models go-dtos go-testhelpers
 ENABLE_NGROK_FOR_DEV := 1
 STAGING_FLY_TOML_PATH := deploy/staging.fly.toml
-FLY_TOML_PATH := deploy/fly.toml
+PROD_FLY_TOML_PATH := deploy/fly.toml
 ifndef INCLUDED_COMPOSE_GO_APP_CONFIGURATION
   include $(DEVOPS_TOOLKIT_PATH)/backend/make/compose/compose-project-configurations/compose-file-configurations/go-app/compose_go_app_configuration.mk
 endif
@@ -44,7 +44,7 @@ endif
 # 4) Additional DB Migrations Config
 export COMPOSE_DB_NAME := shared_pg_db
 export MIGRATIONS_PATH := $(REPO_ROOT)/backend/migrations
-export HCP_APP_NAME_FOR_DB_SECRETS := $(APP_NAME)-$(ENV)
+export BWS_PROJECT_NAME_FOR_DB_SECRETS := $(APP_NAME)-$(ENV)
 
 # 5) Go App Targets (build, test, update, etc.)
 ifndef INCLUDED_COMPOSE_GO_APP_TARGETS

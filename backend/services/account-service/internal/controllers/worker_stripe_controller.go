@@ -4,11 +4,11 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/account-service/internal/services"
-	"github.com/poofware/go-middleware"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/services"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // WorkerStripeController handles worker-specific Stripe endpoints

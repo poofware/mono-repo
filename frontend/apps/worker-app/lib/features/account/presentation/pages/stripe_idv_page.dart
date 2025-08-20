@@ -15,6 +15,7 @@ import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/routing/router.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 import '../../utils/stripe_utils.dart';
 
@@ -31,7 +32,6 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
   Future<void> _onStartIdVerification() async {
     final config = PoofWorkerFlavorConfig.instance;
     if (!mounted) return;
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
 
@@ -43,27 +43,32 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
     setState(() => _isLoading = true);
     try {
       final workerAccountRepo = ref.read(workerAccountRepositoryProvider);
-      final success =
-          await startStripeIdentityFlow(router: router, repo: workerAccountRepo);
+      final success = await startStripeIdentityFlow(
+        router: router,
+        repo: workerAccountRepo,
+      );
       if (!success) {
         if (!capturedContext.mounted) return;
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-              content:
-                  Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch)),
+        showAppSnackBar(
+          capturedContext,
+          Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch),
         );
       }
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(
-                AppLocalizations.of(capturedContext).loginUnexpectedError(e.toString()))),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).loginUnexpectedError(e.toString()),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -94,12 +99,12 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
                       children: [
                         const SizedBox(height: 16),
                         const Center(
-                          child: Icon(
-                            Icons.badge_outlined,
-                            size: 64,
-                            color: AppColors.poofColor,
-                          ),
-                        )
+                              child: Icon(
+                                Icons.badge_outlined,
+                                size: 64,
+                                color: AppColors.poofColor,
+                              ),
+                            )
                             .animate()
                             .fadeIn(delay: 200.ms, duration: 400.ms)
                             .scale(
@@ -109,30 +114,34 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
                             ),
                         const SizedBox(height: 24),
                         Text(
-                          appLocalizations.stripeIdvPageTitle,
-                          style: theme.textTheme.headlineLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        )
+                              appLocalizations.stripeIdvPageTitle,
+                              style: theme.textTheme.headlineLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
                             .animate()
                             .fadeIn(delay: 300.ms)
                             .slideX(
-                                begin: -0.1,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic),
+                              begin: -0.1,
+                              duration: 400.ms,
+                              curve: Curves.easeOutCubic,
+                            ),
                         Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Text(
-                            appLocalizations.stripeIdvPageExplanation,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant),
-                          ),
-                        )
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                appLocalizations.stripeIdvPageExplanation,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            )
                             .animate()
                             .fadeIn(delay: 400.ms)
                             .slideX(
-                                begin: -0.1,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic),
+                              begin: -0.1,
+                              duration: 400.ms,
+                              curve: Curves.easeOutCubic,
+                            ),
                         Padding(
                           padding: const EdgeInsets.only(top: 24),
                           child: Container(
@@ -144,14 +153,20 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
                             child: Column(
                               children: [
                                 _buildStepRow(
-                                    icon: FontAwesomeIcons.fileLines,
-                                    text: appLocalizations.stripeIdvPageStepScanId),
+                                  icon: FontAwesomeIcons.fileLines,
+                                  text:
+                                      appLocalizations.stripeIdvPageStepScanId,
+                                ),
                                 _buildStepRow(
-                                    icon: FontAwesomeIcons.user,
-                                    text: appLocalizations.stripeIdvPageStepSelfie),
+                                  icon: FontAwesomeIcons.user,
+                                  text:
+                                      appLocalizations.stripeIdvPageStepSelfie,
+                                ),
                                 _buildStepRow(
-                                    icon: FontAwesomeIcons.check,
-                                    text: appLocalizations.stripeIdvPageStepSubmit),
+                                  icon: FontAwesomeIcons.check,
+                                  text:
+                                      appLocalizations.stripeIdvPageStepSubmit,
+                                ),
                               ],
                             ),
                           ),
@@ -160,8 +175,9 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
                           padding: const EdgeInsets.only(top: 24),
                           child: Text(
                             appLocalizations.stripeIdvPageBeforeYouBeginTitle,
-                            style: theme.textTheme.titleLarge
-                                ?.copyWith(fontSize: 20),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontSize: 20,
+                            ),
                           ),
                         ).animate().fadeIn(delay: 600.ms),
                         Padding(
@@ -175,14 +191,19 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
                             child: Column(
                               children: [
                                 _buildStepRow(
-                                    icon: FontAwesomeIcons.exclamation,
-                                    text: appLocalizations.stripeIdvPageTipDuration),
+                                  icon: FontAwesomeIcons.exclamation,
+                                  text:
+                                      appLocalizations.stripeIdvPageTipDuration,
+                                ),
                                 _buildStepRow(
-                                    icon: FontAwesomeIcons.lightbulb,
-                                    text: appLocalizations.stripeIdvPageTipLighting),
+                                  icon: FontAwesomeIcons.lightbulb,
+                                  text:
+                                      appLocalizations.stripeIdvPageTipLighting,
+                                ),
                                 _buildStepRow(
-                                    icon: FontAwesomeIcons.idCard,
-                                    text: appLocalizations.stripeIdvPageTipHaveId),
+                                  icon: FontAwesomeIcons.idCard,
+                                  text: appLocalizations.stripeIdvPageTipHaveId,
+                                ),
                               ],
                             ),
                           ),
@@ -191,8 +212,10 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
                           padding: const EdgeInsets.only(top: 24),
                           child: Text(
                             appLocalizations.stripeIdvPageSecurityNote,
-                            style:
-                                const TextStyle(fontSize: 14, color: Colors.grey),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
                           ),
                         ).animate().fadeIn(delay: 800.ms),
                       ],
@@ -211,9 +234,10 @@ class _VerifyIdentityPageState extends ConsumerState<VerifyIdentityPage> {
                             style: const TextStyle(fontSize: 14),
                           ),
                           _StatefulSupportButton(
-                            text:
-                                appLocalizations.stripeIdvPageContactSupportButton,
-                            onPressed: () => tryLaunchUrl('mailto:team@thepoofapp.com'),
+                            text: appLocalizations
+                                .stripeIdvPageContactSupportButton,
+                            onPressed: () =>
+                                tryLaunchUrl('mailto:team@thepoofapp.com'),
                           ),
                         ],
                       ),

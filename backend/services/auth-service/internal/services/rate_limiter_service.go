@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/poofware/auth-service/internal/config"
-	"github.com/poofware/auth-service/internal/repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // RateLimiterService provides a high-level interface for checking various rate limits.

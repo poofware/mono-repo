@@ -7,30 +7,30 @@ import (
 
     "github.com/google/uuid"
     "github.com/jackc/pgx/v4"
-    "github.com/poofware/auth-service/internal/models"
-    "github.com/poofware/go-utils"
-    . "github.com/poofware/go-repositories"
+    auth_models "github.com/poofware/mono-repo/backend/services/auth-service/internal/models"
+    "github.com/poofware/mono-repo/backend/shared/go-utils"
+    sharedrepos "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 type AdminTokenRepository interface {
     TokenRepository
-    DB() DB
+    DB() sharedrepos.DB
     CleanupExpiredRefreshTokens(ctx context.Context) error
 }
 
 type adminTokenRepository struct {
-    db DB
+    db sharedrepos.DB
 }
 
-func NewAdminTokenRepository(db DB) AdminTokenRepository {
+func NewAdminTokenRepository(db sharedrepos.DB) AdminTokenRepository {
     return &adminTokenRepository{db: db}
 }
 
-func (r *adminTokenRepository) DB() DB {
+func (r *adminTokenRepository) DB() sharedrepos.DB {
     return r.db
 }
 
-func (r *adminTokenRepository) CreateRefreshToken(ctx context.Context, token *models.RefreshToken) error {
+func (r *adminTokenRepository) CreateRefreshToken(ctx context.Context, token *auth_models.RefreshToken) error {
     query := `
         INSERT INTO admin_refresh_tokens (id, admin_id, refresh_token, expires_at, created_at, revoked, ip_address, device_id)
         VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7)
@@ -47,7 +47,7 @@ func (r *adminTokenRepository) CreateRefreshToken(ctx context.Context, token *mo
     return err
 }
 
-func (r *adminTokenRepository) GetRefreshToken(ctx context.Context, rawToken string) (*models.RefreshToken, error) {
+func (r *adminTokenRepository) GetRefreshToken(ctx context.Context, rawToken string) (*auth_models.RefreshToken, error) {
     hashed := utils.HashToken(rawToken)
     query := `
         SELECT id, admin_id, refresh_token, expires_at, created_at, revoked, ip_address, device_id
@@ -56,7 +56,7 @@ func (r *adminTokenRepository) GetRefreshToken(ctx context.Context, rawToken str
     `
     row := r.db.QueryRow(ctx, query, hashed)
 
-    var rt models.RefreshToken
+    var rt auth_models.RefreshToken
     err := row.Scan(
         &rt.ID,
         &rt.UserID,

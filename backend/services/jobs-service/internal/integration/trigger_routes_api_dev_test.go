@@ -15,10 +15,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/go-models"
-	"github.com/poofware/jobs-service/internal/constants"
-	"github.com/poofware/jobs-service/internal/dtos"
-	internal_utils "github.com/poofware/jobs-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
 )
 
 // TestListOpenJobs_TravelInfo verifies that DistanceMiles and TravelMinutes are correctly
@@ -27,7 +26,7 @@ import (
 func TestListOpenJobs_TravelInfo(t *testing.T) {
 	h.T = t
 	ctx := context.Background()
-	earliest, latest := h.TestSameDayTimeWindow()
+    earliest, latest, _ := h.WindowActiveNowInTZ("UTC")
 
 	worker := h.CreateTestWorker(ctx, "gmapstester")
 	const deviceID = "gmapstest-device-session1" // Consistent device ID
@@ -44,7 +43,8 @@ func TestListOpenJobs_TravelInfo(t *testing.T) {
 	defSJ := h.CreateTestJobDefinition(t, ctx, testPM.ID, propSJ.ID, "GMapsJobSJ",
 		[]uuid.UUID{buildingSJ.ID}, []uuid.UUID{dumpsterSJ.ID}, earliest, latest,
 		models.JobStatusActive, nil, models.JobFreqDaily, nil)
-	_ = h.CreateTestJobInstance(t, ctx, defSJ.ID, time.Now().UTC(), models.InstanceStatusOpen, nil)
+	// MODIFIED: Create instance for tomorrow to ensure it's always within the acceptance window.
+	_ = h.CreateTestJobInstance(t, ctx, defSJ.ID, time.Now().UTC().AddDate(0, 0, 1), models.InstanceStatusOpen, nil)
 
 	listURLPA := fmt.Sprintf("%s/api/v1/jobs/open?lat=%f&lng=%f&page=1&size=10",
 		h.BaseURL, workerQueryLatPA, workerQueryLngPA)
@@ -71,7 +71,7 @@ func TestListOpenJobs_TravelInfo(t *testing.T) {
 	require.True(t, foundJobPA, "Expected to find San Jose job from Palo Alto query. Results: %+v", outPA.Results)
 
 	// --- Distance Assertions for PA to SJ ---
-	expectedHaversineDistPAtoSJ := internal_utils.DistanceMiles(workerQueryLatPA, workerQueryLngPA, propLatSJ, propLngSJ)
+	expectedHaversineDistPAtoSJ := utils.DistanceMiles(workerQueryLatPA, workerQueryLngPA, propLatSJ, propLngSJ)
 	actualDrivingDistPAtoSJ := jobDTOPA.DistanceMiles
 	t.Logf("Palo Alto to San Jose: Expected Haversine Distance=%.2f, API Reported Driving Distance=%.2f", expectedHaversineDistPAtoSJ, actualDrivingDistPAtoSJ)
 
@@ -132,7 +132,7 @@ func TestListOpenJobs_TravelInfo(t *testing.T) {
 	require.True(t, foundJobSF, "Expected to find San Francisco job from Oakland query. Results: %+v", outSF.Results)
 
 	// --- Distance Assertions for OK to SF ---
-	expectedHaversineDistOKtoSF := internal_utils.DistanceMiles(workerQueryLatOK, workerQueryLngOK, propLatSF, propLngSF)
+	expectedHaversineDistOKtoSF := utils.DistanceMiles(workerQueryLatOK, workerQueryLngOK, propLatSF, propLngSF)
 	actualDrivingDistOKtoSF := jobDTOSF.DistanceMiles
 	t.Logf("Oakland to San Francisco: Expected Haversine Distance=%.2f, API Reported Driving Distance=%.2f", expectedHaversineDistOKtoSF, actualDrivingDistOKtoSF)
 
@@ -149,7 +149,7 @@ func TestListOpenJobs_TravelInfo(t *testing.T) {
 	if jobDTOSF.TravelMinutes != nil {
 		require.Greater(t, *jobDTOSF.TravelMinutes, 0, "TravelMinutes (OK-SF) should be positive. Got: %d", *jobDTOSF.TravelMinutes)
 
-		haversineBasedFallbackTimeOKtoSF := int(expectedHaversineDistOKtoSF*constants.CrowFliesDriveTimeMultiplier + 0.5)
+		haversineBasedFallbackTimeOKtoSF := int(expectedHaversineDistOKtoSF*utils.CrowFliesDriveTimeMultiplier + 0.5)
 
 		t.Logf("Oakland to San Francisco: API Reported Driving Distance=%.2f, API Reported TravelMinutes=%d, Haversine-based Fallback Time Est: ~%d mins",
 			actualDrivingDistOKtoSF,

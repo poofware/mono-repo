@@ -1,296 +1,398 @@
-// worker-app/lib/features/jobs/presentation/pages/job_in_progress_page.dart
+// frontend/apps/worker-app/lib/features/jobs/presentation/pages/job_in_progress_page.dart
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:image_picker/image_picker.dart';
-
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:image_picker/image_picker.dart';
+import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
-import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
-import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
-import 'package:poof_worker/features/jobs/presentation/widgets/slide_button_widget.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/job_map_page.dart';
+import 'package:poof_worker/features/jobs/presentation/widgets/slide_button_widget.dart';
+import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
+import 'package:poof_worker/features/jobs/state/jobs_state.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
-import 'package:poof_worker/features/jobs/utils/job_photo_persistence.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class JobInProgressPage extends ConsumerStatefulWidget {
   final JobInstance job;
   final JobMapPage preWarmedMap;
-
   const JobInProgressPage({
     super.key,
     required this.job,
     required this.preWarmedMap,
   });
-
   @override
   ConsumerState<JobInProgressPage> createState() => _JobInProgressPageState();
 }
 
 class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
-  // --- Page State ---
   Timer? _timer;
   Duration _elapsedTime = Duration.zero;
-  final List<XFile> _photos = [];
-  bool _isCompleting = false;
-  bool _isCancelling = false;
-  bool _isRestoring = true; // Used to show a loader while restoring photos
-  bool _isTakingPhoto = false; // Protect the camera button
 
-  // --- Map State ---
-  GoogleMapController? _gmapController;
-  StreamSubscription<Position>? _positionStream;
-  Widget? _mapWidget;
-  bool _isFollowingUser = true;
+  bool _isTakingPhoto = false;
+  final Set<String> _verifyingUnitIds = {};
 
-  // --- Draggable Sheet State ---
-  final DraggableScrollableController _sheetController =
-      DraggableScrollableController();
-
-  // --- Constants for Dynamic Sheet Height Calculation ---
-  static const double _kHeaderHeight = 200.0;
-  static const double _kPhotoTitleHeight = 32.0;
-  static const double _kPhotoGalleryHeight = 120.0;
-  static const double _kFooterHeight = 92.0;
+  static const int _bagLimit = 8;
 
   @override
   void initState() {
     super.initState();
-    _loadPersistedStateAndInitialize();
-
-    // Now run the original initState logic
-    _startTimerAndCalculateInitialElapsed();
-    _prepareMapWidget();
-  }
-
-  /// Loads persisted photos from storage and then calls original init logic.
-  Future<void> _loadPersistedStateAndInitialize() async {
-    final persistedPhotos =
-        await JobPhotoPersistence.loadPhotos(widget.job.instanceId);
-
-    if (mounted) {
-      setState(() {
-        _photos.addAll(persistedPhotos);
-        _isRestoring = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _positionStream?.cancel();
-    _gmapController?.dispose();
-    _sheetController.dispose();
-    super.dispose();
-  }
-
-  void _startTimerAndCalculateInitialElapsed() {
     if (widget.job.checkInAt != null) {
-      _elapsedTime =
-          DateTime.now().toUtc().difference(widget.job.checkInAt!.toUtc());
+      _elapsedTime = DateTime.now().toUtc().difference(
+        widget.job.checkInAt!.toUtc(),
+      );
     }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _elapsedTime += const Duration(seconds: 1));
     });
   }
 
-  void _prepareMapWidget() {
-    _mapWidget = JobMapPage(
-      key: widget.preWarmedMap.key,
-      job: widget.job,
-      buildAsScaffold: false,
-      isForWarmup: false,
-      onMapCreated: (controller) {
-        if (!mounted) return;
-        _gmapController = controller;
-        _setupLocationStream();
-      },
-      onCameraMoveStarted: () {
-        if (mounted && _isFollowingUser) {
-          setState(() => _isFollowingUser = false);
-        }
-      },
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _contactSupport() {
+    final l10n = AppLocalizations.of(context);
+    const supportEmail = 'team@thepoofapp.com';
+    const supportPhone = '2564683659';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    l10n.workerDrawerHelpSupport,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ExpansionTile(
+                  title: Text(
+                    l10n.howToCompleteAJobTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  leading: const Icon(Icons.checklist_rtl_outlined),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        l10n.howToCompleteAJobBody.replaceAll('**', ''),
+                        style: TextStyle(
+                          height: 1.6,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                ListTile(
+                  leading: const Icon(Icons.sms_outlined),
+                  title: Text(l10n.contactSupportText),
+                  onTap: () {
+                    launchUrl(Uri.parse('sms:$supportPhone'));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.email_outlined),
+                  title: Text(l10n.contactSupportEmail),
+                  onTap: () {
+                    final subject = Uri.encodeComponent(
+                      l10n.emailSubjectGeneralHelp,
+                    );
+                    launchUrl(
+                      Uri.parse('mailto:$supportEmail?subject=$subject'),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
-  Future<void> _setupLocationStream() async {
-    final permissionOk = await ensureLocationGranted();
-    if (!permissionOk || !mounted || _gmapController == null) return;
-    if (!_isFollowingUser) return;
-
-    _positionStream?.cancel();
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 2,
-      ),
-    ).listen((Position position) {
-      if (mounted && _isFollowingUser) {
-        _gmapController!.animateCamera(
-          CameraUpdate.newLatLng(
-            LatLng(position.latitude, position.longitude),
-          ),
-        );
-      }
-    });
-  }
-
-  Future<void> _reCenterAndFollow() async {
-    if (!mounted || _gmapController == null) return;
-    setState(() => _isFollowingUser = true);
-
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 7),
-        ),
-      );
-      if (mounted) {
-        _gmapController!.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(position.latitude, position.longitude),
-            await _gmapController!.getZoomLevel(),
-          ),
-        );
-      }
-    } catch (_) {
-      // Ignore
-    }
-    _setupLocationStream();
-  }
-
-  Future<void> _takePhoto() async {
-    if (_isTakingPhoto) return;
-    setState(() => _isTakingPhoto = true);
-
-    final picker = ImagePicker();
-    try {
-      final photo = await picker.pickImage(source: ImageSource.camera);
-      if (photo == null || !mounted) return;
-
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) {
-          final appLocalizations = AppLocalizations.of(context);
-          return AlertDialog(
-            title: Text(appLocalizations.jobInProgressPhotoConfirmDialogTitle),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.file(File(photo.path), fit: BoxFit.contain),
-                const SizedBox(height: 16),
-                Text(appLocalizations.jobInProgressPhotoConfirmDialogContent),
-              ],
-            ),
-            actions: [
-              TextButton(
-                child:
-                    Text(appLocalizations.jobInProgressPhotoConfirmDialogRetake),
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
-              FilledButton(
-                child:
-                    Text(appLocalizations.jobInProgressPhotoConfirmDialogConfirm),
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
-            ],
-          );
-        },
-      );
-
-      if (confirmed == true) {
-        final persistentPhoto =
-            await JobPhotoPersistence.savePhoto(widget.job.instanceId, photo);
-        if (mounted) {
-          setState(() => _photos.add(persistentPhoto));
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isTakingPhoto = false);
-      }
-    }
-  }
-
-  void _navigateBack() {
-    if (!mounted) return;
-    final route = ModalRoute.of(context);
-    if (route is PopupRoute) {
-      Navigator.of(context).pop();
-    } else {
-      context.goNamed(AppRouteNames.mainTab);
-    }
-  }
-
-  Future<void> _handleComplete() async {
-    if (_isCompleting) return;
-    setState(() => _isCompleting = true);
-
-    final photoFiles = _photos.map((xfile) => File(xfile.path)).toList();
-    final wasSuccess = await ref
-        .read(jobsNotifierProvider.notifier)
-        .completeJob(widget.job.instanceId, photoFiles);
-        
-    if (mounted) {
-      if (wasSuccess) {
-        await JobPhotoPersistence.clearPhotos(widget.job.instanceId);
-        _navigateBack();
-      } else {
-        // Just reset the UI state. Error is handled globally.
-        setState(() => _isCompleting = false);
-      }
-    }
-  }
-
   Future<void> _handleCancel() async {
-    if (_isCancelling) return;
     final appLocalizations = AppLocalizations.of(context);
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(appLocalizations.jobInProgressCancelDialogTitle),
-        content: Text(appLocalizations.jobInProgressCancelDialogContent),
+        title: Text(appLocalizations.cancelJobInProgressTitle),
+        content: Text(appLocalizations.cancelJobInProgressBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(appLocalizations.jobInProgressCancelDialogBack),
+            child: Text(appLocalizations.cancelJobBackButton),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(appLocalizations.jobInProgressCancelDialogConfirm),
+            child: Text(appLocalizations.cancelJobConfirmButton),
           ),
         ],
       ),
     );
 
-    if (confirmed != true) return;
-
-    setState(() => _isCancelling = true);
-
-    final wasSuccess = await ref
-        .read(jobsNotifierProvider.notifier)
-        .cancelJob(widget.job.instanceId);
+    if (confirmed != true) {
+      return;
+    }
 
     if (mounted) {
-       if (wasSuccess) {
-        await JobPhotoPersistence.clearPhotos(widget.job.instanceId);
-        _navigateBack();
-      } else {
-        // Just reset the UI state. Error is handled globally.
-        setState(() => _isCancelling = false);
+      final navigator = Navigator.of(context);
+      final router = GoRouter.of(context);
+
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const _CancelingDialogWidget(),
+      );
+
+      final wasSuccess = await ref
+          .read(jobsNotifierProvider.notifier)
+          .cancelJob(widget.job.instanceId);
+
+      if (mounted) {
+        navigator.pop(); // close the loading dialog
+        if (wasSuccess) {
+          if (navigator.canPop()) {
+            navigator.pop();
+          } else {
+            router.goNamed(AppRouteNames.mainTab);
+          }
+        }
+      }
+    }
+  }
+
+  void _openFullMap() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JobMapPage(job: widget.job, buildAsScaffold: true),
+      ),
+    );
+  }
+
+  Future<void> _takePhoto(
+    UnitVerification unit, {
+    bool missingTrashCan = false,
+  }) async {
+    // START of MODIFICATION
+    final job = ref.read(jobsNotifierProvider).inProgressJob ?? widget.job;
+    final bagsCollected = job.buildings
+        .expand((b) => b.units)
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.verified && !u.missingTrashCan,
+        )
+        .length;
+
+    if (bagsCollected >= _bagLimit && !missingTrashCan) {
+      _showBagLimitDialog();
+      return;
+    }
+    // END of MODIFICATION
+
+    if (_isTakingPhoto) return;
+    setState(() {
+      _isTakingPhoto = true;
+    });
+
+    final picker = ImagePicker();
+    try {
+      final photo = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 512,
+        imageQuality: 80,
+      );
+
+      if (!mounted || photo == null) {
+        setState(() {
+          _isTakingPhoto = false;
+        });
+        return;
+      }
+
+      final l10n = AppLocalizations.of(context);
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(l10n.jobInProgressPhotoConfirmDialogTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.file(File(photo.path), fit: BoxFit.contain),
+              const SizedBox(height: 16),
+              Text(l10n.jobInProgressPhotoConfirmDialogContent),
+              const SizedBox(height: 8),
+              Text(
+                l10n.jobInProgressPhotoInstructions,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l10n.jobInProgressPhotoConfirmDialogRetake),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(l10n.jobInProgressPhotoConfirmDialogConfirm),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        await ensureLocationGranted();
+        setState(() {
+          _verifyingUnitIds.add(unit.unitId);
+        });
+        unawaited(
+          ref
+              .read(jobsNotifierProvider.notifier)
+              .verifyUnitPhoto(
+                unit.unitId,
+                photo,
+                missingTrashCan: missingTrashCan,
+              )
+              .whenComplete(() {
+                if (mounted) {
+                  setState(() {
+                    _verifyingUnitIds.remove(unit.unitId);
+                  });
+                }
+              }),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTakingPhoto = false;
+        });
+      }
+    }
+  }
+
+  void _showBagLimitDialog() {
+    final l10n = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        icon: const Icon(Icons.info_outline, size: 48),
+        title: Text(l10n.bagLimitDialogTitle),
+        content: Text(l10n.bagLimitDialogBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBagsCollectedHelp() {
+    final l10n = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(l10n.bagsCollectedHelpTitle),
+        content: Text(l10n.bagsCollectedHelpBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFailureReason(UnitVerification unit) {
+    final l10n = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(l10n.jobInProgressFailureReasonTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (unit.failureReasons.isEmpty)
+              Text(l10n.jobInProgressFailureReasonUnknown)
+            else
+              ...unit.failureReasons.map(
+                (r) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      Icon(_failureReasonIcon(r), size: 20, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_failureReasonLabel(r, l10n))),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPermanentFailureDialog(UnitVerification unit) {
+    final l10n = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        icon: const Icon(Icons.block, color: Colors.red, size: 48),
+        title: Text(
+          l10n.jobInProgressUnitPermanentlyFailedTitle(unit.unitNumber),
+        ),
+        content: Text(l10n.jobInProgressUnitPermanentlyFailedBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _dumpBags() async {
+    final success = await ref.read(jobsNotifierProvider.notifier).dumpBags();
+    if (success && mounted) {
+      final job = ref.read(jobsNotifierProvider).inProgressJob;
+      if (job == null) {
+        if (mounted) {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.goNamed(AppRouteNames.mainTab);
+          }
+        }
       }
     }
   }
@@ -302,87 +404,70 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     return "${twoDigits(d.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final appLocalizations = AppLocalizations.of(context);
-    final mediaQuery = MediaQuery.of(context);
-    final screenHeight = mediaQuery.size.height;
-    final bottomSafeArea = mediaQuery.padding.bottom;
+  IconData _failureReasonIcon(String code) {
+    switch (code) {
+      case 'TRASH_CAN_NOT_VISIBLE':
+        return Icons.delete_outline;
+      case 'TRASH_BAG_VISIBLE':
+        return Icons.delete;
+      case 'DOOR_NUMBER_MISMATCH':
+        return Icons.numbers;
+      case 'DOOR_NUMBER_MISSING':
+        return Icons.help_outline;
+      case 'DOOR_NOT_FULLY_VISIBLE':
+        return Icons.door_front_door;
+      default:
+        return Icons.error_outline;
+    }
+  }
 
-    const minSheetSize = 0.31;
-    final double contentHeight = _kHeaderHeight +
-        _kPhotoTitleHeight +
-        _kPhotoGalleryHeight +
-        _kFooterHeight +
-        10 +
-        bottomSafeArea;
-    final maxSheetSize =
-        (contentHeight / screenHeight).clamp(minSheetSize, 1.0);
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (bool didPop, dynamic result) {
-        if (didPop) return;
-      },
-      child: Scaffold(
-        body: Stack(
+  String _failureReasonLabel(String code, AppLocalizations l10n) {
+    switch (code) {
+      case 'TRASH_CAN_NOT_VISIBLE':
+        return l10n.failureReasonTrashCanNotVisible;
+      case 'TRASH_BAG_VISIBLE':
+        return l10n.failureReasonTrashBagVisible;
+      case 'DOOR_NUMBER_MISMATCH':
+        return l10n.failureReasonDoorMismatch;
+      case 'DOOR_NUMBER_MISSING':
+        return l10n.failureReasonDoorMissing;
+      case 'DOOR_NOT_FULLY_VISIBLE':
+        return l10n.failureReasonDoorNotFullyVisible;
+      default:
+        return l10n.jobInProgressFailureReasonUnknown;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  UI BUILDER WIDGETS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(JobInstance job, AppLocalizations l10n) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        child: Row(
           children: [
-            if (_mapWidget != null)
-              _mapWidget!
-            else
-              const Center(child: CircularProgressIndicator()),
-            if (_isRestoring) const Center(child: CircularProgressIndicator()),
-            Positioned(
-              top: mediaQuery.padding.top + 12,
-              right: 12,
-              child: PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'cancel') _handleCancel();
-                },
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                color: Colors.white,
-                elevation: 4,
-                tooltip: appLocalizations.jobInProgressMoreOptionsTooltip,
-                icon: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.white.withAlpha(230),
-                  child: const Icon(Icons.more_vert, color: Colors.black87),
-                ),
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  PopupMenuItem<String>(
-                    value: 'cancel',
-                    child: ListTile(
-                      leading: Icon(Icons.cancel, color: Colors.red.shade700),
-                      title: Text(appLocalizations.jobInProgressCancelButton,
-                          style: TextStyle(color: Colors.red.shade700)),
-                    ),
-                  ),
-                ],
+            IconButton(
+              icon: const Icon(Icons.help_outline),
+              tooltip: l10n.jobInProgressContactSupport,
+              onPressed: _contactSupport,
+            ),
+            Expanded(
+              child: Text(
+                job.property.propertyName,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (!_isFollowingUser)
-              Positioned(
-                bottom: screenHeight * minSheetSize + 16,
-                right: 16,
-                child: FloatingActionButton(
-                  onPressed: _reCenterAndFollow,
-                  backgroundColor: Colors.white.withAlpha(230),
-                  child:
-                      const Icon(Icons.my_location, color: AppColors.poofColor),
-                ),
-              ),
-            DraggableScrollableSheet(
-              controller: _sheetController,
-              initialChildSize: minSheetSize,
-              minChildSize: minSheetSize,
-              maxChildSize: maxSheetSize,
-              snap: true,
-              snapSizes: [minSheetSize, maxSheetSize],
-              builder: (context, scrollController) {
-                return _buildSheetContent(
-                    context, scrollController, appLocalizations);
-              },
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: l10n.jobInProgressCancelButton,
+              onPressed: _handleCancel,
             ),
           ],
         ),
@@ -390,215 +475,77 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
   }
 
-  // --- WIDGET BUILDERS ---
-
-  Widget _buildSheetContent(
-    BuildContext context,
-    ScrollController scrollController,
-    AppLocalizations appLocalizations,
-  ) {
-    final mediaQuery = MediaQuery.of(context);
-    final bottomSafeArea = mediaQuery.padding.bottom;
-
-    // total blank height for the invisible list content
-    final blankScrollHeight =
-        _kHeaderHeight + _kPhotoTitleHeight + _kPhotoGalleryHeight;
-
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(217),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Stack(
-            children: [
-              // invisible scroll surface to drive the sheet’s drag behavior
-              ListView(
-                controller: scrollController,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  SizedBox(height: blankScrollHeight),
-                  SizedBox(height: _kFooterHeight + bottomSafeArea),
-                ],
-              ),
-
-              // HEADER
-              _buildHeader(context, appLocalizations),
-
-              // “Photos Taken” title
-              Positioned(
-                top: _kHeaderHeight,
-                left: 0,
-                right: 0,
-                child: _buildPhotoSectionHeader(context, appLocalizations),
-              ),
-
-              // PHOTO GALLERY (now fixed in place)
-              Positioned(
-                top: _kHeaderHeight + _kPhotoTitleHeight,
-                left: 0,
-                right: 0,
-                child: SizedBox(
-                  height: _kPhotoGalleryHeight,
-                  child: _buildPhotoGallery(appLocalizations),
-                ),
-              ),
-
-              // DIVIDER above the footer
-              Positioned(
-                bottom: _kFooterHeight + bottomSafeArea,
-                left: 0,
-                right: 0,
-                child: const Divider(height: 1, thickness: 1),
-              ),
-
-              // FOOTER (camera button + slide button)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _buildFooter(context, appLocalizations),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, AppLocalizations appLocalizations) {
-    final textTheme = Theme.of(context).textTheme;
-    return IgnorePointer(
-      child: Container(
-        height: _kHeaderHeight,
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
+  Widget _buildMapPreview() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        elevation: 4,
+        shadowColor: Colors.black.withAlpha(51),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Stack(
           children: [
-            Container(
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade400,
-                borderRadius: BorderRadius.circular(10),
+            Builder(builder: (context) {
+              final h = (MediaQuery.of(context).size.width * 0.28)
+                  .clamp(140.0, 220.0)
+                  .toDouble();
+              return SizedBox(height: h, child: widget.preWarmedMap);
+            }),
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _openFullMap,
+                child: const SizedBox.shrink(),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              widget.job.property.propertyName,
-              style: textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widget.job.property.address,
-              style: textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
-              textAlign: TextAlign.center,
-            ),
-            const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  _formatDuration(_elapsedTime),
-                  style: textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.poofColor,
-                    height: 1.0,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    '/ ${appLocalizations.jobInProgressEstTimeLabel(widget.job.displayTime)}',
-                    style: textTheme.titleMedium?.copyWith(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
+            Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: GestureDetector(
+                  onTap: _openFullMap,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.open_in_full,
+                      color: Colors.white,
+                      size: 20,
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPhotoSectionHeader(
-      BuildContext context, AppLocalizations appLocalizations) {
-    return IgnorePointer(
-      child: Container(
-        height: _kPhotoTitleHeight,
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-        alignment: Alignment.centerLeft,
-        child: Text(
-          appLocalizations.jobInProgressPhotosTakenHeader,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFooter(BuildContext context, AppLocalizations appLocalizations) {
-    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
-
-    return Container(
-      height: _kFooterHeight + bottomSafeArea,
-      padding: EdgeInsets.fromLTRB(
-          16, 16, 16, bottomSafeArea > 0 ? bottomSafeArea : 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withAlpha(242),
-      ),
+  Widget _buildStatsBar(int bagsCollected, AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
         children: [
-          FloatingActionButton(
-            heroTag: 'take_photo',
-            onPressed: _isTakingPhoto ? null : _takePhoto, // Disable when busy
-            tooltip: appLocalizations.jobInProgressTakePictureButton,
-            elevation: 2,
-            backgroundColor: _isTakingPhoto ? Colors.grey.shade400 : Colors.grey.shade200,
-            child: _isTakingPhoto
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                )
-                : const Icon(Icons.camera_alt, size: 28, color: Colors.black87),
+          Expanded(
+            child: GestureDetector(
+              onTap: _showBagsCollectedHelp,
+              child: _buildStatItem(
+                Icons.shopping_bag_outlined,
+                l10n.jobInProgressBagsCollectedLabel,
+                '$bagsCollected / $_bagLimit',
+              ),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SlideAction(
-                  height: 60,
-                  text: appLocalizations.jobInProgressCompleteAction,
-                  textStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
-                  outerColor: AppColors.poofColor,
-                  innerColor: Colors.white,
-                  sliderButtonIcon:
-                      const Icon(Icons.check, color: AppColors.poofColor),
-                  showSubmittedAnimation: true,
-                  sliderRotate: false,
-                  enabled: !_isCompleting,
-                  onSubmit: _handleComplete,
-                ),
-              ],
+            child: _buildStatItem(
+              Icons.timer_outlined,
+              l10n.jobInProgressTimeElapsed,
+              _formatDuration(_elapsedTime),
             ),
           ),
         ],
@@ -606,54 +553,458 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     );
   }
 
-  Widget _buildPhotoGallery(AppLocalizations appLocalizations) {
-    // If there are no photos, display a placeholder message.
-    if (_photos.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-        child: Center(
-          child: Text(
-            appLocalizations.jobInProgressNoPhotos,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+  Widget _buildStatItem(IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(26),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-        ),
-      );
-    }
-    // Otherwise, build the horizontal list.
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: Row(
-        children: _photos.map((photo) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: GestureDetector(
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => Dialog(
-                    backgroundColor: Colors.transparent,
-                    insetPadding: const EdgeInsets.all(10),
-                    child: InteractiveViewer(
-                      child: Image.file(File(photo.path), fit: BoxFit.contain),
-                    ),
-                  ),
-                );
-              },
-              child: Hero(
-                tag: 'photo_${_photos.indexOf(photo)}',
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(File(photo.path), fit: BoxFit.cover),
-                  ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            ],
+          ),
+        ],
       ),
     );
   }
+
+  Widget _buildInstructionsPanel(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          border: Border.all(
+            color: AppColors.poofColor.withAlpha(204),
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lightbulb_outline, color: AppColors.poofColor),
+            const SizedBox(width: 12),
+            Expanded(child: Text(l10n.jobInProgressPhotoInstructions)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBuildingTile(Building b, AppLocalizations l10n) {
+    final theme = Theme.of(context);
+    final unprocessedUnits = b.units
+        .where(
+          (u) =>
+              u.status != UnitVerificationStatus.dumped &&
+              !(u.status == UnitVerificationStatus.failed &&
+                  u.permanentFailure),
+        )
+        .toList();
+
+    if (unprocessedUnits.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.0),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(20),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Colors.black.withAlpha(31),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Theme(
+          data: theme.copyWith(
+            dividerColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+          ),
+          child: ExpansionTile(
+            backgroundColor: theme.cardColor,
+            collapsedBackgroundColor: theme.cardColor,
+            title: Text(
+              b.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            children: unprocessedUnits
+                .map((u) => _buildUnitListItem(u, l10n))
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnitListItem(UnitVerification u, AppLocalizations l10n) {
+    IconData icon;
+    Color color;
+    String label;
+    switch (u.status) {
+      case UnitVerificationStatus.verified:
+        icon = Icons.check_circle;
+        color = Colors.green;
+        label = l10n.jobInProgressUnitStatusVerified;
+        break;
+      case UnitVerificationStatus.dumped:
+        icon = Icons.delete;
+        color = Colors.orange;
+        label = l10n.jobInProgressUnitStatusDumped;
+        break;
+      case UnitVerificationStatus.failed:
+        icon = u.permanentFailure ? Icons.block : Icons.error;
+        color = Colors.red;
+        label = u.permanentFailure
+            ? l10n.jobInProgressUnitStatusFailedPermanent
+            : l10n.jobInProgressUnitStatusFailed;
+        break;
+      default:
+        icon = Icons.hourglass_bottom;
+        color = Colors.grey;
+        label = l10n.jobInProgressUnitStatusPending;
+    }
+
+    final waiting = _verifyingUnitIds.contains(u.unitId);
+    final canTakePhoto =
+        u.status == UnitVerificationStatus.pending ||
+        (u.status == UnitVerificationStatus.failed && !u.permanentFailure);
+
+    Widget trailing;
+    if (canTakePhoto) {
+      final cameraBtn = waiting
+          ? const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : IconButton(
+              icon: const Icon(Icons.camera_alt),
+              onPressed: () => _takePhoto(u),
+            );
+      final menuBtn = PopupMenuButton<String>(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        icon: const Icon(Icons.more_vert),
+        tooltip: l10n.jobInProgressMoreOptionsTooltip,
+        onSelected: (val) {
+          if (val == 'missing') {
+            _takePhoto(u, missingTrashCan: true);
+          } else if (val == 'reason') {
+            _showFailureReason(u);
+          }
+        },
+        itemBuilder: (context) => [
+          if (u.status == UnitVerificationStatus.failed)
+            PopupMenuItem(
+              value: 'reason',
+              child: Text(l10n.jobInProgressFailureReasonTitle),
+            ),
+          PopupMenuItem(
+            value: 'missing',
+            child: Text(l10n.jobInProgressReportMissingTrashCan),
+          ),
+        ],
+      );
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [cameraBtn, menuBtn],
+      );
+    } else {
+      if (u.status == UnitVerificationStatus.failed) {
+        trailing = PopupMenuButton<String>(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          icon: const Icon(Icons.more_vert),
+          tooltip: l10n.jobInProgressMoreOptionsTooltip,
+          onSelected: (val) {
+            if (val == 'reason') _showFailureReason(u);
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'reason',
+              child: Text(l10n.jobInProgressFailureReasonTitle),
+            ),
+          ],
+        );
+      } else {
+        trailing = Icon(icon, color: color);
+      }
+    }
+
+    final tile = ListTile(
+      leading: Icon(icon, color: color),
+      title: Row(
+        children: [
+          Text('Unit ${u.unitNumber}'),
+          const SizedBox(width: 8),
+          _buildStatusChip(color, label),
+        ],
+      ),
+      trailing: trailing,
+    );
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(13),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: tile,
+    );
+  }
+
+  Widget _buildStatusChip(Color c, String t) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: c.withAlpha(38),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        t,
+        style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildBottomActionBar(
+    String text,
+    IconData icon,
+    bool enabled,
+    Future<void> Function()? onSubmit,
+  ) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 36.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(26),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: SlideAction(
+          text: text,
+          outerColor: enabled ? AppColors.poofColor : Colors.grey.shade400,
+          innerColor: Colors.white,
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          sliderButtonIcon: Icon(
+            icon,
+            color: enabled ? AppColors.poofColor : Colors.grey,
+          ),
+          sliderRotate: false,
+          enabled: enabled,
+          onSubmit: onSubmit,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final state = ref.watch(jobsNotifierProvider);
+    final job = state.inProgressJob ?? widget.job;
+
+    // Listen for units that become permanently failed and show a dialog.
+    ref.listen<JobsState>(jobsNotifierProvider, (previous, next) {
+      final prevJob = previous?.inProgressJob;
+      final nextJob = next.inProgressJob;
+
+      if (prevJob != null && nextJob != null) {
+        final prevUnits = prevJob.buildings.expand((b) => b.units);
+        final nextUnits = nextJob.buildings.expand((b) => b.units);
+
+        for (final nextUnit in nextUnits) {
+          final prevUnit = prevUnits.firstWhereOrNull(
+            (u) => u.unitId == nextUnit.unitId,
+          );
+          if (prevUnit != null) {
+            final wasPermanentFailure = prevUnit.permanentFailure;
+            final isPermanentFailure = nextUnit.permanentFailure;
+
+            if (!wasPermanentFailure && isPermanentFailure) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _showPermanentFailureDialog(nextUnit);
+                }
+              });
+            }
+          }
+        }
+      }
+    });
+
+    final allUnits = job.buildings.expand((b) => b.units);
+    final verifiedCount = allUnits
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.verified && !u.missingTrashCan,
+        )
+        .length;
+    final dumpedCount = allUnits
+        .where((u) => u.status == UnitVerificationStatus.dumped)
+        .length;
+    final permFailedCount = allUnits.where((u) => u.permanentFailure).length;
+    final totalUnits = allUnits.length;
+
+    final pendingAndTempFailedCount = allUnits
+        .where(
+          (u) =>
+              u.status == UnitVerificationStatus.pending ||
+              (u.status == UnitVerificationStatus.failed &&
+                  !u.permanentFailure),
+        )
+        .length;
+
+    final allUnitsAccountedFor = (dumpedCount + permFailedCount) >= totalUnits;
+    final hasBagsToDump = verifiedCount > 0;
+
+    String slideText;
+    IconData slideIcon;
+    bool slideEnabled;
+    Future<void> Function()? slideAction;
+
+    if (allUnitsAccountedFor && !hasBagsToDump) {
+      slideText = l10n.jobInProgressCompleteJobAction;
+      slideIcon = Icons.check;
+      slideEnabled = true;
+      slideAction = _dumpBags;
+    } else if (pendingAndTempFailedCount == 0 && hasBagsToDump) {
+      slideText = l10n.jobInProgressCompleteJobAction;
+      slideIcon = Icons.check;
+      slideEnabled = true;
+      slideAction = _dumpBags;
+    } else {
+      slideText = l10n.jobInProgressDumpBagsAction;
+      slideIcon = Icons.delete;
+      slideEnabled = hasBagsToDump;
+      slideAction = hasBagsToDump ? _dumpBags : null;
+    }
+
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+        body: Column(
+          children: [
+            _buildHeader(job, l10n),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 16),
+                children: [
+                  _buildMapPreview(),
+                  _buildStatsBar(verifiedCount, l10n),
+                  _buildInstructionsPanel(l10n),
+                  ...job.buildings.map((b) => _buildBuildingTile(b, l10n)),
+                ],
+              ),
+            ),
+            _buildBottomActionBar(
+              slideText,
+              slideIcon,
+              slideEnabled,
+              slideAction,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CancelingDialogWidget extends StatelessWidget {
+  const _CancelingDialogWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            l10n.cancelJobCancellingMessage,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          const CircularProgressIndicator(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Counts the number of units that have been successfully verified AND do not have
+/// the missing trash can flag set.
+int bagCount(JobInstance job) {
+  return job.buildings
+      .expand((b) => b.units)
+      .where(
+        (u) =>
+            u.status == UnitVerificationStatus.verified && !u.missingTrashCan,
+      )
+      .length;
 }

@@ -30,6 +30,8 @@ String userFacingMessage(BuildContext context, ApiException e) {
       return l10n.apiErrorRowVersionConflict;
     case 'location_out_of_bounds':
       return l10n.apiErrorLocationOutOfBounds;
+    case 'dump_location_out_of_bounds':
+      return l10n.apiErrorDumpLocationOutOfBounds;
     case 'not_within_time_window':
       return l10n.apiErrorNotWithinTimeWindow;
     case 'no_photos_provided':

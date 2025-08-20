@@ -88,23 +88,6 @@ BEGIN
     RETURN TRUE; -- All elements passed
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
-
--- ----------------------------------------------------------------------
---  admins
--- ----------------------------------------------------------------------
-CREATE TABLE admins (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    totp_secret VARCHAR(255),
-    account_status ACCOUNT_STATUS_TYPE NOT NULL DEFAULT 'INCOMPLETE',
-    setup_progress SETUP_PROGRESS_TYPE NOT NULL DEFAULT 'ID_VERIFY',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    row_version BIGINT NOT NULL DEFAULT 1
-);
-CREATE INDEX idx_admins_username ON admins (username);
-
 -- ----------------------------------------------------------------------
 --  property_managers
 -- ----------------------------------------------------------------------
@@ -122,7 +105,6 @@ CREATE TABLE property_managers (
     setup_progress SETUP_PROGRESS_TYPE NOT NULL DEFAULT 'ID_VERIFY',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    deleted_at TIMESTAMP WITH TIME ZONE,
     row_version BIGINT NOT NULL DEFAULT 1
 );
 CREATE INDEX idx_pm_email ON property_managers (email);
@@ -181,10 +163,7 @@ CREATE TABLE properties (
     time_zone VARCHAR(50) NOT NULL,
     latitude DECIMAL(9, 6) NOT NULL DEFAULT 0,
     longitude DECIMAL(9, 6) NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    row_version BIGINT NOT NULL DEFAULT 1
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 CREATE INDEX idx_properties_manager_id ON properties (manager_id);
 
@@ -197,11 +176,7 @@ CREATE TABLE property_buildings (
     building_name VARCHAR(100),
     address VARCHAR(255),
     latitude DECIMAL(9, 6),
-    longitude DECIMAL(9, 6),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    row_version BIGINT NOT NULL DEFAULT 1
+    longitude DECIMAL(9, 6)
 );
 CREATE INDEX idx_property_buildings_property_id
 ON property_buildings (property_id);
@@ -216,9 +191,6 @@ CREATE TABLE units (
     unit_number VARCHAR(50) NOT NULL,
     tenant_token VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    row_version BIGINT NOT NULL DEFAULT 1,
     CONSTRAINT check_tenant_token_not_empty CHECK (tenant_token <> '')
 );
 CREATE INDEX idx_units_tenant_token ON units (tenant_token);
@@ -232,11 +204,7 @@ CREATE TABLE dumpsters (
     property_id UUID REFERENCES properties (id) ON DELETE CASCADE,
     dumpster_number VARCHAR(50) NOT NULL,
     latitude DECIMAL(9, 6) NOT NULL,
-    longitude DECIMAL(9, 6) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    row_version BIGINT NOT NULL DEFAULT 1
+    longitude DECIMAL(9, 6) NOT NULL
 );
 CREATE INDEX idx_dumpsters_property_id ON dumpsters (property_id);
 
@@ -296,6 +264,24 @@ CREATE INDEX idx_job_definitions_manager_id ON job_definitions (manager_id);
 CREATE INDEX idx_job_definitions_property_id ON job_definitions (property_id);
 
 -- ----------------------------------------------------------------------
+--  agents
+-- ----------------------------------------------------------------------
+CREATE TABLE agents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    phone_number VARCHAR(20) NOT NULL UNIQUE,
+    address VARCHAR(255) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(50) NOT NULL,
+    zip_code VARCHAR(20) NOT NULL,
+    latitude DECIMAL(9, 6) NOT NULL,
+    longitude DECIMAL(9, 6) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- ----------------------------------------------------------------------
 --  job_instances
 -- ----------------------------------------------------------------------
 CREATE TABLE job_instances (
@@ -307,6 +293,7 @@ CREATE TABLE job_instances (
     service_date DATE NOT NULL,
     status INSTANCE_STATUS_TYPE NOT NULL DEFAULT 'OPEN',
     assigned_worker_id UUID REFERENCES workers (id),
+    completed_by_agent_id UUID NULL REFERENCES agents (id),
     effective_pay NUMERIC(10, 2) NOT NULL DEFAULT 0,
     check_in_at TIMESTAMP WITH TIME ZONE,
     check_out_at TIMESTAMP WITH TIME ZONE,
@@ -321,50 +308,28 @@ CREATE TABLE job_instances (
         (status = 'OPEN' AND assigned_worker_id IS NULL)
         OR
         (
-            status IN ('ASSIGNED', 'IN_PROGRESS', 'COMPLETED')
+            status IN ('ASSIGNED', 'IN_PROGRESS')
             AND
             assigned_worker_id IS NOT NULL
         )
         OR
-        (status IN ('RETIRED', 'CANCELED'))
+        (status IN ('RETIRED', 'CANCELED', 'COMPLETED'))
     )
 );
 CREATE INDEX idx_job_instances_service_date ON job_instances (service_date);
 CREATE INDEX idx_job_instances_status ON job_instances (status);
 CREATE INDEX idx_job_instances_definition_id ON job_instances (definition_id);
 
--- ----------------------------------------------------------------------
---  admin_audit_logs
--- ----------------------------------------------------------------------
-CREATE TYPE audit_action AS ENUM ('CREATE', 'UPDATE', 'DELETE', 'READ');
-CREATE TYPE audit_target_type AS ENUM ('PROPERTY_MANAGER', 'PROPERTY', 'BUILDING', 'UNIT', 'DUMPSTER', 'JOB_DEFINITION');
-
-CREATE TABLE admin_audit_logs (
-    id UUID PRIMARY KEY,
-    admin_id UUID NOT NULL REFERENCES admins(id),
-    action audit_action NOT NULL,
-    target_id UUID NOT NULL,
-    target_type audit_target_type NOT NULL,
-    details JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX idx_admin_audit_logs_admin_id ON admin_audit_logs(admin_id);
-CREATE INDEX idx_admin_audit_logs_target ON admin_audit_logs(target_type, target_id);
-
--- ----------------------------------------------------------------------
---  admin_refresh_tokens
--- ----------------------------------------------------------------------
-CREATE TABLE admin_refresh_tokens (
+-- New table for agent job completion tokens
+CREATE TABLE agent_job_completions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID REFERENCES admins (id) ON DELETE CASCADE,
-    refresh_token VARCHAR(255) NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    revoked BOOLEAN DEFAULT FALSE,
-    ip_address VARCHAR(45),
-    device_id VARCHAR(255)
+    job_instance_id UUID NOT NULL REFERENCES job_instances (id)
+    ON DELETE CASCADE,
+    agent_id UUID NOT NULL REFERENCES agents (id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ NULL
 );
-CREATE INDEX idx_admin_refresh_tokens_token ON admin_refresh_tokens (refresh_token);
 
 -- ----------------------------------------------------------------------
 --  pm_refresh_tokens
@@ -395,17 +360,6 @@ CREATE TABLE worker_refresh_tokens (
     device_id VARCHAR(255)
 );
 CREATE INDEX idx_worker_refresh_tokens ON worker_refresh_tokens (refresh_token);
-
--- ----------------------------------------------------------------------
---  admin_login_attempts
--- ----------------------------------------------------------------------
-CREATE TABLE admin_login_attempts (
-    admin_id UUID PRIMARY KEY REFERENCES admins (id) ON DELETE CASCADE,
-    attempt_count INT NOT NULL DEFAULT 0,
-    locked_until TIMESTAMP WITH TIME ZONE,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
 
 -- ----------------------------------------------------------------------
 --  pm_login_attempts
@@ -515,17 +469,6 @@ CREATE INDEX idx_worker_sms_verification_codes_phone
 ON worker_sms_verification_codes (worker_phone);
 
 -- ----------------------------------------------------------------------
---  admin_blacklisted_tokens
--- ----------------------------------------------------------------------
-CREATE TABLE admin_blacklisted_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    token_id VARCHAR(255) NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-CREATE INDEX idx_admin_blacklisted_tokens_token_id ON admin_blacklisted_tokens (token_id);
-
--- ----------------------------------------------------------------------
 --  pm_blacklisted_tokens
 -- ----------------------------------------------------------------------
 CREATE TABLE pm_blacklisted_tokens (
@@ -563,19 +506,6 @@ CREATE TABLE worker_score_events (
 );
 
 -- ----------------------------------------------------------------------
---  poof_representatives
--- ----------------------------------------------------------------------
-CREATE TABLE poof_representatives (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    phone_number VARCHAR(20) NOT NULL UNIQUE,
-    region VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- ----------------------------------------------------------------------
 --  iOS App Attest keys
 -- ----------------------------------------------------------------------
 CREATE TABLE app_attest_keys (
@@ -609,7 +539,7 @@ CREATE TABLE worker_payouts (
     status PAYOUT_STATUS_TYPE NOT NULL DEFAULT 'PENDING',
     stripe_transfer_id VARCHAR(255),
     stripe_payout_id VARCHAR(255),
-    job_instance_ids uuid[],
+    job_instance_ids UUID [] NOT NULL DEFAULT '{}',
     last_failure_reason TEXT,
     retry_count INT NOT NULL DEFAULT 0,
     last_attempt_at TIMESTAMPTZ,
@@ -628,10 +558,9 @@ CREATE INDEX idx_worker_payouts_worker_id ON worker_payouts (worker_id);
 DROP TABLE IF EXISTS worker_payouts;
 DROP TABLE IF EXISTS attestation_challenges;
 DROP TABLE IF EXISTS worker_score_events;
-DROP TABLE IF EXISTS poof_representatives;
+DROP TABLE IF EXISTS agents;
 DROP TABLE IF EXISTS worker_blacklisted_tokens;
 DROP TABLE IF EXISTS pm_blacklisted_tokens;
-DROP TABLE IF EXISTS admin_blacklisted_tokens;
 DROP TABLE IF EXISTS worker_sms_verification_codes;
 DROP TABLE IF EXISTS worker_email_verification_codes;
 DROP TABLE IF EXISTS pm_sms_verification_codes;
@@ -639,10 +568,8 @@ DROP TABLE IF EXISTS pm_email_verification_codes;
 DROP TABLE IF EXISTS rate_limit_attempts;
 DROP TABLE IF EXISTS worker_login_attempts;
 DROP TABLE IF EXISTS pm_login_attempts;
-DROP TABLE IF EXISTS admin_login_attempts;
 DROP TABLE IF EXISTS worker_refresh_tokens;
 DROP TABLE IF EXISTS pm_refresh_tokens;
-DROP TABLE IF EXISTS admin_refresh_tokens;
 DROP TABLE IF EXISTS job_instances;
 DROP TABLE IF EXISTS job_definitions;
 DROP TABLE IF EXISTS dumpsters;
@@ -651,12 +578,8 @@ DROP TABLE IF EXISTS property_buildings;
 DROP TABLE IF EXISTS properties;
 DROP TABLE IF EXISTS workers;
 DROP TABLE IF EXISTS property_managers;
-DROP TABLE IF EXISTS admins;
 DROP FUNCTION IF EXISTS validate_daily_pay_estimates_array(JSONB);
 DROP TABLE IF EXISTS app_attest_keys;
-DROP TABLE IF EXISTS admin_audit_logs;
-DROP TYPE IF EXISTS audit_action;
-DROP TYPE IF EXISTS audit_target_type;
 
 DROP TYPE IF EXISTS PAYOUT_STATUS_TYPE;
 DROP TYPE IF EXISTS JOB_FREQUENCY_TYPE;

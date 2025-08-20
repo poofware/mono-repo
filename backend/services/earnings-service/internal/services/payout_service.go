@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poofware/earnings-service/internal/config"
-	"github.com/poofware/earnings-service/internal/constants"
-	internal_models "github.com/poofware/earnings-service/internal/models"
-	internal_repositories "github.com/poofware/earnings-service/internal/repositories"
-	"github.com/poofware/earnings-service/internal/routes"
-	internal_utils "github.com/poofware/earnings-service/internal/utils"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/constants"
+	internal_models "github.com/poofware/mono-repo/backend/services/earnings-service/internal/models"
+	internal_repositories "github.com/poofware/mono-repo/backend/services/earnings-service/internal/repositories"
+	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/routes"
+	internal_utils "github.com/poofware/mono-repo/backend/services/earnings-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/stripe/stripe-go/v82"
@@ -82,6 +82,7 @@ body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
 .data-label { font-weight: bold; }
 ul { list-style-type: none; padding: 0; }
 li { margin-bottom: 10px; }
+strong { color: #333; }
 </style>
 </head>
 <body>
@@ -138,6 +139,49 @@ func NewPayoutService(cfg *config.Config, workerRepo repositories.WorkerReposito
 		sendgridClient: sendgrid.NewSendClient(cfg.SendgridAPIKey),
 		generatedBy:    generated,
 	}
+}
+
+// NEW: ReconcileStalePayout polls Stripe for a payout's status and updates the local DB.
+func (s *PayoutService) ReconcileStalePayout(ctx context.Context, p *internal_models.WorkerPayout) (*internal_models.WorkerPayout, error) {
+    if p.StripePayoutID == nil || *p.StripePayoutID == "" {
+        // Cannot reconcile without a Stripe Payout ID. This is an inconsistent state.
+        utils.Logger.Warnf("Payout %s is in PROCESSING state but has no Stripe Payout ID. Cannot reconcile.", p.ID)
+        return p, errors.New("missing stripe_payout_id for processing payout")
+    }
+
+    // Look up the worker to scope the Stripe call to the correct Connect account.
+    worker, err := s.workerRepo.GetByID(ctx, p.WorkerID)
+    if err != nil || worker == nil || worker.StripeConnectAccountID == nil || *worker.StripeConnectAccountID == "" {
+        utils.Logger.WithError(err).Warnf("Cannot reconcile payout %s: missing worker or connect account id (worker=%s)", p.ID, p.WorkerID)
+        return p, errors.New("missing stripe connect account id for reconciliation")
+    }
+
+    utils.Logger.Infof("Polling Stripe (Connect acct=%s) for status of stale payout %s (Stripe ID: %s)", *worker.StripeConnectAccountID, p.ID, *p.StripePayoutID)
+    poParams := &stripe.PayoutParams{}
+    poParams.SetStripeAccount(*worker.StripeConnectAccountID)
+    stripePayout, err := payout.Get(*p.StripePayoutID, poParams)
+    if err != nil {
+        utils.Logger.WithError(err).Errorf("Failed to retrieve payout %s from Stripe during reconciliation", *p.StripePayoutID)
+        return p, err
+    }
+
+    // If Stripe still reports a non-final state, keep local PROCESSING and return.
+    if stripePayout.Status == stripe.PayoutStatusPending || stripePayout.Status == stripe.PayoutStatusInTransit {
+        return p, nil
+    }
+
+    // If Stripe reports a final state different from our PROCESSING, a webhook was likely missed.
+    if stripePayout.Status == stripe.PayoutStatusPaid || stripePayout.Status == stripe.PayoutStatusFailed || stripePayout.Status == stripe.PayoutStatusCanceled {
+        s.sendWebhookMissAlert("Stripe Payout", stripePayout.ID, p.WorkerID)
+        // Reuse the webhook handler to apply the authoritative state transition.
+        if err := s.HandlePayoutEvent(ctx, stripePayout); err != nil {
+            utils.Logger.WithError(err).Errorf("Failed to self-heal state for reconciled payout %s", p.ID)
+            return p, err
+        }
+    }
+
+    // Re-fetch the payout from our DB to return the latest state.
+    return s.payoutRepo.GetByID(ctx, p.ID)
 }
 
 func (s *PayoutService) PlatformWebhookSecret() string {
@@ -681,6 +725,29 @@ func (s *PayoutService) sendFailureNotification(ctx context.Context, p *internal
 	}
 }
 
+// NEW: Internal alert for missed webhooks, sent to the dev team.
+func (s *PayoutService) sendWebhookMissAlert(objectType string, objectID string, workerID uuid.UUID) {
+	from := mail.NewEmail(s.cfg.OrganizationName, s.cfg.LDFlag_SendgridFromEmail)
+	to := mail.NewEmail("Poof Dev Team", "team@thepoofapp.com")
+	subject := fmt.Sprintf("[Webhook Resilience] Missed %s Webhook", objectType)
+	plainText := fmt.Sprintf("A %s event for ID %s (Worker ID: %s) was not received. The system self-healed by polling the API. Please investigate potential webhook delivery issues.", objectType, objectID, workerID)
+	htmlContent := fmt.Sprintf("<p>%s</p>", plainText)
+
+	msg := mail.NewSingleEmail(from, subject, to, plainText, htmlContent)
+	if s.cfg.LDFlag_SendgridSandboxMode {
+		ms := mail.NewMailSettings()
+		ms.SetSandboxMode(mail.NewSetting(true))
+		msg.MailSettings = ms
+	}
+
+	_, err := s.sendgridClient.Send(msg)
+	if err != nil {
+		utils.Logger.WithError(err).Errorf("Failed to send webhook miss alert email for %s ID %s", objectType, objectID)
+	} else {
+		utils.Logger.Infof("Sent webhook miss alert for %s ID %s.", objectType, objectID)
+	}
+}
+
 func (s *PayoutService) HandlePayoutEvent(ctx context.Context, payout *stripe.Payout) error {
 	// Check if the event was generated by a known source via direct metadata on the Payout object.
 	if generator, ok := payout.Metadata[constants.WebhookMetadataGeneratedByKey]; ok {
@@ -710,7 +777,15 @@ func (s *PayoutService) HandlePayoutEvent(ctx context.Context, payout *stripe.Pa
 		}
 
 		if payout.Status == stripe.PayoutStatusFailed {
-			s.handleFailure(ctx, p, string(payout.FailureCode), p.StripeTransferID)
+			// Only mark the payout as FAILED if it's still in the
+			// PROCESSING state. This prevents stale or duplicate
+			// webhook events from overwriting a payout that has
+			// already been re-queued for retry.
+			if p.Status == internal_models.PayoutStatusProcessing {
+				s.handleFailure(ctx, p, string(payout.FailureCode), p.StripeTransferID)
+			} else {
+				utils.Logger.Infof("Ignoring payout.failed for Payout %s because status is %s", p.ID, p.Status)
+			}
 		} else if payout.Status == stripe.PayoutStatusPaid {
 			// This is the final confirmation.
 			utils.Logger.Infof("Webhook confirmation: Payout %s for worker %s is now PAID. (Stripe Payout ID: %s)", p.ID, p.WorkerID, payout.ID)
@@ -771,18 +846,24 @@ func (s *PayoutService) handleLegacyPayoutEvent(ctx context.Context, payout *str
 
 	parsedID, err := uuid.Parse(payoutIDStr)
 	if err != nil {
-		utils.Logger.WithError(err).Errorf("Invalid UUID in transfer metadata: %s", payoutIDStr)
+		utils.Logger.WithError(err).Errorf("Invalid UUID in transfer metadata for transfer %s: %s", transfer.ID, payoutIDStr)
 		return nil
 	}
 
 	p, err := s.payoutRepo.GetByID(ctx, parsedID)
 	if err != nil || p == nil {
-		utils.Logger.WithError(err).Errorf("Could not find internal payout record for ID: %s", parsedID)
+		// It's possible the payout was resolved manually, so this is not a critical error.
+		// A warning is sufficient.
+		utils.Logger.WithError(err).Warnf("Received 'transfer.reversed' for Transfer %s but could not find associated internal Payout %s. Please investigate if this was unexpected.", transfer.ID, payoutIDStr)
 		return nil
 	}
 
 	if payout.Status == stripe.PayoutStatusFailed {
-		s.handleFailure(ctx, p, string(payout.FailureCode), &transfer.ID)
+		if p.Status == internal_models.PayoutStatusProcessing {
+			s.handleFailure(ctx, p, string(payout.FailureCode), &transfer.ID)
+		} else {
+			utils.Logger.Infof("Ignoring payout.failed for Payout %s because status is %s", p.ID, p.Status)
+		}
 	} else if payout.Status == stripe.PayoutStatusPaid {
 		// This is the final confirmation.
 		utils.Logger.Infof("Webhook confirmation: Payout %s for worker %s is now PAID. (Stripe Payout ID: %s)", p.ID, p.WorkerID, payout.ID)
@@ -882,7 +963,7 @@ func (s *PayoutService) HandleCapabilityUpdatedEvent(ctx context.Context, cap *s
 
 		dummyPayout := &internal_models.WorkerPayout{
 			WorkerID:          worker.ID,
-			LastFailureReason: utils.Ptr(fmt.Sprintf("Your account's ability to receive transfers was disabled by Stripe. Please visit the Stripe Express dashboard to resolve any outstanding issues.")),
+			LastFailureReason: utils.Ptr("Your account's ability to receive transfers was disabled by Stripe. Please visit the Stripe Express dashboard to resolve any outstanding issues."),
 		}
 		s.sendFailureNotification(ctx, dummyPayout, true)
 	}
@@ -908,17 +989,17 @@ func (s *PayoutService) HandleTransferEvent(ctx context.Context, t *stripe.Trans
 		return nil
 	}
 
-	payoutID, err := uuid.Parse(payoutIDStr)
+	parsedID, err := uuid.Parse(payoutIDStr)
 	if err != nil {
 		utils.Logger.WithError(err).Errorf("Invalid UUID in transfer metadata for transfer %s: %s", t.ID, payoutIDStr)
 		return nil
 	}
 
-	p, err := s.payoutRepo.GetByID(ctx, payoutID)
+	p, err := s.payoutRepo.GetByID(ctx, parsedID)
 	if err != nil || p == nil {
 		// It's possible the payout was resolved manually, so this is not a critical error.
 		// A warning is sufficient.
-		utils.Logger.WithError(err).Warnf("Received 'transfer.reversed' for Transfer %s but could not find associated internal Payout %s. Please investigate if this was unexpected.", t.ID, payoutID)
+		utils.Logger.WithError(err).Warnf("Received 'transfer.reversed' for Transfer %s but could not find associated internal Payout %s. Please investigate if this was unexpected.", t.ID, payoutIDStr)
 		return nil
 	}
 

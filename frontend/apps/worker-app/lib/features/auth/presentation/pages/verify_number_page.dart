@@ -15,7 +15,10 @@ import 'package:poof_worker/core/config/flavors.dart';
 import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/utils/error_utils.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
-import 'package:poof_flutter_widgets/poof_flutter_widgets.dart' show SixDigitField;
+import 'package:poof_worker/core/routing/router.dart';
+import 'package:poof_flutter_widgets/poof_flutter_widgets.dart'
+    show SixDigitField;
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 /// The arguments for this page are now simpler, only requiring the phone number.
 class VerifyNumberArgs {
@@ -24,9 +27,13 @@ class VerifyNumberArgs {
   /// The optional `onSuccess` callback is now passed here.
   final Future<void> Function()? onSuccess;
 
+  /// If true, treat this as part of sign-up and navigate to TOTP setup on success.
+  final bool goToTotpAfterSuccess;
+
   const VerifyNumberArgs({
     required this.phoneNumber,
     this.onSuccess,
+    this.goToTotpAfterSuccess = false,
   });
 }
 
@@ -86,14 +93,15 @@ class _VerifyNumberPageState extends ConsumerState<VerifyNumberPage> {
   Future<void> _onVerify() async {
     final appLocalizations = AppLocalizations.of(context);
     if (_sixDigitCode.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appLocalizations.verifyNumberEnter6DigitCode)),
+      showAppSnackBar(
+        context,
+        Text(appLocalizations.verifyNumberEnter6DigitCode),
       );
       return;
     }
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    final router = GoRouter.of(context);
     final BuildContext capturedContext = context;
 
     final config = PoofWorkerFlavorConfig.instance;
@@ -101,28 +109,47 @@ class _VerifyNumberPageState extends ConsumerState<VerifyNumberPage> {
     setState(() => _isLoading = true);
 
     final workerAuthRepo = ref.read(workerAuthRepositoryProvider);
+    final signUpNotifier = ref.read(signUpProvider.notifier);
     try {
       if (!config.testMode) {
         await workerAuthRepo.verifySMSCode(phone, _sixDigitCode);
       }
+      // First, run any caller-provided success callback.
       if (widget.args.onSuccess != null) {
         await widget.args.onSuccess!();
-      } else {
-        if (navigator.canPop()) {
-          navigator.pop(true);
+      }
+      // If part of sign-up, generate TOTP secret, then go forward to TOTP and
+      // drop verify from the stack so back-swipe reveals CreateAccount.
+      if (widget.args.goToTotpAfterSuccess) {
+        try {
+          final totpResp = await workerAuthRepo.generateTOTPSecret();
+          signUpNotifier.setTotpSecret(totpResp.secret);
+        } catch (_) {
+          // Ignore; TOTP page will handle empty/failed secret gracefully.
         }
+        if (!mounted) return;
+        router.replaceNamed(AppRouteNames.totpSignUpPage);
+        return;
+      }
+      // Otherwise, return success to caller (e.g., MyProfile flow).
+      if (navigator.canPop()) {
+        navigator.pop(true);
       }
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(AppLocalizations.of(capturedContext)
-                .loginUnexpectedError(e.toString()))),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).loginUnexpectedError(e.toString()),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -134,16 +161,14 @@ class _VerifyNumberPageState extends ConsumerState<VerifyNumberPage> {
     if (!_isResendButtonActive || _isResending) return;
     setState(() => _isResending = true);
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final BuildContext capturedContext = context;
     final config = PoofWorkerFlavorConfig.instance;
     final phone = widget.args.phoneNumber;
 
     if (config.testMode) {
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(AppLocalizations.of(capturedContext)
-                .verifyNumberTestModeNoResend)),
+      showAppSnackBar(
+        capturedContext,
+        Text(AppLocalizations.of(capturedContext).verifyNumberTestModeNoResend),
       );
       if (mounted) setState(() => _isResending = false);
       // In test mode, we can restart the timer for UI testing.
@@ -155,25 +180,28 @@ class _VerifyNumberPageState extends ConsumerState<VerifyNumberPage> {
     try {
       await workerAuthRepo.requestSMSCode(phone);
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content:
-                Text(AppLocalizations.of(capturedContext).verifyNumberCodeResent)),
+      showAppSnackBar(
+        capturedContext,
+        Text(AppLocalizations.of(capturedContext).verifyNumberCodeResent),
       );
       // --- MODIFIED START: Restart the timer on success ---
       _startResendTimer();
       // --- MODIFIED END ---
     } on ApiException catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(userFacingMessage(capturedContext, e))),
+      showAppSnackBar(
+        capturedContext,
+        Text(userFacingMessage(capturedContext, e)),
       );
     } catch (e) {
       if (!capturedContext.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content: Text(AppLocalizations.of(capturedContext)
-                .loginUnexpectedError(e.toString()))),
+      showAppSnackBar(
+        capturedContext,
+        Text(
+          AppLocalizations.of(
+            capturedContext,
+          ).loginUnexpectedError(e.toString()),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isResending = false);
@@ -207,92 +235,100 @@ class _VerifyNumberPageState extends ConsumerState<VerifyNumberPage> {
                       const SizedBox(height: 24),
                       // Icon
                       const Icon(
-                        Icons.sms_outlined,
-                        size: 80,
-                        color: AppColors.poofColor,
-                      ).animate().fadeIn(delay: 200.ms, duration: 400.ms).scale(),
+                            Icons.sms_outlined,
+                            size: 80,
+                            color: AppColors.poofColor,
+                          )
+                          .animate()
+                          .fadeIn(delay: 200.ms, duration: 400.ms)
+                          .scale(),
                       const SizedBox(height: 24),
                       // Title
                       Text(
-                        appLocalizations.verifyNumberTitle,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      )
+                            appLocalizations.verifyNumberTitle,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 300.ms, duration: 400.ms)
                           .slideY(begin: 0.2),
                       const SizedBox(height: 16),
                       // Message
                       Text(
-                        appLocalizations.verifyNumberMessage(phone),
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 16,
-                        ),
-                      )
+                            appLocalizations.verifyNumberMessage(phone),
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: 16,
+                            ),
+                          )
                           .animate()
                           .fadeIn(delay: 400.ms, duration: 400.ms)
                           .slideY(begin: 0.2),
                       const SizedBox(height: 32),
                       // Input card
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 32),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          children: [
-                            SixDigitField(
-                              autofocus: true,
-                              onChanged: (val) =>
-                                  setState(() => _sixDigitCode = val),
-                                  onSubmitted: (_) => _onVerify(),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 32,
                             ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
                               children: [
-                                Text(
-                                  appLocalizations.verifyNumberDidNotReceiveCode,
-                                  style: const TextStyle(fontSize: 14),
+                                SixDigitField(
+                                  autofocus: true,
+                                  onChanged: (val) =>
+                                      setState(() => _sixDigitCode = val),
+                                  onSubmitted: (_) => _onVerify(),
                                 ),
-                                TextButton(
-                                  onPressed: _isResendButtonActive
-                                      ? _onResendCode
-                                      : null,
-                                  child: _isResending
-                                      ? SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.blue.shade300,
-                                          ),
-                                        )
-                                      : Text(
-                                          _isResendButtonActive
-                                              ? appLocalizations
-                                                  .verifyNumberResendCode
-                                              : appLocalizations
-                                                  .verifyNumberResendCodeCooldown(
-                                                      _secondsRemaining),
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: _isResendButtonActive
-                                                ? Colors.blue
-                                                : Colors.grey,
-                                          ),
-                                        ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      appLocalizations
+                                          .verifyNumberDidNotReceiveCode,
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    TextButton(
+                                      onPressed: _isResendButtonActive
+                                          ? _onResendCode
+                                          : null,
+                                      child: _isResending
+                                          ? SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.blue.shade300,
+                                              ),
+                                            )
+                                          : Text(
+                                              _isResendButtonActive
+                                                  ? appLocalizations
+                                                        .verifyNumberResendCode
+                                                  : appLocalizations
+                                                        .verifyNumberResendCodeCooldown(
+                                                          _secondsRemaining,
+                                                        ),
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: _isResendButtonActive
+                                                    ? Colors.blue
+                                                    : Colors.grey,
+                                              ),
+                                            ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      )
+                          )
                           .animate()
                           .fadeIn(delay: 500.ms, duration: 400.ms)
                           .slideY(begin: 0.2),
@@ -301,11 +337,15 @@ class _VerifyNumberPageState extends ConsumerState<VerifyNumberPage> {
                 ),
               ),
               WelcomeButton(
-                text: appLocalizations.verifyNumberVerifyButton,
-                isLoading: _isLoading,
-                onPressed:
-                    (_isLoading || _sixDigitCode.length != 6) ? null : _onVerify,
-              ).animate().fadeIn(delay: 600.ms, duration: 400.ms).slideY(begin: 0.5),
+                    text: appLocalizations.verifyNumberVerifyButton,
+                    isLoading: _isLoading,
+                    onPressed: (_isLoading || _sixDigitCode.length != 6)
+                        ? null
+                        : _onVerify,
+                  )
+                  .animate()
+                  .fadeIn(delay: 600.ms, duration: 400.ms)
+                  .slideY(begin: 0.5),
             ],
           ),
         ),

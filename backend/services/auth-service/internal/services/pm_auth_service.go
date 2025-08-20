@@ -1,4 +1,4 @@
-// meta-service/services/auth-service/internal/services/pm_auth_service.go
+// backend/services/auth-service/internal/services/pm_auth_service.go
 package services
 
 import (
@@ -15,13 +15,13 @@ import (
 	"github.com/twilio/twilio-go"
 	twilioApi "github.com/twilio/twilio-go/rest/api/v2010"
 
-	"github.com/poofware/auth-service/internal/config"
-	"github.com/poofware/auth-service/internal/dtos"
-	auth_repositories "github.com/poofware/auth-service/internal/repositories"
-	internal_utils "github.com/poofware/auth-service/internal/utils"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-repositories"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/config"
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
+	auth_repositories "github.com/poofware/mono-repo/backend/services/auth-service/internal/repositories"
+	internal_utils "github.com/poofware/mono-repo/backend/services/auth-service/internal/utils"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 // PMAuthService interface
@@ -64,6 +64,8 @@ type PMAuthService interface {
 	// NEW: Add a check for SMS verification before registration
 	CheckSMSVerifiedBeforeRegistration(ctx context.Context, pmPhone, clientID string) (bool, *uuid.UUID, error)
 	DeleteSMSVerificationRow(ctx context.Context, verificationID uuid.UUID) error
+	InitiateDeletion(ctx context.Context, email string, clientID string) (string, error)
+	ConfirmDeletion(ctx context.Context, req dtos.ConfirmDeletionRequest) error
 }
 
 type pmAuthService struct {
@@ -72,6 +74,7 @@ type pmAuthService struct {
 	pmTokenRepo             auth_repositories.PMTokenRepository
 	pmEmailVerificationRepo repositories.PMEmailVerificationRepository
 	pmSMSVerificationRepo   repositories.PMSMSVerificationRepository
+	pendingDeletionRepo     auth_repositories.PendingPMDeletionRepository
 	rateLimiter             RateLimiterService
 
 	Cfg            *config.Config
@@ -87,6 +90,7 @@ func NewPMAuthService(
 	pmTokenRepo auth_repositories.PMTokenRepository,
 	pmEmailVerificationRepo repositories.PMEmailVerificationRepository,
 	pmSMSVerificationRepo repositories.PMSMSVerificationRepository,
+	pendingDeletionRepo auth_repositories.PendingPMDeletionRepository,
 	rateLimiter RateLimiterService,
 	cfg *config.Config,
 ) PMAuthService {
@@ -104,6 +108,7 @@ func NewPMAuthService(
 		pmTokenRepo:             pmTokenRepo,
 		pmEmailVerificationRepo: pmEmailVerificationRepo,
 		pmSMSVerificationRepo:   pmSMSVerificationRepo,
+		pendingDeletionRepo:     pendingDeletionRepo,
 		rateLimiter:             rateLimiter,
 		Cfg:                     cfg,
 		pmJWTService:            pmJWTService,
@@ -328,7 +333,7 @@ func (s *pmAuthService) RequestEmailCode(
 	subject := s.Cfg.OrganizationName + " - Verification Code"
 	// Create both plain text and HTML content
 	plainTextContent := fmt.Sprintf("Your verification code is %s", code)
-	htmlContent := fmt.Sprintf(verificationEmailHTML, code, time.Now().Year())
+	htmlContent := fmt.Sprintf(verificationEmailHTML, "Verification Code", "Please use the following code to complete your verification. This code will expire in 5 minutes.", code, time.Now().Year())
 	message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
 
 	if s.Cfg.LDFlag_SendgridSandboxMode {
@@ -338,7 +343,11 @@ func (s *pmAuthService) RequestEmailCode(
 	}
 
 	_, sendErr := s.sendgridClient.Send(message)
-	return sendErr
+	if sendErr != nil {
+		utils.Logger.WithError(sendErr).Errorf("Failed to send verification email to %s via SendGrid", pmEmail)
+		return fmt.Errorf("%w: failed to send email via sendgrid: %v", utils.ErrExternalServiceFailure, sendErr)
+	}
+	return nil
 }
 
 func (s *pmAuthService) VerifyEmailCode(
@@ -421,7 +430,11 @@ func (s *pmAuthService) RequestSMSCode(
 	params.SetBody(fmt.Sprintf("Your PM verification code is %s", code))
 
 	_, twErr := s.twilioClient.Api.CreateMessage(params)
-	return twErr
+	if twErr != nil {
+		utils.Logger.WithError(twErr).Errorf("Failed to send verification SMS to %s via Twilio", pmPhone)
+		return fmt.Errorf("%w: failed to send sms via twilio: %v", utils.ErrExternalServiceFailure, twErr)
+	}
+	return nil
 }
 
 func (s *pmAuthService) VerifySMSCode(
@@ -474,4 +487,106 @@ func (s *pmAuthService) CheckEmailVerifiedBeforeRegistration(
 // ---------------------------------------------------------------------
 func (s *pmAuthService) DeleteEmailVerificationRow(ctx context.Context, verificationID uuid.UUID) error {
 	return s.pmEmailVerificationRepo.DeleteCode(ctx, verificationID)
+}
+
+// ---------------------------------------------------------------------
+// Account Deletion Flow
+// ---------------------------------------------------------------------
+
+func (s *pmAuthService) InitiateDeletion(ctx context.Context, email string, clientID string) (string, error) {
+	if err := s.rateLimiter.CheckEmailRateLimits(ctx, clientID, email); err != nil {
+		return "", err
+	}
+	if err := s.rateLimiter.CheckSMSRateLimits(ctx, clientID, ""); err != nil {
+		return "", err
+	}
+
+	pm, err := s.pmRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return "", err
+	}
+	if pm == nil {
+		return "", pgx.ErrNoRows
+	}
+
+	pmID := pm.ID
+	deletionClientID := "pm-account-deletion"
+
+	if err := s.RequestEmailCode(ctx, email, &pmID, deletionClientID); err != nil {
+		return "", fmt.Errorf("%w: failed to send email code: %v", utils.ErrExternalServiceFailure, err)
+	}
+
+	if pm.PhoneNumber != nil && *pm.PhoneNumber != "" {
+		if err := s.RequestSMSCode(ctx, *pm.PhoneNumber, &pmID, deletionClientID); err != nil {
+			return "", fmt.Errorf("%w: failed to send sms code: %v", utils.ErrExternalServiceFailure, err)
+		}
+	}
+
+	token := uuid.NewString()
+	expires := time.Now().Add(15 * time.Minute)
+	if err := s.pendingDeletionRepo.Create(ctx, token, pmID, expires); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (s *pmAuthService) ConfirmDeletion(ctx context.Context, req dtos.ConfirmDeletionRequest) error {
+	pd, err := s.pendingDeletionRepo.Get(ctx, req.PendingToken)
+	if err != nil {
+		return err
+	}
+	if time.Now().After(pd.ExpiresAt) {
+		_ = s.pendingDeletionRepo.Delete(ctx, req.PendingToken)
+		return errors.New("token expired")
+	}
+
+	pm, err := s.pmRepo.GetByID(ctx, pd.PMID)
+	if err != nil {
+		return err
+	}
+
+	clientID := "pm-account-deletion"
+
+	if req.TOTPCode != nil {
+		if !internal_utils.ValidateTOTPCode(pm.TOTPSecret, *req.TOTPCode) {
+			return errors.New("invalid totp")
+		}
+	} else {
+		if req.EmailCode == nil || (pm.PhoneNumber != nil && req.SMSCode == nil) {
+			return errors.New("missing verification codes")
+		}
+		ok, err := s.VerifyEmailCode(ctx, pm.Email, *req.EmailCode, &pm.ID, clientID)
+		if err != nil || !ok {
+			return errors.New("email verification failed")
+		}
+		if pm.PhoneNumber != nil && *pm.PhoneNumber != "" {
+			ok, err = s.VerifySMSCode(ctx, *pm.PhoneNumber, *req.SMSCode, &pm.ID, clientID)
+			if err != nil || !ok {
+				return errors.New("sms verification failed")
+			}
+		}
+	}
+
+	if err := s.SendDeletionRequestNotification(ctx, pm.Email); err != nil {
+		return err
+	}
+	return s.pendingDeletionRepo.Delete(ctx, req.PendingToken)
+}
+
+func (s *pmAuthService) SendDeletionRequestNotification(ctx context.Context, pmEmail string) error {
+	from := mail.NewEmail(s.Cfg.OrganizationName, s.Cfg.LDFlag_SendgridFromEmail)
+	to := mail.NewEmail("", "team@thepoofapp.com") // Internal team email
+	subject := fmt.Sprintf("URGENT: PM Account Deletion Request for %s", pmEmail)
+	ts := time.Now().Format(time.RFC1123)
+	plain := fmt.Sprintf("A verified property manager deletion request was received for %s at %s", pmEmail, ts)
+	html := fmt.Sprintf(internalNotificationEmailHTML, "Account Deletion Request", fmt.Sprintf("A new account deletion request has been submitted by a user. Please process this request promptly.<ul><li><strong>Account Type:</strong> pm</li><li><strong>Email:</strong> %s</li><li><strong>Timestamp (UTC):</strong> %s</li></ul>", pmEmail, ts), time.Now().Year())
+	msg := mail.NewSingleEmail(from, subject, to, plain, html)
+	if s.Cfg.LDFlag_SendgridSandboxMode {
+		ms := mail.NewMailSettings()
+		ms.SetSandboxMode(mail.NewSetting(true))
+		msg.MailSettings = ms
+	}
+	_, err := s.sendgridClient.Send(msg)
+	return err
 }

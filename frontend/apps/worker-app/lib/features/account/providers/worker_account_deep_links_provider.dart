@@ -109,9 +109,7 @@ class WorkerAccountDeepLinkHandler implements DeepLinkHandler {
     try {
       final status = await _repo.getStripeConnectFlowStatus();
       if (status.toLowerCase() == 'complete') {
-        // --- FIX START: Fire-and-forget state update ---
         unawaited(_repo.getWorker());
-        // --- FIX END ---
         router.pushNamed(AppRouteNames.checkrPage);
       } else {
         router.pushNamed(AppRouteNames.stripeConnectNotCompletePage);
@@ -142,9 +140,7 @@ class WorkerAccountDeepLinkHandler implements DeepLinkHandler {
     try {
       final status = await _repo.getStripeIdentityFlowStatus();
       if (status.toLowerCase() == 'complete') {
-        // --- FIX START: Fire-and-forget state update ---
         unawaited(_repo.getWorker());
-        // --- FIX END ---
         router.pushNamed(AppRouteNames.stripeConnectPage);
       } else {
         router.pushNamed(AppRouteNames.stripeIdvNotCompletePage);

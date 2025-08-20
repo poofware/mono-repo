@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
 
 /* ------------------------------------------------------------------
@@ -21,6 +21,7 @@ type JobDefinitionRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.JobDefinition, error)
 	ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*models.JobDefinition, error)
 	ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.JobDefinition, error)
+	ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.JobDefinition, error)
 	ListByStatus(ctx context.Context, status models.JobStatusType) ([]*models.JobDefinition, error)
 
 	Update(ctx context.Context, j *models.JobDefinition) error
@@ -55,11 +56,12 @@ func (r *jobRepo) Create(ctx context.Context, j *models.JobDefinition) error {
 	dailyPayEstimates, _ := json.Marshal(j.DailyPayEstimates) // NEW
 	comp, _ := json.Marshal(j.CompletionRules)
 	support, _ := json.Marshal(j.SupportContact)
+	assigned, _ := json.Marshal(j.AssignedUnitsByBuilding)
 
 	_, err := r.db.Exec(ctx, `
         INSERT INTO job_definitions (
             id, manager_id, property_id, title, description,
-            assigned_building_ids, dumpster_ids, status, frequency,
+            assigned_units_by_building, floors, total_units, dumpster_ids, status, frequency,
             weekdays, interval_weeks, start_date, end_date,
             earliest_start_time, latest_start_time, start_time_hint,
             skip_holidays, holiday_exceptions,
@@ -67,16 +69,16 @@ func (r *jobRepo) Create(ctx context.Context, j *models.JobDefinition) error {
             created_at, updated_at, row_version
         ) VALUES (
             $1,$2,$3,$4,$5,
-            $6,$7,$8,$9,
-            $10,$11,$12,$13,
-            $14,$15,$16,
-            $17,$18,
-            $19,$20,$21,$22,$23, -- UPDATED
+            $6,$7,$8,$9,$10,$11,
+            $12,$13,$14,$15,
+            $16,$17,$18,
+            $19,$20,
+            $21,$22,$23,$24,$25, -- UPDATED
             NOW(),NOW(),1
         )
     `,
 		j.ID, j.ManagerID, j.PropertyID, j.Title, j.Description,
-		j.AssignedBuildingIDs, j.DumpsterIDs, j.Status, j.Frequency,
+		assigned, j.Floors, j.TotalUnits, j.DumpsterIDs, j.Status, j.Frequency,
 		j.Weekdays, j.IntervalWeeks, j.StartDate, j.EndDate,
 		j.EarliestStartTime, j.LatestStartTime, j.StartTimeHint,
 		j.SkipHolidays, j.HolidayExceptions,
@@ -111,6 +113,27 @@ func (r *jobRepo) ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*
 
 func (r *jobRepo) ListByPropertyID(ctx context.Context, propertyID uuid.UUID) ([]*models.JobDefinition, error) {
 	rows, err := r.db.Query(ctx, baseSelectJob()+" WHERE property_id=$1 ORDER BY created_at", propertyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.JobDefinition
+	for rows.Next() {
+		j, err := r.scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
+}
+
+func (r *jobRepo) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.JobDefinition, error) {
+	if len(ids) == 0 {
+		return []*models.JobDefinition{}, nil
+	}
+	rows, err := r.db.Query(ctx, baseSelectJob()+" WHERE id = ANY($1)", ids)
 	if err != nil {
 		return nil, err
 	}
@@ -190,21 +213,22 @@ func (r *jobRepo) update(
 	dailyPayEstimates, _ := json.Marshal(j.DailyPayEstimates) // NEW
 	comp, _ := json.Marshal(j.CompletionRules)
 	support, _ := json.Marshal(j.SupportContact)
+	assigned, _ := json.Marshal(j.AssignedUnitsByBuilding)
 
 	sql := `
         UPDATE job_definitions SET
             title=$1, description=$2,
-            assigned_building_ids=$3, dumpster_ids=$4,
-            status=$5, frequency=$6,
-            weekdays=$7, interval_weeks=$8,
-            start_date=$9, end_date=$10,
-            earliest_start_time=$11, latest_start_time=$12, start_time_hint=$13,
-            skip_holidays=$14, holiday_exceptions=$15,
-            details=$16, requirements=$17, daily_pay_estimates=$18, completion_rules=$19, support_contact=$20, -- UPDATED
+            assigned_units_by_building=$3, floors=$4, total_units=$5, dumpster_ids=$6,
+            status=$7, frequency=$8,
+            weekdays=$9, interval_weeks=$10,
+            start_date=$11, end_date=$12,
+            earliest_start_time=$13, latest_start_time=$14, start_time_hint=$15,
+            skip_holidays=$16, holiday_exceptions=$17,
+            details=$18, requirements=$19, daily_pay_estimates=$20, completion_rules=$21, support_contact=$22, -- UPDATED
             updated_at=NOW()`
 	args := []any{
 		j.Title, j.Description,
-		j.AssignedBuildingIDs, j.DumpsterIDs,
+		assigned, j.Floors, j.TotalUnits, j.DumpsterIDs,
 		j.Status, j.Frequency,
 		j.Weekdays, j.IntervalWeeks,
 		j.StartDate, j.EndDate,
@@ -213,16 +237,11 @@ func (r *jobRepo) update(
 		details, reqs, dailyPayEstimates, comp, support, // UPDATED
 	}
 
-	// Parameter indices shift by one due to removal of one field and addition of another.
-	// Old was 21 fields before ID/row_version, new is 20.
-	// The last field before ID/row_version is now $20.
-	// So ID becomes $21 and row_version becomes $22.
-
 	if check {
-		sql += `, row_version=row_version+1 WHERE id=$21 AND row_version=$22` // UPDATED indices
+		sql += `, row_version=row_version+1 WHERE id=$23 AND row_version=$24`
 		args = append(args, j.ID, expected)
 	} else {
-		sql += ` WHERE id=$21` // UPDATED index
+		sql += ` WHERE id=$23`
 		args = append(args, j.ID)
 	}
 	return r.db.Exec(ctx, sql, args...)
@@ -232,7 +251,7 @@ func baseSelectJob() string {
 	return `
         SELECT
             id, manager_id, property_id, title, description,
-            assigned_building_ids, dumpster_ids, status, frequency,
+            assigned_units_by_building, floors, total_units, dumpster_ids, status, frequency,
             weekdays, interval_weeks, start_date, end_date,
             earliest_start_time, latest_start_time, start_time_hint,
             skip_holidays, holiday_exceptions,
@@ -246,7 +265,10 @@ func (r *jobRepo) scanJob(row pgx.Row) (*models.JobDefinition, error) {
 	var j models.JobDefinition
 
 	var desc *string
-	var assigned, dumpsters []uuid.UUID
+	var assignedB []byte
+	var floors []int16
+	var totalUnits int
+	var dumpsters []uuid.UUID
 	var status, freq string
 	var weekdays []int16
 	var interval *int
@@ -258,7 +280,7 @@ func (r *jobRepo) scanJob(row pgx.Row) (*models.JobDefinition, error) {
 
 	err := row.Scan(
 		&j.ID, &j.ManagerID, &j.PropertyID, &j.Title, &desc,
-		&assigned, &dumpsters, &status, &freq,
+		&assignedB, &floors, &totalUnits, &dumpsters, &status, &freq,
 		&weekdays, &interval, &startDate, &endDate,
 		&eStart, &lStart, &sHint,
 		&j.SkipHolidays, &holExc,
@@ -274,7 +296,9 @@ func (r *jobRepo) scanJob(row pgx.Row) (*models.JobDefinition, error) {
 	}
 
 	j.Description = desc
-	j.AssignedBuildingIDs = assigned
+	_ = json.Unmarshal(assignedB, &j.AssignedUnitsByBuilding)
+	j.Floors = floors
+	j.TotalUnits = totalUnits
 	j.DumpsterIDs = dumpsters
 	j.Status = models.JobStatusType(status)
 	j.Frequency = models.JobFrequencyType(freq)
@@ -295,4 +319,3 @@ func (r *jobRepo) scanJob(row pgx.Row) (*models.JobDefinition, error) {
 
 	return &j, nil
 }
-

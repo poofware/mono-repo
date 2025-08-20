@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/poofware/account-service/internal/dtos"
-	shared_dtos "github.com/poofware/go-dtos"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-testhelpers"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	shared_dtos "github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stretchr/testify/require"
 )
 

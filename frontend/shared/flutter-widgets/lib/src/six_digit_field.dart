@@ -3,36 +3,29 @@
 // Modern 6-digit verification input
 // • One-tap clipboard paste button (opt-in)
 // • Auto-submit when 6 digits entered
-// • Typing auto-advances, backspace auto-reverses (soft & hardware)
-// • No visible cursor / no selection handles
+// • Typing auto-advances, backspace auto-reverses
+// • No visible cursor / no selection handles (Enhanced with EmptyTextSelectionControls)
 // • Bold, always-visible box outlines
 // • Material-3 color roles (Flutter 3.27)
-//
+// • FIX: keyboard is automatically restored after app resume
+// (see _SixDigitFieldState._restoreKeyboardIfNeeded)
+// • Responsive resizing to prevent overflow on small screens
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:math' as math;
+import 'package:flutter/foundation.dart'; // Required for ValueListenable in EmptyTextSelectionControls
 
 class SixDigitField extends StatefulWidget {
-  /// Fires every time the aggregated six-digit string changes.
   final ValueChanged<String>? onChanged;
-
-  /// Fires **once** when the field reaches exactly six digits.
-  /// The callback is *not* invoked again unless the user deletes a digit and
-  /// re-enters a new full code.
   final ValueChanged<String>? onSubmitted;
-
-  /// Whether the first box requests focus on mount.
   final bool autofocus;
 
-  /// Size (width & height) of each digit box.
+  /// The preferred size of each box (width and height). The actual size might be smaller if space is limited.
   final double boxSize;
 
-  /// Horizontal gap between boxes.
+  /// The preferred spacing between boxes. The actual spacing might be smaller if space is limited.
   final double boxSpacing;
-
-  /// Show a clipboard-paste button directly under the field.
-  /// Defaults to `false` so nothing appears unless you opt-in.
   final bool showPasteButton;
 
   const SixDigitField({
@@ -49,16 +42,17 @@ class SixDigitField extends StatefulWidget {
   State<SixDigitField> createState() => _SixDigitFieldState();
 }
 
-class _SixDigitFieldState extends State<SixDigitField> {
+class _SixDigitFieldState extends State<SixDigitField>
+    with WidgetsBindingObserver {
   // ────────────────────────────────────────────────────────────
-  // Single controller & focus (IME-friendly)
+  // Controller & focus
   // ────────────────────────────────────────────────────────────
 
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
   String get _currentCode => _controller.text;
-  String? _lastSubmitted; // Prevents duplicate calls.
+  String? _lastSubmitted; // prevents duplicate submissions
 
   // ────────────────────────────────────────────────────────────
   // Lifecycle
@@ -67,22 +61,52 @@ class _SixDigitFieldState extends State<SixDigitField> {
   @override
   void initState() {
     super.initState();
-
+    WidgetsBinding.instance.addObserver(this);
     _controller.addListener(_handleTextChange);
+    // Add listener to update focus visualization
+    _focusNode.addListener(_handleFocusChange);
 
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _focusNode.requestFocus();
-        _moveCaretToEnd();
+        if (mounted) {
+          _focusNode.requestFocus();
+          _moveCaretToEnd();
+        }
       });
     }
   }
 
+  void _handleFocusChange() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _controller.removeListener(_handleTextChange);
+    _focusNode.removeListener(_handleFocusChange);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Toggle focus after resume so a fresh TextInputConnection is built.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _restoreKeyboardIfNeeded();
+    }
+  }
+
+  void _restoreKeyboardIfNeeded() {
+    if (!mounted || !_focusNode.hasFocus) return;
+    // Re-request focus and explicitly show the keyboard without toggling,
+    // which avoids a visible flicker when returning from background.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusNode.requestFocus();
+      SystemChannels.textInput.invokeMethod('TextInput.show');
+    });
   }
 
   // ────────────────────────────────────────────────────────────
@@ -90,35 +114,48 @@ class _SixDigitFieldState extends State<SixDigitField> {
   // ────────────────────────────────────────────────────────────
 
   void _handleTextChange() {
+    if (!mounted) return;
+
     final raw = _controller.text;
     final numeric = raw.replaceAll(RegExp(r'\D'), '');
     final clamped = numeric.length > 6 ? numeric.substring(0, 6) : numeric;
 
-    // Only mutate the controller if we actually changed the text.
     if (raw != clamped) {
       _controller.text = clamped;
-      _moveCaretToEnd(); // Needed because we overwrote the text.
+      _moveCaretToEnd();
     }
+
+    // Crucial: Update the visualization of the boxes (digits and cursor position).
+    setState(() {});
 
     _notifyParent();
     _maybeSubmit();
   }
 
   void _moveCaretToEnd() {
-    _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
+    if (!mounted) return;
+    _controller.selection = TextSelection.collapsed(
+      offset: _controller.text.length,
+    );
   }
 
   /// Reads the system clipboard and pastes the first 6 digits found.
   Future<void> _pasteFromClipboard() async {
     final data = await Clipboard.getData('text/plain');
     final txt = data?.text ?? '';
-    if (txt.isEmpty) return;
+    if (txt.isEmpty || !mounted) return;
 
     final digits = txt.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return;
+
     _controller.text = digits.substring(0, math.min(6, digits.length));
     _moveCaretToEnd();
-    _notifyParent();
-    _maybeSubmit();
+    // _handleTextChange listener will handle the rest (setState, notify, submit)
+  }
+
+  /// Delay clipboard read just enough for splash to render first.
+  Future<void> _handlePasteTap() async {
+    if (mounted) await _pasteFromClipboard();
   }
 
   // ────────────────────────────────────────────────────────────
@@ -128,13 +165,14 @@ class _SixDigitFieldState extends State<SixDigitField> {
   void _notifyParent() => widget.onChanged?.call(_currentCode);
 
   void _maybeSubmit() {
+    if (!mounted) return;
     if (_currentCode.length == 6 && _currentCode != _lastSubmitted) {
-      // Dismiss keyboard and clear focus.
-      _focusNode.unfocus();
+      if (_focusNode.hasFocus) {
+        _focusNode.unfocus();
+      }
       _lastSubmitted = _currentCode;
       widget.onSubmitted?.call(_currentCode);
     } else if (_currentCode.length < 6) {
-      // Reset guard so a fresh 6-digit entry can submit again later.
       _lastSubmitted = null;
     }
   }
@@ -149,12 +187,13 @@ class _SixDigitFieldState extends State<SixDigitField> {
 
     // Hidden text field that actually owns the input.
     final Widget invisibleInput = SizedBox(
-      width: 0,
-      height: 0,
+      width: 1, // keep >0 so some OEM keyboards stay open
+      height: 1,
       child: EditableText(
         controller: _controller,
         focusNode: _focusNode,
         keyboardType: TextInputType.number,
+        autofillHints: const [AutofillHints.oneTimeCode],
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
           LengthLimitingTextInputFormatter(6),
@@ -163,56 +202,111 @@ class _SixDigitFieldState extends State<SixDigitField> {
         cursorColor: Colors.transparent,
         backgroundCursorColor: Colors.transparent,
         showCursor: false,
+        // Ensure no selection handles or toolbar are shown
+        selectionControls: EmptyTextSelectionControls(),
       ),
     );
 
-    Widget boxes = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(6, (i) {
-        final hasFocus = _focusNode.hasFocus && _controller.selection.baseOffset == i;
-        final digit = i < _controller.text.length ? _controller.text[i] : '';
+    // Use LayoutBuilder to adapt to the available width and prevent overflow.
+    Widget field = LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth;
 
-        return GestureDetector(
-          onTap: () {
-            _focusNode.requestFocus();
-            _controller.selection = TextSelection.collapsed(offset: i.clamp(0, _controller.text.length));
-          },
-          child: SizedBox(
-            width: widget.boxSize,
-            height: widget.boxSize,
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: widget.boxSpacing / 2),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    width: hasFocus ? 2 : 1.2,
-                    color: hasFocus ? theme.colorScheme.primary : theme.colorScheme.outline,
+        // 1. Calculate the maximum size a single cell can take up if width is distributed evenly.
+        final double maxCellSize = availableWidth / 6.0;
+
+        // 2. Determine the actual cell size, capped by the preferred boxSize.
+        // This ensures the widget scales down when needed, but never exceeds the preferred size.
+        final double cellSize = math.min(widget.boxSize, maxCellSize);
+
+        // 3. Calculate the scaling factor (0.0 to 1.0).
+        final double scaleFactor = widget.boxSize > 0
+            ? (cellSize / widget.boxSize).clamp(0.0, 1.0)
+            : 1.0;
+
+        // 4. Scale spacing, border radius, and font size proportionally.
+        final double spacing = widget.boxSpacing * scaleFactor;
+        // Assuming 12.0 is the default borderRadius for the default 56px boxSize
+        final double borderRadius = 12.0 * scaleFactor;
+
+        final TextStyle? baseTextStyle = theme.textTheme.headlineMedium;
+        final double baseFontSize = baseTextStyle?.fontSize ?? 28.0;
+        // Set a minimum font size for readability (e.g., 16.0).
+        final double fontSize = math.max(16.0, baseFontSize * scaleFactor);
+
+        Widget boxes = Row(
+          // Center the boxes horizontally.
+          mainAxisAlignment: MainAxisAlignment.center,
+          // Use min size so the Row doesn't expand beyond the required width if availableWidth is large.
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(6, (i) {
+            final hasFocus =
+                _focusNode.hasFocus && _controller.selection.baseOffset == i;
+            final digit = i < _controller.text.length
+                ? _controller.text[i]
+                : '';
+
+            return GestureDetector(
+              onTap: () {
+                if (!mounted) return;
+                if (!_focusNode.hasFocus) {
+                  _focusNode.requestFocus();
+                } else {
+                  // Ensure keyboard is visible if focus is already present
+                  _restoreKeyboardIfNeeded();
+                }
+                // Move caret to the tapped position.
+                _controller.selection = TextSelection.collapsed(
+                  offset: i.clamp(0, _controller.text.length),
+                );
+                // Force update visualization if selection changed
+                setState(() {});
+              },
+              child: SizedBox(
+                // Use the dynamically calculated size
+                width: cellSize,
+                height: cellSize,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: spacing / 2),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerLowest,
+                      // Use scaled border radius
+                      borderRadius: BorderRadius.circular(borderRadius),
+                      border: Border.all(
+                        width: hasFocus ? 2 : 1.2,
+                        color: hasFocus
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outline,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      digit,
+                      // Use scaled font size
+                      style: baseTextStyle?.copyWith(fontSize: fontSize),
+                    ),
                   ),
                 ),
-                alignment: Alignment.center,
-                child: Text(
-                  digit,
-                  style: theme.textTheme.headlineMedium,
-                ),
               ),
-            ),
-          ),
+            );
+          }),
         );
-      }),
-    );
 
-    Widget field = Stack(
-      alignment: Alignment.center,
-      children: [invisibleInput, boxes],
+        // The stack centers the boxes Row within the LayoutBuilder's constraints
+        return Stack(
+          alignment: Alignment.center,
+          children: [invisibleInput, boxes],
+        );
+      },
     );
 
     if (!widget.showPasteButton) return field;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         field,
         const SizedBox(height: 12),
@@ -223,10 +317,46 @@ class _SixDigitFieldState extends State<SixDigitField> {
           ),
           icon: const Icon(Icons.content_paste_go),
           label: const Text('Paste code'),
-          onPressed: _pasteFromClipboard,
+          onPressed: _handlePasteTap, // splash then paste
         ),
       ],
     );
   }
 }
 
+/// Utility class to hide selection handles and toolbar
+class EmptyTextSelectionControls extends TextSelectionControls {
+  @override
+  Widget buildHandle(
+    BuildContext context,
+    TextSelectionHandleType type,
+    double textLineHeight, [
+    VoidCallback? onTap,
+  ]) {
+    return const SizedBox.shrink();
+  }
+
+  @override
+  Offset getHandleAnchor(TextSelectionHandleType type, double textLineHeight) {
+    return Offset.zero;
+  }
+
+  @override
+  Widget buildToolbar(
+    BuildContext context,
+    Rect globalEditableRegion,
+    double textLineHeight,
+    Offset selectionMidpoint,
+    List<TextSelectionPoint> endpoints,
+    TextSelectionDelegate delegate,
+    ValueListenable<ClipboardStatus>? clipboardStatus,
+    Offset? lastSecondaryTapDownPosition,
+  ) {
+    return const SizedBox.shrink();
+  }
+
+  @override
+  Size getHandleSize(double textLineHeight) {
+    return Size.zero;
+  }
+}

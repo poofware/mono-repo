@@ -5,6 +5,7 @@ before_all do |lane, _|
   # into a temporary JSON file that `supply` can use.
   require "base64"
   require "fileutils"
+  require "json"
   
   UI.message("Decoding Google Play service account key...")
   FileUtils.mkdir_p("tmp")
@@ -24,8 +25,9 @@ end
 platform :android do
   desc "Build the Android app, increment the version code, and upload to the Play Store."
   lane :build_and_upload_to_playstore do |options|
-    # Determine the release track from lane options or environment variables.
-    track = options[:track] || ENV.fetch("ANDROID_RELEASE_TRACK", "internal")
+    # Convention over configuration: derive track from MAKE_ENV
+    # prod → beta (open testing), otherwise → internal
+    track = (ENV['MAKE_ENV'].to_s == 'prod') ? 'beta' : 'internal'
     UI.header("Starting build and upload to track: #{track}")
 
     # Fetch the highest existing version code from the specified track to avoid collisions.
@@ -62,7 +64,11 @@ platform :android do
     # Upload the AAB to the Google Play Store using the `supply` action.
     UI.message("Uploading AAB to Google Play Store...")
 
-    supply(
+    # Convention: require RELEASE_NOTES and apply to en-US
+    notes = ENV['RELEASE_NOTES']
+    UI.user_error!("RELEASE_NOTES environment variable is required") if notes.to_s.strip.empty?
+
+    supply_options = {
       package_name: ENV["APP_IDENTIFIER_ANDROID"],
       aab: aab_path,
       track: track,
@@ -70,7 +76,10 @@ platform :android do
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
-    )
+    }
+    supply_options[:changelogs] = { 'en-US' => notes }
+
+    supply(supply_options)
     UI.success("Successfully uploaded to track: #{track}")
   end
 end

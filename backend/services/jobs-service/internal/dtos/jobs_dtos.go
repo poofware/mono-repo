@@ -1,8 +1,8 @@
 package dtos
 
 import (
-	"time" // Import time package
 	"github.com/google/uuid"
+	"time" // Import time package
 )
 
 /*
@@ -30,6 +30,11 @@ type JobInstanceDTO struct {
 	Buildings         []BuildingDTO `json:"buildings,omitempty"`
 	NumberOfDumpsters int           `json:"number_of_dumpsters"`
 	Dumpsters         []DumpsterDTO `json:"dumpsters,omitempty"`
+	Floors            []int16       `json:"floors,omitempty"`
+	TotalUnits        int           `json:"total_units"`
+
+	// NEW: flattened list of units and their verification status
+	UnitVerifications []UnitVerificationDTO `json:"unit_verifications,omitempty"`
 
 	// Times are now provided in pairs for both worker and property timezones.
 
@@ -68,10 +73,13 @@ BuildingDTO and DumpsterDTO appear within JobInstanceDTO to give a
 little more context about the assigned buildings/dumpsters for the job.
 */
 type BuildingDTO struct {
-	BuildingID uuid.UUID `json:"building_id"`
-	Name       string    `json:"building_name"`
-	Latitude   float64   `json:"latitude"`
-	Longitude  float64   `json:"longitude"`
+	BuildingID    uuid.UUID             `json:"building_id"`
+	Name          string                `json:"building_name"`
+	Latitude      float64               `json:"latitude"`
+	Longitude     float64               `json:"longitude"`
+	Floors        []int16               `json:"floors,omitempty"`
+	NumberOfUnits int                   `json:"number_of_units"`
+	Units         []UnitVerificationDTO `json:"units,omitempty"`
 }
 
 type DumpsterDTO struct {
@@ -90,6 +98,18 @@ type PropertyDTO struct {
 	ZipCode      string    `json:"zip_code"`
 	Latitude     float64   `json:"latitude"`
 	Longitude    float64   `json:"longitude"`
+}
+
+// UnitVerificationDTO conveys the verification state for a single unit.
+type UnitVerificationDTO struct {
+	UnitID           uuid.UUID `json:"unit_id"`
+	BuildingID       uuid.UUID `json:"building_id"`
+	UnitNumber       string    `json:"unit_number"`
+	Status           string    `json:"status"`
+	AttemptCount     int16     `json:"attempt_count"`
+	FailureReasons   []string  `json:"failure_reasons,omitempty"`
+	PermanentFailure bool      `json:"permanent_failure"`
+	MissingTrashCan  bool      `json:"missing_trash_can"`
 }
 
 /*

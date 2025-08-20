@@ -4,8 +4,8 @@ package services
 import (
     "context"
 
-    "github.com/poofware/go-utils"
-    "github.com/poofware/go-repositories"
+    "github.com/poofware/mono-repo/backend/shared/go-utils"
+    "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 // VerificationCleanupService handles purging old/expired PM/Worker email and SMS codes.

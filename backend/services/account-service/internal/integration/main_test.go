@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/poofware/account-service/internal/config"
-	"github.com/poofware/go-testhelpers"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
+	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
 )
 
 var h *testhelpers.TestHelper
@@ -30,6 +30,7 @@ func TestMain(m *testing.M) {
 
 	// The TestHelper already parses this flag.
 	flag.Bool("manual", false, "Run with UI (headless Chrome) for testing")
+	flag.Parse()
 
 	// Use a dummy testing.T to initialize the helper.
 	// We can't use one from a real test since TestMain runs before tests.

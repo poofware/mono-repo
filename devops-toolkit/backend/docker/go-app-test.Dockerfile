@@ -9,10 +9,11 @@ ARG INTEGRATION_TEST_RUNNER_BASE_IMAGE=alpine:latest
 FROM golang:${GO_VERSION}-alpine AS base
 
 # Install any necessary packages (git, openssh, etc.)
-RUN apk update && apk add --no-cache git openssh curl openssl;
+RUN apk update && apk add --no-cache git openssh curl openssl build-base musl-dev;
 
 # Private repos? Configure SSH known_hosts if needed
 ENV GOPRIVATE=github.com/poofware/*
+ENV CGO_ENABLED=1
 RUN git config --global url."git@github.com:".insteadOf "https://github.com/";
 
 WORKDIR /go/app
@@ -31,8 +32,6 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
 FROM base AS builder-config-validator
 
 ARG APP_NAME
-ARG HCP_ORG_ID
-ARG HCP_PROJECT_ID
 ARG LD_SERVER_CONTEXT_KEY
 ARG LD_SERVER_CONTEXT_KIND
 ARG UNIQUE_RUN_NUMBER
@@ -41,14 +40,6 @@ ARG UNIQUE_RUNNER_ID
 # Validate the configuration
 RUN test -n "${APP_NAME}" || ( \
   echo "Error: APP_NAME is not set! Use --build-arg APP_NAME=xxx" && \
-  exit 1 \
-);
-RUN test -n "${HCP_ORG_ID}" || ( \
-  echo "Error: HCP_ORG_ID is not set! Use --build-arg HCP_ORG_ID=xxx" && \
-  exit 1 \
-);
-RUN test -n "${HCP_PROJECT_ID}" || ( \
-  echo "Error: HCP_PROJECT_ID is not set! Use --build-arg HCP_PROJECT_ID=xxx" && \
   exit 1 \
 );
 RUN test -n "${LD_SERVER_CONTEXT_KEY}" || ( \
@@ -75,8 +66,6 @@ FROM builder-config-validator AS integration-test-builder
 
 ARG APP_NAME
 ARG ENV
-ARG HCP_ORG_ID
-ARG HCP_PROJECT_ID
 ARG LD_SERVER_CONTEXT_KEY
 ARG LD_SERVER_CONTEXT_KIND
 ARG UNIQUE_RUN_NUMBER
@@ -101,13 +90,12 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
     ENV_TRANSFORMED=$(echo "${ENV}" | tr '-' '_') && \
     go test -c -tags "${ENV_TRANSFORMED},integration" \
       -ldflags "\
-        -X 'github.com/poofware/${APP_NAME}/internal/config.AppName=${APP_NAME}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.LDServerContextKey=${LD_SERVER_CONTEXT_KEY}' \
-        -X 'github.com/poofware/${APP_NAME}/internal/config.LDServerContextKind=${LD_SERVER_CONTEXT_KIND}' \
-        -X 'github.com/poofware/go-utils.HCPOrgID=${HCP_ORG_ID}' \
-        -X 'github.com/poofware/go-utils.HCPProjectID=${HCP_PROJECT_ID}'" \
+        -linkmode external -extldflags '-static -lm' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.AppName=${APP_NAME}' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.UniqueRunNumber=${UNIQUE_RUN_NUMBER}' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.UniqueRunnerID=${UNIQUE_RUNNER_ID}' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.LDServerContextKey=${LD_SERVER_CONTEXT_KEY}' \
+        -X 'github.com/poofware/mono-repo/backend/services/${APP_NAME}/internal/config.LDServerContextKind=${LD_SERVER_CONTEXT_KIND}'" \
       -v -o /integration_test ./internal/integration/...;
 
 #######################################
@@ -135,7 +123,6 @@ ARG LOG_LEVEL
 ARG APP_PORT
 ARG APP_URL_FROM_COMPOSE_NETWORK
 ARG APP_URL_FROM_ANYWHERE
-ARG HCP_ENCRYPTED_API_TOKEN
  
 RUN test -n "${ENV}" || ( \
   echo "Error: ENV is not set! Use --build-arg ENV=xxx" && \
@@ -157,10 +144,6 @@ RUN test -n "${APP_URL_FROM_ANYWHERE}" || ( \
   echo "Error: APP_URL_FROM_ANYWHERE is not set! Use --build-arg APP_URL_FROM_ANYWHERE=xxx" && \
   exit 1 \
 );
-RUN test -n "${HCP_ENCRYPTED_API_TOKEN}" || ( \
-  echo "Error: HCP_ENCRYPTED_API_TOKEN is not set! Use --build-arg HCP_ENCRYPTED_API_TOKEN=xxx" && \
-  exit 1 \
-);
 
 WORKDIR /root/
 COPY --from=integration-test-builder /integration_test ./integration_test
@@ -174,7 +157,6 @@ ENV LOG_LEVEL=${LOG_LEVEL}
 ENV APP_PORT=${APP_PORT}
 ENV APP_URL_FROM_COMPOSE_NETWORK=${APP_URL_FROM_COMPOSE_NETWORK}
 ENV APP_URL_FROM_ANYWHERE=${APP_URL_FROM_ANYWHERE}
-ENV HCP_ENCRYPTED_API_TOKEN=${HCP_ENCRYPTED_API_TOKEN}
 
 CMD ./integration_test_runner_cmd.sh;
 

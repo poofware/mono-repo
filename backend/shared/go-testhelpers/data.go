@@ -7,13 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/jackc/pgconn"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -157,6 +158,19 @@ func (h *TestHelper) CreateTestBuilding(ctx context.Context, propID uuid.UUID, b
 	return b
 }
 
+// NEW: CreateTestUnit creates and persists a new unit.
+func (h *TestHelper) CreateTestUnit(ctx context.Context, propID, bldgID uuid.UUID, unitNum string) *models.Unit {
+	u := &models.Unit{
+		ID:          uuid.New(),
+		PropertyID:  propID,
+		BuildingID:  bldgID,
+		UnitNumber:  unitNum,
+		TenantToken: uuid.NewString(),
+	}
+	require.NoError(h.T, h.UnitRepo.Create(ctx, u), "Failed to create test unit")
+	return u
+}
+
 // CreateTestDumpster creates and persists a new dumpster.
 func (h *TestHelper) CreateTestDumpster(ctx context.Context, propID uuid.UUID, dumpsterNum string) *models.Dumpster {
 	d := &models.Dumpster{
@@ -198,21 +212,39 @@ func (h *TestHelper) CreateTestJobDefinition(t *testing.T, ctx context.Context, 
 	duration := latest.Sub(earliest)
 	hint := earliest.Add(duration / 2)
 
+	assigned := make([]models.AssignedUnitGroup, len(buildingIDs))
+	floorSet := make(map[int16]struct{})
+	totalUnits := 0
+	for i, bID := range buildingIDs {
+		assigned[i] = models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}, Floors: []int16{1}}
+		for _, f := range assigned[i].Floors {
+			floorSet[f] = struct{}{}
+		}
+		totalUnits += len(assigned[i].UnitIDs)
+	}
+	floors := make([]int16, 0, len(floorSet))
+	for f := range floorSet {
+		floors = append(floors, f)
+	}
+	sort.Slice(floors, func(i, j int) bool { return floors[i] < floors[j] })
+
 	def := &models.JobDefinition{
-		ID:                  uuid.New(),
-		ManagerID:           managerID,
-		PropertyID:          propID,
-		Title:               title,
-		AssignedBuildingIDs: buildingIDs,
-		DumpsterIDs:         dumpsterIDs,
-		Frequency:           freq,
-		Weekdays:            weekdays,
-		Status:              status,
-		StartDate:           time.Now().UTC().AddDate(0, 0, -1),
-		EarliestStartTime:   earliest,
-		LatestStartTime:     latest,
-		StartTimeHint:       hint,
-		DailyPayEstimates:   dailyEstimates,
+		ID:                      uuid.New(),
+		ManagerID:               managerID,
+		PropertyID:              propID,
+		Title:                   title,
+		AssignedUnitsByBuilding: assigned,
+		Floors:                  floors,
+		TotalUnits:              totalUnits,
+		DumpsterIDs:             dumpsterIDs,
+		Frequency:               freq,
+		Weekdays:                weekdays,
+		Status:                  status,
+		StartDate:               time.Now().UTC().AddDate(0, 0, -1),
+		EarliestStartTime:       earliest,
+		LatestStartTime:         latest,
+		StartTimeHint:           hint,
+		DailyPayEstimates:       dailyEstimates,
 	}
 	require.NoError(t, h.JobDefRepo.Create(ctx, def))
 	createdDef, err := h.JobDefRepo.GetByID(ctx, def.ID)

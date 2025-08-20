@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 // RateLimitRepository provides an atomic way to check and increment rate limit counters.

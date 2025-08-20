@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
-	"github.com/poofware/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
 
 /* ───────────── public interface ───────────── */
@@ -173,6 +173,9 @@ func (r *unitRepo) scanUnit(row pgx.Row) (*models.Unit, error) {
 		&u.UnitNumber, &u.TenantToken,
 		&u.CreatedAt, &u.UpdatedAt, &u.RowVersion, &deletedAt,
 	); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	// Manually assign the value from the pgtype wrapper to the model's pointer.

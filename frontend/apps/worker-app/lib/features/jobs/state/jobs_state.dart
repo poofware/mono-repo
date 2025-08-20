@@ -13,6 +13,11 @@ class JobsState {
   /// Whether we are currently fetching the user's accepted or in-progress jobs.
   final bool isLoadingAcceptedJobs;
 
+  /// Whether the initial go-online fetch (open + accepted jobs) has fully completed.
+  /// This controls when the jobs sheet refresh spinner switches from grey to the
+  /// primary-colored version.
+  final bool hasLoadedInitialJobs;
+
   /// The list of open jobs fetched from the server (or dummy data).
   final List<JobInstance> openJobs;
 
@@ -33,12 +38,14 @@ class JobsState {
     this.acceptedJobs = const [],
     this.inProgressJob,
     this.error,
+    this.hasLoadedInitialJobs = false,
   });
 
   JobsState copyWith({
     bool? isOnline,
     bool? isLoadingOpenJobs,
     bool? isLoadingAcceptedJobs,
+    bool? hasLoadedInitialJobs,
     List<JobInstance>? openJobs,
     List<JobInstance>? acceptedJobs,
     JobInstance? inProgressJob,
@@ -51,10 +58,12 @@ class JobsState {
       isLoadingOpenJobs: isLoadingOpenJobs ?? this.isLoadingOpenJobs,
       isLoadingAcceptedJobs:
           isLoadingAcceptedJobs ?? this.isLoadingAcceptedJobs,
+      hasLoadedInitialJobs: hasLoadedInitialJobs ?? this.hasLoadedInitialJobs,
       openJobs: openJobs ?? this.openJobs,
       acceptedJobs: acceptedJobs ?? this.acceptedJobs,
-      inProgressJob:
-          clearInProgressJob ? null : inProgressJob ?? this.inProgressJob,
+      inProgressJob: clearInProgressJob
+          ? null
+          : inProgressJob ?? this.inProgressJob,
       error: clearError ? null : error ?? this.error,
     );
   }

@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	shared_dtos "github.com/poofware/go-dtos"
-	"github.com/poofware/go-models"
+	shared_dtos "github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
 
 // AdminCreateJobDefinitionRequest is used by admins to create a job definition for a specific manager.

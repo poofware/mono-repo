@@ -1,4 +1,4 @@
-@Skip('Temporarily disabled – remove this line to re-enable')
+// @Skip('Temporarily disabled – remove this line to re-enable')
 
 import 'dart:math';
 
@@ -75,6 +75,8 @@ void main() {
 
     // 1) Auth side: WorkerAuthApi + Secure Storage + Repo
     tokenStorage = SecureTokenStorage();
+    // Clear any persisted tokens from previous runs to start fresh.
+    await tokenStorage.clearTokens();
     final workerAuthApi = WorkerAuthApi(tokenStorage: tokenStorage);
     authRepo = WorkerAuthRepository(
       authApi: workerAuthApi,
@@ -84,10 +86,7 @@ void main() {
 
     // 2) Instantiate the WorkerAccountApi/Repository, also providing the same workerNotifier
     final workerAccountApi = WorkerAccountApi(tokenStorage: tokenStorage);
-    accountRepo = WorkerAccountRepository(
-      workerAccountApi,
-      workerNotifier,
-    );
+    accountRepo = WorkerAccountRepository(workerAccountApi, workerNotifier);
 
     // --- PHONE FIRST ---
     // 3) Request SMS code => negative => positive
@@ -133,14 +132,11 @@ void main() {
     // 7) Login with TOTP code
     final loginTOTP = generateTOTPCode(totpSecret!);
     await authRepo.doLogin(
-      LoginWorkerRequest(
-        phoneNumber: testPhone,
-        totpCode: loginTOTP,
-      ),
+      LoginWorkerRequest(phoneNumber: testPhone, totpCode: loginTOTP),
     );
 
     // 8) Submit personal info to complete setup
-    await accountRepo.submitPersonalInfo(
+    final submittedWorker = await accountRepo.submitPersonalInfo(
       const SubmitPersonalInfoRequest(
         streetAddress: '987 Worker Lane',
         city: 'AccountCity',
@@ -151,6 +147,8 @@ void main() {
         vehicleModel: 'ModelY',
       ),
     );
+    expect(submittedWorker.onWaitlist, isA<bool>());
+    expect(submittedWorker.waitlistReason, isA<WaitlistReason>());
   });
 
   // ─────────────────────────────────────────────────────────────────────
@@ -162,6 +160,9 @@ void main() {
       final worker = await accountRepo.getWorker();
       expect(worker.state, isNotEmpty);
       expect(worker.email, testEmail);
+      expect(worker.onWaitlist, isA<bool>());
+      expect(worker.waitlistReason, isA<WaitlistReason>());
+      expect(worker.tenantToken, isNull);
     });
 
     // -------------------------------------------------------------------------
@@ -178,6 +179,18 @@ void main() {
       // Now fetch worker again to confirm it persisted
       final fetchedAgain = await accountRepo.getWorker();
       expect(fetchedAgain.city, equals(newCity));
+    });
+
+    testWidgets('Patch Worker – invalid tenant token', (tester) async {
+      try {
+        await accountRepo.patchWorker(
+          const WorkerPatchRequest(tenantToken: 'bad-token'),
+        );
+        fail('Expected ApiException for invalid tenant token');
+      } on ApiException catch (e) {
+        expect(e.errorCode, 'invalid_tenant_token');
+        expect(e.statusCode, 400);
+      }
     });
 
     // -----------------------   Stripe   -----------------------
@@ -206,7 +219,10 @@ void main() {
 
     testWidgets('Create Checkr invitation', (tester) async {
       invitation = await accountRepo.createCheckrInvitation();
-      expect(invitation.invitationUrl, allOf([isNotEmpty, startsWith('https://')]));
+      expect(
+        invitation.invitationUrl,
+        allOf([isNotEmpty, startsWith('https://')]),
+      );
       expect(invitation.message.toLowerCase(), contains('checkr'));
     });
 
@@ -221,8 +237,8 @@ void main() {
     });
 
     testWidgets('Checkr outcome – expect unknown', (tester) async {
-      final outcomeResp = await accountRepo.getCheckrOutcome();
-      expect(outcomeResp.outcome, CheckrReportOutcome.unknown);
+      final worker = await accountRepo.getCheckrOutcome();
+      expect(worker.checkrReportOutcome, CheckrReportOutcome.unknown);
     });
 
     // -----------------------   Token handling   -----------------------

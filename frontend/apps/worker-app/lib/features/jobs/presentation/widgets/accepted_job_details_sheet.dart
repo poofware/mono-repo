@@ -5,23 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
-import 'package:poof_worker/features/jobs/presentation/pages/job_map_page.dart';
+// job_map_page is referenced by JobMapCache; no direct use here.
+import 'job_map_cache.dart';
+import 'view_job_map_button.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/job_in_progress_page.dart'; // Import the page
 import 'info_widgets.dart';
+import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 
 class AcceptedJobDetailsSheet extends ConsumerStatefulWidget {
   final JobInstance job;
 
-  const AcceptedJobDetailsSheet({
-    super.key,
-    required this.job,
-  });
+  const AcceptedJobDetailsSheet({super.key, required this.job});
 
-  // ─── Manual static caches ────────────────────────────────────────────
-  static final mapPages = <String, JobMapPage>{};
-  static final entries = <String, OverlayEntry>{};
-  static final _evictTimers = <String, Timer>{};
-  static final _warmCompleters = <String, Completer<void>>{};
+  // (shared map caching utilities are provided by JobMapCache)
 
   @override
   ConsumerState<AcceptedJobDetailsSheet> createState() =>
@@ -32,90 +28,100 @@ class _AcceptedJobDetailsSheetState
     extends ConsumerState<AcceptedJobDetailsSheet> {
   bool _isExpanded = false;
   bool _isUnaccepting = false;
-  bool _isShowingMap = false;
-  bool _isWarming = false;
   bool _isStartingJob = false;
+
+  /// A getter to simplify checking if any async operation is in progress.
+  bool get _isProcessing => _isStartingJob || _isUnaccepting;
 
   @override
   void initState() {
     super.initState();
-    final id = widget.job.instanceId;
-    AcceptedJobDetailsSheet._evictTimers[id]?.cancel();
-    AcceptedJobDetailsSheet._evictTimers.remove(id);
+    JobMapCache.cancelEvict(widget.job.instanceId);
   }
 
   @override
   void dispose() {
-    final id = widget.job.instanceId;
-    AcceptedJobDetailsSheet._evictTimers[id]?.cancel();
-    AcceptedJobDetailsSheet._evictTimers[id] = Timer(
-      const Duration(seconds: 30),
-      () {
-        final entry = AcceptedJobDetailsSheet.entries[id];
-        if (entry != null && entry.mounted) entry.remove();
-        AcceptedJobDetailsSheet.mapPages.remove(id);
-        AcceptedJobDetailsSheet.entries.remove(id);
-        AcceptedJobDetailsSheet._evictTimers.remove(id);
-        AcceptedJobDetailsSheet._warmCompleters.remove(id);
-      },
-    );
+    // When a sheet hosting the cached map is closed, schedule eviction.
+    JobMapCache.scheduleEvict(widget.job.instanceId);
     super.dispose();
   }
 
-  Future<JobMapPage> _getOrWarmMap() async {
-    final id = widget.job.instanceId;
-    if (AcceptedJobDetailsSheet.mapPages.containsKey(id)) {
-      final existingCompleter = AcceptedJobDetailsSheet._warmCompleters[id];
-      if (existingCompleter != null) await existingCompleter.future;
-      return AcceptedJobDetailsSheet.mapPages[id]!;
-    }
-    final completer = Completer<void>();
-    AcceptedJobDetailsSheet._warmCompleters[id] = completer;
-    final page = JobMapPage(
-      key: GlobalObjectKey('map-$id'),
-      job: widget.job,
-      isForWarmup: true,
-      buildAsScaffold: false, // MODIFIED: Always build without a scaffold.
-      onReady: () {
-        if (!completer.isCompleted) completer.complete();
-        AcceptedJobDetailsSheet._warmCompleters.remove(id);
-      },
-    );
-    final entry = OverlayEntry(
-      maintainState: true,
-      builder: (_) => Offstage(child: page),
-    );
-    Overlay.of(context).insert(entry);
-    await completer.future;
-    AcceptedJobDetailsSheet.mapPages[id] = page;
-    AcceptedJobDetailsSheet.entries[id] = entry;
-    return page;
-  }
+  // Deprecated local warm/show map handlers removed in favor of shared ViewJobMapButton
 
-  Future<void> _handleViewJobMap() async {
-    if (_isShowingMap) return;
-    setState(() {
-      _isShowingMap = true;
-      _isWarming = true;
-    });
-    final mapPage = await _getOrWarmMap();
-    if (!mounted) return;
-    setState(() => _isWarming = false);
-    final id = widget.job.instanceId;
-    final oldEntry = AcceptedJobDetailsSheet.entries[id];
-    if (oldEntry != null && oldEntry.mounted) oldEntry.remove();
-    AcceptedJobDetailsSheet.entries.remove(id);
-    final popupRoute = CachedMapPopupRoute(mapPage: mapPage, instanceId: id);
-    await Navigator.of(context).push(popupRoute);
-    await popupRoute.completed;
-    if (!mounted) return;
-    setState(() => _isShowingMap = false);
+  DateTime? _parseJobServiceWindowEnd(JobInstance job) {
+    try {
+      final dateParts = job.serviceDate.split('-');
+      // Use the service window end time
+      final timeParts = job.workerServiceWindowEnd.split(':');
+      if (dateParts.length != 3 || timeParts.length != 2) return null;
+
+      final year = int.parse(dateParts[0]);
+      final month = int.parse(dateParts[1]);
+      final day = int.parse(dateParts[2]);
+
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+
+      return DateTime(year, month, day, hour, minute);
+    } catch (e) {
+      // Log error or handle gracefully
+      return null;
+    }
   }
 
   Future<void> _handleUnaccept() async {
     if (_isUnaccepting) return;
 
     final navigator = Navigator.of(context);
+    final appLocalizations = AppLocalizations.of(context);
+
+    // --- PENALTY LOGIC ---
+    bool proceed = true; // Default to proceed without dialog
+    String? dialogTitle;
+    String? dialogContent;
+
+    // Use the end of the service window as the measuring stick
+    final jobEndTime = _parseJobServiceWindowEnd(widget.job);
+    if (jobEndTime != null) {
+      final timeUntilEnd = jobEndTime.difference(DateTime.now());
+
+      // High impact: < 3 hours before the window closes
+      if (timeUntilEnd.inHours < 3) {
+        proceed = false;
+        dialogTitle = appLocalizations.unacceptJobHighImpactTitle;
+        dialogContent = appLocalizations.unacceptJobHighImpactBody;
+      }
+      // Low impact: > 3 hours but < 24 hours before the window closes
+      else if (timeUntilEnd.inHours < 24) {
+        proceed = false;
+        dialogTitle = appLocalizations.unacceptJobConfirmTitle;
+        dialogContent = appLocalizations.unacceptJobLowImpactBody;
+      }
+    }
+
+    if (!proceed) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(dialogTitle!),
+          content: Text(dialogContent!),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(appLocalizations.unacceptJobBackButton),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(appLocalizations.unacceptJobConfirmButton),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    // --- END PENALTY LOGIC ---
+
     setState(() => _isUnaccepting = true);
 
     final wasSuccess = await ref
@@ -158,7 +164,7 @@ class _AcceptedJobDetailsSheetState
 
     // This block is now only reached on success.
     if (mounted) {
-      final warmedMap = await _getOrWarmMap();
+      final warmedMap = await JobMapCache.warmMap(context, updatedJob);
       if (!mounted) {
         setState(() => _isStartingJob = false);
         return;
@@ -170,16 +176,10 @@ class _AcceptedJobDetailsSheetState
       );
 
       final id = widget.job.instanceId;
-      final oldMapEntry = AcceptedJobDetailsSheet.entries[id];
-      if (oldMapEntry != null && oldMapEntry.mounted) {
-        oldMapEntry.remove();
-        AcceptedJobDetailsSheet.entries.remove(id);
-      }
+      JobMapCache.detachOverlayFor(id);
 
       final completer = Completer<void>();
-      final entry = OverlayEntry(
-        builder: (_) => Offstage(child: pageToPush),
-      );
+      final entry = OverlayEntry(builder: (_) => Offstage(child: pageToPush));
       Overlay.of(context).insert(entry);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -211,140 +211,196 @@ class _AcceptedJobDetailsSheetState
     final theme = Theme.of(context);
     final mediaQueryPadding = MediaQuery.of(context).padding;
 
-    return Container(
-      padding: const EdgeInsets.only(top: 12.0),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, mediaQueryPadding.bottom + 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 50,
-              height: 5,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(4),
-              ),
+    return GestureDetector(
+      // Conditionally capture vertical drags to prevent sheet dismissal while processing.
+      onVerticalDragStart: _isProcessing ? (_) {} : null,
+      onVerticalDragUpdate: _isProcessing ? (_) {} : null,
+      onVerticalDragEnd: _isProcessing ? (_) {} : null,
+      child: PopScope(
+        // Prevent dismissal via back button/gesture while processing.
+        canPop: !_isProcessing,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && mounted) {
+            showAppSnackBar(
+              context,
+              const Text("Please wait for the operation to complete."),
+              displayDuration: const Duration(seconds: 2),
+            );
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.only(top: 12.0),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              0,
+              24,
+              mediaQueryPadding.bottom + 16,
             ),
-            Text(
-              widget.job.property.propertyName,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.job.property.address,
-              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-              textAlign: TextAlign.center,
-            ),
-            const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _infoItem(
-                  icon: Icons.attach_money,
-                  label: appLocalizations.acceptedJobsBottomSheetPayLabel,
-                  value: '\$${widget.job.pay.toStringAsFixed(0)}',
+                Container(
+                  width: 50,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-                _infoItem(
-                  icon: Icons.location_on,
-                  label: appLocalizations.acceptedJobsBottomSheetDistanceLabel,
-                  value: widget.job.distanceLabel,
+                Text(
+                  widget.job.property.propertyName,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                _infoItem(
-                  icon: Icons.timer,
-                  label: appLocalizations.acceptedJobsBottomSheetEstTimeLabel,
-                  value: widget.job.displayTime,
+                const SizedBox(height: 8),
+                Text(
+                  widget.job.property.address,
+                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                // Primary focus tiles (match Job Accept sheet vocabulary)
+                Builder(
+                  builder: (context) {
+                    final formattedStartTime =
+                        formatTime(context, widget.job.workerStartTimeHint);
+                    final formattedWindowStart =
+                        formatTime(context, widget.job.workerServiceWindowStart);
+                    final formattedWindowEnd =
+                        formatTime(context, widget.job.workerServiceWindowEnd);
+                    final List<_TileData> headerTiles = [
+                      if (formattedStartTime.isNotEmpty)
+                        _TileData(
+                          icon: Icons.access_time_outlined,
+                          label: appLocalizations.jobAcceptSheetRecommendedStart,
+                          value: formattedStartTime,
+                          spanTwoColumns: true,
+                        ),
+                      if (formattedWindowStart.isNotEmpty &&
+                          formattedWindowEnd.isNotEmpty)
+                        _TileData(
+                          icon: Icons.hourglass_empty_outlined,
+                          label: appLocalizations.jobAcceptSheetServiceWindow,
+                          value:
+                              '$formattedWindowStart - $formattedWindowEnd',
+                          spanTwoColumns: true,
+                        ),
+                      _TileData(
+                        icon: Icons.directions_car_outlined,
+                        label: appLocalizations.jobAcceptSheetHeaderDriveTime,
+                        value: widget.job.displayTravelTime,
+                      ),
+                    ];
+                    return _TwoColumnTiles(tiles: headerTiles);
+                  },
+                ),
+                const SizedBox(height: 12),
+                ViewJobMapButton(job: widget.job),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => setState(() => _isExpanded = !_isExpanded),
+                  icon: Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 28,
+                  ),
+                  label: Text(
+                    _isExpanded
+                        ? appLocalizations.acceptedJobsBottomSheetHideDetails
+                        : appLocalizations.acceptedJobsBottomSheetViewDetails,
+                  ),
+                  style:
+                      TextButton.styleFrom(
+                        foregroundColor: theme.primaryColor,
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                        splashFactory: NoSplash.splashFactory,
+                      ).copyWith(
+                        overlayColor: WidgetStateProperty.all(
+                          Colors.transparent,
+                        ),
+                      ),
+                ),
+                AnimatedCrossFade(
+                  firstChild: const SizedBox(width: double.infinity, height: 0),
+                  secondChild: _buildExpandedDetails(
+                    context,
+                    appLocalizations,
+                    theme,
+                  ),
+                  crossFadeState: _isExpanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 200),
+                ),
+                const SizedBox(height: 12),
+                // Disable any highlight/splash by wrapping row with AbsorbPointer when processing
+                AbsorbPointer(
+                  absorbing: _isProcessing,
+                  child: _buildActionButtons(appLocalizations),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => setState(() => _isExpanded = !_isExpanded),
-              icon: Icon(_isExpanded ? Icons.expand_less : Icons.expand_more,
-                  size: 28),
-              label: Text(_isExpanded
-                  ? appLocalizations.acceptedJobsBottomSheetHideDetails
-                  : appLocalizations.acceptedJobsBottomSheetViewDetails),
-              style: TextButton.styleFrom(
-                foregroundColor: theme.primaryColor,
-                textStyle:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                splashFactory: NoSplash.splashFactory,
-              ).copyWith(
-                overlayColor: WidgetStateProperty.all(Colors.transparent),
-              ),
-            ),
-            AnimatedCrossFade(
-              firstChild: const SizedBox(width: double.infinity, height: 0),
-              secondChild:
-                  _buildExpandedDetails(context, appLocalizations, theme),
-              crossFadeState: _isExpanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 200),
-            ),
-            const SizedBox(height: 12),
-            _buildActionButtons(appLocalizations),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildExpandedDetails(BuildContext context,
-      AppLocalizations appLocalizations, ThemeData theme) {
-    final formattedStartTime = formatTime(context, widget.job.startTimeHint);
-    final formattedWindowStart =
-        formatTime(context, widget.job.workerServiceWindowStart);
-    final formattedWindowEnd =
-        formatTime(context, widget.job.workerServiceWindowEnd);
+  Widget _buildExpandedDetails(
+    BuildContext context,
+    AppLocalizations appLocalizations,
+    ThemeData theme,
+  ) {
+    final List<_TileData> detailTiles = [
+      _TileData(
+        icon: Icons.attach_money,
+        label: appLocalizations.acceptedJobsBottomSheetPayLabel,
+        value: '${widget.job.pay.toStringAsFixed(0)} USD',
+        color: Colors.green,
+      ),
+      _TileData(
+        icon: Icons.timer_outlined,
+        label: appLocalizations.jobAcceptSheetHeaderAvgCompletion,
+        value: widget.job.displayTime,
+      ),
+      _TileData(
+        icon: Icons.location_on_outlined,
+        label: appLocalizations.acceptedJobsBottomSheetDistanceLabel,
+        value: widget.job.distanceLabel,
+      ),
+      _TileData(
+        icon: Icons.apartment_outlined,
+        label: appLocalizations.jobAcceptSheetBuildings,
+        value:
+            '${widget.job.numberOfBuildings} bldg${widget.job.numberOfBuildings == 1 ? '' : 's'}',
+      ),
+      if (widget.job.numberOfBuildings == 1)
+        _TileData(
+          icon: Icons.stairs_outlined,
+          label: appLocalizations.jobAcceptSheetFloors,
+          value: widget.job.floorsLabel,
+        ),
+      _TileData(
+        icon: Icons.home_outlined,
+        label: appLocalizations.jobAcceptSheetUnits,
+        value: widget.job.totalUnitsLabel,
+      ),
+    ];
 
-    return Column(
-      children: [
-        const Divider(height: 1),
-        const SizedBox(height: 16),
-        _detailRow(
-          icon: Icons.apartment_outlined,
-          label: appLocalizations.jobAcceptSheetBuildings,
-          value:
-              '${widget.job.numberOfBuildings} bldg${widget.job.numberOfBuildings == 1 ? "" : "s"}',
-        ),
-        _detailRow(
-          icon: Icons.access_time_outlined,
-          label: appLocalizations.jobAcceptSheetRecommendedStart,
-          value: formattedStartTime,
-        ),
-        _detailRow(
-          icon: Icons.hourglass_empty_outlined,
-          label: appLocalizations.jobAcceptSheetServiceWindow,
-          value: '$formattedWindowStart - $formattedWindowEnd',
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _isWarming ? null : _handleViewJobMap,
-            icon: const Icon(Icons.map_outlined),
-            label: Text(_isWarming
-                ? 'Preparing map…'
-                : appLocalizations.acceptedJobsBottomSheetViewJobMap),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: theme.primaryColor,
-              side: BorderSide(color: theme.primaryColor.withAlpha(127)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: _TwoColumnTiles(tiles: detailTiles),
     );
   }
 
@@ -353,7 +409,7 @@ class _AcceptedJobDetailsSheetState
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: _isStartingJob ? null : _handleStartJob,
+            onPressed: _isProcessing ? null : _handleStartJob,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.black87,
               foregroundColor: Colors.white,
@@ -361,13 +417,23 @@ class _AcceptedJobDetailsSheetState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              disabledBackgroundColor: Colors.grey.shade300,
+              disabledForegroundColor: Colors.white70,
+            ).copyWith(
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              splashFactory: NoSplash.splashFactory,
+              animationDuration: const Duration(milliseconds: 0),
+              enableFeedback: false,
             ),
             icon: _isStartingJob
                 ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Icon(Icons.play_arrow),
             label: Text(appLocalizations.acceptedJobsBottomSheetStartJobButton),
           ),
@@ -375,7 +441,7 @@ class _AcceptedJobDetailsSheetState
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: _isUnaccepting ? null : _handleUnaccept,
+            onPressed: _isProcessing ? null : _handleUnaccept,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.grey.shade200,
               foregroundColor: Colors.black87,
@@ -384,13 +450,23 @@ class _AcceptedJobDetailsSheetState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              disabledBackgroundColor: Colors.grey.shade200,
+              disabledForegroundColor: Colors.black38,
+            ).copyWith(
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              splashFactory: NoSplash.splashFactory,
+              animationDuration: const Duration(milliseconds: 0),
+              enableFeedback: false,
             ),
             icon: _isUnaccepting
                 ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.black54))
+                      strokeWidth: 2,
+                      color: Colors.black54,
+                    ),
+                  )
                 : const Icon(Icons.delete_outline),
             label: Text(
               _isUnaccepting
@@ -403,34 +479,121 @@ class _AcceptedJobDetailsSheetState
     );
   }
 
-  Widget _infoItem(
-      {required IconData icon, required String label, required String value}) {
-    return Column(
-      children: [
-        Icon(icon, size: 28, color: Colors.black87),
-        const SizedBox(height: 4),
-        Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 14)),
-      ],
+  // Removed unused helpers _infoItem and _detailRow
+}
+
+// ────────────────────────────────────────────────────────────────────────
+//  Tile components (mirroring Job Accept sheet styling)
+// ────────────────────────────────────────────────────────────────────────
+// Generic tile data
+class _TileData {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? color;
+  final bool spanTwoColumns;
+  _TileData({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+    this.spanTwoColumns = false,
+  });
+}
+
+// Two-column responsive tile wrapper
+class _TwoColumnTiles extends StatelessWidget {
+  final List<_TileData> tiles;
+  const _TwoColumnTiles({required this.tiles});
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 10.0;
+        final isNarrow = constraints.maxWidth < 260;
+        final columns = isNarrow ? 1 : 2;
+        final itemWidth = columns == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - spacing) / 2;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: tiles.map((t) {
+            final double width = columns == 2 && t.spanTwoColumns
+                ? constraints.maxWidth
+                : itemWidth;
+            return SizedBox(
+              width: width,
+              child: _StatTile(
+                icon: t.icon,
+                label: t.label,
+                value: t.value,
+                color: t.color,
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
+}
 
-  Widget _detailRow(
-      {required IconData icon, required String label, required String value}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+// Single stat tile
+class _StatTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? color;
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseColor = color ?? Colors.black87;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey.shade600, size: 20),
-          const SizedBox(width: 16),
-          Text(label,
-              style:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-          const Spacer(),
-          Text(value,
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade800)),
+          Icon(icon, size: 22, color: baseColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: baseColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -455,8 +618,11 @@ class CachedMapPopupRoute extends PopupRoute<void> {
   @override
   Duration get reverseTransitionDuration => const Duration(milliseconds: 250);
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     // MODIFIED: Wrap the map page in a Stack to add our own back button.
     return Material(
       type: MaterialType.transparency,
@@ -464,7 +630,7 @@ class CachedMapPopupRoute extends PopupRoute<void> {
         children: [
           ValueListenableBuilder<bool>(
             valueListenable: _inRoute,
-            builder: (_, show, __) => show ? mapPage : const SizedBox.shrink(),
+            builder: (_, show, _) => show ? mapPage : const SizedBox.shrink(),
           ),
           SafeArea(
             child: Align(
@@ -487,8 +653,12 @@ class CachedMapPopupRoute extends PopupRoute<void> {
   }
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     animation.addStatusListener((status) {
       if (status == AnimationStatus.dismissed && !_reparented) {
         _inRoute.value = false;
@@ -497,14 +667,16 @@ class CachedMapPopupRoute extends PopupRoute<void> {
           builder: (_) => Offstage(child: mapPage),
         );
         Overlay.of(context).insert(entry);
-        AcceptedJobDetailsSheet.entries[instanceId] = entry;
+        // Reparent warmed map overlay back into cache to maintain state
+        JobMapCache.setReparentedEntry(instanceId, entry);
         _reparented = true;
       }
     });
     final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic);
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
     final tween = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero);
     return SlideTransition(position: tween.animate(curved), child: child);
   }
@@ -550,9 +722,6 @@ class JobInProgressSlideRoute extends PopupRoute<void> {
       reverseCurve: Curves.easeInCubic,
     );
     final tween = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero);
-    return SlideTransition(
-      position: tween.animate(curved),
-      child: child,
-    );
+    return SlideTransition(position: tween.animate(curved), child: child);
   }
 }

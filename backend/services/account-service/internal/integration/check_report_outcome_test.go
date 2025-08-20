@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/account-service/internal/dtos"
-	"github.com/poofware/account-service/internal/routes"
-	"github.com/poofware/go-models"
-	"github.com/poofware/go-utils"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
 )
 
 var (
@@ -292,9 +292,9 @@ func testCheckrOutcome(t *testing.T, c checkrTestCandidate) {
 		FirstName:     c.FirstName,
 		LastName:      c.LastName,
 		StreetAddress: "123 Worker St",
-		City:          "Testville",
-		State:         "AL",
-		ZipCode:       "35806",
+		City:          "Newark",
+		State:         "NJ",
+		ZipCode:       "07103",
 		VehicleYear:   2020,
 		VehicleMake:   "Ford",
 		VehicleModel:  "F150",

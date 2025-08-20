@@ -1,4 +1,4 @@
-@Skip('Temporarily disabled – remove this line to re-enable')
+// @Skip('Temporarily disabled – remove this line to re-enable')
 
 import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
@@ -69,6 +69,8 @@ void main() {
     // Create WorkerStateNotifier and token storage
     workerNotifier = WorkerStateNotifier();
     tokenStorage = SecureTokenStorage();
+    // Ensure no tokens linger from previous test runs.
+    await tokenStorage.clearTokens();
 
     // Build the WorkerAuthApi + WorkerAuthRepository
     final workerAuthApi = WorkerAuthApi(tokenStorage: tokenStorage);

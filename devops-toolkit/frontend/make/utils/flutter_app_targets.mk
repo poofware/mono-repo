@@ -67,16 +67,10 @@ ifneq (,$(filter $(ENV),$(DEV_TEST_ENV)))
 		[ $$rc -eq 0 ] || exit $$rc; \
 		echo "export CURRENT_BACKEND_DOMAIN=\"$$domain\""; \
 	fi
-else ifneq (,$(filter $(ENV),$(DEV_ENV)))
+else
 	@domain="$$( $(_backend_domain_cmd) )"; rc=$$?; \
 	[ $$rc -eq 0 ] || exit $$rc; \
 	echo "export CURRENT_BACKEND_DOMAIN=\"$$domain\""
-else ifneq (,$(filter $(ENV),$(STAGING_ENV)))
-	@domain="$$( $(_backend_domain_cmd) )"; rc=$$?; \
-	[ $$rc -eq 0 ] || exit $$rc; \
-	echo "export CURRENT_BACKEND_DOMAIN=\"$$domain\""
-else ifneq (,$(filter $(ENV),$(PROD_ENV)))
-	@echo 'export CURRENT_BACKEND_DOMAIN="thepoofapp.com"'
 endif
 
 # Run API integration tests (non-UI logic tests)
@@ -130,7 +124,7 @@ _run-env: logs
 		set -eo pipefail; \
 		web_flags=""; \
 		if [ "$(PLATFORM)" = "web" ]; then \
-			web_flags="-d chrome --wasm"; \
+			web_flags="-d chrome"; \
 		fi; \
 		flutter run $$web_flags --target lib/main/main_$(ENV).dart --dart-define=CURRENT_BACKEND_DOMAIN=$$CURRENT_BACKEND_DOMAIN \
 		--dart-define=GCP_SDK_KEY=$(GCP_SDK_KEY) \

@@ -7,14 +7,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
-import 'package:poof_flutter_widgets/poof_flutter_widgets.dart' show SixDigitField;
+import 'package:poof_flutter_widgets/poof_flutter_widgets.dart'
+    show SixDigitField;
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:poof_worker/core/providers/initial_setup_providers.dart';
+import 'package:poof_worker/features/jobs/presentation/pages/home_page.dart'
+    show kDefaultMapZoom, kSanFranciscoLatLng;
+ 
 
 /// Arguments for the unified TOTP verification page.
 class TotpVerifyArgs {
   /// The email or phone number to display to the user.
   final String displayIdentifier;
-  
+
   /// The callback to execute with the entered code upon successful submission.
   /// This encapsulates the specific logic (login vs. register).
   final Future<void> Function(String totpCode) onSuccess;
@@ -40,10 +46,17 @@ class _TotpVerifyPageState extends ConsumerState<TotpVerifyPage> {
   Future<void> _handleVerification() async {
     setState(() => _isLoading = true);
 
-    await widget.args.onSuccess(_sixDigitCode);
-
-    if (mounted) {
-      setState(() => _isLoading = false);
+    try {
+      await widget.args.onSuccess(_sixDigitCode);
+    } catch (_) {
+      // Errors are handled in the callback; just fall through so the
+      // post-frame callback below can reset the loading state.
+    } finally {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      });
     }
   }
 
@@ -51,106 +64,142 @@ class _TotpVerifyPageState extends ConsumerState<TotpVerifyPage> {
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    // Read the precomputed initial camera (falls back to SF if absent)
+    final initialCam = ref.watch(initialBootCameraPositionProvider) ??
+        const CameraPosition(target: kSanFranciscoLatLng, zoom: kDefaultMapZoom);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: AppConstants.kDefaultPadding,
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => context.pop(),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Icon(
-                        Icons.phonelink_lock_outlined,
-                        size: 80,
-                        color: AppColors.poofColor,
-                      ).animate().fadeIn(delay: 200.ms, duration: 400.ms).scale(),
-                      const SizedBox(height: 24),
-                      Text(
-                        appLocalizations.totpVerifyTitle,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      )
-                          .animate()
-                          .fadeIn(delay: 300.ms, duration: 400.ms)
-                          .slideY(begin: 0.2),
-                      const SizedBox(height: 16),
-                      Text(
-                        appLocalizations.totpVerifyExplanation,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 16,
-                        ),
-                      )
-                          .animate()
-                          .fadeIn(delay: 400.ms, duration: 400.ms)
-                          .slideY(begin: 0.2),
-                      const SizedBox(height: 32),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 32),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+    final mainMapMounted = ref.watch(homeMapMountedProvider);
+    final mapStyle = ref.watch(mapStyleJsonProvider) ?? '';
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Padding(
+                padding: AppConstants.kDefaultPadding,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SixDigitField(
-                              autofocus: true,
-                              onChanged: (val) => setState(() => _sixDigitCode = val),
-                              showPasteButton: true,
-                              onSubmitted: (code) => _handleVerification(),
+                            Align(
+                              alignment: Alignment.topLeft,
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_back),
+                                onPressed: () => context.pop(),
+                              ),
                             ),
                             const SizedBox(height: 24),
+                            const Icon(
+                                  Icons.phonelink_lock_outlined,
+                                  size: 80,
+                                  color: AppColors.poofColor,
+                                )
+                                .animate()
+                                .fadeIn(delay: 200.ms, duration: 400.ms)
+                                .scale(),
+                            const SizedBox(height: 24),
                             Text(
-                              appLocalizations.totpVerifyAccountNameInfo,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                            ),
+                                  appLocalizations.totpVerifyTitle,
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                                .animate()
+                                .fadeIn(delay: 300.ms, duration: 400.ms)
+                                .slideY(begin: 0.2),
+                            const SizedBox(height: 16),
                             Text(
-                                '\'Poof Worker: ${widget.args.displayIdentifier}\'',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
+                                  appLocalizations.totpVerifyExplanation,
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontSize: 16,
+                                  ),
+                                )
+                                .animate()
+                                .fadeIn(delay: 400.ms, duration: 400.ms)
+                                .slideY(begin: 0.2),
+                            const SizedBox(height: 32),
+                            Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 32,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceContainer,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      SixDigitField(
+                                        autofocus: true,
+                                        showPasteButton: true,
+                                        onChanged: (val) =>
+                                            setState(() => _sixDigitCode = val),
+                                        onSubmitted: (code) =>
+                                            _handleVerification(),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                                .animate()
+                                .fadeIn(delay: 500.ms, duration: 400.ms)
+                                .slideY(begin: 0.2),
                           ],
                         ),
-                      )
-                          .animate()
-                          .fadeIn(delay: 500.ms, duration: 400.ms)
-                          .slideY(begin: 0.2),
-                    ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child:
+                          WelcomeButton(
+                                text: appLocalizations.totpVerifyButton,
+                                isLoading: _isLoading,
+                                onPressed: (_isLoading || _sixDigitCode.length != 6)
+                                    ? null
+                                    : _handleVerification,
+                              )
+                              .animate()
+                              .fadeIn(delay: 600.ms, duration: 400.ms)
+                              .slideY(begin: 0.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Invisible warm-up Google Map, only while main Home Map hasn't mounted
+            if (!mainMapMounted)
+              Align(
+                alignment: Alignment.bottomRight,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.01,
+                    child: RepaintBoundary(
+                      child: SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: GoogleMap(
+                          initialCameraPosition: initialCam,
+                          style: mapStyle.isEmpty ? null : mapStyle,
+                          myLocationEnabled: false,
+                          myLocationButtonEnabled: false,
+                          mapToolbarEnabled: false,
+                          zoomControlsEnabled: false,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: WelcomeButton(
-                  text: appLocalizations.totpVerifyButton,
-                  isLoading: _isLoading,
-                  onPressed: (_isLoading || _sixDigitCode.length != 6)
-                      ? null
-                      : _handleVerification,
-                )
-                    .animate()
-                    .fadeIn(delay: 600.ms, duration: 400.ms)
-                    .slideY(begin: 0.5),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );

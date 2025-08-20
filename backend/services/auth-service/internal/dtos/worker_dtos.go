@@ -1,7 +1,7 @@
 package dtos
 
 import (
-	shared_dtos "github.com/poofware/go-dtos"
+	shared_dtos "github.com/poofware/mono-repo/backend/shared/go-dtos"
 )
 
 // ----------------------
