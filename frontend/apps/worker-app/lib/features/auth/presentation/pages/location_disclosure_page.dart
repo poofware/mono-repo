@@ -95,20 +95,18 @@ class _LocationDisclosurePageState extends ConsumerState<LocationDisclosurePage>
             ],
           ),
           content: Text(l10n.locationDisclosureRequired),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           actions: [
-            _DialogActionButton(
-              label: l10n.okButtonLabel,
+            TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.okButtonLabel),
             ),
-            const SizedBox(width: 8),
-            _DialogPrimaryButton(
-              label: l10n.locationDisclosureOpenSettings,
+            FilledButton(
               onPressed: () async {
                 final navigator = Navigator.of(ctx);
                 await Geolocator.openLocationSettings();
                 if (navigator.canPop()) navigator.pop();
               },
+              child: Text(l10n.locationDisclosureOpenSettings),
             ),
           ],
         );
@@ -132,20 +130,18 @@ class _LocationDisclosurePageState extends ConsumerState<LocationDisclosurePage>
             ],
           ),
           content: Text(l10n.locationDisclosureRequired),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           actions: [
-            _DialogActionButton(
-              label: l10n.okButtonLabel,
+            TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.okButtonLabel),
             ),
-            const SizedBox(width: 8),
-            _DialogPrimaryButton(
-              label: l10n.locationDisclosureOpenSettings,
+            FilledButton(
               onPressed: () async {
                 final navigator = Navigator.of(ctx);
                 await Geolocator.openAppSettings();
                 if (navigator.canPop()) navigator.pop();
               },
+              child: Text(l10n.locationDisclosureOpenSettings),
             ),
           ],
         );
@@ -315,72 +311,6 @@ class _LocationDisclosurePageState extends ConsumerState<LocationDisclosurePage>
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DialogPrimaryButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onPressed;
-  const _DialogPrimaryButton({required this.label, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 140),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: theme.colorScheme.primary,
-          foregroundColor: theme.colorScheme.onPrimary,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-        onPressed: onPressed,
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onPrimary,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DialogActionButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onPressed;
-  const _DialogActionButton({required this.label, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 108),
-      child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.5)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-        onPressed: onPressed,
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.1,
           ),
         ),
       ),

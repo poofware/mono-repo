@@ -112,14 +112,19 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
     final int lineCount = painter.computeLineMetrics().length;
     final bool wrapped = lineCount > 1;
 
-    // Quick diagnostic log
+    // Quick diagnostic log (de-duped by signature to avoid spam during rebuilds)
     try {
       final logger = ref.read(appLoggerProvider);
-      logger.d(
-        'JobsSheet: message wrap ${wrapped ? 'detected' : 'not detected'} '
-        '(lines=$lineCount, maxTextWidth=${maxTextWidth.toStringAsFixed(1)}, '
-        'screenWidth=${screenWidth.toStringAsFixed(1)})',
-      );
+      final String sig =
+          '${wrapped ? 1 : 0}|$lineCount|${maxTextWidth.toStringAsFixed(1)}|${screenWidth.toStringAsFixed(1)}|${message.hashCode}';
+      if (_lastWrapLogSignature != sig) {
+        _lastWrapLogSignature = sig;
+        logger.d(
+          'JobsSheet: message wrap ${wrapped ? 'detected' : 'not detected'} '
+          '(lines=$lineCount, maxTextWidth=${maxTextWidth.toStringAsFixed(1)}, '
+          'screenWidth=${screenWidth.toStringAsFixed(1)})',
+        );
+      }
     } catch (_) {}
 
     // Base sizes chosen to work with the current header layout.
@@ -136,6 +141,7 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
 
   // Controller for the list, to check its scroll position.
   final ScrollController _listScrollController = ScrollController();
+  String? _lastWrapLogSignature;
 
   /* ──────────────────────────── Drag helpers ──────────────────────────── */
 
@@ -179,6 +185,11 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
 
   // The list view no longer drives the sheet; always allow the list to scroll.
   bool _handleScrollNotification(ScrollNotification notification) => false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   /* ─────────────────────────────── Build ─────────────────────────────── */
 
