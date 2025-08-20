@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/theme/app_colors.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/features/jobs/presentation/pages/job_map_page.dart';
 import 'package:poof_worker/features/jobs/presentation/widgets/slide_button_widget.dart';
@@ -191,6 +192,37 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
     UnitVerification unit, {
     bool missingTrashCan = false,
   }) async {
+    // Require precise location before verifying a unit photo.
+    try {
+      final precise = await hasPreciseLocation();
+      if (!precise && mounted) {
+        final l10n = AppLocalizations.of(context);
+        final navigator = Navigator.of(context);
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(l10n.preciseLocationDialogTitle),
+            content: Text(l10n.preciseLocationDialogBody),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: Text(l10n.okButtonLabel),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  await Geolocator.openAppSettings();
+                  if (navigator.canPop()) {
+                    navigator.pop();
+                  }
+                },
+                child: Text(l10n.locationDisclosureOpenSettings),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    } catch (_) {}
     // START of MODIFICATION
     final job = ref.read(jobsNotifierProvider).inProgressJob ?? widget.job;
     final bagsCollected = job.buildings
@@ -382,6 +414,36 @@ class _JobInProgressPageState extends ConsumerState<JobInProgressPage> {
   }
 
   Future<void> _dumpBags() async {
+    // Require precise location before dumping/completing.
+    try {
+      final precise = await hasPreciseLocation();
+      if (!precise && mounted) {
+        final l10n = AppLocalizations.of(context);
+        final navigator = Navigator.of(context);
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(l10n.preciseLocationDialogTitle),
+            content: Text(l10n.preciseLocationDialogBody),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: Text(l10n.okButtonLabel),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  await Geolocator.openAppSettings();
+                  navigator.pop();
+                },
+                child: Text(l10n.locationDisclosureOpenSettings),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    } catch (_) {}
+
     final success = await ref.read(jobsNotifierProvider.notifier).dumpBags();
     if (success && mounted) {
       final job = ref.read(jobsNotifierProvider).inProgressJob;

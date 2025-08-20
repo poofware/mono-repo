@@ -135,17 +135,23 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // Always refresh earnings summary.
     earningsNotifier.fetchEarningsSummary(force: true);
     
-    // Only refresh jobs if we have location permission; otherwise skip.
+    // If location permission was revoked while app was backgrounded, route to disclosure.
     final perm = await Geolocator.checkPermission();
     final hasLocationPerm =
         perm == LocationPermission.always || perm == LocationPermission.whileInUse;
-
     if (!hasLocationPerm) {
-      ref
-          .read(appLoggerProvider)
-          .d('Location permission missing at resume; skipping jobs refresh.');
+      ref.read(appLoggerProvider).d('Permission missing on resume; navigating to disclosure.');
+      // Avoid duplicating the disclosure page if it's already on top
+      final matches = _router.routerDelegate.currentConfiguration.matches;
+      final atDisclosure = matches.isNotEmpty &&
+          matches.last.matchedLocation == '/location_disclosure';
+      if (mounted && !atDisclosure) {
+        _router.goNamed(AppRouteNames.locationDisclosurePage);
+      }
       return;
     }
+
+    // We have permission → proceed with refresh logic below.
 
     // Refresh jobs based on online status.
     if (jobsState.isOnline) {

@@ -712,5 +712,14 @@
   "locationDisclosureBullet1": "Find nearby jobs and center the map on you",
   "locationDisclosureBullet2": "Keep your route updated during a job",
   "locationDisclosureBullet3": "Confirm you're at the right place for job actions like accept, start and dump",
-  "locationDisclosurePrivacy": "We don't collect location when the app is closed"
+  "locationDisclosurePrivacy": "We don't collect location when the app is closed",
+  "myProfilePageDeleteAccountLink": "Request account deletion",
+  "myProfilePageDeleteAccountSubtitle": "Opens our website to request permanent deletion of your account.",
+  "locationDisclosureRequired": "Location permission is required to use this app.",
+  "locationDisclosureOpenSettings": "Open Settings",
+  "preciseLocationDialogTitle": "Enable Precise Location",
+  "preciseLocationDialogBody": "For accurate checks when starting or completing jobs, enable Precise Location in Settings.",
+  "continueAnyway": "Continue Anyway"
+  ,
+  "locationPreciseModeSuggestion": "Tip: Enable Precise Location in Settings."
 }

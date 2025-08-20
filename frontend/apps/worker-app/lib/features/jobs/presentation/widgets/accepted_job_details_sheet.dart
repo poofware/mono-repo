@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
+import 'package:poof_worker/core/utils/location_permissions.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:poof_worker/features/jobs/providers/jobs_provider.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
 // job_map_page is referenced by JobMapCache; no direct use here.
@@ -146,6 +148,38 @@ class _AcceptedJobDetailsSheetState
     setState(() => _isStartingJob = true);
 
     final navigator = Navigator.of(context);
+    final l10n = AppLocalizations.of(context);
+
+    // Require precise location before starting a job.
+    try {
+      final precise = await hasPreciseLocation();
+      if (!precise && mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(l10n.preciseLocationDialogTitle),
+            content: Text(l10n.preciseLocationDialogBody),
+            actions: [
+              TextButton(
+                onPressed: () => navigator.pop(),
+                child: Text(l10n.okButtonLabel),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  await Geolocator.openAppSettings();
+                  if (navigator.canPop()) {
+                    navigator.pop();
+                  }
+                },
+                child: Text(l10n.locationDisclosureOpenSettings),
+              ),
+            ],
+          ),
+        );
+        if (mounted) setState(() => _isStartingJob = false);
+        return;
+      }
+    } catch (_) {}
 
     // This now returns a nullable JobInstance. The GlobalErrorListener will show
     // the snackbar on failure.

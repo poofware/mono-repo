@@ -8,7 +8,6 @@ import 'package:poof_worker/core/utils/location_consent_manager.dart';
 import 'package:poof_worker/core/presentation/widgets/welcome_button.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_worker/core/routing/router.dart';
-import 'package:poof_worker/core/utils/navigation_keys.dart';
 
 class LocationDisclosurePage extends ConsumerStatefulWidget {
   const LocationDisclosurePage({super.key});
@@ -20,20 +19,25 @@ class LocationDisclosurePage extends ConsumerStatefulWidget {
 class _LocationDisclosurePageState extends ConsumerState<LocationDisclosurePage> {
   bool _submitting = false;
 
-  Future<void> _requestLocationPermission(BuildContext context) async {
+  Future<void> _requestLocationPermission() async {
     // Keep looping here until we actually have permission. Only pop() when
     // permission is granted. For "Don't ask again"/deniedForever, route the
     // user to app settings; for location services OFF, route to OS location
     // settings. We do not leave this page until permission is granted.
+    // Capture context-bound objects before any awaits.
+    final localContext = context;
+    final router = GoRouter.of(localContext);
     await LocationConsentManager.markAndroidDisclosureComplete();
     try {
       if (mounted) setState(() => _submitting = true);
-      // Ensure device location services are ON.
+      // Ensure device location services are ON. If not, show guidance dialog instead of redirecting.
       final servicesOn = await Geolocator.isLocationServiceEnabled();
       if (!servicesOn) {
-        await Geolocator.openLocationSettings();
+        if (!mounted) return;
+        if (!localContext.mounted) return;
+        await _showLocationServicesRequiredDialog(localContext);
         if (mounted) setState(() => _submitting = false);
-        return; // Stay on page; user can tap Continue again.
+        return; // Stay on page; user can tap Continue again after changing settings.
       }
 
       // Check current permission state.
@@ -47,22 +51,23 @@ class _LocationDisclosurePageState extends ConsumerState<LocationDisclosurePage>
           perm == LocationPermission.whileInUse;
 
       if (granted) {
-        if (!context.mounted) return;
-        // Small post-frame to let button remain in loading state until we navigate
+        if (!mounted) return;
+        // Always take the user to main once permission is granted, to avoid
+        // landing back on intermediate auth pages like TOTP verify.
+        // Post-frame to avoid context use across async gap warnings
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          final rootNav = rootNavigatorKey.currentState;
-          if (rootNav != null && rootNav.canPop()) {
-            rootNav.pop();
-          } else {
-            context.goNamed(AppRouteNames.mainTab);
+          if (mounted) {
+            router.goNamed(AppRouteNames.mainTab);
           }
         });
         return;
       }
 
-      // Permanently denied → send to app settings.
+      // Permanently denied → show dialog with clear instructions and Settings link.
       if (perm == LocationPermission.deniedForever) {
-        await Geolocator.openAppSettings();
+        if (!mounted) return;
+        if (!localContext.mounted) return;
+        await _showPermissionRequiredDialog(localContext);
         if (mounted) setState(() => _submitting = false);
         return; // Stay; user can try again after adjusting settings.
       }
@@ -73,6 +78,83 @@ class _LocationDisclosurePageState extends ConsumerState<LocationDisclosurePage>
       if (mounted) setState(() => _submitting = false);
     }
   }
+
+  Future<void> _showLocationServicesRequiredDialog(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.location_off_outlined, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l10n.locationDisclosureTitle)),
+            ],
+          ),
+          content: Text(l10n.locationDisclosureRequired),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          actions: [
+            _DialogActionButton(
+              label: l10n.okButtonLabel,
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+            const SizedBox(width: 8),
+            _DialogPrimaryButton(
+              label: l10n.locationDisclosureOpenSettings,
+              onPressed: () async {
+                final navigator = Navigator.of(ctx);
+                await Geolocator.openLocationSettings();
+                if (navigator.canPop()) navigator.pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showPermissionRequiredDialog(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.my_location_outlined, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l10n.locationDisclosureTitle)),
+            ],
+          ),
+          content: Text(l10n.locationDisclosureRequired),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          actions: [
+            _DialogActionButton(
+              label: l10n.okButtonLabel,
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+            const SizedBox(width: 8),
+            _DialogPrimaryButton(
+              label: l10n.locationDisclosureOpenSettings,
+              onPressed: () async {
+                final navigator = Navigator.of(ctx);
+                await Geolocator.openAppSettings();
+                if (navigator.canPop()) navigator.pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Settings path descriptions removed per UX update; we now provide a direct
+  // Settings button for convenience and compliance.
 
   Widget _buildBulletPoint(BuildContext context, String text) {
     final theme = Theme.of(context);
@@ -228,11 +310,77 @@ class _LocationDisclosurePageState extends ConsumerState<LocationDisclosurePage>
                   WelcomeButton(
                     text: l10n.locationDisclosureContinue,
                     isLoading: _submitting,
-                    onPressed: () => _requestLocationPermission(context),
+                    onPressed: _requestLocationPermission,
                   ).animate().fadeIn(delay: 600.ms, duration: 500.ms),
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogPrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+  const _DialogPrimaryButton({required this.label, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 140),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        onPressed: onPressed,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.onPrimary,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+  const _DialogActionButton({required this.label, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 108),
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        onPressed: onPressed,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.1,
           ),
         ),
       ),

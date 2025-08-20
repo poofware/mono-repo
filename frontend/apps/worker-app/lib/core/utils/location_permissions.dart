@@ -12,7 +12,7 @@ import 'package:geolocator/geolocator.dart';
 Future<bool> ensureLocationGranted({bool background = false}) async {
   // Check if location services (GPS) are enabled.
   if (!await Geolocator.isLocationServiceEnabled()) {
-    await Geolocator.openLocationSettings();
+    // Do not auto-redirect users to Settings. Return false so caller can show UI.
     return false;
   }
 
@@ -29,7 +29,7 @@ Future<bool> ensureLocationGranted({bool background = false}) async {
 
   // Handle the “Don’t ask again” / permanently denied case.
   if (perm == LocationPermission.deniedForever) {
-    await Geolocator.openAppSettings();
+    // Do not auto-redirect users to Settings. Return false so caller can show UI.
     return false;
   }
 
@@ -44,4 +44,25 @@ Future<bool> hasLocationPermission() async {
   final perm = await Geolocator.checkPermission();
   return perm == LocationPermission.always ||
       perm == LocationPermission.whileInUse;
+}
+
+/// Returns the OS-reported location accuracy authorization.
+///
+/// On iOS 14+ and Android 12+, users can grant approximate (reduced) location.
+/// This exposes the current status so callers can adapt UX or gate features
+/// that require precise location.
+Future<LocationAccuracyStatus> getLocationAccuracyStatus() async {
+  try {
+    return await Geolocator.getLocationAccuracy();
+  } catch (_) {
+    // On older OS versions or if the platform doesn't support this query,
+    // default to precise so we don't block users unnecessarily.
+    return LocationAccuracyStatus.precise;
+  }
+}
+
+/// Convenience helper to check if precise location is currently enabled.
+Future<bool> hasPreciseLocation() async {
+  final status = await getLocationAccuracyStatus();
+  return status == LocationAccuracyStatus.precise;
 }

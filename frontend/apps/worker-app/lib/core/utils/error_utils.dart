@@ -37,7 +37,9 @@ String userFacingMessage(BuildContext context, ApiException e) {
     case 'no_photos_provided':
       return l10n.apiErrorNoPhotosProvided;
     case 'location_inaccurate':
-      return l10n.apiErrorLocationInaccurate;
+      final hint = l10n.locationPreciseModeSuggestion;
+      final base = l10n.apiErrorLocationInaccurate;
+      return hint.isNotEmpty ? '$base $hint' : base;
 
     // --- Generic client/network codes from the auth library ---
     case 'network_offline':

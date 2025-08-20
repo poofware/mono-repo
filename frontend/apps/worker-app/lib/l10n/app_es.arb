@@ -713,5 +713,14 @@
   "locationDisclosureBullet1": "Encontrar trabajos cercanos y centrar el mapa en ti",
   "locationDisclosureBullet2": "Mantener tu ruta actualizada durante un trabajo",
   "locationDisclosureBullet3": "Confirmar que estás en el lugar correcto para acciones como aceptar, iniciar y desechar",
-  "locationDisclosurePrivacy": "No recopilamos tu ubicación cuando la app está cerrada"
+  "locationDisclosurePrivacy": "No recopilamos tu ubicación cuando la app está cerrada",
+  "myProfilePageDeleteAccountLink": "Solicitar eliminación de cuenta",
+  "myProfilePageDeleteAccountSubtitle": "Abre nuestro sitio web para solicitar la eliminación permanente de tu cuenta.",
+  "locationDisclosureRequired": "Se requiere permiso de ubicación para usar esta aplicación.",
+  "locationDisclosureOpenSettings": "Abrir Configuración",
+  "preciseLocationDialogTitle": "Habilitar ubicación precisa",
+  "preciseLocationDialogBody": "Para comprobaciones exactas al iniciar o completar trabajos, habilita la Ubicación precisa en Configuración.",
+  "continueAnyway": "Continuar de todos modos"
+  ,
+  "locationPreciseModeSuggestion": "Sugerencia: Habilita la Ubicación precisa en Configuración."
 }

@@ -107,7 +107,16 @@ class AuthController {
     if (worker != null &&
         worker.accountStatus == AccountStatusType.active &&
         !await locperm.hasLocationPermission()) {
-      await router.pushNamed(AppRouteNames.locationDisclosurePage);
+      // Avoid duplicate disclosure if it's already on top (fresh install + OS prompt resume).
+      final matches = router.routerDelegate.currentConfiguration.matches;
+      final alreadyAtDisclosure =
+          matches.isNotEmpty && matches.last.matchedLocation == '/location_disclosure';
+      if (!alreadyAtDisclosure) {
+        // Do not await; the disclosure manages its own dismissal.
+        // ignore: discarded_futures
+        router.pushNamed(AppRouteNames.locationDisclosurePage);
+      }
+      return;
     }
 
     // Navigate ASAP to let heavy UI (map) mount while data loads in background.
@@ -153,7 +162,15 @@ class AuthController {
         // active, then resume session flow after user acknowledges.
         if (worker.accountStatus == AccountStatusType.active &&
             !await locperm.hasLocationPermission()) {
-          await router.pushNamed(AppRouteNames.locationDisclosurePage);
+          // Avoid duplicate if disclosure is already on top (e.g., first OS prompt flow).
+          final matches = router.routerDelegate.currentConfiguration.matches;
+          final alreadyAtDisclosure =
+              matches.isNotEmpty && matches.last.matchedLocation == '/location_disclosure';
+          if (!alreadyAtDisclosure) {
+            // ignore: discarded_futures
+            router.pushNamed(AppRouteNames.locationDisclosurePage);
+          }
+          return;
         }
 
         if (worker.accountStatus == AccountStatusType.active) {

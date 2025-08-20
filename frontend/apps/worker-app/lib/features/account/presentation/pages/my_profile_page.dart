@@ -201,6 +201,12 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
         subtitle: t.myProfilePageManageBackgroundCheckSubtitle,
         onTap: () => _launchUrl('https://candidate.checkr.com/'),
       ),
+      _StatefulLinkTile(
+        icon: Icons.delete_outline_rounded,
+        title: t.myProfilePageDeleteAccountLink,
+        subtitle: t.myProfilePageDeleteAccountSubtitle,
+        onTap: _handleDeleteAccount,
+      ),
     ];
 
     final profileScaffold = Scaffold(
@@ -667,6 +673,16 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     }
   }
 
+  Future<void> _handleDeleteAccount() async {
+    final base = PoofWorkerFlavorConfig.instance.baseUrl;
+    final url = base.endsWith('/') ? '${base}delete-account.html' : '$base/delete-account.html';
+    final success = await tryLaunchUrl(url);
+    if (!mounted) return;
+    if (!success) {
+      showAppSnackBar(context, Text(AppLocalizations.of(context).urlLauncherCannotLaunch));
+    }
+  }
+
   Future<void> _saveProfile(Worker worker) async {
     setState(() => _isSaving = true);
     final BuildContext capturedContext = context;
@@ -921,10 +937,24 @@ class _StatefulLinkTileState extends State<_StatefulLinkTile> {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      leading: Icon(widget.icon, size: 32, color: theme.colorScheme.primary),
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          widget.icon,
+          size: 22,
+          color: widget.icon == Icons.delete_outline_rounded
+              ? Colors.redAccent
+              : theme.colorScheme.primary,
+        ),
+      ),
       title: Text(
         widget.title,
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
         widget.subtitle,
