@@ -111,27 +111,6 @@ func (r *propertyRepo) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*model
 	return out, rows.Err()
 }
 
-func (r *propertyRepo) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Property, error) {
-	if len(ids) == 0 {
-		return []*models.Property{}, nil
-	}
-	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE id = ANY($1)", ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []*models.Property
-	for rows.Next() {
-		p, err := scanProperty(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
-}
-
 func (r *propertyRepo) Update(ctx context.Context, p *models.Property) error {
 	_, err := r.update(ctx, p, false, 0)
 	return err
