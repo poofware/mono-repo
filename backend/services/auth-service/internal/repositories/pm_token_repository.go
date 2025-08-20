@@ -9,26 +9,24 @@ import (
     "github.com/jackc/pgx/v4"
     "github.com/poofware/mono-repo/backend/services/auth-service/internal/models"
     "github.com/poofware/mono-repo/backend/shared/go-utils"
-    . "github.com/poofware/mono-repo/backend/shared/go-repositories"
+    sharedrepos "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 type PMTokenRepository interface {
     TokenRepository
-    DB() DB
+    DB() sharedrepos.DB
     CleanupExpiredRefreshTokens(ctx context.Context) error
 }
 
 type pmTokenRepository struct {
-    db DB
+    db sharedrepos.DB
 }
 
-func NewPMTokenRepository(db DB) PMTokenRepository {
+func NewPMTokenRepository(db sharedrepos.DB) PMTokenRepository {
     return &pmTokenRepository{db: db}
 }
 
-func (r *pmTokenRepository) DB() DB {
-    return r.db
-}
+func (r *pmTokenRepository) DB() sharedrepos.DB { return r.db }
 
 // ----------------------------
 // Create / Get
@@ -126,12 +124,7 @@ func (r *pmTokenRepository) BlacklistToken(ctx context.Context, tokenID string, 
 }
 
 func (r *pmTokenRepository) IsTokenBlacklisted(ctx context.Context, tokenID string) (bool, error) {
-    query := `
-        SELECT EXISTS (
-            SELECT 1 FROM pm_blacklisted_tokens
-            WHERE token_id = $1 AND expires_at > NOW()
-        )
-    `
+    query := `SELECT EXISTS (SELECT 1 FROM pm_blacklisted_tokens WHERE token_id = $1 AND expires_at > NOW())`
     var exists bool
     err := r.db.QueryRow(ctx, query, tokenID).Scan(&exists)
     return exists, err

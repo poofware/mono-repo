@@ -24,6 +24,8 @@ type JobInstanceRepository interface {
 		startDate, endDate time.Time,
 	) ([]*models.JobInstance, error)
 
+	ListInstancesByDefinitionIDs(ctx context.Context, definitionIDs []uuid.UUID, startDate, endDate time.Time) ([]*models.JobInstance, error)
+
 	AcceptInstanceAtomic(ctx context.Context, instanceID uuid.UUID, workerID uuid.UUID, expectedVersion int64, newAssignCount int, flagged bool) (*models.JobInstance, error)
 	UnassignInstanceAtomic(ctx context.Context, instanceID uuid.UUID, expectedVersion int64, newAssignCount int, flagged bool) (*models.JobInstance, error)
 	UpdateStatusAtomic(ctx context.Context, instanceID uuid.UUID, newStatus models.InstanceStatusType, expectedVersion int64) (*models.JobInstance, error)
@@ -90,9 +92,6 @@ func scanInstance(row pgx.Row) (*models.JobInstance, error) {
 		&inst.UpdatedAt,
 		&inst.CompletedByAgentID,
 	)
-	if err == pgx.ErrNoRows {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -199,6 +198,41 @@ func (r *jobInstanceRepo) ListInstancesByDateRange(
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.JobInstance
+	for rows.Next() {
+		inst, err := scanInstance(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, inst)
+	}
+	return out, rows.Err()
+}
+
+// ListInstancesByDefinitionIDs fetches all job instances associated with a list
+// of definition IDs within a given date range.
+func (r *jobInstanceRepo) ListInstancesByDefinitionIDs(
+	ctx context.Context,
+	definitionIDs []uuid.UUID,
+	startDate, endDate time.Time,
+) ([]*models.JobInstance, error) {
+	if len(definitionIDs) == 0 {
+		return []*models.JobInstance{}, nil
+	}
+
+	q := baseSelectInstance() + `
+        WHERE definition_id = ANY($1)
+          AND service_date >= $2
+          AND service_date <= $3
+        ORDER BY service_date DESC
+    `
+
+	rows, err := r.db.Query(ctx, q, definitionIDs, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("querying instances by definition IDs: %w", err)
 	}
 	defer rows.Close()
 

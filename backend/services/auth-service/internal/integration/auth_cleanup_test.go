@@ -27,7 +27,7 @@ func TestCronJobCleanupServices(t *testing.T) {
 	t.Run("VerificationCodeCleanup", func(t *testing.T) {
 		h.T = t
 		verificationCleanupService := services.NewVerificationCleanupService(
-			h.PMEmailRepo, h.PMSMSRepo, h.WorkerEmailRepo, h.WorkerSMSRepo,
+			 h.PMEmailRepo, h.PMSMSRepo, h.WorkerEmailRepo, h.WorkerSMSRepo,
 		)
 
 		// 1. Arrange: Create expired and valid verification codes
@@ -39,15 +39,12 @@ func TestCronJobCleanupServices(t *testing.T) {
 		require.NoError(t, err)
 
 		// Valid PM Email Code
-		// The local struct `validPMEmailCode` was removed to fix an "unusedwrite" warning.
-		// Values are now passed directly.
 		err = pmEmailRepo.CreateCode(ctx, nil, "valid-pm-cleanup@test.com", "654321", time.Now().Add(1*time.Hour))
 		require.NoError(t, err)
 
 		// Expired Worker SMS Code (verified but old)
-		err = workerSMSRepo.CreateCode(ctx, nil, "+15550009999", "111111", time.Now().Add(1*time.Hour)) // technically not expired by timestamp
+		err = workerSMSRepo.CreateCode(ctx, nil, "+15550009999", "111111", time.Now().Add(1*time.Hour))
 		require.NoError(t, err)
-		// Manually mark it as verified a long time ago
 		_, err = h.DB.Exec(ctx, `UPDATE worker_sms_verification_codes SET verified = TRUE, verified_at = $1 WHERE worker_phone = '+15550009999'`, time.Now().Add(-30*time.Minute))
 		require.NoError(t, err)
 
@@ -65,6 +62,7 @@ func TestCronJobCleanupServices(t *testing.T) {
 
 		_, err = workerSMSRepo.GetCode(ctx, "+15550009999")
 		require.Error(t, err, "Expired (old verified) Worker SMS code should have been deleted")
+
 	})
 
 	// --- Test Token Cleanup ---
@@ -72,11 +70,14 @@ func TestCronJobCleanupServices(t *testing.T) {
 		h.T = t
 		pmTokenRepo := auth_repositories.NewPMTokenRepository(h.DB)
 		workerTokenRepo := auth_repositories.NewWorkerTokenRepository(h.DB)
-		tokenCleanupService := services.NewTokenCleanupService(pmTokenRepo, workerTokenRepo)
+		adminTokenRepo := auth_repositories.NewAdminTokenRepository(h.DB)
+		tokenCleanupService := services.NewTokenCleanupService(pmTokenRepo, workerTokenRepo, adminTokenRepo)
 
 		// 1. Arrange: Create expired and valid refresh tokens
 		pm := h.CreateTestPM(ctx, "token-cleanup-pm")
 		worker := h.CreateTestWorker(ctx, "token-cleanup-worker")
+		admin := createTestAdminWithPassword(t, ctx, "token-cleanup-admin-"+utils.RandomString(6), "password123")
+		defer h.DB.Exec(ctx, `DELETE FROM admins WHERE id=$1`, admin.ID)
 
 		// Expired PM Token
 		expiredPMToken := &auth_models.RefreshToken{
@@ -98,18 +99,32 @@ func TestCronJobCleanupServices(t *testing.T) {
 		err = workerTokenRepo.CreateRefreshToken(ctx, validWorkerToken)
 		require.NoError(t, err)
 
+		// Expired Admin Token
+		expiredAdminToken := &auth_models.RefreshToken{
+			ID:        uuid.New(),
+			UserID:    admin.ID,
+			Token:     "expired-admin-token-string",
+			ExpiresAt: time.Now().Add(-30 * time.Minute),
+		}
+		err = adminTokenRepo.CreateRefreshToken(ctx, expiredAdminToken)
+		require.NoError(t, err)
+
 		// 2. Act: Run the cleanup service
 		err = tokenCleanupService.CleanupDaily(ctx)
 		require.NoError(t, err)
 
 		// 3. Assert: Check that expired tokens are gone and valid ones remain
-		retrievedExpired, err := pmTokenRepo.GetRefreshToken(ctx, expiredPMToken.Token)
-		require.NoError(t, err) // Should not error, just return nil
-		require.Nil(t, retrievedExpired, "Expired PM refresh token should have been deleted")
-
-		retrievedValid, err := workerTokenRepo.GetRefreshToken(ctx, validWorkerToken.Token)
+		retrievedExpiredPM, err := pmTokenRepo.GetRefreshToken(ctx, expiredPMToken.Token)
 		require.NoError(t, err)
-		require.NotNil(t, retrievedValid, "Valid Worker refresh token should not have been deleted")
-		require.Equal(t, utils.HashToken(validWorkerToken.Token), retrievedValid.Token)
+		require.Nil(t, retrievedExpiredPM, "Expired PM refresh token should have been deleted")
+
+		retrievedValidWorker, err := workerTokenRepo.GetRefreshToken(ctx, validWorkerToken.Token)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedValidWorker, "Valid Worker refresh token should not have been deleted")
+		require.Equal(t, utils.HashToken(validWorkerToken.Token), retrievedValidWorker.Token)
+
+		retrievedExpiredAdmin, err := adminTokenRepo.GetRefreshToken(ctx, expiredAdminToken.Token)
+		require.NoError(t, err)
+		require.Nil(t, retrievedExpiredAdmin, "Expired Admin refresh token should have been deleted")
 	})
 }

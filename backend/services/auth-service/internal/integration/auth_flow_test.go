@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"io"
 	"context"
 	"fmt"
 	"math/rand"
@@ -10,7 +11,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"errors"
+	"encoding/json"
 
+	"github.com/poofware/mono-repo/backend/services/auth-service/internal/dtos"
 	"github.com/poofware/mono-repo/backend/services/auth-service/internal/services"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stretchr/testify/require"
@@ -380,3 +384,92 @@ func TestWorkerTokenExpirationBehavior_Mobile(t *testing.T) {
 	_, _, err = refreshWorkerTokenWithPlatform(t, newRefresh, "android", deviceID, true)
 	require.Error(t, err)
 }
+
+// ------------------------------------------------------------
+// (E) Admin Flow
+// ------------------------------------------------------------
+// meta-service/services/auth-service/internal/integration/auth_flow_test.go
+
+
+func TestAdminLoginFlow(t *testing.T) {
+	h.T = t
+	ctx := context.Background()
+
+	// --- Create a dedicated admin user for this test flow ---
+	const testAdminPassword = "aSecurePassword123!"
+	testAdmin := createTestAdminWithPassword(t, ctx, "flow-admin-"+utils.RandomString(6)+"@poof.io", testAdminPassword)
+	defer h.DB.Exec(ctx, `DELETE FROM admins WHERE id=$1`, testAdmin.ID)
+
+	// --- Use the credentials from the admin we just created ---
+	testAdminUsername := testAdmin.Username
+	testAdminTOTPSecret := testAdmin.TOTPSecret
+
+	t.Run("AdminLoginAndLogoutSuccess", func(t *testing.T) {
+		h.T = t
+		// Generate a valid TOTP code from the secret
+		totpCode := h.GenerateTOTPCode(testAdminTOTPSecret)
+		_, client := loginAdminDesktop(t, testAdminUsername, testAdminPassword, totpCode)
+
+		// Successfully log out.
+		logoutAdminDesktopExpectSuccess(t, client)
+
+		// Refresh should now fail after logout.
+		err := refreshAdminDesktop(t, client, false)
+		require.Error(t, err, "Refresh should fail after logout")
+	})
+
+	t.Run("AdminSecondLoginRevokesOldRefresh", func(t *testing.T) {
+		h.T = t
+		// Login first time
+		code1 := h.GenerateTOTPCode(testAdminTOTPSecret)
+		_, c1 := loginAdminDesktop(t, testAdminUsername, testAdminPassword, code1)
+
+		// Login second time
+		code2 := h.GenerateTOTPCode(testAdminTOTPSecret)
+		_, c2 := loginAdminDesktop(t, testAdminUsername, testAdminPassword, code2)
+
+		// The first client's refresh token should now be invalid.
+		err := refreshAdminDesktop(t, c1, false)
+		require.Error(t, err, "First refresh token should be revoked by the second login")
+
+		// The second client's refresh token should be valid.
+		err = refreshAdminDesktop(t, c2, true)
+		require.NoError(t, err, "Second refresh token should still be valid")
+	})
+}
+
+// (The rest of the file remains unchanged)
+	func loginAdminDesktop(t *testing.T, username, password, totpCode string) (any, *http.Client) {
+		client := newBrowserClient(t)
+		reqDTO := dtos.LoginAdminRequest{Username: username, Password: password, TOTPCode: totpCode}
+		body, _ := json.Marshal(reqDTO)
+		urlStr := h.BaseURL + "/auth/v1/admin/login"
+		resp := doRequestWithClient(t, client, http.MethodPost, urlStr, body, map[string]string{"Content-Type": "application/json", "X-Platform": "web"})
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Admin login failed unexpectedly")
+		defer resp.Body.Close()
+		return nil, client
+	}
+	
+	func logoutAdminDesktopExpectSuccess(t *testing.T, client *http.Client) {
+		urlStr := h.BaseURL + "/auth/v1/admin/logout"
+		resp := doRequestWithClient(t, client, http.MethodPost, urlStr, nil, map[string]string{"X-Platform": "web"})
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		defer resp.Body.Close()
+	}
+	
+	func refreshAdminDesktop(t *testing.T, client *http.Client, expectSuccess bool) error {
+		urlStr := h.BaseURL + "/auth/v1/admin/refresh_token"
+		resp := doRequestWithClient(t, client, http.MethodPost, urlStr, nil, map[string]string{"X-Platform": "web"})
+		defer resp.Body.Close()
+		if expectSuccess {
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("expected 200 OK for admin refresh, got %d. Body: %s", resp.StatusCode, string(body))
+			}
+			return nil
+		}
+		if resp.StatusCode == http.StatusOK {
+			return errors.New("expected admin refresh to fail, but it succeeded")
+		}
+		return fmt.Errorf("refresh failed as expected with status %d", resp.StatusCode)
+	}

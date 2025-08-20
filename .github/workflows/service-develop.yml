@@ -12,6 +12,10 @@ on:
       - 'backend/services/jobs-service/**'
       - 'backend/services/earnings-service/**'
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -43,7 +47,8 @@ jobs:
         if: steps.cache-make.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends build-essential wget tar flock
+          # flock is provided by util-linux on Ubuntu 24.04
+          sudo apt-get install -y --no-install-recommends build-essential wget tar ca-certificates util-linux
           wget -q https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz
           tar -xzf make-4.4.1.tar.gz
           cd make-4.4.1
@@ -101,6 +106,7 @@ jobs:
           UNIQUE_RUNNER_ID:     ${{ secrets.UNIQUE_RUNNER_ID }}
           UNIQUE_RUN_NUMBER:    ${{ github.run_number }}
           LOG_LEVEL:            debug
+          NGROK_AUTHTOKEN:      ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
           # ubuntu-latest already has jq; if your runner ever lacks it:
           #   sudo apt-get update -qq && sudo apt-get install -y jq
@@ -115,6 +121,6 @@ jobs:
             esac
 
             echo "➤ running make ci for $dir"
-            make ci PATH="$dir"
+            make -C "$dir" ci
           done
 

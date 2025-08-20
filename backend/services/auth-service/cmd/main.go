@@ -60,12 +60,17 @@ func main() {
 	pendingWorkerDeletionRepo := auth_repositories.NewPendingWorkerDeletionRepository(application.DB)
 	pendingPMDeletionRepo := auth_repositories.NewPendingPMDeletionRepository(application.DB)
 
+	adminRepo := repositories.NewAdminRepository(application.DB, cfg.DBEncryptionKey)
+	adminLoginRepo := auth_repositories.NewAdminLoginAttemptsRepository(application.DB)
+	adminTokenRepo := auth_repositories.NewAdminTokenRepository(application.DB)
+
 	pmEmailRepo := repositories.NewPMEmailVerificationRepository(application.DB)
 	pmSMSRepo := repositories.NewPMSMSVerificationRepository(application.DB)
 	workerEmailRepo := repositories.NewWorkerEmailVerificationRepository(application.DB)
 	workerSMSRepo := repositories.NewWorkerSMSVerificationRepository(application.DB)
 
 	rateLimitRepo := auth_repositories.NewRateLimitRepository(application.DB)
+
 
 	//----------------------------------------------------------------------
 	// Services
@@ -95,6 +100,14 @@ func main() {
 		cfg,
 	)
 
+	adminAuthService := services.NewAdminAuthService(
+		adminRepo,
+		adminLoginRepo,
+		adminTokenRepo,
+		rateLimiterService,
+		cfg,
+	)
+
 	verificationCleanupService := services.NewVerificationCleanupService(
 		pmEmailRepo,
 		pmSMSRepo,
@@ -105,6 +118,7 @@ func main() {
 	tokenCleanupService := services.NewTokenCleanupService(
 		pmTokenRepo,
 		workerTokenRepo,
+		adminTokenRepo,
 	)
 
 	rateLimitCleanupService := services.NewRateLimitCleanupService(rateLimitRepo)
@@ -116,6 +130,7 @@ func main() {
 	//----------------------------------------------------------------------
 	pmController := controllers.NewPMAuthController(pmAuthService, cfg)
 	workerController := controllers.NewWorkerAuthController(workerAuthService, cfg)
+	adminController := controllers.NewAdminAuthController(adminAuthService, cfg)
 	registrationController := controllers.NewRegistrationController(totpService)
 	healthController := controllers.NewHealthController(application)
 
@@ -141,6 +156,10 @@ func main() {
 	v1Router.HandleFunc("/pm/refresh_token", pmController.RefreshTokenPM).Methods("POST")
 	v1Router.HandleFunc("/pm/initiate-deletion", pmController.InitiateDeletion).Methods("POST")   // New
 	v1Router.HandleFunc("/pm/confirm-deletion", pmController.ConfirmDeletion).Methods("POST")
+
+	// Admin endpoints
+	v1Router.HandleFunc("/admin/login", adminController.LoginAdmin).Methods("POST")
+	v1Router.HandleFunc("/admin/refresh_token", adminController.RefreshTokenAdmin).Methods("POST")
 
 	// Worker endpoints that do NOT require the new mobile attestation middleware
 	v1Router.HandleFunc("/worker/register", workerController.RegisterWorker).Methods("POST")
@@ -176,6 +195,10 @@ func main() {
 	pmProtected := v1Router.PathPrefix("/pm").Subrouter()
 	pmProtected.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation))
 	pmProtected.HandleFunc("/logout", pmController.LogoutPM).Methods("POST")
+
+	adminProtected := v1Router.PathPrefix("/admin").Subrouter()
+	adminProtected.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation))
+	adminProtected.HandleFunc("/logout", adminController.LogoutAdmin).Methods("POST")
 
 	workerProtected := v1Router.PathPrefix("/worker").Subrouter()
 	workerProtected.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation))

@@ -11,9 +11,9 @@ require (
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/launchdarkly/go-sdk-common/v3 v3.1.0
 	github.com/launchdarkly/go-server-sdk/v7 v7.10.0
-	github.com/poofware/go-dtos v0.0.0-20250530002052-50ccb97a7e4c
+	github.com/poofware/go-dtos v0.0.0-20250630022628-aa25168206d6
 	github.com/poofware/go-middleware v0.0.0-20250630000242-2b08a6db51fd
-	github.com/poofware/go-models v0.0.0-20250625174000-827ad2621e44
+	github.com/poofware/go-models v0.0.0-20250630022329-6cfdfe42b837
 	github.com/poofware/go-repositories v0.0.0-20250630182314-3b41c01a1492
 	github.com/poofware/go-testhelpers v0.0.0-20250623155146-c502e35b0d10
 	github.com/poofware/go-utils v0.0.0-20250630000146-7d946433b1f0
@@ -22,6 +22,7 @@ require (
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/stretchr/testify v1.10.0
 	github.com/stripe/stripe-go/v82 v82.2.1
+	golang.org/x/crypto v0.38.0
 )
 
 require (
@@ -72,7 +73,6 @@ require (
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
-	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect

@@ -456,7 +456,7 @@ func (s *CheckrService) handleInvitationEvent(ctx context.Context, eventType str
 			Warnf("Failed to fetch candidate for invitation %s event => ignoring", eventType)
 		return nil
 	}
-	gby, _ := cand.Metadata[constants.WebhookMetadataGeneratedByKey]
+	gby := cand.Metadata[constants.WebhookMetadataGeneratedByKey]
 	if gby != s.generatedBy {
 		utils.Logger.Infof("Skipping invitation event %s; unrecognized metadata.generated_by=%q", eventType, gby)
 		return nil
@@ -570,7 +570,7 @@ func (s *CheckrService) handleReportEvent(ctx context.Context, eventType string,
 		utils.Logger.WithError(err).Warnf("Failed to fetch candidate => ignoring report %s event", eventType)
 		return nil
 	}
-	gby, _ := cand.Metadata[constants.WebhookMetadataGeneratedByKey]
+	gby := cand.Metadata[constants.WebhookMetadataGeneratedByKey]
 	if gby != s.generatedBy {
 		utils.Logger.Infof("Skipping report event %s => unrecognized metadata", eventType)
 		return nil

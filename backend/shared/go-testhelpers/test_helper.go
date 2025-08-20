@@ -49,19 +49,21 @@ type TestHelper struct {
 	UniqueRunnerID  string
 
 	// Repositories
-	WorkerRepo      repositories.WorkerRepository
-	PMRepo          repositories.PropertyManagerRepository
-	PropertyRepo    repositories.PropertyRepository
-	BldgRepo        repositories.PropertyBuildingRepository
-	UnitRepo        repositories.UnitRepository
-	DumpsterRepo    repositories.DumpsterRepository
-	JobDefRepo      repositories.JobDefinitionRepository
-	JobInstRepo     repositories.JobInstanceRepository
-	AgentRepo       repositories.AgentRepository
-	PMEmailRepo     repositories.PMEmailVerificationRepository
-	PMSMSRepo       repositories.PMSMSVerificationRepository
-	WorkerEmailRepo repositories.WorkerEmailVerificationRepository
-	WorkerSMSRepo   repositories.WorkerSMSVerificationRepository
+	AdminRepo           repositories.AdminRepository
+	AdminAuditLogRepo   repositories.AdminAuditLogRepository
+	WorkerRepo          repositories.WorkerRepository
+	PMRepo              repositories.PropertyManagerRepository
+	PropertyRepo        repositories.PropertyRepository
+	BldgRepo            repositories.PropertyBuildingRepository
+	UnitRepo            repositories.UnitRepository
+	DumpsterRepo        repositories.DumpsterRepository
+	JobDefRepo          repositories.JobDefinitionRepository
+	JobInstRepo         repositories.JobInstanceRepository
+	AgentRepo           repositories.AgentRepository
+	PMEmailRepo         repositories.PMEmailVerificationRepository
+	PMSMSRepo           repositories.PMSMSVerificationRepository
+	WorkerEmailRepo     repositories.WorkerEmailVerificationRepository
+	WorkerSMSRepo       repositories.WorkerSMSVerificationRepository
 	AgentJobCompletionRepo repositories.AgentJobCompletionRepository
 }
 
@@ -175,6 +177,8 @@ func NewTestHelper(t *testing.T, appName, uniqueRunID, uniqueRunNum string) *Tes
 		AppName:             appName,
 		UniqueRunnerID:      uniqueRunID,
 		UniqueRunNumber:     uniqueRunNum,
+		AdminRepo:           repositories.NewAdminRepository(dbPool, dbEncryptionKey),
+		AdminAuditLogRepo:   repositories.NewAdminAuditLogRepository(dbPool),
 		WorkerRepo:          repositories.NewWorkerRepository(dbPool, dbEncryptionKey),
 		PMRepo:              repositories.NewPropertyManagerRepository(dbPool, dbEncryptionKey),
 		PropertyRepo:        repositories.NewPropertyRepository(dbPool),

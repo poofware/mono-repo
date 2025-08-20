@@ -1,0 +1,312 @@
+// backend/services/jobs-service/internal/services/admin_job_service.go
+// NEW FILE
+package services
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4"
+	"github.com/poofware/mono-repo/backend/shared/go-models"
+	"github.com/poofware/mono-repo/backend/shared/go-repositories"
+	"github.com/poofware/mono-repo/backend/shared/go-utils"
+	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
+	internal_utils "github.com/poofware/mono-repo/backend/services/jobs-service/internal/utils"
+	"github.com/sirupsen/logrus"
+)
+
+type AdminJobService struct {
+	adminRepo    repositories.AdminRepository
+	auditRepo    repositories.AdminAuditLogRepository
+	jobDefRepo   repositories.JobDefinitionRepository
+	instRepo     repositories.JobInstanceRepository
+	pmRepo       repositories.PropertyManagerRepository
+	propRepo     repositories.PropertyRepository
+	jobService   *JobService // Re-use creation logic
+}
+
+func NewAdminJobService(
+	adminRepo repositories.AdminRepository,
+	auditRepo repositories.AdminAuditLogRepository,
+	jobDefRepo repositories.JobDefinitionRepository,
+	instRepo repositories.JobInstanceRepository,
+	pmRepo repositories.PropertyManagerRepository,
+	propRepo repositories.PropertyRepository,
+	jobService *JobService,
+) *AdminJobService {
+	return &AdminJobService{
+		adminRepo:    adminRepo,
+		auditRepo:    auditRepo,
+		jobDefRepo:   jobDefRepo,
+		instRepo:     instRepo,
+		pmRepo:       pmRepo,
+		propRepo:     propRepo,
+		jobService:   jobService,
+	}
+}
+
+func (s *AdminJobService) authorizeAdmin(ctx context.Context, adminID uuid.UUID) error {
+	admin, err := s.adminRepo.GetByID(ctx, adminID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return &utils.AppError{StatusCode: http.StatusForbidden, Code: utils.ErrCodeUnauthorized, Message: "Access denied"}
+		}
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to verify admin status", Err: err}
+	}
+	if admin == nil || admin.AccountStatus != models.AccountStatusActive {
+		return &utils.AppError{StatusCode: http.StatusForbidden, Code: utils.ErrCodeUnauthorized, Message: "Admin account is not active"}
+	}
+	return nil
+}
+
+
+func (s *AdminJobService) logAudit(ctx context.Context, adminID, targetID uuid.UUID, action models.AuditAction, targetType models.AuditTargetType, details any) {
+	logger := utils.Logger.WithFields(logrus.Fields{
+		"service":    "AdminJobService",
+		"method":     "logAudit",
+		"adminID":    adminID,
+		"targetID":   targetID,
+		"targetType": targetType,
+		"action":     action,
+	})
+	logEntry := &models.AdminAuditLog{
+		ID:         uuid.New(),
+		AdminID:    adminID,
+		Action:     action,
+		TargetID:   targetID,
+		TargetType: targetType,
+	}
+
+	if details != nil {
+		marshalled, _ := json.Marshal(details)
+		raw := json.RawMessage(marshalled)
+		logEntry.Details = &raw
+	}
+
+	if err := s.auditRepo.Create(ctx, logEntry); err != nil {
+		logger.WithError(err).Error("Failed to create audit log entry")
+	} else {
+		logger.Info("Successfully created audit log entry")
+	}
+}
+
+
+func (s *AdminJobService) AdminCreateJobDefinition(ctx context.Context, adminID uuid.UUID, req dtos.AdminCreateJobDefinitionRequest) (*models.JobDefinition, error) {
+	logger := utils.Logger.WithFields(logrus.Fields{
+		"service":    "AdminJobService",
+		"method":     "AdminCreateJobDefinition",
+		"adminID":    adminID,
+		"propertyID": req.PropertyID,
+	})
+	logger.Info("Service method invoked")
+
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		logger.WithError(err).Warn("Admin authorization failed")
+		return nil, err
+	}
+	logger.Info("Admin authorized successfully")
+
+	pmUserStr := req.ManagerID.String()
+
+	// Map building IDs to AssignedUnitGroup with empty units/floors
+	var assignedGroups []models.AssignedUnitGroup
+	for _, bID := range req.AssignedBuildingIDs {
+		assignedGroups = append(assignedGroups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}, Floors: []int16{}})
+	}
+
+	createReq := dtos.CreateJobDefinitionRequest{
+		PropertyID:                 req.PropertyID,
+		Title:                      req.Title,
+		Description:                req.Description,
+		AssignedUnitsByBuilding:    assignedGroups,
+		DumpsterIDs:                req.DumpsterIDs,
+		Frequency:                  req.Frequency,
+		Weekdays:                   req.Weekdays,
+		IntervalWeeks:              req.IntervalWeeks,
+		StartDate:                  req.StartDate,
+		EndDate:                    req.EndDate,
+		EarliestStartTime:          req.EarliestStartTime,
+		LatestStartTime:            req.LatestStartTime,
+		StartTimeHint:              req.StartTimeHint,
+		SkipHolidays:               req.SkipHolidays,
+		HolidayExceptions:          req.HolidayExceptions,
+		Details:                    req.Details,
+		Requirements:               req.Requirements,
+		CompletionRules:            req.CompletionRules,
+		SupportContact:             req.SupportContact,
+		DailyPayEstimates:          req.DailyPayEstimates,
+		GlobalBasePay:              req.GlobalBasePay,
+		GlobalEstimatedTimeMinutes: req.GlobalEstimatedTimeMinutes,
+	}
+
+	logger.Info("Calling jobService.CreateJobDefinition")
+	defID, err := s.jobService.CreateJobDefinition(ctx, pmUserStr, createReq, "ACTIVE")
+	if err != nil {
+		logger.WithError(err).Error("jobService.CreateJobDefinition failed")
+		if errors.Is(err, internal_utils.ErrMismatchedPayEstimatesFrequency) || errors.Is(err, internal_utils.ErrMissingPayEstimateInput) || errors.Is(err, internal_utils.ErrInvalidPayload) {
+			return nil, &utils.AppError{StatusCode: http.StatusBadRequest, Code: utils.ErrCodeInvalidPayload, Message: err.Error()}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to create job definition", Err: err}
+	}
+
+	logger = logger.WithField("definitionID", defID)
+	logger.Info("jobService.CreateJobDefinition successful, retrieving created definition")
+	createdDef, err := s.jobDefRepo.GetByID(ctx, defID)
+	if err != nil {
+		logger.WithError(err).Error("Failed to retrieve created job definition after creation")
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to retrieve created job definition", Err: err}
+	}
+
+	s.logAudit(ctx, adminID, createdDef.ID, models.AuditCreate, models.TargetJobDefinition, createdDef)
+	return createdDef, nil
+}
+
+func (s *AdminJobService) AdminUpdateJobDefinition(ctx context.Context, adminID uuid.UUID, req dtos.AdminUpdateJobDefinitionRequest) (*models.JobDefinition, error) {
+	logger := utils.Logger.WithFields(logrus.Fields{
+		"service":      "AdminJobService",
+		"method":       "AdminUpdateJobDefinition",
+		"adminID":      adminID,
+		"definitionID": req.DefinitionID,
+	})
+	logger.Info("Service method invoked")
+
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		logger.WithError(err).Warn("Admin authorization failed")
+		return nil, err
+	}
+	logger.Info("Admin authorized successfully")
+
+	err := s.jobDefRepo.UpdateWithRetry(ctx, req.DefinitionID, func(j *models.JobDefinition) error {
+		logger.WithField("initialVersion", j.RowVersion).Info("Starting UpdateWithRetry mutation")
+		// Apply updates from the request DTO if the fields are not nil
+		if req.Title != nil {
+			j.Title = *req.Title
+		}
+		if req.Description != nil {
+			j.Description = req.Description
+		}
+		if req.AssignedBuildingIDs != nil {
+			var groups []models.AssignedUnitGroup
+			for _, bID := range *req.AssignedBuildingIDs {
+				groups = append(groups, models.AssignedUnitGroup{BuildingID: bID, UnitIDs: []uuid.UUID{}, Floors: []int16{}})
+			}
+			j.AssignedUnitsByBuilding = groups
+		}
+		if req.DumpsterIDs != nil {
+			j.DumpsterIDs = *req.DumpsterIDs
+		}
+		if req.Frequency != nil {
+			j.Frequency = *req.Frequency
+		}
+		if req.Weekdays != nil {
+			j.Weekdays = *req.Weekdays
+		}
+		if req.IntervalWeeks != nil {
+			j.IntervalWeeks = req.IntervalWeeks
+		}
+		if req.StartDate != nil {
+			j.StartDate = *req.StartDate
+		}
+		if req.EndDate != nil {
+			j.EndDate = req.EndDate
+		}
+		if req.EarliestStartTime != nil {
+			j.EarliestStartTime = *req.EarliestStartTime
+		}
+		if req.LatestStartTime != nil {
+			j.LatestStartTime = *req.LatestStartTime
+		}
+		if req.StartTimeHint != nil {
+			j.StartTimeHint = *req.StartTimeHint
+		}
+		if req.SkipHolidays != nil {
+			j.SkipHolidays = *req.SkipHolidays
+		}
+		if req.HolidayExceptions != nil {
+			j.HolidayExceptions = *req.HolidayExceptions
+		}
+		if req.Details != nil {
+			j.Details = *req.Details
+		}
+		if req.Requirements != nil {
+			j.Requirements = *req.Requirements
+		}
+		if req.CompletionRules != nil {
+			j.CompletionRules = *req.CompletionRules
+		}
+		if req.SupportContact != nil {
+			j.SupportContact = *req.SupportContact
+		}
+
+		if req.DailyPayEstimates != nil {
+			estimates := make([]models.DailyPayEstimate, len(*req.DailyPayEstimates))
+			for i, estReq := range *req.DailyPayEstimates {
+				estimates[i] = models.DailyPayEstimate{
+					DayOfWeek:                   time.Weekday(estReq.DayOfWeek),
+					BasePay:                     estReq.BasePay,
+					InitialBasePay:              estReq.BasePay,
+					EstimatedTimeMinutes:        estReq.EstimatedTimeMinutes,
+					InitialEstimatedTimeMinutes: estReq.EstimatedTimeMinutes,
+				}
+			}
+			j.DailyPayEstimates = estimates
+		}
+
+		logger.Info("Mutation applied successfully within retry loop")
+		return nil
+	})
+
+	if err != nil {
+		logger.WithError(err).Error("UpdateWithRetry failed")
+		if err == pgx.ErrNoRows {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Job definition not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to update job definition", Err: err}
+	}
+
+	// After a successful update, re-fetch the definition to get the latest state,
+	// including the incremented row_version and updated_at timestamp.
+	updatedDef, err := s.jobDefRepo.GetByID(ctx, req.DefinitionID)
+	if err != nil {
+		logger.WithError(err).Error("Failed to retrieve updated job definition after update")
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to retrieve job definition after update", Err: err}
+	}
+
+	logger.WithField("newVersion", updatedDef.RowVersion).Info("UpdateWithRetry successful")
+	s.logAudit(ctx, adminID, updatedDef.ID, models.AuditUpdate, models.TargetJobDefinition, updatedDef)
+	return updatedDef, nil
+}
+
+func (s *AdminJobService) AdminSoftDeleteJobDefinition(ctx context.Context, adminID, defID uuid.UUID) error {
+	logger := utils.Logger.WithFields(logrus.Fields{
+		"service":      "AdminJobService",
+		"method":       "AdminSoftDeleteJobDefinition",
+		"adminID":      adminID,
+		"definitionID": defID,
+	})
+	logger.Info("Service method invoked")
+
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		logger.WithError(err).Warn("Admin authorization failed")
+		return err
+	}
+	logger.Info("Admin authorized successfully")
+
+	logger.Info("Calling jobService.SetDefinitionStatus to set status to DELETED")
+	err := s.jobService.SetDefinitionStatus(ctx, defID, string(models.JobStatusDeleted))
+	if err != nil {
+		logger.WithError(err).Error("jobService.SetDefinitionStatus failed")
+		if errors.Is(err, utils.ErrRowVersionConflict) {
+			return &utils.AppError{StatusCode: http.StatusConflict, Code: utils.ErrCodeRowVersionConflict, Message: "Job definition was modified by another process", Err: err}
+		}
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to soft-delete job definition", Err: err}
+	}
+
+	logger.Info("jobService.SetDefinitionStatus successful")
+	s.logAudit(ctx, adminID, defID, models.AuditDelete, models.TargetJobDefinition, nil)
+	return nil
+}

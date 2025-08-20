@@ -2,9 +2,12 @@ package repositories
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
@@ -27,6 +30,9 @@ type PropertyManagerRepository interface {
 	// Optimistic‑lock helpers
 	UpdateIfVersion(ctx context.Context, pm *models.PropertyManager, expected int64) (pgconn.CommandTag, error)
 	UpdateWithRetry(ctx context.Context, id uuid.UUID, mutate func(*models.PropertyManager) error) error
+
+	SoftDelete(ctx context.Context, id uuid.UUID) error
+	Search(ctx context.Context, filters map[string]any, limit, offset int) ([]*models.PropertyManager, int, error)
 }
 
 /* ------------------------------------------------------------------
@@ -44,7 +50,7 @@ type pmRepo struct {
 
 func NewPropertyManagerRepository(db DB, key []byte) PropertyManagerRepository {
 	r := &pmRepo{db: db, encKey: key}
-	selectStmt := baseSelectPM() + " WHERE id=$1"
+	selectStmt := baseSelectPM() + " WHERE id=$1 AND deleted_at IS NULL"
 	r.BaseVersionedRepo = NewBaseRepo(db, selectStmt, r.scanPM)
 	return r
 }
@@ -80,12 +86,12 @@ func (r *pmRepo) Create(ctx context.Context, pm *models.PropertyManager) error {
 /* ---------- Reads ---------- */
 
 func (r *pmRepo) GetByEmail(ctx context.Context, email string) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE email=$1", email)
+	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE email=$1 AND deleted_at IS NULL", email)
 	return r.scanPM(row)
 }
 
 func (r *pmRepo) GetByPhoneNumber(ctx context.Context, phone string) (*models.PropertyManager, error) {
-	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE phone_number=$1", phone)
+	row := r.db.QueryRow(ctx, baseSelectPM()+" WHERE phone_number=$1 AND deleted_at IS NULL", phone)
 	return r.scanPM(row)
 }
 
@@ -108,6 +114,81 @@ func (r *pmRepo) UpdateIfVersion(ctx context.Context, pm *models.PropertyManager
 
 func (r *pmRepo) UpdateWithRetry(ctx context.Context, id uuid.UUID, mutate func(*models.PropertyManager) error) error {
 	return r.BaseVersionedRepo.UpdateWithRetry(ctx, id.String(), mutate, r.UpdateIfVersion)
+}
+
+// SoftDelete
+func (r *pmRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	tag, err := r.db.Exec(ctx, `UPDATE property_managers SET deleted_at=NOW() WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+// Search
+func (r *pmRepo) Search(ctx context.Context, filters map[string]any, limit, offset int) ([]*models.PropertyManager, int, error) {
+	var qb strings.Builder
+	var args []any
+	idx := 1
+
+	countQb := strings.Builder{}
+	countQb.WriteString("SELECT count(*) FROM property_managers WHERE deleted_at IS NULL")
+
+	qb.WriteString(baseSelectPM())
+	qb.WriteString(" WHERE deleted_at IS NULL")
+
+	var conditions []string
+	if len(filters) > 0 {
+		for key, value := range filters {
+			if !isValidColumn(key) {
+				return nil, 0, fmt.Errorf("invalid filter key: %s", key)
+			}
+			conditions = append(conditions, fmt.Sprintf("%s ILIKE $%d", key, idx))
+			args = append(args, fmt.Sprintf("%%%v%%", value))
+			idx++
+		}
+		whereClause := " AND " + strings.Join(conditions, " AND ")
+		qb.WriteString(whereClause)
+		countQb.WriteString(whereClause)
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQb.String(), args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	qb.WriteString(fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", idx, idx+1))
+	args = append(args, limit, offset)
+
+	rows, err := r.db.Query(ctx, qb.String(), args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var pms []*models.PropertyManager
+	for rows.Next() {
+		pm, err := r.scanPM(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		pms = append(pms, pm)
+	}
+	return pms, total, rows.Err()
+}
+
+func isValidColumn(name string) bool {
+	// Simple allow-list for column names to prevent SQL injection
+	switch name {
+	case "email", "business_name":
+		return true
+	default:
+		return false
+	}
 }
 
 /* ---------- internals ---------- */
@@ -154,7 +235,7 @@ func baseSelectPM() string {
 		SELECT id,email,phone_number,totp_secret,
 		       business_name,business_address,city,state,zip_code,
 		       account_status,setup_progress,
-		       row_version,created_at,updated_at
+		       row_version,created_at,updated_at,deleted_at
 		FROM property_managers`
 }
 
@@ -162,12 +243,13 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 	var pm models.PropertyManager
 	var enc *string
 	var acc, prog string
+	var deletedAt pgtype.Timestamptz
 
 	err := row.Scan(
 		&pm.ID, &pm.Email, &pm.PhoneNumber, &enc,
 		&pm.BusinessName, &pm.BusinessAddress, &pm.City, &pm.State, &pm.ZipCode,
 		&acc, &prog,
-		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt,
+		&pm.RowVersion, &pm.CreatedAt, &pm.UpdatedAt, &deletedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -185,6 +267,12 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 			return nil, decErr
 		}
 		pm.TOTPSecret = dec
+	}
+
+	if deletedAt.Status == pgtype.Present {
+		pm.DeletedAt = &deletedAt.Time
+	} else {
+		pm.DeletedAt = nil
 	}
 
 	return &pm, nil

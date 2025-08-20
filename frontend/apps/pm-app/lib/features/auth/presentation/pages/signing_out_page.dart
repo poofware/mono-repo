@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poof_pm/core/config/flavors.dart';
 import 'package:poof_pm/core/providers/app_providers.dart';
+import 'package:poof_pm/features/auth/presentation/widgets/auth_form_card.dart';
+import 'package:poof_pm/features/auth/presentation/widgets/auth_page_wrapper.dart';
 
 /// A simple "Signing Out..." page that shows a spinner
 /// for ~2 seconds, then redirects to the welcome screen.
@@ -15,11 +17,10 @@ class SigningOutPage extends ConsumerStatefulWidget {
 }
 
 class _SigningOutPageState extends ConsumerState<SigningOutPage> {
-  bool _done = false;
-
   @override
   void initState() {
     super.initState();
+    // Use a microtask to ensure the first frame builds before we start async work.
     Future.microtask(_performSignOut);
   }
 
@@ -37,39 +38,51 @@ class _SigningOutPageState extends ConsumerState<SigningOutPage> {
       ref.read(appStateProvider.notifier).setLoggedIn(false);
     }
 
-    // Ensure at least 2 seconds for UI
+    // Ensure at least 2 seconds for UI so the user can see the message.
     final elapsed = DateTime.now().difference(start);
     if (elapsed < const Duration(seconds: 2)) {
       await Future.delayed(const Duration(seconds: 2) - elapsed);
     }
 
     if (mounted) {
-      setState(() => _done = true);
+      // Directly navigate. GoRouter will handle replacing the page.
       context.go('/');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Signing Out'),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: _done
-              ? const SizedBox.shrink()
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Signing out...', style: TextStyle(fontSize: 18)),
-                  ],
-                ),
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AuthPageWrapper(
+      showBackButton: false, // No back button on a final screen like this.
+      // MODIFICATION: Replaced boilerplate Container with AuthFormCard.
+      child: AuthFormCard(
+        // Override padding for a more centered, spacious look on this info page.
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Signing Out',
+              style: textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 32),
+            Text(
+              'Please wait a moment...',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyMedium,
+            ),
+          ],
         ),
       ),
     );
   }
 }
-

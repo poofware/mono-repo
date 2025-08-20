@@ -348,7 +348,7 @@ func (s *WorkerStripeService) GetExpressOnboardingURL(ctx context.Context, worke
 		// Return error if this is being called and the worker is not in ACH_PAYMENT_ACCOUNT_SETUP
 		if worker.SetupProgress != models.SetupProgressAchPaymentAccountSetup {
 			utils.Logger.WithError(err).Errorf(`Worker is not in ACH_PAYMENT_ACCOUNT_SETUP state, instead in %s.`, worker.SetupProgress)
-			return "", fmt.Errorf("Onboarding URL can not be generated outside of normal flow. Worker %s is in %s state", worker.ID, worker.SetupProgress)
+			return "", fmt.Errorf("onboarding URL cannot be generated outside of normal flow: worker %s is in %s state", worker.ID, worker.SetupProgress)
 		}
 	}
 
@@ -396,7 +396,7 @@ func (s *WorkerStripeService) GetIdentityVerificationURL(ctx context.Context, wo
 	if !s.Cfg.LDFlag_AllowOOSSetupFlow {
 		if worker.SetupProgress != models.SetupProgressIDVerify {
 			utils.Logger.WithError(err).Errorf(`Worker is not in ID_VERIFY state, instead in %s.`, worker.SetupProgress)
-			return "", fmt.Errorf("Idv URL can not be generated outside of normal flow. Worker %s is in %s state", worker.ID, worker.SetupProgress)
+			return "", fmt.Errorf("identity verification URL cannot be generated outside of normal flow: worker %s is in %s state", worker.ID, worker.SetupProgress)
 		}
 	}
 

@@ -1,3 +1,5 @@
+// backend/services/account-service/internal/integration/account_creation_and_fetch_test.go
+
 //go:build (dev_test || staging_test) && integration
 
 package integration
@@ -148,6 +150,8 @@ func TestPropertyManagerCreateAndFetch(t *testing.T) {
 		City:            "Birmingham",
 		State:           "AL",
 		ZipCode:         "35203",
+		AccountStatus:   models.AccountStatusIncomplete,
+		SetupProgress:   models.SetupProgressIDVerify,
 	}
 
 	start := time.Now()
@@ -222,6 +226,8 @@ func TestPMPropertyHierarchyCreateAndEndpointFetch(t *testing.T) {
 		City:            "Nashville",
 		State:           "TN",
 		ZipCode:         "37209",
+		AccountStatus:   models.AccountStatusIncomplete,
+		SetupProgress:   models.SetupProgressIDVerify,
 	}
 	require.NoError(t, h.PMRepo.Create(ctx, pm))
 	defer h.DB.Exec(ctx, `DELETE FROM property_managers WHERE id=$1`, pm.ID)

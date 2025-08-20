@@ -27,15 +27,18 @@ type TokenCleanupService interface {
 type tokenCleanupService struct {
     pmTokenRepo     repositories.PMTokenRepository
     workerTokenRepo repositories.WorkerTokenRepository
+    adminTokenRepo  repositories.AdminTokenRepository // NEW
 }
 
 func NewTokenCleanupService(
     pmTokenRepo repositories.PMTokenRepository,
     workerTokenRepo repositories.WorkerTokenRepository,
+    adminTokenRepo repositories.AdminTokenRepository, // NEW
 ) TokenCleanupService {
     return &tokenCleanupService{
         pmTokenRepo:     pmTokenRepo,
         workerTokenRepo: workerTokenRepo,
+        adminTokenRepo:  adminTokenRepo, // NEW
     }
 }
 
@@ -59,8 +62,7 @@ func (s *tokenCleanupService) runWithRetry(
     return nil
 }
 
-// CleanupDaily removes expired tokens from both PM and Worker tables.
-// Any transient DB error is retried once via runWithRetry.
+// CleanupDaily removes expired tokens from all user type tables.
 func (s *tokenCleanupService) CleanupDaily(ctx context.Context) error {
     logger := utils.Logger
 
@@ -76,7 +78,12 @@ func (s *tokenCleanupService) CleanupDaily(ctx context.Context) error {
         return err
     }
 
+    // 3) Cleanup normal expired Admin tokens (NEW)
+    if err := s.runWithRetry(ctx, s.adminTokenRepo.CleanupExpiredRefreshTokens); err != nil {
+        logger.WithError(err).Error("Failed to cleanup expired admin_refresh_tokens")
+        return err
+    }
+
     logger.Info("Daily token cleanup (expired only) completed successfully.")
     return nil
 }
-

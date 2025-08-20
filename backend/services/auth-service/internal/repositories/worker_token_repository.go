@@ -9,24 +9,24 @@ import (
     "github.com/jackc/pgx/v4"
     "github.com/poofware/mono-repo/backend/services/auth-service/internal/models"
     "github.com/poofware/mono-repo/backend/shared/go-utils"
-    . "github.com/poofware/mono-repo/backend/shared/go-repositories"
+    sharedrepos "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 type WorkerTokenRepository interface {
     TokenRepository
-    DB() DB
+    DB() sharedrepos.DB
     CleanupExpiredRefreshTokens(ctx context.Context) error
 }
 
 type workerTokenRepository struct {
-    db DB
+    db sharedrepos.DB
 }
 
-func NewWorkerTokenRepository(db DB) WorkerTokenRepository {
+func NewWorkerTokenRepository(db sharedrepos.DB) WorkerTokenRepository {
     return &workerTokenRepository{db: db}
 }
 
-func (r *workerTokenRepository) DB() DB {
+func (r *workerTokenRepository) DB() sharedrepos.DB {
     return r.db
 }
 

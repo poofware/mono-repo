@@ -6,15 +6,15 @@ import (
     "time"
 
     "github.com/google/uuid"
-    . "github.com/poofware/mono-repo/backend/shared/go-repositories"
+    sharedrepos "github.com/poofware/mono-repo/backend/shared/go-repositories"
 )
 
 type WorkerLoginAttempts struct {
-    WorkerID    uuid.UUID
+    WorkerID     uuid.UUID
     AttemptCount int
-    LockedUntil *time.Time
-    UpdatedAt   time.Time
-    CreatedAt   time.Time
+    LockedUntil  *time.Time
+    UpdatedAt    time.Time
+    CreatedAt    time.Time
 }
 
 type WorkerLoginAttemptsRepository interface {
@@ -25,10 +25,10 @@ type WorkerLoginAttemptsRepository interface {
 }
 
 type workerLoginAttemptsRepository struct {
-    db DB
+    db sharedrepos.DB
 }
 
-func NewWorkerLoginAttemptsRepository(db DB) WorkerLoginAttemptsRepository {
+func NewWorkerLoginAttemptsRepository(db sharedrepos.DB) WorkerLoginAttemptsRepository {
     return &workerLoginAttemptsRepository{db: db}
 }
 
@@ -50,7 +50,7 @@ func (r *workerLoginAttemptsRepository) GetOrCreate(ctx context.Context, workerI
     if err == nil {
         return la, nil
     }
-    // Insert fresh
+
     insert := `
         INSERT INTO worker_login_attempts (worker_id, attempt_count, locked_until, updated_at, created_at)
         VALUES ($1, 0, NULL, NOW(), NOW())
@@ -73,64 +73,44 @@ func (r *workerLoginAttemptsRepository) Increment(
     lockDuration, window time.Duration,
     maxAttempts int,
 ) error {
-    // FIX: Qualify ambiguous columns with 'current.' to prevent SQL error.
     query := `
-WITH current AS (
-    SELECT worker_id,
-           attempt_count,
-           locked_until,
-           updated_at
-    FROM worker_login_attempts
-    WHERE worker_id = $1
-    FOR UPDATE
-)
-UPDATE worker_login_attempts
-SET attempt_count = CASE
-    WHEN (current.locked_until IS NOT NULL AND current.locked_until > NOW())
-         THEN current.attempt_count
-    ELSE CASE
-        WHEN (NOW() - current.updated_at) > $3
-            THEN 1
-        ELSE current.attempt_count + 1
-    END
-END,
-locked_until = CASE
-    WHEN (current.locked_until IS NOT NULL AND current.locked_until > NOW())
-         THEN current.locked_until
-    ELSE CASE
-        WHEN ((NOW() - current.updated_at) <= $3
-              AND (current.attempt_count + 1) >= $4)
-            THEN NOW() + $2
-        ELSE NULL
-    END
-END,
-updated_at = NOW()
-FROM current
-WHERE worker_login_attempts.worker_id = current.worker_id
-RETURNING worker_login_attempts.worker_id
+        WITH current AS (
+            SELECT worker_id, attempt_count, locked_until, updated_at
+            FROM worker_login_attempts
+            WHERE worker_id = $1 FOR UPDATE
+        )
+        UPDATE worker_login_attempts
+        SET attempt_count = CASE
+            WHEN (current.locked_until IS NOT NULL AND current.locked_until > NOW()) THEN current.attempt_count
+            ELSE CASE
+                WHEN (NOW() - current.updated_at) > $3 THEN 1
+                ELSE current.attempt_count + 1
+            END
+        END,
+        locked_until = CASE
+            WHEN (current.locked_until IS NOT NULL AND current.locked_until > NOW()) THEN current.locked_until
+            ELSE CASE
+                WHEN ((NOW() - current.updated_at) <= $3 AND (current.attempt_count + 1) >= $4) THEN NOW() + $2
+                ELSE NULL
+            END
+        END,
+        updated_at = NOW()
+        FROM current
+        WHERE worker_login_attempts.worker_id = current.worker_id
+        RETURNING worker_login_attempts.worker_id
     `
     _, err := r.db.Exec(ctx, query, workerID, lockDuration, window, maxAttempts)
     return err
 }
 
 func (r *workerLoginAttemptsRepository) Reset(ctx context.Context, workerID uuid.UUID) error {
-    query := `
-        UPDATE worker_login_attempts
-        SET attempt_count = 0,
-            locked_until = NULL,
-            updated_at = NOW()
-        WHERE worker_id = $1
-    `
+    query := `UPDATE worker_login_attempts SET attempt_count = 0, locked_until = NULL, updated_at = NOW() WHERE worker_id = $1`
     _, err := r.db.Exec(ctx, query, workerID)
     return err
 }
 
 func (r *workerLoginAttemptsRepository) IsLocked(ctx context.Context, workerID uuid.UUID) (bool, time.Time, error) {
-    query := `
-        SELECT locked_until
-        FROM worker_login_attempts
-        WHERE worker_id = $1
-    `
+    query := `SELECT locked_until FROM worker_login_attempts WHERE worker_id = $1`
     row := r.db.QueryRow(ctx, query, workerID)
     var lockedUntil *time.Time
     if err := row.Scan(&lockedUntil); err != nil {

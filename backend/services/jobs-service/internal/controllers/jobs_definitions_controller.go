@@ -76,6 +76,36 @@ func (c *JobDefinitionsController) CreateDefinitionHandler(w http.ResponseWriter
 	utils.RespondWithJSON(w, http.StatusCreated, resp)
 }
 
+// ListJobsForPropertyHandler -> GET /api/v1/manager/properties//jobs
+func (c *JobDefinitionsController) ListJobsForPropertyHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	pmUserID := ctx.Value(middleware.ContextKeyUserID)
+	if pmUserID == nil {
+		utils.RespondErrorWithCode(w, http.StatusUnauthorized, utils.ErrCodeUnauthorized, "No manager ID in context", nil, nil)
+		return
+	}
+
+	var req dtos.ListJobsForPropertyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON body", err, nil)
+		return
+	}
+
+	resp, svcErr := c.jobService.ListJobsForPropertyByManager(ctx, pmUserID.(string), req.PropertyID)
+	if svcErr != nil {
+		// Handle specific "unauthorized" error from the service layer gracefully
+		if svcErr.Error() == "unauthorized: property does not belong to this manager" {
+			utils.RespondErrorWithCode(w, http.StatusForbidden, utils.ErrCodeUnauthorized, "Access to this property is denied", nil, svcErr)
+			return
+		}
+		utils.Logger.WithError(svcErr).Error("Failed to list jobs for property")
+		utils.RespondErrorWithCode(w, http.StatusInternalServerError, utils.ErrCodeInternal, "Failed to list jobs for property", nil, svcErr)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, resp)
+}
+
 // PUT or PATCH /api/v1/jobs/definition/status
 func (c *JobDefinitionsController) SetDefinitionStatusHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

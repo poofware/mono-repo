@@ -27,12 +27,16 @@ func SeedAllTestAccounts(
 	workerRepo repositories.WorkerRepository,
 	pmRepo repositories.PropertyManagerRepository,
 	agentRepo repositories.AgentRepository,
+	adminRepo repositories.AdminRepository,
 ) error {
 	if err := seeding.SeedDefaultWorkers(workerRepo); err != nil {
 		return fmt.Errorf("seed default workers: %w", err)
 	}
 	if err := seeding.SeedDefaultPropertyManager(pmRepo); err != nil {
 		return fmt.Errorf("seed default property manager account: %w", err)
+	}
+	if err := seeding.SeedDefaultAdmin(adminRepo); err != nil {
+		return fmt.Errorf("seed default admin: %w", err)
 	}
 	return nil
 }

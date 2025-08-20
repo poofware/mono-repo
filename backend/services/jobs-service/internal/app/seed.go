@@ -11,12 +11,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 	seeding "github.com/poofware/mono-repo/backend/shared/go-seeding"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/dtos"
 	"github.com/poofware/mono-repo/backend/services/jobs-service/internal/services"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Helper to check for unique violation error (PostgreSQL specific code)
@@ -62,9 +64,11 @@ func SeedAllTestData(
 	jobService *services.JobService,
 ) error {
 	sentinelPropID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
-	if existing, err := propRepo.GetByID(ctx, sentinelPropID); err != nil {
+	existing, err := propRepo.GetByID(ctx, sentinelPropID)
+	if err != nil && err != pgx.ErrNoRows {
 		return fmt.Errorf("check existing seed property: %w", err)
-	} else if existing != nil {
+	}
+	if existing != nil {
 		utils.Logger.Info("jobs-service: seed data already present; skipping seeding")
 		return nil
 	}
@@ -125,9 +129,9 @@ func SeedAllTestData(
 
 /*
 ------------------------------------------------------------------
- 2. seedPropertyDataIfNeeded
+  2. seedPropertyDataIfNeeded
 
-------------------------------------------------------------------
+    ------------------------------------------------------------------
 */
 func seedPropertyDataIfNeeded(
 	ctx context.Context,
@@ -1104,5 +1108,50 @@ func seedCliftFarmPropertyIfNeeded(
 		}
 	}
 
+	return nil
+}
+
+
+
+func SeedDefaultAdmin(adminRepo repositories.AdminRepository) error {
+	ctx := context.Background()
+	defaultAdminID := uuid.MustParse("11111111-2222-3333-4444-555555555555")
+
+	existing, err := adminRepo.GetByUsername(ctx, "seedadmin")
+	if err != nil && err != pgx.ErrNoRows {
+		return fmt.Errorf("error checking for existing admin: %w", err)
+	}
+	if existing != nil {
+		utils.Logger.Infof("Default admin already exists (username=%s); skipping seed.", existing.Username)
+		return nil
+	}
+
+	hashedPass, err := bcrypt.GenerateFromPassword([]byte("P@ssword123"), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to bcrypt-hash default admin password: %w", err)
+	}
+
+	totpSecret := "adminstatusactivestotpsecret"
+
+	admin := &models.Admin{
+		ID:           defaultAdminID,
+		Username:     "seedadmin",
+		PasswordHash: string(hashedPass),
+		TOTPSecret:   totpSecret,
+	}
+
+	if err := adminRepo.Create(ctx, admin); err != nil {
+		return fmt.Errorf("failed to insert default admin: %w", err)
+	}
+
+	if err := adminRepo.UpdateWithRetry(ctx, admin.ID, func(stored *models.Admin) error {
+		stored.AccountStatus = models.AccountStatusActive
+		stored.SetupProgress = models.SetupProgressDone
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to update default admin status to active: %w", err)
+	}
+
+	utils.Logger.Infof("Successfully seeded and activated default admin (ID=%s, username=%s).", defaultAdminID, admin.Username)
 	return nil
 }

@@ -1,10 +1,10 @@
+// lib/core/routing/router.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:poof_pm/core/app_state/app_state_notifier.dart';
 import 'package:poof_pm/features/auth/presentation/pages/welcome_page.dart';
-import 'package:poof_pm/features/auth/presentation/pages/login_page.dart';
 import 'package:poof_pm/features/auth/presentation/pages/create_account_page.dart';
 import 'package:poof_pm/features/auth/presentation/pages/company_address_page.dart';
 import 'package:poof_pm/features/auth/presentation/pages/email_verification_info_page.dart';
@@ -12,6 +12,13 @@ import 'package:poof_pm/features/auth/presentation/pages/verify_email_code_page.
 import 'package:poof_pm/features/auth/presentation/pages/totp_setup_page.dart';
 import 'package:poof_pm/features/auth/presentation/pages/signing_out_page.dart';
 import 'package:poof_pm/features/auth/presentation/pages/session_expired_page.dart';
+import 'package:poof_pm/features/auth/presentation/pages/qr_info_page.dart';
+import 'package:poof_pm/features/auth/presentation/pages/login_verify_code_page.dart';
+ 
+// Import the pages for the dashboard shell
+import 'package:poof_pm/features/jobs/presentation/pages/main_dashboard_page.dart';
+import 'package:poof_pm/features/jobs/presentation/pages/job_history_page.dart';
+
 
 /// A small enum describing who can access a route:
 /// - public: requires logged-out
@@ -50,89 +57,91 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
-/// The list of routes for the PM app. We mark each route as
-/// public, protected, or unrestricted, then define
-/// path, name, and builder.
-final List<AppRoute> _pmAppRoutes = [
-  // 1) A public route for the welcome / landing page
+// MODIFICATION: Change list type to RouteBase to allow ShellRoute.
+final List<RouteBase> _pmAppRoutes = [
+  // --- Public Routes ---
   AppRoute(
     access: RouteAccess.public,
     path: '/',
     name: 'WelcomePage',
     builder: (_, __) => const WelcomePage(),
   ),
-
-  // 2) Public route: Login
   AppRoute(
     access: RouteAccess.public,
-    path: '/login',
-    name: 'LoginPage',
-    builder: (_, __) => const LoginPage(),
-  ),
-
-  // 3) Public route: Create Account
+    path: '/login-verify-code',
+    name: 'LoginVerifyCodePage',
+    builder: (_, state) {
+      // This route requires an email to be passed as an extra parameter.
+      final email = state.extra as String;
+      return LoginVerifyCodePage(email: email);
+    },
+   ),
   AppRoute(
     access: RouteAccess.public,
     path: '/create_account',
     name: 'CreateAccountPage',
     builder: (_, __) => const CreateAccountPage(),
   ),
-
-  // 4) Public route: Company Address
   AppRoute(
     access: RouteAccess.public,
     path: '/company_address',
     name: 'CompanyAddressPage',
     builder: (_, __) => const CompanyAddressPage(),
   ),
-
-  // 5) Public route: Email Verification Info
   AppRoute(
     access: RouteAccess.public,
     path: '/email_verification_info',
     name: 'EmailVerificationInfoPage',
     builder: (_, __) => const EmailVerificationInfoPage(),
   ),
-
-  // 6) Public route: Verify Email Code
   AppRoute(
     access: RouteAccess.public,
     path: '/verify_email_code',
     name: 'VerifyEmailCodePage',
     builder: (_, __) => const VerifyEmailCodePage(),
   ),
-
-  // 7) Public route: TOTP Setup
   AppRoute(
     access: RouteAccess.public,
     path: '/totp_setup',
     name: 'TotpSetupPage',
     builder: (_, __) => const TotpSetupPage(),
   ),
-
-  // 8) Protected route: The main PM app screen, e.g. /main
-  //    (requires a logged-in user)
   AppRoute(
-    access: RouteAccess.protected,
-    path: '/main',
-    name: 'MainPage',
-    builder: (_, __) {
-      // You might have a PM main home or tabs here
-      return const Scaffold(
-        body: Center(child: Text('Main PM screen (protected)')),
-      );
-    },
+    access: RouteAccess.public,
+    path: '/qr_info',
+    name: 'QrInfoPage',
+    builder: (_, __) => const QrInfoPage(),
   ),
 
-  // 9) Unrestricted route: Signing Out
+  // --- Protected Routes (wrapped in a ShellRoute) ---
+  ShellRoute(
+    builder: (context, state, child) {
+      return MainDashboardPage(child: child, state: state);
+    },
+    routes: <RouteBase>[
+      // Redirect '/main' to the new jobs page by default.
+      GoRoute(
+        path: '/main',
+        redirect: (_, __) => '/main/jobs',
+      ),
+      GoRoute(
+        path: '/main/jobs',
+        name: 'JobHistoryPage',
+        builder: (BuildContext context, GoRouterState state) {
+          return const JobHistoryPage();
+        },
+      ),
+      // REMOVED: The settings page is now a dialog, so the route is no longer needed.
+    ],
+  ),
+  
+  // --- Unrestricted Routes ---
   AppRoute(
     access: RouteAccess.unrestricted,
     path: '/signing_out',
     name: 'SigningOutPage',
     builder: (_, __) => const SigningOutPage(),
   ),
-
-  // 10) Unrestricted route: Session Expired
   AppRoute(
     access: RouteAccess.unrestricted,
     path: '/session_expired',
@@ -141,50 +150,52 @@ final List<AppRoute> _pmAppRoutes = [
   ),
 ];
 
-/// For easy lookups by name or path
+// MODIFICATION: Filter for AppRoute type since the list now contains ShellRoute.
 final Map<String, RouteAccess> _accessByPath = {
-  for (final r in _pmAppRoutes) r.path: r.access,
+  for (final r in _pmAppRoutes.whereType<AppRoute>()) r.path: r.access,
 };
 final Map<String, RouteAccess> _accessByName = {
-  for (final r in _pmAppRoutes) r.name!: r.access,
+  for (final r in _pmAppRoutes.whereType<AppRoute>()) if (r.name != null) r.name!: r.access,
 };
 
-/// Creates the router, wiring up the [redirect] logic 
-/// and hooking into the [appStateNotifier] to refresh
-/// whenever login state changes.
+/// Creates the router, wiring up the [redirect] logic.
 GoRouter createPmRouter(AppStateNotifier appStateNotifier) {
   return GoRouter(
     debugLogDiagnostics: true,
-    // watch changes from the appState notifier so we can re-check redirect
     refreshListenable: GoRouterRefreshStream(appStateNotifier.stream),
     routes: _pmAppRoutes,
     redirect: (context, state) {
       final loggedIn = appStateNotifier.isLoggedIn;
-      final routeName = state.name;
       final routePath = state.uri.path;
+      final routeName = state.name;
+       // Guard against direct navigation to the login verification page
+      // without providing an email.
+      if (routePath == '/login-verify-code' && state.extra is! String) {
+        return '/';
+      }
 
-      // Check route access from either path or name.
-      // If not found, default to protected or some fallback.
+      if (routePath.startsWith('/main')) {
+        if (!loggedIn) {
+          return '/session_expired'; 
+        }
+        return null; 
+      }
+
       final access = _accessByPath[routePath] ??
           _accessByName[routeName ?? ''] ??
           RouteAccess.protected;
 
-      // Decide on a redirect:
       if (access == RouteAccess.unrestricted) {
-        // Always allowed
         return null;
       }
       if (!loggedIn && access == RouteAccess.protected) {
-        // Must redirect to session expired or welcome
         return '/session_expired';
       }
       if (loggedIn && access == RouteAccess.public) {
-        // Already logged in, skip public route
         return '/main';
       }
-      // Otherwise, no change
+
       return null;
     },
   );
 }
-

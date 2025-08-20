@@ -18,7 +18,7 @@ import (
 	"github.com/poofware/mono-repo/backend/shared/go-middleware"
 	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
-	"github.com/sendgrid/sendgrid-go" // Import SendGrid
+	"github.com/sendgrid/sendgrid-go"
 )
 
 func main() {
@@ -38,6 +38,9 @@ func main() {
 	bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	unitRepo := repositories.NewUnitRepository(application.DB)
+	jobDefRepo := repositories.NewJobDefinitionRepository(application.DB)
+	adminRepo := repositories.NewAdminRepository(application.DB, cfg.DBEncryptionKey)
+	auditRepo := repositories.NewAdminAuditLogRepository(application.DB)
 	agentRepo := repositories.NewAgentRepository(application.DB)
 
 	// Unconditionally seed permanent accounts (e.g., for Google Play reviewers).
@@ -47,7 +50,7 @@ func main() {
 
 	// Conditionally seed test accounts if the feature flag is enabled.
 	if cfg.LDFlag_SeedDbWithTestAccounts {
-		if err := app.SeedAllTestAccounts(workerRepo, pmRepo, agentRepo); err != nil {
+		if err := app.SeedAllTestAccounts(workerRepo, pmRepo, agentRepo, adminRepo); err != nil {
 			utils.Logger.Fatal("Failed to seed default accounts:", err)
 		}
 	}
@@ -62,6 +65,7 @@ func main() {
 	// MODIFIED: Inject SendGrid client and Config into WorkerStripeService
 	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo, sgClient)
 	stripeWebhookCheckService := services.NewStripeWebhookCheckService()
+	adminService := services.NewAdminService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo, jobDefRepo, auditRepo, adminRepo)
 
 	checkrService, err := services.NewCheckrService(cfg, workerRepo, sgClient)
 	if err != nil {
@@ -70,6 +74,7 @@ func main() {
 
 	// Controllers
 	pmController := controllers.NewPMController(pmService)
+	adminController := controllers.NewAdminController(adminService)
 
 	stripeWebhookController := controllers.NewStripeWebhookController(cfg, workerStripeService, stripeWebhookCheckService)
 	healthController := controllers.NewHealthController(application)
@@ -163,14 +168,37 @@ func main() {
 	secured.HandleFunc(routes.WorkerStripeConnectFlowStatus, workerStripeController.ConnectFlowStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerStripeIdentityFlowURL, workerStripeController.IdentityFlowURLHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerStripeIdentityFlowStatus, workerStripeController.IdentityFlowStatusHandler).Methods(http.MethodGet)
-	secured.HandleFunc(routes.WorkerStripeExpressLoginLink, workerStripeController.ExpressLoginLinkHandler).Methods(http.MethodGet) // NEW
+	secured.HandleFunc(routes.WorkerStripeExpressLoginLink, workerStripeController.ExpressLoginLinkHandler).Methods(http.MethodGet)
 
 	// Worker Checkr
 	secured.HandleFunc(routes.WorkerCheckrInvitation, workerCheckrController.CreateInvitationHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.WorkerCheckrStatus, workerCheckrController.GetCheckrStatusHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrReportETA, workerCheckrController.GetCheckrReportETAHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrOutcome, workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
-	secured.HandleFunc(routes.WorkerCheckrSessionToken, workerCheckrController.CreateSessionTokenHandler).Methods(http.MethodPost) // NEW
+	secured.HandleFunc(routes.WorkerCheckrSessionToken, workerCheckrController.CreateSessionTokenHandler).Methods(http.MethodGet)
+
+	// Admin Routes 
+	secured.HandleFunc(routes.AdminPM, adminController.CreatePropertyManagerHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminPM, adminController.UpdatePropertyManagerHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminPM, adminController.DeletePropertyManagerHandler).Methods(http.MethodDelete)
+	secured.HandleFunc(routes.AdminPMSearch, adminController.SearchPropertyManagersHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminPMSnapshot, adminController.GetPropertyManagerSnapshotHandler).Methods(http.MethodPost)
+
+	secured.HandleFunc(routes.AdminProperties, adminController.CreatePropertyHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminProperties, adminController.UpdatePropertyHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminProperties, adminController.DeletePropertyHandler).Methods(http.MethodDelete)
+
+	secured.HandleFunc(routes.AdminBuildings, adminController.CreateBuildingHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminBuildings, adminController.UpdateBuildingHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminBuildings, adminController.DeleteBuildingHandler).Methods(http.MethodDelete)
+
+	secured.HandleFunc(routes.AdminUnits, adminController.CreateUnitHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminUnits, adminController.UpdateUnitHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminUnits, adminController.DeleteUnitHandler).Methods(http.MethodDelete)
+
+	secured.HandleFunc(routes.AdminDumpsters, adminController.CreateDumpsterHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminDumpsters, adminController.UpdateDumpsterHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminDumpsters, adminController.DeleteDumpsterHandler).Methods(http.MethodDelete)
 
 	allowedOrigins := []string{cfg.AppUrl}
 	if !cfg.LDFlag_CORSHighSecurity {

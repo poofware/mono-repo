@@ -41,21 +41,25 @@ func main() {
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
 	agentRepo := repositories.NewAgentRepository(application.DB)
-	ajcRepo := repositories.NewAgentJobCompletionRepository(application.DB)
 
-	// MODIFIED: unitRepo is now required by more services.
+	ajcRepo := repositories.NewAgentJobCompletionRepository(application.DB)
 	unitRepo := repositories.NewUnitRepository(application.DB)
 	juvRepo := repositories.NewJobUnitVerificationRepository(application.DB)
 
 	openaiSvc := services.NewOpenAIService(cfg.OpenAIAPIKey)
 
+	// Admin repos
+	adminRepo := repositories.NewAdminRepository(application.DB, cfg.DBEncryptionKey)
+	auditRepo := repositories.NewAdminAuditLogRepository(application.DB)
+	pmRepo := repositories.NewPropertyManagerRepository(application.DB, cfg.DBEncryptionKey)
+
+	// --- Services ---
 	twClient := twilio.NewRestClientWithParams(twilio.ClientParams{
 		Username: cfg.TwilioAccountSID,
 		Password: cfg.TwilioAuthToken,
 	})
 	sgClient := sendgrid.NewSendClient(cfg.SendGridAPIKey)
 
-	// UPDATED: pass unitRepo and ajcRepo to jobService
 	jobService := services.NewJobService(
 		cfg,
 		defRepo,
@@ -67,10 +71,14 @@ func main() {
 		agentRepo,
 		unitRepo,
 		juvRepo,
-		ajcRepo, // MODIFIED
+		ajcRepo,
 		openaiSvc,
 		twClient,
 		sgClient,
+	)
+
+	adminJobService := services.NewAdminJobService(
+		adminRepo, auditRepo, defRepo, instRepo, pmRepo, propRepo, jobService,
 	)
 
 	if cfg.LDFlag_SeedDbWithTestData {
@@ -90,7 +98,6 @@ func main() {
 		}
 	}
 
-	// MODIFIED: Escalation service now requires building and unit repos for detailed notifications.
 	escalationService := services.NewJobEscalationService(
 		cfg,
 		defRepo,
@@ -107,10 +114,13 @@ func main() {
 
 	agentCompletionSvc := services.NewAgentCompletionService(ajcRepo, instRepo)
 
+	// --- Controllers ---
 	jobsController := controllers.NewJobsController(jobService, agentCompletionSvc)
 	healthController := controllers.NewHealthController(application)
 	jobDefsController := controllers.NewJobDefinitionsController(jobService)
+	adminJobsController := controllers.NewAdminJobsController(adminJobService)
 
+	// --- Router ---
 	router := mux.NewRouter()
 
 	// Public
@@ -120,13 +130,19 @@ func main() {
 	secured := router.NewRoute().Subrouter()
 	secured.Use(middleware.AuthMiddleware(cfg.RSAPublicKey, cfg.LDFlag_DoRealMobileDeviceAttestation))
 
+	// Worker and PM routes
 	secured.HandleFunc(routes.JobsOpen, jobsController.ListJobsHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.JobsMy, jobsController.ListMyJobsHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.JobsUnaccept, jobsController.UnacceptJobHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.JobsCancel, jobsController.CancelJobHandler).Methods(http.MethodPost)
-
 	secured.HandleFunc(routes.JobsDefinitionStatus, jobDefsController.SetDefinitionStatusHandler).Methods(http.MethodPatch, http.MethodPut)
 	secured.HandleFunc(routes.JobsDefinitionCreate, jobDefsController.CreateDefinitionHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.JobsPMInstances, jobDefsController.ListJobsForPropertyHandler).Methods(http.MethodPost)
+
+	// Admin routes
+	secured.HandleFunc(routes.AdminJobDefinitions, adminJobsController.AdminCreateJobDefinitionHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminJobDefinitions, adminJobsController.AdminUpdateJobDefinitionHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminJobDefinitions, adminJobsController.AdminSoftDeleteJobDefinitionHandler).Methods(http.MethodDelete)
 
 	attestationRepo := repositories.NewAttestationRepository(application.DB)
 	challengeRepo := repositories.NewAttestationChallengeRepository(application.DB)
@@ -186,7 +202,6 @@ func main() {
 	if !cfg.LDFlag_CORSHighSecurity {
 		allowedOrigins = append(allowedOrigins, utils.CORSLowSecurityAllowedOriginLocalhost)
 	}
-
 	co := cors.New(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},

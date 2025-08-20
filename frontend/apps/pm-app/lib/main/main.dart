@@ -44,17 +44,25 @@ class _MyAppState extends ConsumerState<MyApp> {
     _boot();
   }
 
-  Future<void> _boot() async {
-    // Attempt silent refresh. If tokens exist, this tries to renew them.
-    await ref.read(authControllerProvider).initSession();
+  // In lib/main/main.dart, within _MyAppState
 
-    // A short splash (~1 second) so there's a minimal load screen
-    await Future.delayed(const Duration(seconds: 1));
+Future<void> _boot() async {
+  // Attempt silent refresh. If tokens exist, this tries to renew them.
+  await ref.read(authControllerProvider).initSession();
 
-    if (mounted) {
-      setState(() => _booting = false);
-    }
+  // --- TEMPORARY FOR UI TESTING ---
+  // This forces the app into a logged-in state for UI development.
+  // REMOVE THIS LINE FOR PRODUCTION or when testing actual auth.
+ // ref.read(appStateProvider.notifier).setLoggedIn(true);
+  // --- END TEMPORARY ---
+
+  // A short splash (~1 second) so there's a minimal load screen
+  await Future.delayed(const Duration(seconds: 1));
+
+  if (mounted) {
+    setState(() => _booting = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -82,10 +90,8 @@ class _MyAppState extends ConsumerState<MyApp> {
         title: 'Poof PM',
         // Our new router-based navigation:
         routerConfig: _router,
-
-        // Light + dark theme:
+    themeMode: ThemeMode.light,
         theme: _buildTheme(Brightness.light),
-        darkTheme: _buildTheme(Brightness.dark),
       ),
     );
   }
@@ -100,6 +106,8 @@ class _MyAppState extends ConsumerState<MyApp> {
       seedColor: baseColor,
       brightness: brightness,
     ).copyWith(
+      // Explicitly set the primary color to your exact brand color.
+      primary: baseColor,
       surfaceTint: Colors.transparent,
       surface: light ? neutral : Colors.grey[850],
       surfaceContainerLowest: light ? neutral : Colors.grey[900],

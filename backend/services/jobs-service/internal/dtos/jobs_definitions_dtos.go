@@ -57,3 +57,7 @@ type SetDefinitionStatusRequest struct {
 	DefinitionID uuid.UUID `json:"definition_id"`
 	NewStatus    string    `json:"new_status"` // e.g. "PAUSED", "ARCHIVED", "DELETED"
 }
+
+type ListJobsForPropertyRequest struct {
+		PropertyID uuid.UUID `json:"property_id" validate:"required"`
+}

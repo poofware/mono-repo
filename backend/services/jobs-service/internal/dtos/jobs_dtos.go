@@ -57,6 +57,18 @@ type JobInstanceDTO struct {
 }
 
 /*
+JobInstancePMDTO is used by responses listing or returning a single job instance. Restricts info to PMs.
+*/
+type JobInstancePMDTO struct {
+	InstanceID        uuid.UUID     `json:"instance_id"`
+	DefinitionID      uuid.UUID     `json:"definition_id"`
+	PropertyID        uuid.UUID     `json:"property_id"`
+	ServiceDate       string        `json:"service_date"`
+	Status            string        `json:"status"`
+	Property          PropertyDTO   `json:"property"`
+	Buildings         []BuildingDTO `json:"buildings,omitempty"`
+}
+/*
 BuildingDTO and DumpsterDTO appear within JobInstanceDTO to give a
 little more context about the assigned buildings/dumpsters for the job.
 */
@@ -108,6 +120,13 @@ type ListJobsResponse struct {
 	Page    int              `json:"page"`
 	Size    int              `json:"size"`
 	Total   int              `json:"total"`
+}
+
+//ListJobsPMResponse is the response for manager-facing job list endpoints.
+
+type ListJobsPMResponse struct {
+	Results []JobInstancePMDTO `json:"results"`
+	Total   int                `json:"total"`
 }
 
 /*
