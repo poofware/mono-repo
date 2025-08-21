@@ -52,6 +52,12 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
   String _mapStyle = '';
   CameraPosition? _savedCameraPosition;
 
+  // Edge-swipe to dismiss when shown as a full-screen page on iOS
+  static const double _edgeSwipeWidth = 44.0;
+  static const double _dismissDragThreshold = 90.0;
+  double _dragAccumulation = 0.0;
+  bool _draggingFromEdge = false;
+
   static const _quickTapMax = Duration(milliseconds: 180);
   Offset? _tapStartPosition;
   int? _tapPointerId;
@@ -342,6 +348,38 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
         body: Stack(
           children: [
             mapContent,
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: _edgeSwipeWidth,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: (details) {
+                  _draggingFromEdge =
+                      details.globalPosition.dx <= _edgeSwipeWidth;
+                  _dragAccumulation = 0.0;
+                },
+                onHorizontalDragUpdate: (details) {
+                  if (!_draggingFromEdge) return;
+                  _dragAccumulation += details.delta.dx;
+                },
+                onHorizontalDragEnd: (details) {
+                  if (!_draggingFromEdge) return;
+                  final double velocity = details.primaryVelocity ?? 0.0;
+                  if (_dragAccumulation > _dismissDragThreshold ||
+                      velocity > 600.0) {
+                    Navigator.of(context).maybePop();
+                  }
+                  _draggingFromEdge = false;
+                  _dragAccumulation = 0.0;
+                },
+                onHorizontalDragCancel: () {
+                  _draggingFromEdge = false;
+                  _dragAccumulation = 0.0;
+                },
+              ),
+            ),
             SafeArea(
               child: Align(
                 alignment: Alignment.topLeft,
