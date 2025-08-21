@@ -349,7 +349,14 @@ class JobInstance {
 
   String get displayTravelTime {
     if (travelMinutes == null || travelMinutes! <= 0) return 'N/A';
-    return '$travelMinutes min';
+    final int mins = travelMinutes!;
+    if (mins < 60) return '$mins min';
+    final hours = mins ~/ 60;
+    final minutes = mins % 60;
+    if (minutes == 0) {
+      return '$hours hr${hours == 1 ? '' : 's'}';
+    }
+    return '$hours hr $minutes min';
   }
 
   String get floorsLabel {
@@ -567,7 +574,14 @@ class DefinitionGroup {
   String get displayAvgTravelTime {
     final avgMins = avgTravelMinutes;
     if (avgMins == null || avgMins <= 0) return 'N/A';
-    return '$avgMins min';
+    final mins = avgMins;
+    if (mins < 60) return '$mins min';
+    final hours = mins ~/ 60;
+    final minutes = mins % 60;
+    if (minutes == 0) {
+      return '$hours hr${hours == 1 ? '' : 's'}';
+    }
+    return '$hours hr $minutes min';
   }
 
   /// NEW: Gets the building subtitle from the first instance in the group.

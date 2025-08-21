@@ -37,6 +37,7 @@ func main() {
 	defRepo := repositories.NewJobDefinitionRepository(application.DB)
 	instRepo := repositories.NewJobInstanceRepository(application.DB)
 	propRepo := repositories.NewPropertyRepository(application.DB)
+	pmRepo := repositories.NewPropertyManagerRepository(application.DB, cfg.DBEncryptionKey)
 	bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	workerRepo := repositories.NewWorkerRepository(application.DB, cfg.DBEncryptionKey)
@@ -61,6 +62,7 @@ func main() {
 		defRepo,
 		instRepo,
 		propRepo,
+		pmRepo,
 		bldgRepo,
 		dumpRepo,
 		workerRepo,
@@ -72,6 +74,20 @@ func main() {
 		twClient,
 		sgClient,
 	)
+
+	if err := app.SeedDemoData(
+		context.Background(),
+		jobService,
+		pmRepo,
+		propRepo,
+		bldgRepo,
+		unitRepo,
+		dumpRepo,
+		defRepo,
+		instRepo,
+	); err != nil {
+		utils.Logger.WithError(err).Fatal("Failed to seed demo data")
+	}
 
 	if cfg.LDFlag_SeedDbWithTestData {
 		if err := app.SeedAllTestData(

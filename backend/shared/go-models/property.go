@@ -16,5 +16,6 @@ type Property struct {
     TimeZone      string            `json:"timezone"`
     Latitude     float64          `json:"latitude"`
     Longitude    float64          `json:"longitude"`
+    IsDemo       bool              `json:"is_demo"`
     CreatedAt    time.Time         `json:"created_at"`
 }

@@ -1106,3 +1106,215 @@ func seedCliftFarmPropertyIfNeeded(
 
 	return nil
 }
+
+func SeedDemoData(
+	ctx context.Context,
+	jobSvc *services.JobService,
+	pmRepo repositories.PropertyManagerRepository,
+	propRepo repositories.PropertyRepository,
+	bldgRepo repositories.PropertyBuildingRepository,
+	unitRepo repositories.UnitRepository,
+	dumpRepo repositories.DumpsterRepository,
+	defRepo repositories.JobDefinitionRepository,
+	instRepo repositories.JobInstanceRepository,
+) error {
+	// 1. Seed Demo Property Manager
+	demoPMEmail := "demo-pm@thepoofapp.com"
+	pm, err := pmRepo.GetByEmail(ctx, demoPMEmail)
+	if err != nil {
+		return fmt.Errorf("failed to check for demo PM: %w", err)
+	}
+
+	if pm == nil {
+		pm = &models.PropertyManager{
+			ID:           uuid.New(),
+			Email:        demoPMEmail,
+			BusinessName: "Demo Manager",
+		}
+		if err := pmRepo.Create(ctx, pm); err != nil {
+			return fmt.Errorf("failed to create demo PM: %w", err)
+		}
+		utils.Logger.Info("Seeded demo property manager")
+	}
+
+	// 2. Seed Demo Property
+	prop, err := propRepo.GetByID(ctx, uuid.MustParse("00000000-0000-0000-0000-000000000001")) // Hardcoded ID for idempotency
+	if err != nil && err.Error() != "no rows in result set" {
+		return fmt.Errorf("failed to check for demo property: %w", err)
+	}
+
+	if prop == nil {
+		prop = &models.Property{
+			ID:           uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+			ManagerID:    pm.ID,
+			PropertyName: "Demo Property Mountain View",
+			Address:      "1600 Amphitheatre Parkway",
+			City:         "Mountain View",
+			State:        "CA",
+			ZipCode:      "94043",
+			TimeZone:     "America/Los_Angeles",
+			Latitude:     37.422,
+			Longitude:    -122.084,
+			IsDemo:       true,
+		}
+		if err := propRepo.Create(ctx, prop); err != nil {
+			return fmt.Errorf("failed to create demo property: %w", err)
+		}
+		utils.Logger.Info("Seeded demo property")
+	}
+
+	// 3. Seed demo building, units, and dumpster
+	bldgID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	existingBldg, err := bldgRepo.GetByID(ctx, bldgID)
+	if err != nil && err.Error() != "no rows in result set" {
+		return fmt.Errorf("failed to check for demo building: %w", err)
+	}
+	if existingBldg == nil {
+		bldg := &models.PropertyBuilding{
+			ID:           bldgID,
+			PropertyID:   prop.ID,
+			BuildingName: "Building 1",
+			Latitude:       prop.Latitude + 0.0003,
+			Longitude:      prop.Longitude + 0.0003,
+		}
+		if err := bldgRepo.Create(ctx, bldg); err != nil {
+			return fmt.Errorf("failed to create demo building: %w", err)
+		}
+		utils.Logger.Info("Seeded demo building")
+	}
+
+	// Ensure demo units exist even if the building already existed from a prior run.
+	units, err := unitRepo.ListByBuildingID(ctx, bldgID)
+	if err != nil {
+		return fmt.Errorf("failed to list demo units: %w", err)
+	}
+	existing := make(map[string]struct{}, len(units))
+	for _, u := range units {
+		existing[u.UnitNumber] = struct{}{}
+	}
+	created := 0
+	for i := 1; i <= 3; i++ {
+		num := fmt.Sprintf("10%d", i)
+		if _, ok := existing[num]; ok {
+			continue
+		}
+		unit := &models.Unit{
+			ID:         uuid.New(),
+			PropertyID: prop.ID,
+			BuildingID: bldgID,
+			UnitNumber: num,
+			TenantToken: uuid.NewString(),
+		}
+		if err := unitRepo.Create(ctx, unit); err != nil {
+			return fmt.Errorf("failed to create demo unit %s: %w", num, err)
+		}
+		created++
+	}
+	if created > 0 {
+		utils.Logger.Infof("Seeded %d missing demo unit(s) for Mountain View", created)
+	}
+
+	dumpsterID := uuid.MustParse("00000000-0000-0000-0000-000000000004")
+	existingDump, derr := dumpRepo.GetByID(ctx, dumpsterID)
+	if derr != nil {
+		return fmt.Errorf("failed to check for demo dumpster: %w", derr)
+	}
+	if existingDump == nil {
+		dumpster := &models.Dumpster{
+			ID:             dumpsterID,
+			PropertyID:     prop.ID,
+			DumpsterNumber: "1",
+			Latitude:     prop.Latitude + 0.0001,
+			Longitude:    prop.Longitude + 0.0001,
+		}
+		if err := dumpRepo.Create(ctx, dumpster); err != nil {
+			return fmt.Errorf("failed to create demo dumpster: %w", err)
+		}
+		utils.Logger.Info("Seeded demo dumpster near Building 1")
+	}
+
+	// 4. Seed Demo Job Definition using the service
+	def, err := defRepo.GetByID(ctx, uuid.MustParse("00000000-0000-0000-0000-000000000002"))
+	if err != nil && err.Error() != "no rows in result set" {
+		return fmt.Errorf("failed to check for demo job definition: %w", err)
+	}
+
+	if def == nil {
+		loc, _ := time.LoadLocation(prop.TimeZone)
+		earliest := time.Date(0, 1, 1, 0, 0, 0, 0, loc)
+		latest := earliest.Add(23*time.Hour + 59*time.Minute)
+
+		units, err := unitRepo.ListByBuildingID(ctx, bldgID)
+		if err != nil {
+			return fmt.Errorf("failed to list demo units: %w", err)
+		}
+		var unitIDs []uuid.UUID
+		for _, u := range units {
+			unitIDs = append(unitIDs, u.ID)
+		}
+
+		req := dtos.CreateJobDefinitionRequest{
+			PropertyID: prop.ID,
+			Title:      "Demo Job",
+			Description: utils.Ptr(
+				"This is a demo job for reviewers.",
+			),
+			AssignedUnitsByBuilding: []models.AssignedUnitGroup{
+				{
+					BuildingID: bldgID,
+					UnitIDs:    unitIDs,
+					Floors:     []int16{1},
+				},
+			},
+			DumpsterIDs:       []uuid.UUID{dumpsterID},
+			Frequency:         models.JobFreqDaily,
+			StartDate:         time.Now().UTC().AddDate(0, 0, -1),
+			EarliestStartTime: earliest,
+			LatestStartTime:   latest,
+			SkipHolidays:      false,
+			DailyPayEstimates: []dtos.DailyPayEstimateRequest{
+				{DayOfWeek: 0, BasePay: 10.00, EstimatedTimeMinutes: 15},
+				{DayOfWeek: 1, BasePay: 10.00, EstimatedTimeMinutes: 15},
+				{DayOfWeek: 2, BasePay: 10.00, EstimatedTimeMinutes: 15},
+				{DayOfWeek: 3, BasePay: 10.00, EstimatedTimeMinutes: 15},
+				{DayOfWeek: 4, BasePay: 10.00, EstimatedTimeMinutes: 15},
+				{DayOfWeek: 5, BasePay: 10.00, EstimatedTimeMinutes: 15},
+				{DayOfWeek: 6, BasePay: 10.00, EstimatedTimeMinutes: 15},
+			},
+			CompletionRules: &models.JobCompletionRules{
+				ProofPhotosRequired: true,
+			},
+		}
+
+		if _, err := jobSvc.CreateJobDefinition(ctx, pm.ID.String(), req, "ACTIVE"); err != nil {
+			return fmt.Errorf("failed to create demo job definition via service: %w", err)
+		}
+		utils.Logger.Info("Seeded demo job definition via service")
+	} else {
+		// Backfill dumpster ID if missing on existing definition
+		needsDumpster := true
+		for _, id := range def.DumpsterIDs {
+			if id == dumpsterID {
+				needsDumpster = false
+				break
+			}
+		}
+		if needsDumpster {
+			if err := defRepo.UpdateWithRetry(ctx, def.ID, func(d *models.JobDefinition) error {
+				// ensure slice exists and append if not present
+				for _, id := range d.DumpsterIDs {
+					if id == dumpsterID {
+						return nil
+					}
+				}
+				d.DumpsterIDs = append(d.DumpsterIDs, dumpsterID)
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to backfill dumpster on demo definition: %w", err)
+			}
+			utils.Logger.Info("Backfilled dumpster ID on existing demo job definition")
+		}
+	}
+
+	return nil
+}

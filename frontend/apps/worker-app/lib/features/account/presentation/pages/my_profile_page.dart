@@ -666,9 +666,34 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
           Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch),
         );
       }
+    } on ApiException catch (e) {
+      if (capturedContext.mounted) {
+        if (e.errorCode == 'stripe_account_not_found') {
+          // Fallback to Stripe's generic express login page on the specific error.
+          final fallbackSuccess =
+              await tryLaunchUrl('https://connect.stripe.com/express_login');
+          if (!fallbackSuccess && capturedContext.mounted) {
+            showAppSnackBar(
+              capturedContext,
+              Text(AppLocalizations.of(capturedContext).urlLauncherCannotLaunch),
+            );
+          }
+        } else {
+          // For any other error, show the original error message.
+          final errorMessage = userFacingMessage(capturedContext, e);
+          showAppSnackBar(
+            capturedContext,
+            Text(errorMessage),
+          );
+        }
+      }
     } catch (e) {
       if (capturedContext.mounted) {
-        _showError(capturedContext, e as Exception);
+        showAppSnackBar(
+          capturedContext,
+          Text(AppLocalizations.of(capturedContext)
+              .loginUnexpectedError(e.toString())),
+        );
       }
     }
   }

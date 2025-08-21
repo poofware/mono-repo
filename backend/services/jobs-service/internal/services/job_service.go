@@ -20,6 +20,7 @@ type JobService struct {
 	defRepo                repositories.JobDefinitionRepository
 	instRepo               repositories.JobInstanceRepository
 	propRepo               repositories.PropertyRepository
+	pmRepo                 repositories.PropertyManagerRepository
 	bldgRepo               repositories.PropertyBuildingRepository
 	dumpRepo               repositories.DumpsterRepository
 	workerRepo             repositories.WorkerRepository
@@ -43,6 +44,7 @@ func NewJobService(
 	defRepo repositories.JobDefinitionRepository,
 	instRepo repositories.JobInstanceRepository,
 	propRepo repositories.PropertyRepository,
+	pmRepo repositories.PropertyManagerRepository,
 	bldgRepo repositories.PropertyBuildingRepository,
 	dumpRepo repositories.DumpsterRepository,
 	workerRepo repositories.WorkerRepository,
@@ -59,6 +61,7 @@ func NewJobService(
 		defRepo:                defRepo,
 		instRepo:               instRepo,
 		propRepo:               propRepo,
+		pmRepo:                 pmRepo,
 		bldgRepo:               bldgRepo,
 		dumpRepo:               dumpRepo,
 		workerRepo:             workerRepo,

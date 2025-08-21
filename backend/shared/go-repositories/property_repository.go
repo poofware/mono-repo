@@ -18,6 +18,7 @@ type PropertyRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Property, error)
 	ListByManagerID(ctx context.Context, managerID uuid.UUID) ([]*models.Property, error)
 	ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Property, error)
+	ListDemoProperties(ctx context.Context) ([]*models.Property, error)
 
 	Update(ctx context.Context, p *models.Property) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -41,9 +42,9 @@ func (r *propertyRepo) Create(ctx context.Context, p *models.Property) error {
 	_, err := r.db.Exec(ctx, `
         INSERT INTO properties (
             id, manager_id, property_name, address, city, state, zip_code, time_zone,
-            latitude, longitude,
+            latitude, longitude, is_demo,
             created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, NOW())
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, $11, NOW())
     `,
 		p.ID,
 		p.ManagerID,
@@ -55,6 +56,7 @@ func (r *propertyRepo) Create(ctx context.Context, p *models.Property) error {
 		p.TimeZone,
 		p.Latitude,
 		p.Longitude,
+		p.IsDemo,
 	)
 	return err
 }
@@ -103,12 +105,30 @@ func (r *propertyRepo) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*model
 	return out, rows.Err()
 }
 
+func (r *propertyRepo) ListDemoProperties(ctx context.Context) ([]*models.Property, error) {
+	rows, err := r.db.Query(ctx, baseSelectProperty()+" WHERE is_demo = TRUE ORDER BY created_at")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.Property
+	for rows.Next() {
+		p, err := scanProperty(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 func (r *propertyRepo) Update(ctx context.Context, p *models.Property) error {
 	_, err := r.db.Exec(ctx, `
         UPDATE properties SET
             property_name=$1, address=$2, city=$3, state=$4, zip_code=$5,
-            time_zone=$6, latitude=$7, longitude=$8
-        WHERE id=$9
+            time_zone=$6, latitude=$7, longitude=$8, is_demo=$9
+        WHERE id=$10
     `,
 		p.PropertyName,
 		p.Address,
@@ -118,6 +138,7 @@ func (r *propertyRepo) Update(ctx context.Context, p *models.Property) error {
 		p.TimeZone,
 		p.Latitude,
 		p.Longitude,
+		p.IsDemo,
 		p.ID,
 	)
 	return err
@@ -151,7 +172,7 @@ func baseSelectProperty() string {
         SELECT
             id, manager_id, property_name,
             address, city, state, zip_code, time_zone,
-            latitude, longitude,
+            latitude, longitude, is_demo,
             created_at
         FROM properties
     `
@@ -170,6 +191,7 @@ func scanProperty(row pgx.Row) (*models.Property, error) {
 		&p.TimeZone,
 		&p.Latitude,
 		&p.Longitude,
+		&p.IsDemo,
 		&p.CreatedAt,
 	)
 	if err != nil {

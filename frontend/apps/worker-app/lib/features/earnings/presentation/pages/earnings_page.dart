@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:poof_worker/core/presentation/utils/url_launcher_utils.dart';
 import 'package:poof_worker/core/theme/app_constants.dart';
 import 'package:poof_worker/core/utils/error_utils.dart';
+import 'package:poof_flutter_auth/poof_flutter_auth.dart' show ApiException;
 import 'package:poof_worker/core/routing/router.dart';
 import 'package:poof_worker/core/presentation/widgets/app_top_snackbar.dart';
 import 'package:poof_worker/l10n/generated/app_localizations.dart';
@@ -422,11 +423,32 @@ class _PayoutFailedNoticeState extends ConsumerState<_PayoutFailedNotice> {
           Text(widget.appLocalizations.urlLauncherCannotLaunch),
         );
       }
+    } on ApiException catch (e) {
+      if (capturedContext.mounted) {
+        if (e.errorCode == 'stripe_account_not_found') {
+          // Fallback to Stripe's generic express login page on the specific error.
+          final fallbackSuccess =
+              await tryLaunchUrl('https://connect.stripe.com/express_login');
+          if (!fallbackSuccess && capturedContext.mounted) {
+            showAppSnackBar(
+              capturedContext,
+              Text(widget.appLocalizations.urlLauncherCannotLaunch),
+            );
+          }
+        } else {
+          // For any other error, show the original error message.
+          final errorMessage = userFacingMessage(capturedContext, e);
+          showAppSnackBar(
+            capturedContext,
+            Text(errorMessage),
+          );
+        }
+      }
     } catch (e) {
       if (capturedContext.mounted) {
         showAppSnackBar(
           capturedContext,
-          Text(userFacingMessageFromObject(capturedContext, e)),
+          Text(widget.appLocalizations.loginUnexpectedError(e.toString())),
         );
       }
     } finally {

@@ -53,6 +53,8 @@ class _SixDigitFieldState extends State<SixDigitField>
 
   String get _currentCode => _controller.text;
   String? _lastSubmitted; // prevents duplicate submissions
+  String _lastTextSnapshot = '';
+  TextSelection _lastSelectionSnapshot = const TextSelection.collapsed(offset: 0);
 
   // ────────────────────────────────────────────────────────────
   // Lifecycle
@@ -66,6 +68,9 @@ class _SixDigitFieldState extends State<SixDigitField>
     // Add listener to update focus visualization
     _focusNode.addListener(_handleFocusChange);
 
+    // Listen for backspace at caret 0 to delete the first digit (modern API)
+    HardwareKeyboard.instance.addHandler(_hardwareKeyHandler);
+
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -74,6 +79,10 @@ class _SixDigitFieldState extends State<SixDigitField>
         }
       });
     }
+
+    // Initialize snapshots for deletion/selection tracking
+    _lastTextSnapshot = _controller.text;
+    _lastSelectionSnapshot = _controller.selection;
   }
 
   void _handleFocusChange() {
@@ -85,6 +94,7 @@ class _SixDigitFieldState extends State<SixDigitField>
     WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_handleTextChange);
     _focusNode.removeListener(_handleFocusChange);
+    HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -109,6 +119,22 @@ class _SixDigitFieldState extends State<SixDigitField>
     });
   }
 
+  bool _hardwareKeyHandler(KeyEvent event) {
+    if (!_focusNode.hasFocus) return false;
+    if (event is! KeyDownEvent) return false;
+    if (event.logicalKey != LogicalKeyboardKey.backspace) return false;
+
+    final selection = _controller.selection;
+    final text = _controller.text;
+    if (selection.isCollapsed && selection.baseOffset == 0 && text.isNotEmpty) {
+      // Delete the first digit when backspace pressed at index 0
+      _controller.text = text.substring(1);
+      _controller.selection = const TextSelection.collapsed(offset: 0);
+      return true; // handled
+    }
+    return false; // allow default processing otherwise
+  }
+
   // ────────────────────────────────────────────────────────────
   // Text / paste handling
   // ────────────────────────────────────────────────────────────
@@ -130,6 +156,37 @@ class _SixDigitFieldState extends State<SixDigitField>
 
     _notifyParent();
     _maybeSubmit();
+
+    // After a single-character deletion, automatically move the selector
+    // backward one cell (unless already at the first cell, then remain).
+    final String prevText = _lastTextSnapshot;
+    final TextSelection prevSel = _lastSelectionSnapshot;
+    final String newText = _controller.text;
+    if (newText.length == prevText.length - 1) {
+      // Determine the index that was deleted. If a range was selected, use its
+      // start; otherwise use the previous caret index (deletes previous char).
+      final bool hadRange = prevSel.start != prevSel.end;
+      final int deletedIndex = hadRange
+          ? prevSel.start
+          : (prevSel.baseOffset > 0 ? prevSel.baseOffset - 1 : 0);
+
+      final int newSelectedIndex = deletedIndex > 0 ? deletedIndex - 1 : 0;
+
+      if (newText.isNotEmpty && newSelectedIndex < newText.length) {
+        _controller.selection = TextSelection(
+          baseOffset: newSelectedIndex,
+          extentOffset: newSelectedIndex + 1,
+        );
+      } else {
+        _controller.selection = TextSelection.collapsed(
+          offset: newSelectedIndex,
+        );
+      }
+    }
+
+    // Update snapshots at the end
+    _lastTextSnapshot = _controller.text;
+    _lastSelectionSnapshot = _controller.selection;
   }
 
   void _moveCaretToEnd() {
@@ -240,8 +297,21 @@ class _SixDigitFieldState extends State<SixDigitField>
           // Use min size so the Row doesn't expand beyond the required width if availableWidth is large.
           mainAxisSize: MainAxisSize.min,
           children: List.generate(6, (i) {
-            final hasFocus =
-                _focusNode.hasFocus && _controller.selection.baseOffset == i;
+            final sel = _controller.selection;
+            final textLenForFocus = _controller.text.length;
+            int focusIndex;
+            if (textLenForFocus == 0) {
+              focusIndex = 0;
+            } else if (!sel.isValid) {
+              focusIndex = (textLenForFocus - 1).clamp(0, 5);
+            } else if (sel.isCollapsed) {
+              focusIndex = (sel.baseOffset == 0)
+                  ? 0
+                  : (sel.baseOffset - 1).clamp(0, textLenForFocus - 1);
+            } else {
+              focusIndex = sel.baseOffset.clamp(0, textLenForFocus - 1);
+            }
+            final hasFocus = _focusNode.hasFocus && focusIndex == i;
             final digit = i < _controller.text.length
                 ? _controller.text[i]
                 : '';
@@ -255,10 +325,17 @@ class _SixDigitFieldState extends State<SixDigitField>
                   // Ensure keyboard is visible if focus is already present
                   _restoreKeyboardIfNeeded();
                 }
-                // Move caret to the tapped position.
-                _controller.selection = TextSelection.collapsed(
-                  offset: i.clamp(0, _controller.text.length),
-                );
+                // Select the tapped digit so Backspace deletes it consistently.
+                final int textLen = _controller.text.length;
+                final int clamped = i.clamp(0, textLen);
+                if (clamped < textLen) {
+                  _controller.selection = TextSelection(
+                    baseOffset: clamped,
+                    extentOffset: clamped + 1,
+                  );
+                } else {
+                  _controller.selection = TextSelection.collapsed(offset: clamped);
+                }
                 // Force update visualization if selection changed
                 setState(() {});
               },
@@ -323,6 +400,10 @@ class _SixDigitFieldState extends State<SixDigitField>
     );
   }
 }
+
+/// Custom formatter so Backspace deletes the digit at the current caret
+/// position (the selected box) instead of the character before it.
+// Removed custom formatter; behavior handled via selection/caret logic.
 
 /// Utility class to hide selection handles and toolbar
 class EmptyTextSelectionControls extends TextSelectionControls {

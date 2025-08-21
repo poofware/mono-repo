@@ -331,7 +331,7 @@ class _AcceptedJobDetailsSheetState
                       _TileData(
                         icon: Icons.directions_car_outlined,
                         label: appLocalizations.jobAcceptSheetHeaderDriveTime,
-                        value: widget.job.displayTravelTime,
+                        value: _formatMinutesToHrMin(widget.job.travelMinutes),
                       ),
                     ];
                     return _TwoColumnTiles(tiles: headerTiles);
@@ -570,6 +570,15 @@ class _TwoColumnTiles extends StatelessWidget {
       },
     );
   }
+}
+
+String _formatMinutesToHrMin(int? minutes) {
+  if (minutes == null || minutes <= 0) return 'N/A';
+  if (minutes < 60) return '$minutes min';
+  final h = minutes ~/ 60;
+  final m = minutes % 60;
+  if (m == 0) return '$h hr${h == 1 ? '' : 's'}';
+  return '$h hr $m min';
 }
 
 // Single stat tile

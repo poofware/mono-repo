@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -48,6 +49,17 @@ func (c *WorkerStripeController) ExpressLoginLinkHandler(w http.ResponseWriter, 
 
 	url, err := c.workerStripeService.GetExpressLoginLink(r.Context(), workerID)
 	if err != nil {
+		// If the worker has no Stripe account, return a specific error code
+		if err.Error() == fmt.Sprintf("worker %s does not have a Stripe Connect account ID", workerID) {
+			utils.RespondErrorWithCode(
+				w,
+				http.StatusBadRequest, // Or another appropriate status
+				utils.ErrCodeStripeAccountNotFound,
+				"Stripe account not found for this worker",
+				nil,
+			)
+			return
+		}
 		utils.RespondErrorWithCode(
 			w,
 			http.StatusInternalServerError,

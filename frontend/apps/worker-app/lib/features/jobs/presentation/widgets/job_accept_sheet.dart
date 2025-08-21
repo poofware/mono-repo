@@ -1059,14 +1059,61 @@ class _DefinitionStatTiles extends StatelessWidget {
     final inst = definition.instances.isNotEmpty
         ? definition.instances.first
         : null;
-    final start = inst?.workerStartTimeHint ?? '';
-    final startFormatted = start.isNotEmpty ? formatTime(context, start) : '';
+    // Worker times ("Your time")
+    final workerStartRaw = inst?.workerStartTimeHint ?? '';
+    final workerStartFormatted =
+        workerStartRaw.isNotEmpty ? formatTime(context, workerStartRaw) : '';
     final workerWindowStart = inst?.workerServiceWindowStart ?? '';
     final workerWindowEnd = inst?.workerServiceWindowEnd ?? '';
-    final windowDisplay =
+    final workerWindowDisplay =
         (workerWindowStart.isNotEmpty && workerWindowEnd.isNotEmpty)
-        ? '${formatTime(context, workerWindowStart)} - ${formatTime(context, workerWindowEnd)}'
-        : '';
+            ? '${formatTime(context, workerWindowStart)} - ${formatTime(context, workerWindowEnd)}'
+            : '';
+    // Property-local times for secondary display
+    final propStartRaw = inst?.startTimeHint ?? '';
+    final propStartFormatted =
+        propStartRaw.isNotEmpty ? formatTime(context, propStartRaw) : '';
+    final propWindowStartRaw = inst?.propertyServiceWindowStart ?? '';
+    final propWindowEndRaw = inst?.propertyServiceWindowEnd ?? '';
+    final propWindowDisplay =
+        (propWindowStartRaw.isNotEmpty && propWindowEndRaw.isNotEmpty)
+            ? '${formatTime(context, propWindowStartRaw)} - ${formatTime(context, propWindowEndRaw)}'
+            : '';
+    // Compose values conditionally: show (Local) + second line only if times differ
+    String startDisplay = '';
+    final hasWorkerStart = workerStartFormatted.isNotEmpty;
+    final hasPropStart = propStartFormatted.isNotEmpty;
+    final startsEqual =
+        (workerStartRaw.isNotEmpty && propStartRaw.isNotEmpty && workerStartRaw == propStartRaw);
+    if (hasWorkerStart || hasPropStart) {
+      if (hasWorkerStart && hasPropStart && !startsEqual) {
+        final secondLine = AppLocalizations.of(context)
+            .jobAcceptSheetYourTime(workerStartFormatted);
+        startDisplay = '$propStartFormatted\n$secondLine';
+      } else if (hasWorkerStart) {
+        startDisplay = workerStartFormatted; // show one line
+      } else {
+        startDisplay = propStartFormatted; // show one line
+      }
+    }
+
+    String windowDisplay = '';
+    final hasWorkerWindow = workerWindowDisplay.isNotEmpty;
+    final hasPropWindow = propWindowDisplay.isNotEmpty;
+    final windowsEqual = (workerWindowStart.isNotEmpty && workerWindowEnd.isNotEmpty &&
+        propWindowStartRaw.isNotEmpty && propWindowEndRaw.isNotEmpty &&
+        workerWindowStart == propWindowStartRaw && workerWindowEnd == propWindowEndRaw);
+    if (hasWorkerWindow || hasPropWindow) {
+      if (hasWorkerWindow && hasPropWindow && !windowsEqual) {
+        final secondLine = AppLocalizations.of(context)
+            .jobAcceptSheetYourTime(workerWindowDisplay);
+        windowDisplay = '$propWindowDisplay\n$secondLine';
+      } else if (hasWorkerWindow) {
+        windowDisplay = workerWindowDisplay;
+      } else {
+        windowDisplay = propWindowDisplay;
+      }
+    }
     final bool isSingleBuilding =
         definition.instances.isNotEmpty &&
         definition.instances.every((i) => i.numberOfBuildings == 1);
@@ -1093,12 +1140,13 @@ class _DefinitionStatTiles extends StatelessWidget {
         label: appLocalizations.jobAcceptSheetUnits,
         value: _buildUnitsLabel(definition.instances),
       ),
-      if (startFormatted.isNotEmpty)
+      if (startDisplay.isNotEmpty)
         _TileData(
           icon: Icons.access_time_outlined,
           label: appLocalizations.jobAcceptSheetRecommendedStart,
-          value: startFormatted,
+          value: startDisplay,
           spanTwoColumns: true,
+          maxLines: 2,
         ),
       if (windowDisplay.isNotEmpty)
         _TileData(
@@ -1106,6 +1154,7 @@ class _DefinitionStatTiles extends StatelessWidget {
           label: appLocalizations.jobAcceptSheetServiceWindow,
           value: windowDisplay,
           spanTwoColumns: true,
+          maxLines: 2,
         ),
       // Bottom-most row (closest to date carousel), but still above View Job Map
       if (selectedInstance != null)
@@ -1178,12 +1227,14 @@ class _TileData {
   final String value;
   final Color? color;
   final bool spanTwoColumns;
+  final int? maxLines;
   _TileData({
     required this.icon,
     required this.label,
     required this.value,
     this.color,
     this.spanTwoColumns = false,
+    this.maxLines,
   });
 }
 
@@ -1217,6 +1268,7 @@ class _TwoColumnTiles extends StatelessWidget {
                 label: t.label,
                 value: t.value,
                 color: t.color,
+                maxLines: t.maxLines,
               ),
             );
           }).toList(),
@@ -1232,16 +1284,19 @@ class _StatTile extends StatelessWidget {
   final String label;
   final String value;
   final Color? color;
+  final int? maxLines;
   const _StatTile({
     required this.icon,
     required this.label,
     required this.value,
     this.color,
+    this.maxLines,
   });
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final baseColor = color ?? Colors.black87;
+    final secondaryColor = Colors.grey.shade600;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       decoration: BoxDecoration(
@@ -1269,16 +1324,50 @@ class _StatTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: baseColor,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                // Render first line primary, second line gray if present
+                Builder(builder: (_) {
+                  final parts = value.split('\n');
+                  if (parts.length <= 1) {
+                    return Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: baseColor,
+                      ),
+                      maxLines: maxLines ?? 1,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  }
+                  final first = parts.first;
+                  final second = parts.sublist(1).join(' ');
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        first,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: baseColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        second,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: secondaryColor,
+                        ),
+                        maxLines: (maxLines ?? 2) - 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  );
+                }),
               ],
             ),
           ),

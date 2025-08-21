@@ -39,12 +39,13 @@ func SeedGooglePlayReviewerWorker(workerRepo repositories.WorkerRepository) erro
 
 	w := &models.Worker{
 		ID:          workerID,
-		Email:       "play-reviewer@thepoofapp.com",
+		Email:       utils.GooglePlayStoreReviewerEmail,
 		PhoneNumber: utils.GooglePlayStoreReviewerPhone,
 		TOTPSecret:  "googleplayreviewerworkersecretok",
 		FirstName:   "GooglePlay",
 		LastName:    "Reviewer",
 	}
+
 	if err := workerRepo.Create(ctx, w); err != nil {
 		if isUniqueViolation(err) {
 			utils.Logger.Infof("seeding: Google Play reviewer worker already present (id=%s); skipping", w.ID)

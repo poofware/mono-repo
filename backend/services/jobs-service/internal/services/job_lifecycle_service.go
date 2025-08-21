@@ -66,6 +66,13 @@ func (s *JobService) AcceptJobInstanceWithLocation(
 		return nil, fmt.Errorf("property not found")
 	}
 
+	isReviewer := worker.Email == utils.GooglePlayStoreReviewerEmail
+	if isReviewer {
+		if !prop.IsDemo {
+			return nil, fmt.Errorf("reviewers can only accept demo jobs")
+		}
+	}
+
 	// Continue with other validations after confirming worker is active.
 	wScore := worker.ReliabilityScore
 	var wTenantPropID *uuid.UUID
@@ -90,9 +97,11 @@ func (s *JobService) AcceptJobInstanceWithLocation(
 		return nil, internal_utils.ErrNotWithinTimeWindow
 	}
 
-	distMiles := utils.DistanceMiles(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
-	if distMiles > float64(constants.RadiusMiles) {
-		return nil, internal_utils.ErrLocationOutOfBounds
+	if !isReviewer {
+		distMiles := utils.DistanceMiles(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
+		if distMiles > float64(constants.RadiusMiles) {
+			return nil, internal_utils.ErrLocationOutOfBounds
+		}
 	}
 
 	newAssignCount := inst.AssignUnassignCount + 1
@@ -133,7 +142,26 @@ func (s *JobService) AcceptJobInstanceWithLocation(
 		workerLoc = time.UTC // Fallback on error
 	}
 
-	dto, _ := s.buildInstanceDTO(ctx, updated, nil, workerLoc, nil, nil, nil, nil, nil)
+	// Compute and include routing info so client sees distance/time immediately
+	var route *routeInfo
+	if locReq.Lat != 0 || locReq.Lng != 0 {
+		var distMiles float64
+		var travelMins *int
+		if s.cfg.LDFlag_UseGMapsRoutesAPI && s.cfg.GMapsRoutesAPIKey != "" {
+			if dMiles, dMins, gErr := utils.ComputeDriveDistanceTimeMiles(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude, s.cfg.GMapsRoutesAPIKey); gErr == nil {
+				distMiles = dMiles
+				travelMins = &dMins
+			}
+		}
+		if travelMins == nil {
+			distMiles = utils.DistanceMiles(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
+			estMins := int(distMiles * utils.CrowFliesDriveTimeMultiplier)
+			travelMins = &estMins
+		}
+		route = &routeInfo{DistanceMiles: distMiles, TravelMinutes: travelMins}
+	}
+
+	dto, _ := s.buildInstanceDTO(ctx, updated, route, workerLoc, nil, nil, nil, nil, nil)
 	return dto, nil
 }
 
@@ -168,6 +196,15 @@ func (s *JobService) StartJobInstanceWithLocation(
 		return nil, fmt.Errorf("property not found")
 	}
 
+	isReviewer := false
+	wUUID, err := uuid.Parse(workerID)
+	if err == nil {
+		worker, err := s.workerRepo.GetByID(ctx, wUUID)
+		if err == nil && worker != nil && worker.Email == utils.GooglePlayStoreReviewerEmail {
+			isReviewer = true
+		}
+	}
+
 	// --- FIX: Construct the time window in the property's local timezone ---
 	// 1. Load the property's location (timezone).
 	propLoc := loadPropertyLocation(prop.TimeZone)
@@ -184,9 +221,11 @@ func (s *JobService) StartJobInstanceWithLocation(
 		return nil, internal_utils.ErrNotWithinTimeWindow
 	}
 
-	distMeters := utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
-	if distMeters > float64(constants.LocationRadiusMeters) {
-		return nil, internal_utils.ErrLocationOutOfBounds
+	if !isReviewer {
+		distMeters := utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, prop.Latitude, prop.Longitude)
+		if distMeters > float64(constants.LocationRadiusMeters) {
+			return nil, internal_utils.ErrLocationOutOfBounds
+		}
 	}
 
 	expectedVersion := inst.RowVersion
@@ -246,8 +285,17 @@ func (s *JobService) VerifyUnitPhoto(
 		return nil, fmt.Errorf("property not found")
 	}
 
-    // For photo verification, validate proximity using the unit's building coordinates,
-    // not the property's centroid.
+	isReviewer := false
+	wUUID, err := uuid.Parse(workerID)
+	if err == nil {
+		worker, err := s.workerRepo.GetByID(ctx, wUUID)
+		if err == nil && worker != nil && worker.Email == utils.GooglePlayStoreReviewerEmail {
+			isReviewer = true
+		}
+	}
+
+	// For photo verification, validate proximity using the unit's building coordinates,
+	// not the property's centroid.
 
 	// Ensure unit is part of the assignment
 	allowed := false
@@ -271,14 +319,16 @@ func (s *JobService) VerifyUnitPhoto(
     if err != nil || bldg == nil {
         return nil, fmt.Errorf("building not found")
     }
-    dist := utils.ComputeDistanceMeters(lat, lng, bldg.Latitude, bldg.Longitude)
-    if dist > float64(constants.LocationRadiusMeters) {
-        return nil, internal_utils.ErrLocationOutOfBounds
-    }
+	if !isReviewer {
+		dist := utils.ComputeDistanceMeters(lat, lng, bldg.Latitude, bldg.Longitude)
+		if dist > float64(constants.LocationRadiusMeters) {
+			return nil, internal_utils.ErrLocationOutOfBounds
+		}
+	}
 
 	status := models.UnitVerificationVerified
 	var reasonCodes []string
-	if s.cfg.LDFlag_OpenAIPhotoVerification {
+	if !isReviewer && s.cfg.LDFlag_OpenAIPhotoVerification {
 		result, err := s.openai.VerifyPhoto(ctx, photo, unit.UnitNumber)
 		if err != nil {
 			return nil, err
@@ -416,13 +466,22 @@ func (s *JobService) ProcessDumpTrip(
 		return nil, fmt.Errorf("property not found")
 	}
 
+	isReviewer := false
+	wUUID, err := uuid.Parse(workerID)
+	if err == nil {
+		worker, err := s.workerRepo.GetByID(ctx, wUUID)
+		if err == nil && worker != nil && worker.Email == utils.GooglePlayStoreReviewerEmail {
+			isReviewer = true
+		}
+	}
+
 	verifs, err := s.juvRepo.ListByInstanceID(ctx, inst.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	// --- START: Enhanced Validation Logic ---
-
+	
 	// Count the number of verified and permanently failed units.
 	verifiedCount := 0
 	permFailedCount := 0
@@ -433,39 +492,40 @@ func (s *JobService) ProcessDumpTrip(
 			permFailedCount++
 		}
 	}
-
+	
 	// Count the total number of units assigned to this job definition.
 	totalUnits := 0
 	for _, grp := range defn.AssignedUnitsByBuilding {
 		totalUnits += len(grp.UnitIDs)
 	}
-
+	
 	// This is the specific condition where a job can be completed without any verified bags.
 	// It requires that all assigned units are accounted for as permanent failures.
 	isCompletableViaFailure := verifiedCount == 0 && permFailedCount > 0 && permFailedCount >= totalUnits
-
+	
 	if verifiedCount > 0 {
-		// Standard flow: Bags were collected, so location must be verified at a dumpster.
-		dumps, err := s.dumpRepo.ListByPropertyID(ctx, prop.ID)
-		if err != nil {
-			return nil, err
-		}
-		within := false
-		for _, d := range dumps {
-			if ContainsUUID(defn.DumpsterIDs, d.ID) {
-				dist := utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
-				if dist <= float64(constants.LocationRadiusMeters) {
-					within = true
-					break
+		// Standard flow: Bags were collected. If reviewer, bypass location checks.
+		if !isReviewer {
+			dumps, err := s.dumpRepo.ListByPropertyID(ctx, prop.ID)
+			if err != nil {
+				return nil, err
+			}
+			within := false
+			for _, d := range dumps {
+				if ContainsUUID(defn.DumpsterIDs, d.ID) {
+					dist := utils.ComputeDistanceMeters(locReq.Lat, locReq.Lng, d.Latitude, d.Longitude)
+					if dist <= float64(constants.LocationRadiusMeters) {
+						within = true
+						break
+					}
 				}
 			}
-		}
-		if !within {
-			return nil, internal_utils.ErrDumpLocationOutOfBounds
+			if !within {
+				return nil, internal_utils.ErrDumpLocationOutOfBounds
+			}
 		}
 	} else if !isCompletableViaFailure {
-		// Edge case: No bags were collected, AND the job is not completable due to permanent failures.
-		// This is an invalid API call, as there is nothing to dump and the job is not finished.
+		// No verified bags AND not completable via failures
 		return nil, internal_utils.ErrDumpLocationOutOfBounds
 	}
 	// --- END: Enhanced Validation Logic ---

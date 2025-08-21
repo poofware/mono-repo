@@ -128,6 +128,12 @@
       }
     }
   },
+  "jobAcceptSheetYourTime": "({time} tu hora)",
+  "@jobAcceptSheetYourTime": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
   "definitionCardViewOnMapTooltip": "Ver en Mapa",
   "definitionCardAvgSuffix": "prom.",
   "createAccountTitle": "Crear Cuenta",

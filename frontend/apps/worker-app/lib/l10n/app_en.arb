@@ -124,6 +124,12 @@
       }
     }
   },
+  "jobAcceptSheetYourTime": "({time} your time)",
+  "@jobAcceptSheetYourTime": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
   "definitionCardViewOnMapTooltip": "View on Map",
   "definitionCardAvgSuffix": "avg",
   "createAccountTitle": "Create Account",

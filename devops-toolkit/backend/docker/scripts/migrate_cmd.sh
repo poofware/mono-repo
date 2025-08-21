@@ -55,7 +55,6 @@ if [[ -z "${LD_SDK_KEY}" || "${LD_SDK_KEY}" == "null" ]]; then
   exit 1
 fi
 export LD_SDK_KEY
-echo "[INFO] LD_SDK_KEY full length: ${LD_SDK_KEY}"
 echo "[INFO] Secrets fetched."
 
 ###############################################################################

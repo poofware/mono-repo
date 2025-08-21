@@ -30,10 +30,18 @@ func (s *JobService) ListOpenJobs(
 		return nil, err
 	}
 
+	var isReviewer bool
+	wID, parseErr := uuid.Parse(userID)
+	if parseErr == nil {
+		worker, err := s.workerRepo.GetByID(ctx, wID)
+		if err == nil && worker != nil && worker.Email == utils.GooglePlayStoreReviewerEmail {
+			isReviewer = true
+		}
+	}
+
 	var wScore int
 	var wTenantPropID *uuid.UUID
 
-	wID, parseErr := uuid.Parse(userID)
 	if parseErr == nil {
 		w, wErr := s.workerRepo.GetByID(ctx, wID)
 		if wErr == nil && w != nil {
@@ -75,6 +83,16 @@ func (s *JobService) ListOpenJobs(
 				continue
 			}
 			propsCache[defn.PropertyID] = prop
+		}
+
+		if isReviewer {
+			if !prop.IsDemo {
+				continue // Reviewer sees only demo properties
+			}
+		} else {
+			if prop.IsDemo {
+				continue // Regular user doesn't see demo properties
+			}
 		}
 
 		propLoc := loadPropertyLocation(prop.TimeZone)
@@ -148,7 +166,7 @@ func (s *JobService) ListOpenJobs(
 	var dtosList []dtos.JobInstanceDTO
 	for propID, instancesInGroup := range instancesByPropID {
 		route := routeCache[propID]
-		if route != nil && route.DistanceMiles > float64(constants.RadiusMiles) {
+		if !isReviewer && route != nil && route.DistanceMiles > float64(constants.RadiusMiles) {
 			continue
 		}
 		bMap := bldgCache[propID]

@@ -5,9 +5,9 @@ import 'package:poof_worker/l10n/generated/app_localizations.dart';
 import '../../data/models/job_models.dart';
 
 /// Fixed width used by info-rows that need their icon to align perfectly
-/// in a vertical list. 88 px is wide enough for strings like “1 hr 45 min”
-/// in most locales while keeping the footprint tight.
-const double _kInfoRowWidth = 88;
+/// in a vertical list. Slightly increased to allow a few extra characters
+/// so long drive times don't truncate (e.g., “1 hr 45 min”).
+const double _kInfoRowWidth = 104;
 
 /// A shared utility to format a 24-hour time string (e.g., "15:30")
 /// into a 12-hour AM/PM format (e.g., "3:30 PM").
@@ -228,34 +228,20 @@ class StartTimeHintInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedWorkerTime = formatTime(context, workerTimeHint);
-    if (formattedWorkerTime.isEmpty) return const SizedBox.shrink();
-
-    final showPropertyTime =
-        propertyTimeHint.isNotEmpty && workerTimeHint != propertyTimeHint;
-    final formattedPropertyTime = showPropertyTime
-        ? formatTime(context, propertyTimeHint)
-        : '';
-
+    // Only show property-local time on cards to avoid cut-off; remove "(your time)" here
+    final formattedPropertyTime = formatTime(context, propertyTimeHint);
+    if (formattedPropertyTime.isEmpty) return const SizedBox.shrink();
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.access_time_outlined, size: 16),
         const SizedBox(width: 3),
         Flexible(
-          child: RichText(
-            text: TextSpan(
-              style: DefaultTextStyle.of(context).style.copyWith(fontSize: 13),
-              children: [
-                TextSpan(text: formattedWorkerTime),
-                if (showPropertyTime)
-                  TextSpan(
-                    text: ' ($formattedPropertyTime)',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-              ],
-            ),
+          child: Text(
+            formattedPropertyTime,
+            style: const TextStyle(fontSize: 13),
             overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ),
       ],

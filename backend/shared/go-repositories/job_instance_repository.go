@@ -24,6 +24,13 @@ type JobInstanceRepository interface {
 		startDate, endDate time.Time,
 	) ([]*models.JobInstance, error)
 
+	ListInstancesByDefinitionIDs(
+		ctx context.Context,
+		defIDs []uuid.UUID,
+		statuses []models.InstanceStatusType,
+		startDate, endDate time.Time,
+	) ([]*models.JobInstance, error)
+
 	AcceptInstanceAtomic(ctx context.Context, instanceID uuid.UUID, workerID uuid.UUID, expectedVersion int64, newAssignCount int, flagged bool) (*models.JobInstance, error)
 	UnassignInstanceAtomic(ctx context.Context, instanceID uuid.UUID, expectedVersion int64, newAssignCount int, flagged bool) (*models.JobInstance, error)
 	UpdateStatusAtomic(ctx context.Context, instanceID uuid.UUID, newStatus models.InstanceStatusType, expectedVersion int64) (*models.JobInstance, error)
@@ -190,6 +197,71 @@ func (r *jobInstanceRepo) ListInstancesByDateRange(
 		qb.WriteString(" AND assigned_worker_id = $")
 		qb.WriteString(strconv.Itoa(idx))
 		args = append(args, *assignedWorker)
+		idx++
+	}
+
+	qb.WriteString(" ORDER BY service_date")
+	query := qb.String()
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.JobInstance
+	for rows.Next() {
+		inst, err := scanInstance(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, inst)
+	}
+	return out, rows.Err()
+}
+
+func (r *jobInstanceRepo) ListInstancesByDefinitionIDs(
+	ctx context.Context,
+	defIDs []uuid.UUID,
+	statuses []models.InstanceStatusType,
+	startDate, endDate time.Time,
+) ([]*models.JobInstance, error) {
+	if len(defIDs) == 0 {
+		return []*models.JobInstance{}, nil
+	}
+
+	var (
+		qb   strings.Builder
+		args []any
+		idx  = 1
+	)
+
+	qb.WriteString(baseSelectInstance())
+	qb.WriteString(" WHERE definition_id = ANY($")
+	qb.WriteString(strconv.Itoa(idx))
+	qb.WriteString(")")
+	args = append(args, defIDs)
+	idx++
+
+	qb.WriteString(" AND service_date >= $")
+	qb.WriteString(strconv.Itoa(idx))
+	args = append(args, startDate.Format("2006-01-02"))
+	idx++
+
+	qb.WriteString(" AND service_date <= $")
+	qb.WriteString(strconv.Itoa(idx))
+	args = append(args, endDate.Format("2006-01-02"))
+	idx++
+
+	if len(statuses) > 0 {
+		var stStrings []string
+		for _, st := range statuses {
+			stStrings = append(stStrings, string(st))
+		}
+		qb.WriteString(" AND status = ANY($")
+		qb.WriteString(strconv.Itoa(idx))
+		qb.WriteString(")")
+		args = append(args, stStrings)
 		idx++
 	}
 

@@ -98,6 +98,7 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueViolet,
           ),
+          zIndexInt: 0,
         ),
       );
     }
@@ -117,6 +118,7 @@ class _JobMapPageState extends ConsumerState<JobMapPage>
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
           ),
+          zIndexInt: 1,
         ),
       );
     }

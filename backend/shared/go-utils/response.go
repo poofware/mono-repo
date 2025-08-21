@@ -27,6 +27,7 @@ const (
         ErrCodeLocationInaccurate        = "location_inaccurate"
         ErrCodeKeyNotFoundForAssertion = "key_not_found_for_assertion"
         ErrCodeInvalidTenantToken        = "invalid_tenant_token"
+	ErrCodeStripeAccountNotFound     = "stripe_account_not_found"
         ErrCodeExternalServiceFailure    = "external_service_failure" // NEW
 )
 

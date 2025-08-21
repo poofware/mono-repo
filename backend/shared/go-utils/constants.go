@@ -18,6 +18,7 @@ const (
 	TestEmailRegexPattern = `^[0-9]+` + TestEmailSuffix + `$`
 	GooglePlayStoreReviewerPhone = "+12025550110" 
 	GooglePlayStoreReviewerBypassTOTP = "104232"
+    GooglePlayStoreReviewerEmail = "play-reviewer@thepoofapp.com"
 
     WorkerBanThresholdScore     = 60
     WorkerSuspendThresholdScore = 75
