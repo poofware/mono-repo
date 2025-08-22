@@ -1233,10 +1233,17 @@ func SeedDemoData(
 		utils.Logger.Info("Seeded demo dumpster near Building 1")
 	}
 
-	// 4. Seed Demo Job Definition using the service
-	def, err := defRepo.GetByID(ctx, uuid.MustParse("00000000-0000-0000-0000-000000000002"))
-	if err != nil && err.Error() != "no rows in result set" {
-		return fmt.Errorf("failed to check for demo job definition: %w", err)
+	// 4. Seed Demo Job Definition using the service (idempotent by Title on property)
+	var def *models.JobDefinition
+	defsOnProp, derr := defRepo.ListByPropertyID(ctx, prop.ID)
+	if derr != nil {
+		return fmt.Errorf("failed to list definitions for demo property: %w", derr)
+	}
+	for _, d := range defsOnProp {
+		if d.Title == "Demo Job" {
+			def = d
+			break
+		}
 	}
 
 	if def == nil {

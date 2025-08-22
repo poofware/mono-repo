@@ -300,7 +300,6 @@ class _JobsSheetState extends ConsumerState<JobsSheet> {
             controller: _listScrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.only(bottom: bottomInset),
-            itemExtent: 150,
             itemCount: widget.allDefinitions.length,
             itemBuilder: (_, i) => DefinitionCard(
               definition: widget.allDefinitions[i],

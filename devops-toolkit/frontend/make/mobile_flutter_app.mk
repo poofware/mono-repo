@@ -171,9 +171,9 @@ deploy-ios: logs _ios_app_configuration _ios_fastlane_configuration
 	fi
 	@echo "[INFO] [Deploy iOS] Running Fastlane to build and upload..."
 	@cd ios && set -eo pipefail && \
-	MAKE_ENV=$(ENV) \
-	RELEASE_NOTES=$(RELEASE_NOTES) \
-	IOS_AUTOMATIC_RELEASE=$(IOS_AUTOMATIC_RELEASE) \
+	MAKE_ENV="$(ENV)" \
+	RELEASE_NOTES="$(RELEASE_NOTES)" \
+	IOS_AUTOMATIC_RELEASE="$(IOS_AUTOMATIC_RELEASE)" \
 	bundle exec fastlane ios build_and_upload_to_testflight \
 	$(VERBOSE_FLAG) 2>&1 | tee ../logs/deploy_ios_$(ENV).log
 
@@ -191,8 +191,8 @@ deploy-android: logs _android_app_configuration _android_fastlane_configuration
 	fi
 	@echo "[INFO] [Deploy Android] Running Fastlane to build and upload to Google Play..."
 	@cd android/fastlane && set -eo pipefail && \
-	MAKE_ENV=$(ENV) \
-	RELEASE_NOTES=$(RELEASE_NOTES) \
+	MAKE_ENV="$(ENV)" \
+	RELEASE_NOTES="$(RELEASE_NOTES)" \
 	bundle exec fastlane android build_and_upload_to_playstore \
 	$(VERBOSE_FLAG) 2>&1 | tee ../../logs/deploy_android_$(ENV).log
 

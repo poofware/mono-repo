@@ -1,6 +1,10 @@
 // worker-app/lib/features/jobs/presentation/widgets/accepted_job_details_sheet.dart
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poof_worker/features/jobs/data/models/job_models.dart';
 import 'package:poof_worker/core/utils/location_permissions.dart';
@@ -27,7 +31,7 @@ class AcceptedJobDetailsSheet extends ConsumerStatefulWidget {
 }
 
 class _AcceptedJobDetailsSheetState
-    extends ConsumerState<AcceptedJobDetailsSheet> {
+    extends ConsumerState<AcceptedJobDetailsSheet> with TickerProviderStateMixin {
   bool _isExpanded = false;
   bool _isUnaccepting = false;
   bool _isStartingJob = false;
@@ -35,17 +39,261 @@ class _AcceptedJobDetailsSheetState
   /// A getter to simplify checking if any async operation is in progress.
   bool get _isProcessing => _isStartingJob || _isUnaccepting;
 
+  // Drag/scroll sync state (mirrors JobAcceptSheet)
+  final GlobalKey _sheetBoundaryKey = GlobalKey();
+  final ScrollController _bodyScrollController = ScrollController();
+  bool _isDismissing = false;
+  double _pullDownAccumulated = 0.0;
+  static const double _dismissFlingVelocity = 340.0;
+  static const double _microDismissOffsetPx = 12.0;
+  static const double _microDismissVelocity = 260.0;
+  double _dragOffset = 0.0;
+  late final AnimationController _dragResetController;
+  Animation<double>? _dragResetAnimation;
+  bool _isPointerDown = false;
+  bool _isDraggingSheetViaPointer = false;
+  bool _gestureBeganAtTop = false;
+  bool _lastGestureBeganAtTop = false;
+  int? _activePointerId;
+  double? _lastPointerY;
+  double? _lastPointerX;
+  Axis? _lockedPointerAxis;
+  int? _lastPointerSampleMs;
+  double _lastPointerVelocityY = 0.0;
+  bool _didRequestRoutePop = false;
+  ui.Image? _snapshotImage;
+  OverlayEntry? _dismissOverlayEntry;
+  AnimationController? _dismissOverlayController;
+
   @override
   void initState() {
     super.initState();
     JobMapCache.cancelEvict(widget.job.instanceId);
+    _dragResetController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    )
+      ..addListener(() {
+        if (!mounted) return;
+        final value = _dragResetAnimation?.value ?? 0.0;
+        setState(() => _dragOffset = value);
+      })
+      ..addStatusListener((status) {
+        if (!mounted) return;
+        if (status == AnimationStatus.completed ||
+            status == AnimationStatus.dismissed) {
+          if (_dragOffset != 0.0) setState(() => _dragOffset = 0.0);
+        }
+      });
   }
 
   @override
   void dispose() {
-    // When a sheet hosting the cached map is closed, schedule eviction.
     JobMapCache.scheduleEvict(widget.job.instanceId);
+    _bodyScrollController.dispose();
+    try { _dismissOverlayController?.dispose(); } catch (_) {}
+    try { _dismissOverlayEntry?.remove(); } catch (_) {}
+    _dragResetController.dispose();
     super.dispose();
+  }
+
+  double _dismissDistancePx(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxSheetHeight = screenHeight * 0.95;
+    final raw = maxSheetHeight * 0.10;
+    if (raw < 36.0) return 36.0;
+    if (raw > 84.0) return 84.0;
+    return raw;
+  }
+
+  void _animateDragOffsetToZero() {
+    if (_dragOffset == 0.0) return;
+    _dragResetAnimation = Tween<double>(begin: _dragOffset, end: 0.0).animate(
+      CurvedAnimation(parent: _dragResetController, curve: Curves.easeOutCubic),
+    );
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _dragResetController
+        ..stop()
+        ..value = 0.0
+        ..forward();
+    });
+  }
+
+  void _requestPopOnce() {
+    if (_didRequestRoutePop) return;
+    _didRequestRoutePop = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).maybePop();
+    });
+  }
+
+  Future<void> _dismissWithOverlay(double releaseVelocityY) async {
+    final boundaryContext = _sheetBoundaryKey.currentContext;
+    if (boundaryContext == null) {
+      _requestPopOnce();
+      return;
+    }
+    
+    final boundary = boundaryContext.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary != null) {
+      try {
+        final dpr = MediaQuery.of(boundaryContext).devicePixelRatio;
+        _snapshotImage = await boundary.toImage(pixelRatio: dpr);
+      } catch (_) {}
+    }
+
+    if (_snapshotImage == null) {
+      _requestPopOnce();
+      return;
+    }
+
+    if (!mounted) return;
+    
+    _dismissOverlayController?.dispose();
+    _dismissOverlayController = AnimationController(vsync: this);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final double v = releaseVelocityY.isFinite ? releaseVelocityY.abs() : 0.0;
+    final double effectiveV = v > 0.0 ? v : _dismissFlingVelocity;
+    double durationMs = (screenHeight / (effectiveV + 300.0)) * 1000.0;
+    durationMs = durationMs.clamp(160.0, 280.0);
+    _dismissOverlayController!.duration = Duration(milliseconds: durationMs.round());
+
+    final animation = CurvedAnimation(
+      parent: _dismissOverlayController!,
+      curve: Curves.linearToEaseOut,
+    );
+
+    _dismissOverlayEntry?.remove();
+    _dismissOverlayEntry = OverlayEntry(
+      builder: (_) => IgnorePointer(
+        ignoring: true,
+        child: AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            final dy = animation.value * (screenHeight + 60.0);
+            return Align(
+              alignment: Alignment.bottomCenter,
+              child: Transform.translate(
+                offset: Offset(0, dy),
+                child: RawImage(image: _snapshotImage),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    if (mounted) {
+      final overlay = Overlay.of(context, rootOverlay: true);
+      overlay.insert(_dismissOverlayEntry!);
+    }
+    _requestPopOnce();
+    try { await _dismissOverlayController!.forward(); } catch (_) {}
+    try { _dismissOverlayEntry?.remove(); _dismissOverlayEntry = null; } catch (_) {}
+  }
+
+  void _animateDismissWithVelocityAndPop(double releaseVelocityY) {
+    if (_isDismissing) return;
+    _isDismissing = true;
+    _dismissWithOverlay(releaseVelocityY);
+  }
+
+  void _handlePointerUpOrCancel() {
+    final bool isAtTop = !_bodyScrollController.hasClients ||
+        _bodyScrollController.position.pixels <= 0;
+    final bool shouldDismissByVelocity = isAtTop && _gestureBeganAtTop &&
+        _lockedPointerAxis != Axis.horizontal &&
+        _lastPointerVelocityY >= _dismissFlingVelocity;
+    final bool shouldDismissByMicroFlick = isAtTop && _gestureBeganAtTop &&
+        _lockedPointerAxis != Axis.horizontal &&
+        (_dragOffset >= _microDismissOffsetPx ||
+            _pullDownAccumulated >= _microDismissOffsetPx) &&
+        _lastPointerVelocityY >= _microDismissVelocity;
+    if (_dragOffset > 0.0 || shouldDismissByVelocity || shouldDismissByMicroFlick) {
+      final bool shouldDismissByOffset = _dragOffset >= _dismissDistancePx(context);
+      if (shouldDismissByVelocity || shouldDismissByOffset || shouldDismissByMicroFlick) {
+        _animateDismissWithVelocityAndPop(_lastPointerVelocityY);
+      } else {
+        _animateDragOffsetToZero();
+      }
+    }
+    _pullDownAccumulated = 0.0;
+    _isPointerDown = false;
+    _isDraggingSheetViaPointer = false;
+    _lastGestureBeganAtTop = _gestureBeganAtTop;
+    _gestureBeganAtTop = false;
+    _activePointerId = null;
+    _lastPointerY = null;
+    _lastPointerX = null;
+    _lockedPointerAxis = null;
+    _lastPointerSampleMs = null;
+    _lastPointerVelocityY = 0.0;
+  }
+
+  bool _handleBodyScrollNotification(ScrollNotification notification) {
+    // Mirror JobAcceptSheet’s behavior
+    final dir = notification.metrics.axisDirection;
+    if (dir == AxisDirection.left || dir == AxisDirection.right) return false;
+    if (_isPointerDown) return false;
+
+    if (notification is ScrollStartNotification) {
+      if (_dragResetController.isAnimating) _dragResetController.stop();
+    }
+    final bool isAtTop = !_bodyScrollController.hasClients ||
+        _bodyScrollController.position.pixels <= 0;
+
+    if (notification is OverscrollNotification) {
+      if (_lastGestureBeganAtTop && isAtTop && notification.overscroll < 0) {
+        final delta = -notification.overscroll;
+        if (_dragResetController.isAnimating) _dragResetController.stop();
+        setState(() { _dragOffset = math.max(0.0, _dragOffset + delta); });
+        _pullDownAccumulated += delta;
+        return false;
+      }
+    }
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta;
+      if (isAtTop && delta != null) {
+        if (_lastGestureBeganAtTop && delta < 0) {
+          final d = -delta;
+          if (_dragResetController.isAnimating) _dragResetController.stop();
+          setState(() { _dragOffset = math.max(0.0, _dragOffset + d); });
+          _pullDownAccumulated += d;
+        } else if (_lastGestureBeganAtTop && delta > 0 && _dragOffset > 0) {
+          if (_bodyScrollController.hasClients &&
+              _bodyScrollController.position.pixels != 0.0) {
+            _bodyScrollController.jumpTo(0.0);
+          }
+          setState(() { _dragOffset = math.max(0.0, _dragOffset - delta); });
+        }
+        return false;
+      } else if (!isAtTop && _dragOffset != 0.0) {
+        setState(() => _dragOffset = 0.0);
+      }
+    }
+    if (notification is ScrollEndNotification) {
+      final double velocityY =
+          notification.dragDetails?.velocity.pixelsPerSecond.dy ?? 0.0;
+      final threshold = _dismissDistancePx(context);
+      final bool passedDistance = _pullDownAccumulated >= threshold;
+      final bool passedVelocity = velocityY >= _dismissFlingVelocity;
+      final bool distanceByOffset = _dragOffset >= threshold;
+      if (_lastGestureBeganAtTop && isAtTop &&
+          (passedVelocity || passedDistance || distanceByOffset)) {
+        _animateDismissWithVelocityAndPop(velocityY);
+      } else if (!_isPointerDown) {
+        _animateDragOffsetToZero();
+      }
+      _pullDownAccumulated = 0.0;
+      _lastGestureBeganAtTop = false;
+      return false;
+    }
+    if (notification is ScrollUpdateNotification) {
+      final double? delta = notification.scrollDelta;
+      if (delta != null && delta > 0) _pullDownAccumulated = 0.0;
+    }
+    return false;
   }
 
   // Deprecated local warm/show map handlers removed in favor of shared ViewJobMapButton
@@ -262,130 +510,221 @@ class _AcceptedJobDetailsSheetState
             );
           }
         },
-        child: Container(
-          padding: const EdgeInsets.only(top: 12.0),
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              24,
-              0,
-              24,
-              mediaQueryPadding.bottom + 16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 50,
-                  height: 5,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                Text(
-                  widget.job.property.propertyName,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.job.property.address,
-                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                // Primary focus tiles (match Job Accept sheet vocabulary)
-                Builder(
-                  builder: (context) {
-                    final formattedStartTime =
-                        formatTime(context, widget.job.workerStartTimeHint);
-                    final formattedWindowStart =
-                        formatTime(context, widget.job.workerServiceWindowStart);
-                    final formattedWindowEnd =
-                        formatTime(context, widget.job.workerServiceWindowEnd);
-                    final List<_TileData> headerTiles = [
-                      if (formattedStartTime.isNotEmpty)
-                        _TileData(
-                          icon: Icons.access_time_outlined,
-                          label: appLocalizations.jobAcceptSheetRecommendedStart,
-                          value: formattedStartTime,
-                          spanTwoColumns: true,
-                        ),
-                      if (formattedWindowStart.isNotEmpty &&
-                          formattedWindowEnd.isNotEmpty)
-                        _TileData(
-                          icon: Icons.hourglass_empty_outlined,
-                          label: appLocalizations.jobAcceptSheetServiceWindow,
-                          value:
-                              '$formattedWindowStart - $formattedWindowEnd',
-                          spanTwoColumns: true,
-                        ),
-                      _TileData(
-                        icon: Icons.directions_car_outlined,
-                        label: appLocalizations.jobAcceptSheetHeaderDriveTime,
-                        value: _formatMinutesToHrMin(widget.job.travelMinutes),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double maxSheetHeight = constraints.maxHeight * 0.98;
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: maxSheetHeight,
+                minWidth: constraints.maxWidth,
+                maxWidth: constraints.maxWidth,
+              ),
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (e) {
+                  _isPointerDown = true;
+                  _isDraggingSheetViaPointer = false;
+                  _activePointerId = e.pointer;
+                  _lastPointerY = e.position.dy;
+                  _lastPointerX = e.position.dx;
+                  _lockedPointerAxis = null;
+                  _lastPointerSampleMs = DateTime.now().millisecondsSinceEpoch;
+                  _lastPointerVelocityY = 0.0;
+                  final bool isAtTopOnDown = !_bodyScrollController.hasClients ||
+                      _bodyScrollController.position.pixels <= 0;
+                  _gestureBeganAtTop = isAtTopOnDown;
+                  _lastGestureBeganAtTop = isAtTopOnDown;
+                  if (_dragResetController.isAnimating) _dragResetController.stop();
+                },
+                onPointerMove: (e) {
+                  if (_activePointerId == null || e.pointer != _activePointerId) return;
+                  if (_lastPointerY == null) { _lastPointerY = e.position.dy; return; }
+                  final dx = _lastPointerX != null ? e.position.dx - _lastPointerX! : 0.0;
+                  final dy = e.position.dy - _lastPointerY!;
+                  _lastPointerX = e.position.dx;
+                  _lastPointerY = e.position.dy;
+                  final nowMs = DateTime.now().millisecondsSinceEpoch;
+                  final int? lastMs = _lastPointerSampleMs;
+                  if (lastMs != null) {
+                    final dtMs = nowMs - lastMs;
+                    if (dtMs > 0) _lastPointerVelocityY = dy / dtMs * 1000.0;
+                  }
+                  _lastPointerSampleMs = nowMs;
+                  if (_lockedPointerAxis == null) {
+                    final adx = dx.abs();
+                    final ady = dy.abs();
+                    if (adx > 6 || ady > 6) {
+                      _lockedPointerAxis = adx > ady ? Axis.horizontal : Axis.vertical;
+                    }
+                  }
+                  if (_lockedPointerAxis == Axis.horizontal) {
+                    _lastPointerVelocityY = 0.0; return;
+                  }
+                  if (dy == 0) return;
+                  final bool isAtTop = !_bodyScrollController.hasClients ||
+                      _bodyScrollController.position.pixels <= 0;
+                  if (dy > 0 && isAtTop && _gestureBeganAtTop) {
+                    if (_dragResetController.isAnimating) _dragResetController.stop();
+                    _isDraggingSheetViaPointer = true;
+                    if (_bodyScrollController.hasClients &&
+                        _bodyScrollController.position.pixels != 0.0) {
+                      _bodyScrollController.jumpTo(0.0);
+                    }
+                    _pullDownAccumulated += dy;
+                    setState(() { _dragOffset = math.max(0.0, _dragOffset + dy); });
+                    return;
+                  }
+                  if (dy < 0 && _dragOffset > 0) {
+                    if (_dragResetController.isAnimating) _dragResetController.stop();
+                    if (_bodyScrollController.hasClients &&
+                        _bodyScrollController.position.pixels != 0.0) {
+                      _bodyScrollController.jumpTo(0.0);
+                    }
+                    _pullDownAccumulated = math.max(0.0, _pullDownAccumulated + dy);
+                    final newOffset = math.max(0.0, _dragOffset + dy);
+                    final releaseToContent = newOffset == 0.0;
+                    setState(() {
+                      _isDraggingSheetViaPointer = !releaseToContent;
+                      _dragOffset = newOffset;
+                    });
+                    return;
+                  }
+                },
+                onPointerUp: (_) => _handlePointerUpOrCancel(),
+                onPointerCancel: (_) => _handlePointerUpOrCancel(),
+                child: RepaintBoundary(
+                  key: _sheetBoundaryKey,
+                  child: Transform.translate(
+                    offset: Offset(0, _dragOffset),
+                    child: Container(
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        12,
+                        24,
+                        mediaQueryPadding.bottom + 16,
                       ),
-                    ];
-                    return _TwoColumnTiles(tiles: headerTiles);
-                  },
-                ),
-                const SizedBox(height: 12),
-                ViewJobMapButton(job: widget.job),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => setState(() => _isExpanded = !_isExpanded),
-                  icon: Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    size: 28,
-                  ),
-                  label: Text(
-                    _isExpanded
-                        ? appLocalizations.acceptedJobsBottomSheetHideDetails
-                        : appLocalizations.acceptedJobsBottomSheetViewDetails,
-                  ),
-                  style:
-                      TextButton.styleFrom(
-                        foregroundColor: theme.primaryColor,
-                        textStyle: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                        splashFactory: NoSplash.splashFactory,
-                      ).copyWith(
-                        overlayColor: WidgetStateProperty.all(
-                          Colors.transparent,
-                        ),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(38),
+                            blurRadius: 10,
+                            offset: const Offset(0, -5),
+                          ),
+                        ],
                       ),
-                ),
-                AnimatedCrossFade(
-                  firstChild: const SizedBox(width: double.infinity, height: 0),
-                  secondChild: _buildExpandedDetails(
-                    context,
-                    appLocalizations,
-                    theme,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 5,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          // Scrollable body
+                          Flexible(
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: _handleBodyScrollNotification,
+                              child: SingleChildScrollView(
+                                controller: _bodyScrollController,
+                                physics: (_isDismissing || _isDraggingSheetViaPointer || (_dragOffset > 0 && _isPointerDown))
+                                    ? const NeverScrollableScrollPhysics()
+                                    : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      widget.job.property.propertyName,
+                                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      widget.job.property.address,
+                                      style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Builder(
+                                      builder: (context) {
+                                        final formattedStartTime =
+                                            formatTime(context, widget.job.workerStartTimeHint);
+                                        final formattedWindowStart =
+                                            formatTime(context, widget.job.workerServiceWindowStart);
+                                        final formattedWindowEnd =
+                                            formatTime(context, widget.job.workerServiceWindowEnd);
+                                        final tiles = <_TileData>[
+                                          if (formattedStartTime.isNotEmpty)
+                                            _TileData(
+                                              icon: Icons.access_time_outlined,
+                                              label: appLocalizations.jobAcceptSheetRecommendedStart,
+                                              value: formattedStartTime,
+                                              spanTwoColumns: true,
+                                            ),
+                                          if (formattedWindowStart.isNotEmpty && formattedWindowEnd.isNotEmpty)
+                                            _TileData(
+                                              icon: Icons.hourglass_empty_outlined,
+                                              label: appLocalizations.jobAcceptSheetServiceWindow,
+                                              value: '$formattedWindowStart - $formattedWindowEnd',
+                                              spanTwoColumns: true,
+                                            ),
+                                          _TileData(
+                                            icon: Icons.directions_car_outlined,
+                                            label: appLocalizations.jobAcceptSheetHeaderDriveTime,
+                                            value: _formatMinutesToHrMin(widget.job.travelMinutes),
+                                          ),
+                                        ];
+                                        return _TwoColumnTiles(tiles: tiles);
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ViewJobMapButton(job: widget.job),
+                                    const SizedBox(height: 8),
+                                    TextButton.icon(
+                                      onPressed: () => setState(() => _isExpanded = !_isExpanded),
+                                      icon: Icon(_isExpanded ? Icons.expand_less : Icons.expand_more, size: 28),
+                                      label: Text(
+                                        _isExpanded
+                                            ? appLocalizations.acceptedJobsBottomSheetHideDetails
+                                            : appLocalizations.acceptedJobsBottomSheetViewDetails,
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: theme.primaryColor,
+                                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                        splashFactory: NoSplash.splashFactory,
+                                      ).copyWith(
+                                        overlayColor: WidgetStateProperty.all(Colors.transparent),
+                                      ),
+                                    ),
+                                    AnimatedCrossFade(
+                                      firstChild: const SizedBox(width: double.infinity, height: 0),
+                                      secondChild: _buildExpandedDetails(context, appLocalizations, theme),
+                                      crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                                      duration: const Duration(milliseconds: 200),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          AbsorbPointer(
+                            absorbing: _isProcessing,
+                            child: _buildActionButtons(appLocalizations),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  crossFadeState: _isExpanded
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 200),
                 ),
-                const SizedBox(height: 12),
-                // Disable any highlight/splash by wrapping row with AbsorbPointer when processing
-                AbsorbPointer(
-                  absorbing: _isProcessing,
-                  child: _buildActionButtons(appLocalizations),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

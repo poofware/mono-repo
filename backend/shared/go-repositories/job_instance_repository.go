@@ -71,7 +71,8 @@ func baseSelectInstance() string {
             assigned_worker_id, effective_pay,
             check_in_at, check_out_at,
             excluded_worker_ids, assign_unassign_count, flagged_for_review,
-            row_version, created_at, updated_at, completed_by_agent_id
+            row_version, created_at, updated_at, completed_by_agent_id,
+            warning_90_min_sent_at, warning_40_min_sent_at
         FROM job_instances
     `
 }
@@ -80,6 +81,7 @@ func scanInstance(row pgx.Row) (*models.JobInstance, error) {
 	var inst models.JobInstance
 	var excluded []uuid.UUID
 	var checkIn, checkOut *time.Time
+	var warn90, warn40 *time.Time
 	err := row.Scan(
 		&inst.ID,
 		&inst.DefinitionID,
@@ -96,6 +98,8 @@ func scanInstance(row pgx.Row) (*models.JobInstance, error) {
 		&inst.CreatedAt,
 		&inst.UpdatedAt,
 		&inst.CompletedByAgentID,
+		&warn90,
+		&warn40,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, nil
@@ -106,6 +110,8 @@ func scanInstance(row pgx.Row) (*models.JobInstance, error) {
 	inst.CheckInAt = checkIn
 	inst.CheckOutAt = checkOut
 	inst.ExcludedWorkerIDs = excluded
+	inst.Warning90MinSentAt = warn90
+	inst.Warning40MinSentAt = warn40
 	return &inst, nil
 }
 

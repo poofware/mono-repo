@@ -160,9 +160,12 @@ func (c *JobsController) AcceptJobHandler(w http.ResponseWriter, r *http.Request
 		)
 		return
 	}
-	if code, msg := internal_utils.ValidateLocationData(body.Lat, body.Lng, body.Accuracy, body.Timestamp, body.IsMock); code != "" {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
-		return
+	// Reviewer bypass: skip mock/accuracy/timestamp validation for reviewer accounts
+	if !c.jobService.IsReviewer(ctx, ctxUserID.(string)) {
+		if code, msg := internal_utils.ValidateLocationData(body.Lat, body.Lng, body.Accuracy, body.Timestamp, body.IsMock); code != "" {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
+			return
+		}
 	}
 
 	updated, err := c.jobService.AcceptJobInstanceWithLocation(
@@ -285,27 +288,30 @@ func (c *JobsController) StartJobHandler(w http.ResponseWriter, r *http.Request)
 		)
 		return
 	}
-	if body.Accuracy > 30 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeLocationInaccurate,
-			"GPS accuracy is too low. Please move to an area with a clearer view of the sky.", nil, nil,
-		)
-		return
-	}
-	nowMS := time.Now().UnixMilli()
-	if math.Abs(float64(nowMS-body.Timestamp)) > 30000 {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"location timestamp not within ±30s of server time", nil, nil,
-		)
-		return
-	}
-	if body.IsMock {
-		utils.RespondErrorWithCode(
-			w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
-			"is_mock must be false", nil, nil,
-		)
-		return
+	// Reviewer bypass: skip accuracy/timestamp/mock checks
+	if !c.jobService.IsReviewer(ctx, ctxUserID.(string)) {
+		if body.Accuracy > 30 {
+			utils.RespondErrorWithCode(
+				w, http.StatusBadRequest, utils.ErrCodeLocationInaccurate,
+				"GPS accuracy is too low. Please move to an area with a clearer view of the sky.", nil, nil,
+			)
+			return
+		}
+		nowMS := time.Now().UnixMilli()
+		if math.Abs(float64(nowMS-body.Timestamp)) > 30000 {
+			utils.RespondErrorWithCode(
+				w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
+				"location timestamp not within ±30s of server time", nil, nil,
+			)
+			return
+		}
+		if body.IsMock {
+			utils.RespondErrorWithCode(
+				w, http.StatusBadRequest, utils.ErrCodeInvalidPayload,
+				"is_mock must be false", nil, nil,
+			)
+			return
+		}
 	}
 
 	updated, err := c.jobService.StartJobInstanceWithLocation(
@@ -438,9 +444,11 @@ func (c *JobsController) VerifyPhotoHandler(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	if code, msg := internal_utils.ValidateLocationData(latVal, lngVal, accVal, tsVal, mockVal); code != "" {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
-		return
+	if !c.jobService.IsReviewer(ctx, ctxUserID.(string)) {
+		if code, msg := internal_utils.ValidateLocationData(latVal, lngVal, accVal, tsVal, mockVal); code != "" {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
+			return
+		}
 	}
 	if photoHeaders := form.File["photo"]; len(photoHeaders) == 0 {
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "photo is required", nil, nil)
@@ -486,9 +494,11 @@ func (c *JobsController) DumpBagsHandler(w http.ResponseWriter, r *http.Request)
 		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "instance_id is required", nil, nil)
 		return
 	}
-	if code, msg := internal_utils.ValidateLocationData(body.Lat, body.Lng, body.Accuracy, body.Timestamp, body.IsMock); code != "" {
-		utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
-		return
+	if !c.jobService.IsReviewer(ctx, ctxUserID.(string)) {
+		if code, msg := internal_utils.ValidateLocationData(body.Lat, body.Lng, body.Accuracy, body.Timestamp, body.IsMock); code != "" {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, code, msg, nil, nil)
+			return
+		}
 	}
 
 	updated, svcErr := c.jobService.ProcessDumpTrip(ctx, ctxUserID.(string), body)

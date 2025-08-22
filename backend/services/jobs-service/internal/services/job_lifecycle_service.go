@@ -18,6 +18,19 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// IsReviewer returns true if workerID corresponds to the store reviewer account.
+func (s *JobService) IsReviewer(ctx context.Context, workerID string) bool {
+	wUUID, err := uuid.Parse(workerID)
+	if err != nil {
+		return false
+	}
+	worker, err := s.workerRepo.GetByID(ctx, wUUID)
+	if err != nil || worker == nil {
+		return false
+	}
+	return worker.Email == utils.GooglePlayStoreReviewerEmail
+}
+
 // AcceptJobInstanceWithLocation ...
 func (s *JobService) AcceptJobInstanceWithLocation(
 	ctx context.Context,
@@ -66,7 +79,7 @@ func (s *JobService) AcceptJobInstanceWithLocation(
 		return nil, fmt.Errorf("property not found")
 	}
 
-	isReviewer := worker.Email == utils.GooglePlayStoreReviewerEmail
+	isReviewer := s.IsReviewer(ctx, workerID)
 	if isReviewer {
 		if !prop.IsDemo {
 			return nil, fmt.Errorf("reviewers can only accept demo jobs")
@@ -196,14 +209,7 @@ func (s *JobService) StartJobInstanceWithLocation(
 		return nil, fmt.Errorf("property not found")
 	}
 
-	isReviewer := false
-	wUUID, err := uuid.Parse(workerID)
-	if err == nil {
-		worker, err := s.workerRepo.GetByID(ctx, wUUID)
-		if err == nil && worker != nil && worker.Email == utils.GooglePlayStoreReviewerEmail {
-			isReviewer = true
-		}
-	}
+	isReviewer := s.IsReviewer(ctx, workerID)
 
 	// --- FIX: Construct the time window in the property's local timezone ---
 	// 1. Load the property's location (timezone).
@@ -285,14 +291,7 @@ func (s *JobService) VerifyUnitPhoto(
 		return nil, fmt.Errorf("property not found")
 	}
 
-	isReviewer := false
-	wUUID, err := uuid.Parse(workerID)
-	if err == nil {
-		worker, err := s.workerRepo.GetByID(ctx, wUUID)
-		if err == nil && worker != nil && worker.Email == utils.GooglePlayStoreReviewerEmail {
-			isReviewer = true
-		}
-	}
+	isReviewer := s.IsReviewer(ctx, workerID)
 
 	// For photo verification, validate proximity using the unit's building coordinates,
 	// not the property's centroid.
@@ -466,14 +465,7 @@ func (s *JobService) ProcessDumpTrip(
 		return nil, fmt.Errorf("property not found")
 	}
 
-	isReviewer := false
-	wUUID, err := uuid.Parse(workerID)
-	if err == nil {
-		worker, err := s.workerRepo.GetByID(ctx, wUUID)
-		if err == nil && worker != nil && worker.Email == utils.GooglePlayStoreReviewerEmail {
-			isReviewer = true
-		}
-	}
+	isReviewer := s.IsReviewer(ctx, workerID)
 
 	verifs, err := s.juvRepo.ListByInstanceID(ctx, inst.ID)
 	if err != nil {

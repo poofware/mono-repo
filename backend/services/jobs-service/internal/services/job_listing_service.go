@@ -33,10 +33,7 @@ func (s *JobService) ListOpenJobs(
 	var isReviewer bool
 	wID, parseErr := uuid.Parse(userID)
 	if parseErr == nil {
-		worker, err := s.workerRepo.GetByID(ctx, wID)
-		if err == nil && worker != nil && worker.Email == utils.GooglePlayStoreReviewerEmail {
-			isReviewer = true
-		}
+		isReviewer = s.IsReviewer(ctx, userID)
 	}
 
 	var wScore int
