@@ -188,7 +188,11 @@ platform :ios do
         app_identifier: ENV['APP_IDENTIFIER'],
         skip_screenshots: true,
         submit_for_review: true,
-        automatic_release: automatic_release
+        automatic_release: automatic_release,
+        force: true,
+        submission_information: { export_compliance_uses_encryption: false },
+        run_precheck_before_submit: false,
+        precheck_include_in_app_purchases: false
       }
       deliver_options[:release_notes] = ios_release_notes
       deliver_options[:skip_metadata] = false
