@@ -49,7 +49,7 @@ func SeedDefaultPropertyManager(pmRepo repositories.PropertyManagerRepository) e
 	}
 
 	if err := pmRepo.UpdateWithRetry(ctx, pmID, func(stored *models.PropertyManager) error {
-		stored.AccountStatus = models.AccountStatusActive
+		stored.AccountStatus = models.PMAccountStatusActive
 		stored.SetupProgress = models.SetupProgressDone
 		return nil
 	}); err != nil {

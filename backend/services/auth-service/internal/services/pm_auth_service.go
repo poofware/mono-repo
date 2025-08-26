@@ -116,6 +116,7 @@ func NewPMAuthService(
 		twilioClient:            tClient,
 	}
 }
+
 // Add CheckSMSVerifiedBeforeRegistration to satisfy the interface
 func (s *pmAuthService) CheckSMSVerifiedBeforeRegistration(ctx context.Context, pmPhone, clientID string) (bool, *uuid.UUID, error) {
 	return s.pmSMSVerificationRepo.IsCurrentlyVerified(ctx, nil, pmPhone, clientID)
@@ -151,8 +152,6 @@ func (s *pmAuthService) Register(ctx context.Context, req dtos.RegisterPMRequest
 		City:            req.City,
 		State:           req.State,
 		ZipCode:         req.ZipCode,
-		AccountStatus:   "ACTIVE",
-		SetupProgress:   "DONE",
 	}
 	return s.pmRepo.Create(ctx, pm)
 }

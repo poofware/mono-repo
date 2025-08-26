@@ -77,7 +77,7 @@ func TestSubmitPersonalInfo_InRange_NoWaitlist(t *testing.T) {
 		City:            "Mountain View",
 		State:           "CA",
 		ZipCode:         "94043",
-		AccountStatus:   models.AccountStatusActive,
+		AccountStatus:   models.PMAccountStatusActive,
 		SetupProgress:   models.SetupProgressDone,
 	}
 	require.NoError(t, h.PMRepo.Create(ctx, pm))

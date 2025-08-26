@@ -13,12 +13,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
 	account_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/routes"
 	"github.com/poofware/mono-repo/backend/shared/go-dtos"
+	"github.com/poofware/mono-repo/backend/shared/go-middleware"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
-	"github.com/poofware/mono-repo/backend/shared/go-middleware"
 )
 
 // TestWorkerCreateAndFetch creates a worker via repository and fetches it back via repo and REST.
@@ -91,8 +91,8 @@ func TestWorkerCreateAndFetch(t *testing.T) {
 	require.Equal(t, fullWorker.VehicleYear, wGot.VehicleYear)
 	require.Equal(t, fullWorker.VehicleMake, wGot.VehicleMake)
 	require.Equal(t, fullWorker.VehicleModel, wGot.VehicleModel)
-	require.Equal(t, models.AccountStatusIncomplete, wGot.AccountStatus) // Assert default
-	require.Equal(t, models.SetupProgressAwaitingPersonalInfo, wGot.SetupProgress)   // Assert default
+	require.Equal(t, models.AccountStatusIncomplete, wGot.AccountStatus)           // Assert default
+	require.Equal(t, models.SetupProgressAwaitingPersonalInfo, wGot.SetupProgress) // Assert default
 	require.Nil(t, wGot.StripeConnectAccountID)
 	require.Nil(t, wGot.CurrentStripeIdvSessionID)
 	require.Nil(t, wGot.CheckrCandidateID)
@@ -129,8 +129,8 @@ func TestWorkerCreateAndFetch(t *testing.T) {
 	require.Equal(t, fullWorker.VehicleYear, dtoResp.VehicleYear)
 	require.Equal(t, fullWorker.VehicleMake, dtoResp.VehicleMake)
 	require.Equal(t, fullWorker.VehicleModel, dtoResp.VehicleModel)
-	require.Equal(t, models.AccountStatusIncomplete, dtoResp.AccountStatus) // Assert default
-	require.Equal(t, models.SetupProgressAwaitingPersonalInfo, dtoResp.SetupProgress)   // Assert default
+	require.Equal(t, models.AccountStatusIncomplete, dtoResp.AccountStatus)           // Assert default
+	require.Equal(t, models.SetupProgressAwaitingPersonalInfo, dtoResp.SetupProgress) // Assert default
 	require.Equal(t, models.ReportOutcomeUnknownStatus, dtoResp.CheckrReportOutcome)
 	require.Nil(t, dtoResp.CheckrReportETA)
 }
@@ -150,8 +150,6 @@ func TestPropertyManagerCreateAndFetch(t *testing.T) {
 		City:            "Birmingham",
 		State:           "AL",
 		ZipCode:         "35203",
-		AccountStatus:   models.AccountStatusIncomplete,
-		SetupProgress:   models.SetupProgressIDVerify,
 	}
 
 	start := time.Now()
@@ -172,8 +170,8 @@ func TestPropertyManagerCreateAndFetch(t *testing.T) {
 	require.Equal(t, pm.City, pmGot.City)
 	require.Equal(t, pm.State, pmGot.State)
 	require.Equal(t, pm.ZipCode, pmGot.ZipCode)
-	require.Equal(t, models.AccountStatusIncomplete, pmGot.AccountStatus) // Assert default
-	require.Equal(t, models.SetupProgressIDVerify, pmGot.SetupProgress)   // Assert default
+	require.Equal(t, models.PMAccountStatusIncomplete, pmGot.AccountStatus)   // Assert default
+	require.Equal(t, models.PMSetupProgressAwaitingInfo, pmGot.SetupProgress) // Assert default
 	require.Equal(t, int64(1), pmGot.RowVersion)
 	require.False(t, pmGot.CreatedAt.IsZero())
 	require.False(t, pmGot.UpdatedAt.IsZero())
@@ -207,8 +205,8 @@ func TestPropertyManagerCreateAndFetch(t *testing.T) {
 	require.Equal(t, pm.City, dtoResp.City)
 	require.Equal(t, pm.State, dtoResp.State)
 	require.Equal(t, pm.ZipCode, dtoResp.ZipCode)
-	require.Equal(t, models.AccountStatusIncomplete, dtoResp.AccountStatus) // Assert default
-	require.Equal(t, models.SetupProgressIDVerify, dtoResp.SetupProgress)   // Assert default
+	require.Equal(t, models.PMAccountStatusIncomplete, dtoResp.AccountStatus)   // Assert default
+	require.Equal(t, models.PMSetupProgressAwaitingInfo, dtoResp.SetupProgress) // Assert default
 }
 
 func TestPMPropertyHierarchyCreateAndEndpointFetch(t *testing.T) {
@@ -226,8 +224,6 @@ func TestPMPropertyHierarchyCreateAndEndpointFetch(t *testing.T) {
 		City:            "Nashville",
 		State:           "TN",
 		ZipCode:         "37209",
-		AccountStatus:   models.AccountStatusIncomplete,
-		SetupProgress:   models.SetupProgressIDVerify,
 	}
 	require.NoError(t, h.PMRepo.Create(ctx, pm))
 	defer h.DB.Exec(ctx, `DELETE FROM property_managers WHERE id=$1`, pm.ID)

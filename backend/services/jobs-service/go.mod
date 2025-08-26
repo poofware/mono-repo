@@ -13,8 +13,6 @@ require (
 	github.com/launchdarkly/go-sdk-common/v3 v3.2.0
 	github.com/launchdarkly/go-server-sdk/v7 v7.10.1
 	github.com/openai/openai-go v1.12.0
-	github.com/poofware/go-dtos v0.0.0-20250530002052-50ccb97a7e4c
-	github.com/poofware/go-models v0.0.0-20250625174000-827ad2621e44
 	github.com/poofware/mono-repo/backend/shared/go-dtos v0.0.0-20250819191806-aa8151473eb2
 	github.com/poofware/mono-repo/backend/shared/go-middleware v0.0.0-20250807163845-0398ecacc14b
 	github.com/poofware/mono-repo/backend/shared/go-models v0.0.0-20250807163845-0398ecacc14b

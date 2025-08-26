@@ -31,16 +31,16 @@ type CreatePropertyManagerRequest struct {
 }
 
 type UpdatePropertyManagerRequest struct {
-	ID              uuid.UUID                 `json:"id" validate:"required"`
-	Email           *string                   `json:"email,omitempty" validate:"omitempty,email"`
-	PhoneNumber     *string                   `json:"phone_number,omitempty" validate:"omitempty,e164"`
-	BusinessName    *string                   `json:"business_name,omitempty" validate:"omitempty,min=2"`
-	BusinessAddress *string                   `json:"business_address,omitempty" validate:"omitempty,min=5"`
-	City            *string                   `json:"city,omitempty" validate:"omitempty,min=2"`
-	State           *string                   `json:"state,omitempty" validate:"omitempty,len=2"`
-	ZipCode         *string                   `json:"zip_code,omitempty" validate:"omitempty,min=5,max=10"`
-	AccountStatus   *models.AccountStatusType `json:"account_status,omitempty"`
-	SetupProgress   *models.SetupProgressType `json:"setup_progress,omitempty"`
+	ID              uuid.UUID                   `json:"id" validate:"required"`
+	Email           *string                     `json:"email,omitempty" validate:"omitempty,email"`
+	PhoneNumber     *string                     `json:"phone_number,omitempty" validate:"omitempty,e164"`
+	BusinessName    *string                     `json:"business_name,omitempty" validate:"omitempty,min=2"`
+	BusinessAddress *string                     `json:"business_address,omitempty" validate:"omitempty,min=5"`
+	City            *string                     `json:"city,omitempty" validate:"omitempty,min=2"`
+	State           *string                     `json:"state,omitempty" validate:"omitempty,len=2"`
+	ZipCode         *string                     `json:"zip_code,omitempty" validate:"omitempty,min=5,max=10"`
+	AccountStatus   *models.PMAccountStatusType `json:"account_status,omitempty"`
+	SetupProgress   *models.SetupProgressType   `json:"setup_progress,omitempty"`
 }
 
 type SearchPropertyManagersRequest struct {
@@ -103,9 +103,9 @@ type UpdateBuildingRequest struct {
 // ----- Unit DTOs -----
 
 type CreateUnitRequest struct {
-	PropertyID uuid.UUID `json:"property_id" validate:"required"`
-	BuildingID uuid.UUID `json:"building_id" validate:"required"`
-	UnitNumber string    `json:"unit_number" validate:"required"`
+	PropertyID  uuid.UUID `json:"property_id" validate:"required"`
+	BuildingID  uuid.UUID `json:"building_id" validate:"required"`
+	UnitNumber  string    `json:"unit_number" validate:"required"`
 	TenantToken string    `json:"tenant_token" validate:"omitempty,uuid4"`
 }
 

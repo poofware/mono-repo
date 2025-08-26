@@ -133,8 +133,8 @@ func TestPM_UpdateWithRetry_Stress(t *testing.T) {
 		Email:         fmt.Sprintf("stress_pm_%s@example.com", uuid.NewString()[:8]),
 		PhoneNumber:   utils.Ptr("+15550003333"),
 		BusinessName:  "Stress PM",
-		AccountStatus: models.AccountStatusIncomplete,
-		SetupProgress: models.SetupProgressIDVerify,
+		AccountStatus: models.PMAccountStatusIncomplete,
+		SetupProgress: models.PMSetupProgressAwaitingInfo,
 	}
 	require.NoError(t, h.PMRepo.Create(ctx, pm))
 	defer h.DB.Exec(ctx, `DELETE FROM property_managers WHERE id=$1`, pm.ID)
@@ -179,8 +179,8 @@ func TestPM_UpdateWithRetry_ForcedConflict(t *testing.T) {
 		Email:         fmt.Sprintf("forced_pm_%s@example.com", uuid.NewString()[:8]),
 		PhoneNumber:   utils.Ptr("+15550004444"),
 		BusinessName:  "Forced PM",
-		AccountStatus: models.AccountStatusIncomplete,
-		SetupProgress: models.SetupProgressIDVerify,
+		AccountStatus: models.PMAccountStatusIncomplete,
+		SetupProgress: models.PMSetupProgressAwaitingInfo,
 	}
 	require.NoError(t, h.PMRepo.Create(ctx, pm))
 	defer h.DB.Exec(ctx, `DELETE FROM property_managers WHERE id=$1`, pm.ID)
@@ -249,4 +249,3 @@ func runForcedConflictTest(
 	require.Equal(t, int64(1+concurrency), final,
 		"row_version not advanced by concurrency in forcedConflictTest")
 }
-

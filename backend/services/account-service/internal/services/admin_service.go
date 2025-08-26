@@ -117,8 +117,6 @@ func (s *AdminService) CreatePropertyManager(ctx context.Context, adminID uuid.U
 		City:            req.City,
 		State:           req.State,
 		ZipCode:         req.ZipCode,
-		AccountStatus:   models.AccountStatusIncomplete,
-		SetupProgress:   models.SetupProgressDone, // Admins create them as 'Done'
 	}
 
 	if err := s.pmRepo.Create(ctx, pm); err != nil {
@@ -343,6 +341,7 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 	propDTO := internal_dtos.NewPropertyFromModel(prop, []internal_dtos.Building{}, []*models.Dumpster{})
 	return &propDTO, nil
 }
+
 // UpdateProperty updates an existing property.
 func (s *AdminService) UpdateProperty(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdatePropertyRequest) (*models.Property, error) {
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {

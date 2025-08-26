@@ -20,6 +20,7 @@ type SetupProgressType string
 
 const (
 	SetupProgressAwaitingPersonalInfo   SetupProgressType = "AWAITING_PERSONAL_INFO"
+	SetupProgressInProgress             SetupProgressType = "IN_PROGRESS"
 	SetupProgressIDVerify               SetupProgressType = "ID_VERIFY"
 	SetupProgressAchPaymentAccountSetup SetupProgressType = "ACH_PAYMENT_ACCOUNT_SETUP"
 	SetupProgressBackgroundCheck        SetupProgressType = "BACKGROUND_CHECK"

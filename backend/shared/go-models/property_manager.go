@@ -13,6 +13,12 @@ const (
 	PMAccountStatusActive     PMAccountStatusType = "ACTIVE"
 )
 
+// PM-specific setup progress aliases for clarity in PM contexts
+const (
+	PMSetupProgressAwaitingInfo SetupProgressType = "AWAITING_INFO"
+	PMSetupProgressDone                 SetupProgressType = "DONE"
+)
+
 type PropertyManager struct {
 	Versioned
 

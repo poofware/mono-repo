@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgconn"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
-	"github.com/jackc/pgconn"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +42,7 @@ func (h *TestHelper) CreateTestPM(ctx context.Context, emailPrefix string) *mode
 		ZipCode:         "54321",
 		AccountStatus:   models.PMAccountStatusActive,
 		SetupProgress:   models.SetupProgressDone,
-	}q
+	}
 	require.NoError(h.T, h.PMRepo.Create(ctx, pm), "Failed to create test property manager")
 
 	createdPM, err := h.PMRepo.GetByID(ctx, pm.ID)

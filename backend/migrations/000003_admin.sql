@@ -81,6 +81,11 @@ ON admin_blacklisted_tokens (token_id);
 -- ----------------------------------------------------------------------
 --  soft-delete/metadata columns
 -- ----------------------------------------------------------------------
+-- Add new setup_progress enum value and change PM default to IN_PROGRESS
+-- Ensure PM defaults to AWAITING_INFO (not IN_PROGRESS)
+ALTER TABLE property_managers
+ALTER COLUMN setup_progress SET DEFAULT 'AWAITING_INFO';
+
 ALTER TABLE property_managers
 ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
 
