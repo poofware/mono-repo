@@ -40,9 +40,9 @@ func (h *TestHelper) CreateTestPM(ctx context.Context, emailPrefix string) *mode
 		City:            "Testville",
 		State:           "TS",
 		ZipCode:         "54321",
-		AccountStatus:   models.AccountStatusActive,
+		AccountStatus:   models.PMAccountStatusActive,
 		SetupProgress:   models.SetupProgressDone,
-	}
+	}q
 	require.NoError(h.T, h.PMRepo.Create(ctx, pm), "Failed to create test property manager")
 
 	createdPM, err := h.PMRepo.GetByID(ctx, pm.ID)

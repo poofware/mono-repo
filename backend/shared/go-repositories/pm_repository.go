@@ -258,7 +258,7 @@ func (r *pmRepo) scanPM(row pgx.Row) (*models.PropertyManager, error) {
 		return nil, err
 	}
 
-	pm.AccountStatus = models.AccountStatusType(acc)
+	pm.AccountStatus = models.PMAccountStatusType(acc)
 	pm.SetupProgress = models.SetupProgressType(prog)
 
 	if enc != nil && *enc != "" {
