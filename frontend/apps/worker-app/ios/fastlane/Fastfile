@@ -5,7 +5,7 @@ before_all do
   create_keychain(
     name: "fastlane_tmp_keychain",
     password: "fastlane_password", # Use a secure password
-    default_keychain: true,
+    default_keychain: false,
     unlock: true,
     timeout: 3600,
     lock_when_sleeps: true,
