@@ -273,3 +273,24 @@ else
        --conn-string "${EFFECTIVE_DB_URL}" \
        "${EXTRA_TERN_ARGS[@]}"
 fi
+
+# -----------------------------------------------------------------------------
+# Post-migration: set PM setup_progress default to 'AWAITING_INFO' if available
+# This must run in a separate transaction from the enum addition to avoid
+# "unsafe use of new value" (SQLSTATE 55P04). Safe to re-run; no-op if default
+# already set or enum label is missing.
+# -----------------------------------------------------------------------------
+if [[ "${MIGRATE_MODE}" != "backward" ]]; then
+  echo "[INFO] Running post-migration default update for property_managers.setup_progress (if applicable)…"
+  HAS_ENUM=$(psql "${EFFECTIVE_DB_URL}" -Atq \
+    -c "SELECT 1 FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid WHERE t.typname = 'setup_progress_type' AND e.enumlabel = 'AWAITING_INFO' LIMIT 1" 2>/dev/null || true)
+  if [[ "${HAS_ENUM}" == "1" ]]; then
+    PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
+      psql "${EFFECTIVE_DB_URL}" -v ON_ERROR_STOP=1 \
+        -c "ALTER TABLE property_managers ALTER COLUMN setup_progress SET DEFAULT 'AWAITING_INFO';" >/dev/null && \
+      echo "[INFO] ✓ Default set to 'AWAITING_INFO' for property_managers.setup_progress" || \
+      echo "[WARN] Could not set default to 'AWAITING_INFO' (will be retried on next run)."
+  else
+    echo "[INFO] Skipping default update; enum label 'AWAITING_INFO' not present."
+  fi
+fi

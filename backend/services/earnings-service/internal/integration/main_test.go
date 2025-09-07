@@ -9,13 +9,14 @@ import (
 	"testing"
 	"time"
 
+	_ "time/tzdata"
+
 	"github.com/google/uuid"
 	"github.com/poofware/mono-repo/backend/services/earnings-service/internal/config"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/poofware/mono-repo/backend/shared/go-testhelpers"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
 	"github.com/stretchr/testify/require"
-	_ "time/tzdata"
 )
 
 // Global test-level variables
@@ -60,7 +61,7 @@ func TestMain(m *testing.M) {
 		City:            "Testville",
 		State:           "TN",
 		ZipCode:         "00000",
-		AccountStatus:   models.AccountStatusActive,
+		AccountStatus:   models.PMAccountStatusActive,
 		SetupProgress:   models.SetupProgressDone,
 	}
 	err := h.PMRepo.Create(ctx, testPM)

@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 	_ "time/tzdata" // Load timezone data
+
+	"github.com/gorilla/mux"
 	cron "github.com/robfig/cron/v3"
+	"github.com/rs/cors"
 
 	"github.com/poofware/mono-repo/backend/services/account-service/internal/app"
 	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
@@ -60,12 +61,12 @@ func main() {
 	// Services
 	sgClient := sendgrid.NewSendClient(cfg.SendgridAPIKey) // Instantiate SendGrid client
 	pmService := services.NewPMService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo)
-        workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo, unitRepo, propRepo)
+	workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo, unitRepo, propRepo)
 	waitlistService := services.NewWaitlistService(cfg, workerRepo)
 	// MODIFIED: Inject SendGrid client and Config into WorkerStripeService
 	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo, sgClient)
 	stripeWebhookCheckService := services.NewStripeWebhookCheckService()
-	adminService := services.NewAdminService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo, jobDefRepo, auditRepo, adminRepo)
+	adminService := services.NewAdminService(cfg, pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo, jobDefRepo, auditRepo, adminRepo, agentRepo)
 
 	checkrService, err := services.NewCheckrService(cfg, workerRepo, sgClient)
 	if err != nil {
@@ -177,7 +178,7 @@ func main() {
 	secured.HandleFunc(routes.WorkerCheckrOutcome, workerCheckrController.GetCheckrOutcomeHandler).Methods(http.MethodGet)
 	secured.HandleFunc(routes.WorkerCheckrSessionToken, workerCheckrController.CreateSessionTokenHandler).Methods(http.MethodGet)
 
-	// Admin Routes 
+	// Admin Routes
 	secured.HandleFunc(routes.AdminPM, adminController.CreatePropertyManagerHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.AdminPM, adminController.UpdatePropertyManagerHandler).Methods(http.MethodPatch)
 	secured.HandleFunc(routes.AdminPM, adminController.DeletePropertyManagerHandler).Methods(http.MethodDelete)
@@ -199,6 +200,10 @@ func main() {
 	secured.HandleFunc(routes.AdminDumpsters, adminController.CreateDumpsterHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.AdminDumpsters, adminController.UpdateDumpsterHandler).Methods(http.MethodPatch)
 	secured.HandleFunc(routes.AdminDumpsters, adminController.DeleteDumpsterHandler).Methods(http.MethodDelete)
+
+	secured.HandleFunc(routes.AdminAgents, adminController.CreateAgentHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminAgents, adminController.UpdateAgentHandler).Methods(http.MethodPatch)
+	secured.HandleFunc(routes.AdminAgents, adminController.DeleteAgentHandler).Methods(http.MethodDelete)
 
 	allowedOrigins := []string{cfg.AppUrl}
 	if !cfg.LDFlag_CORSHighSecurity {

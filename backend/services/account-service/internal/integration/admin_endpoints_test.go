@@ -468,3 +468,71 @@ func TestAdminUpdate_ForcedConflict(t *testing.T) {
 	require.Equal(t, <-finalState, dbPM.State)
 	require.Equal(t, <-finalZip, dbPM.ZipCode)
 }
+func TestAdminAgentCRUD(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+
+	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
+	require.NoError(t, err)
+	require.NotNil(t, adminUser)
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
+
+	// Create agent
+	createReq := dtos.CreateAgentRequest{
+		Name:        "Test Agent",
+		Email:       testhelpers.UniqueEmail("agent"),
+		PhoneNumber: "+15555550123",
+		Address:     "1 Agent Way",
+		City:        "Testville",
+		State:       "TS",
+		ZipCode:     "12345",
+		Latitude:    34.1234,
+		Longitude:   -86.5678,
+	}
+	body, _ := json.Marshal(createReq)
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminAgents, adminToken, body, "web", "127.0.0.1")
+	resp := h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created models.Agent
+	json.NewDecoder(resp.Body).Decode(&created)
+
+	// Audit check create
+	audits, err := h.AdminAuditLogRepo.ListByTargetID(ctx, created.ID)
+	require.NoError(t, err)
+	require.Len(t, audits, 1)
+	require.Equal(t, models.AuditCreate, audits[0].Action)
+	require.Equal(t, models.TargetAgent, audits[0].TargetType)
+
+	// Update agent
+	newName := "Updated Agent"
+	upd := dtos.UpdateAgentRequest{ID: created.ID, Name: &newName}
+	updBody, _ := json.Marshal(upd)
+	req = h.BuildAuthRequest(http.MethodPatch, h.BaseURL+routes.AdminAgents, adminToken, updBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var updated models.Agent
+	json.NewDecoder(resp.Body).Decode(&updated)
+	require.Equal(t, newName, updated.Name)
+
+	// Audit check update
+	audits, err = h.AdminAuditLogRepo.ListByTargetID(ctx, created.ID)
+	require.NoError(t, err)
+	require.Len(t, audits, 2)
+	require.Equal(t, models.AuditUpdate, audits[1].Action)
+
+	// Delete agent
+	del := dtos.DeleteRequest{ID: created.ID}
+	delBody, _ := json.Marshal(del)
+	req = h.BuildAuthRequest(http.MethodDelete, h.BaseURL+routes.AdminAgents, adminToken, delBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Audit check delete
+	audits, err = h.AdminAuditLogRepo.ListByTargetID(ctx, created.ID)
+	require.NoError(t, err)
+	require.Len(t, audits, 3)
+	require.Equal(t, models.AuditDelete, audits[2].Action)
+}

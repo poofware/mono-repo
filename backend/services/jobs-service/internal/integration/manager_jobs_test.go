@@ -33,7 +33,7 @@ func TestManagerJobEndpoints(t *testing.T) {
 		City:            "Nowhere",
 		State:           "NA",
 		ZipCode:         "00000",
-		AccountStatus:   models.AccountStatusActive,
+		AccountStatus:   models.PMAccountStatusActive,
 		SetupProgress:   models.SetupProgressDone,
 	}
 	require.NoError(t, h.PMRepo.Create(ctx, unauthorizedPM))

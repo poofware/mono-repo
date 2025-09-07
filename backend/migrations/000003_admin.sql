@@ -22,7 +22,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-    CREATE TYPE AUDIT_TARGET_TYPE AS ENUM ('PROPERTY_MANAGER', 'PROPERTY', 'BUILDING', 'UNIT', 'DUMPSTER', 'JOB_DEFINITION');
+    CREATE TYPE AUDIT_TARGET_TYPE AS ENUM ('PROPERTY_MANAGER', 'PROPERTY', 'BUILDING', 'UNIT', 'DUMPSTER', 'JOB_DEFINITION', 'AGENT');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS admin_audit_logs (
@@ -83,8 +83,19 @@ ON admin_blacklisted_tokens (token_id);
 -- ----------------------------------------------------------------------
 -- Add new setup_progress enum value and change PM default to IN_PROGRESS
 -- Ensure PM defaults to AWAITING_INFO (not IN_PROGRESS)
-ALTER TABLE property_managers
-ALTER COLUMN setup_progress SET DEFAULT 'AWAITING_INFO';
+DO $$ BEGIN
+    ALTER TYPE setup_progress_type ADD VALUE IF NOT EXISTS 'IN_PROGRESS';
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    ALTER TYPE setup_progress_type ADD VALUE IF NOT EXISTS 'AWAITING_INFO' BEFORE 'ID_VERIFY';
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Postgres prohibits using a newly added enum value in the same transaction it is added.
+-- Leave the existing default in place for now to avoid SQLSTATE 55P04 during migrations.
+-- A subsequent migration can safely set the default to 'AWAITING_INFO' once the value exists.
+-- ALTER TABLE property_managers
+-- ALTER COLUMN setup_progress SET DEFAULT 'AWAITING_INFO';
 
 ALTER TABLE property_managers
 ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;

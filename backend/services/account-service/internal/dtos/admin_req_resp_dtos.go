@@ -145,3 +145,30 @@ type PropertySnapshot struct {
 	Property
 	JobDefinitions []*models.JobDefinition `json:"job_definitions"`
 }
+
+// ----- Agent DTOs -----
+
+type CreateAgentRequest struct {
+	Name        string  `json:"name" validate:"required,min=2"`
+	Email       string  `json:"email" validate:"required,email"`
+	PhoneNumber string  `json:"phone_number" validate:"required,e164"`
+	Address     string  `json:"address" validate:"required,min=5"`
+	City        string  `json:"city" validate:"required,min=2"`
+	State       string  `json:"state" validate:"required,len=2"`
+	ZipCode     string  `json:"zip_code" validate:"required,min=5,max=10"`
+	Latitude    float64 `json:"latitude" validate:"required,latitude"`
+	Longitude   float64 `json:"longitude" validate:"required,longitude"`
+}
+
+type UpdateAgentRequest struct {
+	ID          uuid.UUID `json:"id" validate:"required"`
+	Name        *string   `json:"name,omitempty" validate:"omitempty,min=2"`
+	Email       *string   `json:"email,omitempty" validate:"omitempty,email"`
+	PhoneNumber *string   `json:"phone_number,omitempty" validate:"omitempty,e164"`
+	Address     *string   `json:"address,omitempty" validate:"omitempty,min=5"`
+	City        *string   `json:"city,omitempty" validate:"omitempty,min=2"`
+	State       *string   `json:"state,omitempty" validate:"omitempty,len=2"`
+	ZipCode     *string   `json:"zip_code,omitempty" validate:"omitempty,min=5,max=10"`
+	Latitude    *float64  `json:"latitude,omitempty" validate:"omitempty,latitude"`
+	Longitude   *float64  `json:"longitude,omitempty" validate:"omitempty,longitude"`
+}

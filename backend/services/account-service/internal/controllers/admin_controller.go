@@ -641,3 +641,101 @@ func (c *AdminController) DeleteDumpsterHandler(w http.ResponseWriter, r *http.R
 		ID:      req.ID.String(),
 	})
 }
+
+// POST /api/v1/account/admin/agents
+func (c *AdminController) CreateAgentHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.CreateAgentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
+		}
+		return
+	}
+
+	agent, err := c.adminService.CreateAgent(r.Context(), adminID, req)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusCreated, agent)
+}
+
+// PATCH /api/v1/account/admin/agents
+func (c *AdminController) UpdateAgentHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.UpdateAgentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
+		}
+		return
+	}
+
+	agent, err := c.adminService.UpdateAgent(r.Context(), adminID, req)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, agent)
+}
+
+// DELETE /api/v1/account/admin/agents
+func (c *AdminController) DeleteAgentHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.DeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
+		}
+		return
+	}
+
+	if err := c.adminService.SoftDeleteAgent(r.Context(), adminID, req.ID); err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, dtos.ConfirmationResponse{Message: "Agent soft-deleted successfully", ID: req.ID.String()})
+}

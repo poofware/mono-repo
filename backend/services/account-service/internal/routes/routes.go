@@ -64,4 +64,5 @@ const (
 	AdminBuildings  = "/api/v1/account/admin/property-buildings"
 	AdminUnits      = "/api/v1/account/admin/units"
 	AdminDumpsters  = "/api/v1/account/admin/dumpsters"
+	AdminAgents     = "/api/v1/account/admin/agents"
 )

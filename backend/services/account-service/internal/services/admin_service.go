@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/config"
 	internal_dtos "github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
 	shared_dtos "github.com/poofware/mono-repo/backend/shared/go-dtos"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
@@ -19,6 +20,7 @@ import (
 )
 
 type AdminService struct {
+	cfg          *config.Config
 	pmRepo       repositories.PropertyManagerRepository
 	propRepo     repositories.PropertyRepository
 	bldgRepo     repositories.PropertyBuildingRepository
@@ -27,9 +29,11 @@ type AdminService struct {
 	jobDefRepo   repositories.JobDefinitionRepository
 	auditRepo    repositories.AdminAuditLogRepository
 	adminRepo    repositories.AdminRepository
+	agentRepo    repositories.AgentRepository
 }
 
 func NewAdminService(
+	cfg *config.Config,
 	pmRepo repositories.PropertyManagerRepository,
 	propRepo repositories.PropertyRepository,
 	bldgRepo repositories.PropertyBuildingRepository,
@@ -38,8 +42,10 @@ func NewAdminService(
 	jobDefRepo repositories.JobDefinitionRepository,
 	auditRepo repositories.AdminAuditLogRepository,
 	adminRepo repositories.AdminRepository,
+	agentRepo repositories.AgentRepository,
 ) *AdminService {
 	return &AdminService{
+		cfg:          cfg,
 		pmRepo:       pmRepo,
 		propRepo:     propRepo,
 		bldgRepo:     bldgRepo,
@@ -48,6 +54,7 @@ func NewAdminService(
 		jobDefRepo:   jobDefRepo,
 		auditRepo:    auditRepo,
 		adminRepo:    adminRepo,
+		agentRepo:    agentRepo,
 	}
 }
 
@@ -318,6 +325,20 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent property manager not found"}
 	}
 
+	// Auto-geocode latitude/longitude if not provided (or provided as zeros)
+	lat := req.Latitude
+	lng := req.Longitude
+	if (lat == 0 && lng == 0) || lat == 0 || lng == 0 {
+		fullAddr := fmt.Sprintf("%s, %s, %s %s", req.Address, req.City, req.State, req.ZipCode)
+		gLat, gLng, gErr := utils.GeocodeAddress(fullAddr, s.cfg.GMapsAPIKey)
+		if gErr == nil {
+			lat, lng = gLat, gLng
+		} else {
+			// Log and continue with provided values
+			utils.Logger.WithError(gErr).Warnf("Geocoding failed for address '%s'", fullAddr)
+		}
+	}
+
 	prop := &models.Property{
 		ID:           uuid.New(),
 		ManagerID:    req.ManagerID,
@@ -327,8 +348,8 @@ func (s *AdminService) CreateProperty(ctx context.Context, adminID uuid.UUID, re
 		State:        req.State,
 		ZipCode:      req.ZipCode,
 		TimeZone:     req.TimeZone,
-		Latitude:     req.Latitude,
-		Longitude:    req.Longitude,
+		Latitude:     lat,
+		Longitude:    lng,
 	}
 
 	if err := s.propRepo.Create(ctx, prop); err != nil {
@@ -704,5 +725,97 @@ func (s *AdminService) SoftDeleteDumpster(ctx context.Context, adminID, dumpster
 		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to delete dumpster", Err: err}
 	}
 	s.logAudit(ctx, adminID, dumpsterID, models.AuditDelete, models.TargetDumpster, nil)
+	return nil
+}
+
+// CreateAgent creates a new agent.
+func (s *AdminService) CreateAgent(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateAgentRequest) (*models.Agent, error) {
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		return nil, err
+	}
+
+	agent := &models.Agent{
+		ID:          uuid.New(),
+		Name:        req.Name,
+		Email:       req.Email,
+		PhoneNumber: req.PhoneNumber,
+		Address:     req.Address,
+		City:        req.City,
+		State:       req.State,
+		ZipCode:     req.ZipCode,
+		Latitude:    req.Latitude,
+		Longitude:   req.Longitude,
+	}
+
+	if err := s.agentRepo.Create(ctx, agent); err != nil {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to create agent", Err: err}
+	}
+
+	s.logAudit(ctx, adminID, agent.ID, models.AuditCreate, models.TargetAgent, agent)
+	return agent, nil
+}
+
+// UpdateAgent updates an existing agent.
+func (s *AdminService) UpdateAgent(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdateAgentRequest) (*models.Agent, error) {
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.agentRepo.GetByID(ctx, req.ID)
+	if err != nil {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to retrieve agent", Err: err}
+	}
+	if existing == nil {
+		return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Agent not found"}
+	}
+
+	if req.Name != nil {
+		existing.Name = *req.Name
+	}
+	if req.Email != nil {
+		existing.Email = *req.Email
+	}
+	if req.PhoneNumber != nil {
+		existing.PhoneNumber = *req.PhoneNumber
+	}
+	if req.Address != nil {
+		existing.Address = *req.Address
+	}
+	if req.City != nil {
+		existing.City = *req.City
+	}
+	if req.State != nil {
+		existing.State = *req.State
+	}
+	if req.ZipCode != nil {
+		existing.ZipCode = *req.ZipCode
+	}
+	if req.Latitude != nil {
+		existing.Latitude = *req.Latitude
+	}
+	if req.Longitude != nil {
+		existing.Longitude = *req.Longitude
+	}
+
+	if err := s.agentRepo.Update(ctx, existing); err != nil {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to update agent", Err: err}
+	}
+
+	s.logAudit(ctx, adminID, existing.ID, models.AuditUpdate, models.TargetAgent, existing)
+	return existing, nil
+}
+
+// SoftDeleteAgent marks an agent as deleted.
+func (s *AdminService) SoftDeleteAgent(ctx context.Context, adminID, agentID uuid.UUID) error {
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		return err
+	}
+	if err := s.agentRepo.SoftDelete(ctx, agentID); err != nil {
+		if err == pgx.ErrNoRows {
+			return &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Agent not found"}
+		}
+		return &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to delete agent", Err: err}
+	}
+	s.logAudit(ctx, adminID, agentID, models.AuditDelete, models.TargetAgent, nil)
 	return nil
 }

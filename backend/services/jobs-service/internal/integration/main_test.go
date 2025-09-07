@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 		City:            "Testville",
 		State:           "TN",
 		ZipCode:         "00000",
-		AccountStatus:   models.AccountStatusActive,
+		AccountStatus:   models.PMAccountStatusActive,
 		SetupProgress:   models.SetupProgressDone,
 	}
 	err := h.PMRepo.Create(ctx, testPM)

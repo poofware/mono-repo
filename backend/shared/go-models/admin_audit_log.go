@@ -26,6 +26,7 @@ const (
 	TargetUnit            AuditTargetType = "UNIT"
 	TargetDumpster        AuditTargetType = "DUMPSTER"
 	TargetJobDefinition   AuditTargetType = "JOB_DEFINITION"
+	TargetAgent           AuditTargetType = "AGENT"
 )
 
 type AdminAuditLog struct {
