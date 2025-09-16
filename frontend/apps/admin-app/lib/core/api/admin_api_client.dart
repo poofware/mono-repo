@@ -44,6 +44,24 @@ class AdminApiClient implements AdminApiInterface {
     return _decodeResponse(response, fromJson);
   }
 
+  Future<List<T>> _requestList<T>(
+    String method,
+    String relativePath,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? body,
+  }) async {
+    final String fullPath = '$_accountPathPrefix$relativePath';
+    final response = await _authApi.sendAuthenticatedRequest(
+      method: method,
+      path: fullPath,
+      body: body != null ? JsonSerializableMap(body) : null,
+    );
+    final decoded = jsonDecode(response.body) as List<dynamic>;
+    return decoded
+        .map((e) => fromJson(e as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
   /// Generic request handler for actions that return no body (e.g., DELETE).
   Future<void> _requestVoid(
     String method,
@@ -113,13 +131,21 @@ class AdminApiClient implements AdminApiInterface {
           body: data);
 
   @override
+  Future<FloorAdmin> createFloor(Map<String, dynamic> data) =>
+      _request('POST', '/floors', FloorAdmin.fromJson, body: data);
+
+  @override
   Future<UnitAdmin> createUnit(Map<String, dynamic> data) =>
       _request('POST', '/units', UnitAdmin.fromJson, body: data);
 
   @override
   Future<void> createUnits(List<Map<String, dynamic>> data) {
-    // This helper still works as it calls the corrected createUnit.
-    return Future.wait(data.map((unitData) => createUnit(unitData)));
+    // Prefer backend batch endpoint for efficiency.
+    return _authApi.sendAuthenticatedRequest(
+      method: 'POST',
+      path: '$_accountPathPrefix/units/batch',
+      body: JsonSerializableMap({'items': data}),
+    ).then((_) => null);
   }
 
   @override
@@ -130,6 +156,10 @@ class AdminApiClient implements AdminApiInterface {
   Future<JobDefinitionAdmin> createJobDefinition(Map<String, dynamic> data) =>
       _request('POST', '/job-definitions', JobDefinitionAdmin.fromJson,
           body: data, isJobsService: true);
+
+  @override
+  Future<AgentAdmin> createAgent(Map<String, dynamic> data) =>
+      _request('POST', '/agents', AgentAdmin.fromJson, body: data);
 
   // --- Update Methods ---
   @override
@@ -160,6 +190,10 @@ class AdminApiClient implements AdminApiInterface {
       _request('PATCH', '/job-definitions', JobDefinitionAdmin.fromJson,
           body: data, isJobsService: true);
 
+  @override
+  Future<AgentAdmin> updateAgent(Map<String, dynamic> data) =>
+      _request('PATCH', '/agents', AgentAdmin.fromJson, body: data);
+
   // --- Delete Methods ---
   @override
   Future<void> deletePropertyManager(Map<String, dynamic> data) =>
@@ -185,6 +219,15 @@ class AdminApiClient implements AdminApiInterface {
   Future<void> deleteJobDefinition(Map<String, dynamic> data) =>
       _requestVoid('DELETE', '/job-definitions',
           body: data, isJobsService: true);
+
+  @override
+  Future<void> deleteAgent(Map<String, dynamic> data) =>
+      _requestVoid('DELETE', '/agents', body: data);
+
+  @override
+  Future<List<FloorAdmin>> listFloorsByBuilding(Map<String, dynamic> data) async {
+    return _requestList('POST', '/floors/by-building', FloorAdmin.fromJson, body: data);
+  }
 }
 
 class JsonSerializableMap implements JsonSerializable {

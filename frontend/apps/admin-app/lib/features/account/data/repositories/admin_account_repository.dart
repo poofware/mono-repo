@@ -34,6 +34,10 @@ class AdminAccountRepository {
     return _api.createBuilding(data);
   }
 
+  Future<FloorAdmin> createFloor(Map<String, dynamic> data) {
+    return _api.createFloor(data);
+  }
+
   Future<UnitAdmin> createUnit(Map<String, dynamic> data) {
     return _api.createUnit(data);
   }
@@ -88,5 +92,23 @@ class AdminAccountRepository {
 
   Future<void> deleteDumpster(Map<String, dynamic> data) {
     return _api.deleteDumpster(data);
+  }
+
+  // --- Agent Methods ---
+
+  Future<AgentAdmin> createAgent(Map<String, dynamic> data) {
+    return _api.createAgent(data);
+  }
+
+  Future<AgentAdmin> updateAgent(Map<String, dynamic> data) {
+    return _api.updateAgent(data);
+  }
+
+  Future<void> deleteAgent(Map<String, dynamic> data) {
+    return _api.deleteAgent(data);
+  }
+
+  Future<List<FloorAdmin>> listFloorsByBuilding(Map<String, dynamic> data) {
+    return _api.listFloorsByBuilding(data);
   }
 }

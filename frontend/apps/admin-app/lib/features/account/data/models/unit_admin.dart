@@ -3,6 +3,7 @@ class UnitAdmin {
   final String id;
   final String propertyId;
   final String buildingId;
+  final String? floorId;
   final String unitNumber;
   final String tenantToken;
   final DateTime createdAt;
@@ -13,6 +14,7 @@ class UnitAdmin {
     required this.id,
     required this.propertyId,
     required this.buildingId,
+    this.floorId,
     required this.unitNumber,
     required this.tenantToken,
     required this.createdAt,
@@ -24,6 +26,7 @@ class UnitAdmin {
       : id = json['id'] as String,
         propertyId = json['property_id'] as String,
         buildingId = json['building_id'] as String,
+        floorId = json['floor_id'] as String?,
         unitNumber = json['unit_number'] as String,
         tenantToken = json['tenant_token'] as String,
         createdAt = DateTime.parse(json['created_at'] as String),
@@ -44,6 +47,7 @@ class UnitAdmin {
         'id': id,
         'property_id': propertyId,
         'building_id': buildingId,
+        'floor_id': floorId,
         'unit_number': unitNumber,
         'tenant_token': tenantToken,
         'created_at': createdAt.toIso8601String(),

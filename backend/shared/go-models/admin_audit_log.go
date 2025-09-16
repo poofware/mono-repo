@@ -23,6 +23,7 @@ const (
 	TargetPropertyManager AuditTargetType = "PROPERTY_MANAGER"
 	TargetProperty        AuditTargetType = "PROPERTY"
 	TargetBuilding        AuditTargetType = "BUILDING"
+	TargetFloor           AuditTargetType = "FLOOR"
 	TargetUnit            AuditTargetType = "UNIT"
 	TargetDumpster        AuditTargetType = "DUMPSTER"
 	TargetJobDefinition   AuditTargetType = "JOB_DEFINITION"

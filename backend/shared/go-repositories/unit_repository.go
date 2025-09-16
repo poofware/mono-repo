@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgtype"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
@@ -49,16 +49,37 @@ func NewUnitRepository(db DB) UnitRepository {
 func (r *unitRepo) Create(ctx context.Context, u *models.Unit) error {
 	_, err := r.db.Exec(ctx, `
 		INSERT INTO units (
-			id, property_id, building_id, unit_number, tenant_token, 
+			id, property_id, building_id, floor_id, unit_number, tenant_token, 
 			created_at, updated_at, row_version
-		) VALUES ($1,$2,$3,$4,$5, NOW(), NOW(), 1)
-	`, u.ID, u.PropertyID, u.BuildingID, u.UnitNumber, u.TenantToken)
+		) VALUES ($1,$2,$3,$4,$5,$6, NOW(), NOW(), 1)
+	`, u.ID, u.PropertyID, u.BuildingID, u.FloorID, u.UnitNumber, u.TenantToken)
 	return err
 }
 
-func (r *unitRepo) CreateMany(ctx context.Context, list []models.Unit) error {
+func (r *unitRepo) CreateMany(ctx context.Context, list []models.Unit) (err error) {
+	if len(list) == 0 {
+		return nil
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		} else {
+			_ = tx.Commit(ctx)
+		}
+	}()
+
 	for i := range list {
-		if err := r.Create(ctx, &list[i]); err != nil {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO units (
+				id, property_id, building_id, floor_id, unit_number, tenant_token, 
+				created_at, updated_at, row_version
+			) VALUES ($1,$2,$3,$4,$5,$6, NOW(), NOW(), 1)
+		`, list[i].ID, list[i].PropertyID, list[i].BuildingID, list[i].FloorID, list[i].UnitNumber, list[i].TenantToken)
+		if err != nil {
 			return err
 		}
 	}
@@ -75,7 +96,7 @@ func (r *unitRepo) ListByPropertyID(ctx context.Context, propID uuid.UUID) ([]*m
 	// The snapshot requires ALL units, including soft-deleted ones. The service layer is responsible for filtering.
 	// Therefore, we remove the "AND deleted_at IS NULL" clause here.
 	const query = `
-		SELECT id, property_id, building_id, unit_number, tenant_token, 
+		SELECT id, property_id, building_id, floor_id, unit_number, tenant_token, 
 		created_at, updated_at, row_version, deleted_at 
 		FROM units 
 		WHERE property_id=$1 
@@ -116,14 +137,14 @@ func (r *unitRepo) UpdateWithRetry(ctx context.Context, id uuid.UUID, mutate fun
 func (r *unitRepo) update(ctx context.Context, u *models.Unit, check bool, expected int64) (pgconn.CommandTag, error) {
 	sql := `
 		UPDATE units
-		SET unit_number=$1, tenant_token=$2, building_id=$3, updated_at=NOW()
+		SET unit_number=$1, tenant_token=$2, building_id=$3, floor_id=$4, updated_at=NOW()
 	`
-	args := []any{u.UnitNumber, u.TenantToken, u.BuildingID}
+	args := []any{u.UnitNumber, u.TenantToken, u.BuildingID, u.FloorID}
 	if check {
-		sql += `, row_version=row_version+1 WHERE id=$4 AND row_version=$5`
+		sql += `, row_version=row_version+1 WHERE id=$5 AND row_version=$6`
 		args = append(args, u.ID, expected)
 	} else {
-		sql += ` WHERE id=$4`
+		sql += ` WHERE id=$5`
 		args = append(args, u.ID)
 	}
 	return r.db.Exec(ctx, sql, args...)
@@ -159,7 +180,7 @@ func (r *unitRepo) FindByTenantToken(ctx context.Context, token string) (*models
 
 func baseSelectUnit() string {
 	return `
-		SELECT id,property_id,building_id,unit_number,tenant_token,
+		SELECT id,property_id,building_id,floor_id,unit_number,tenant_token,
 		created_at, updated_at, row_version, deleted_at
 		FROM units`
 }
@@ -168,8 +189,9 @@ func (r *unitRepo) scanUnit(row pgx.Row) (*models.Unit, error) {
 	var u models.Unit
 	// Use pgx's native type for nullable timestamps to ensure robust scanning.
 	var deletedAt pgtype.Timestamptz
+	var floorID pgtype.UUID
 	if err := row.Scan(
-		&u.ID, &u.PropertyID, &u.BuildingID,
+		&u.ID, &u.PropertyID, &u.BuildingID, &floorID,
 		&u.UnitNumber, &u.TenantToken,
 		&u.CreatedAt, &u.UpdatedAt, &u.RowVersion, &deletedAt,
 	); err != nil {
@@ -177,6 +199,13 @@ func (r *unitRepo) scanUnit(row pgx.Row) (*models.Unit, error) {
 			return nil, nil
 		}
 		return nil, err
+	}
+	if floorID.Status == pgtype.Present {
+		var val uuid.UUID
+		copy(val[:], floorID.Bytes[:])
+		u.FloorID = &val
+	} else {
+		u.FloorID = nil
 	}
 	// Manually assign the value from the pgtype wrapper to the model's pointer.
 	if deletedAt.Status == pgtype.Present {

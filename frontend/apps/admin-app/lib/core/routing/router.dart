@@ -12,6 +12,9 @@ import 'package:poof_admin/features/account/presentation/pages/pm_detail_page.da
 import 'package:poof_admin/features/account/presentation/pages/pm_form_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/property_form_page.dart';
 import 'package:poof_admin/features/account/presentation/pages/unit_form_page.dart';
+import 'package:poof_admin/features/account/presentation/pages/agent_form_page.dart';
+import 'package:poof_admin/features/account/presentation/pages/agents_dashboard_page.dart';
+import 'package:poof_admin/features/account/data/models/agent_admin.dart';
 import 'package:poof_admin/features/auth/presentation/pages/login_page.dart';
 import 'package:poof_admin/features/auth/presentation/pages/session_expired_page.dart';
 import 'package:poof_admin/features/auth/presentation/pages/signing_out_page.dart';
@@ -71,12 +74,47 @@ final List<RouteBase> _adminAppRoutes = [
         name: 'DashboardHomePage',
         builder: (_, __) => const Center(child: Text('Admin Dashboard Home')),
       ),
+      // NEW: Agents Routes
+      GoRoute(
+        path: '/dashboard/agents',
+        name: 'AgentsDashboardPage',
+        builder: (_, __) => const AgentsDashboardPage(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'AgentFormPageNewRoot',
+            builder: (context, state) => const AgentFormPage(),
+          ),
+          GoRoute(
+            path: 'edit',
+            name: 'AgentFormPageEditRoot',
+            builder: (context, state) {
+              final agent = state.extra as AgentAdmin?;
+              return AgentFormPage(agent: agent);
+            },
+          ),
+        ],
+      ),
       // NEW: Property Manager Routes
       GoRoute(
         path: '/dashboard/pms',
         name: 'PmsDashboardPage',
         builder: (_, __) => const PmsDashboardPage(),
         routes: [
+          // Agents
+          GoRoute(
+            path: 'agents/new',
+            name: 'AgentFormPageNew',
+            builder: (context, state) => const AgentFormPage(),
+          ),
+          GoRoute(
+            path: 'agents/edit',
+            name: 'AgentFormPageEdit',
+            builder: (context, state) {
+              final agent = state.extra as AgentAdmin?;
+              return AgentFormPage(agent: agent);
+            },
+          ),
           // Create new PM form
           GoRoute(
             path: 'new',

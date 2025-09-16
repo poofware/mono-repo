@@ -9,24 +9,30 @@ import (
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 )
 
-/*──────────────────────────────────────────────────────────
-  Building DTO – now nests its units
-──────────────────────────────────────────────────────────*/
+/*
+──────────────────────────────────────────────────────────
+
+	Building DTO – now nests its units
+
+──────────────────────────────────────────────────────────
+*/
 type Building struct {
-	ID           uuid.UUID          `json:"id"`
-	PropertyID   uuid.UUID      `json:"property_id"`
-	BuildingName string             `json:"building_name,omitempty"`
-	Address      *string            `json:"address,omitempty"`
-	Latitude     float64            `json:"latitude,omitempty"`
-	Longitude    float64            `json:"longitude,omitempty"`
-	Units        []*models.Unit     `json:"units,omitempty"`
-	CreatedAt    time.Time      `json:"created_at"`   
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID           uuid.UUID       `json:"id"`
+	PropertyID   uuid.UUID       `json:"property_id"`
+	BuildingName string          `json:"building_name,omitempty"`
+	Address      *string         `json:"address,omitempty"`
+	Latitude     float64         `json:"latitude,omitempty"`
+	Longitude    float64         `json:"longitude,omitempty"`
+	Floors       []*models.Floor `json:"floors,omitempty"`
+	Units        []*models.Unit  `json:"units,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 // helper
 func NewBuildingFromModel(
 	b *models.PropertyBuilding,
+	floors []*models.Floor,
 	u []*models.Unit,
 ) Building {
 	return Building{
@@ -36,29 +42,34 @@ func NewBuildingFromModel(
 		Address:      b.Address,
 		Latitude:     b.Latitude,
 		Longitude:    b.Longitude,
+		Floors:       floors,
 		Units:        u,
-		CreatedAt:    b.CreatedAt, 
+		CreatedAt:    b.CreatedAt,
 		UpdatedAt:    b.UpdatedAt,
 	}
 }
 
-/*──────────────────────────────────────────────────────────
-  Property DTO – units are now nested inside buildings
-──────────────────────────────────────────────────────────*/
+/*
+──────────────────────────────────────────────────────────
+
+	Property DTO – units are now nested inside buildings
+
+──────────────────────────────────────────────────────────
+*/
 type Property struct {
-	ID           uuid.UUID `json:"id"`
-	ManagerID    uuid.UUID `json:"manager_id"`
-	PropertyName string    `json:"property_name"`
-	Address      string    `json:"address"`
-	City         string    `json:"city"`
-	State        string    `json:"state"`
-	ZipCode      string    `json:"zip_code"`
-	TimeZone     string    `json:"timezone"`
-	Latitude     float64   `json:"latitude"`  
-	Longitude    float64   `json:"longitude"`
-	Buildings    []Building          `json:"buildings,omitempty"`
-	Dumpsters    []*models.Dumpster  `json:"dumpsters,omitempty"`
-	CreatedAt    time.Time           `json:"created_at"`
+	ID           uuid.UUID          `json:"id"`
+	ManagerID    uuid.UUID          `json:"manager_id"`
+	PropertyName string             `json:"property_name"`
+	Address      string             `json:"address"`
+	City         string             `json:"city"`
+	State        string             `json:"state"`
+	ZipCode      string             `json:"zip_code"`
+	TimeZone     string             `json:"timezone"`
+	Latitude     float64            `json:"latitude"`
+	Longitude    float64            `json:"longitude"`
+	Buildings    []Building         `json:"buildings,omitempty"`
+	Dumpsters    []*models.Dumpster `json:"dumpsters,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
 	UpdatedAt    time.Time          `json:"updated_at"`
 }
 
@@ -75,8 +86,8 @@ func NewPropertyFromModel(
 		City:         p.City,
 		State:        p.State,
 		ZipCode:      p.ZipCode,
-		TimeZone:     p.TimeZone, 
-		Latitude:     p.Latitude, 
+		TimeZone:     p.TimeZone,
+		Latitude:     p.Latitude,
 		Longitude:    p.Longitude,
 		Buildings:    b,
 		Dumpsters:    d,

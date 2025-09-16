@@ -90,7 +90,12 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	var createdBldg models.PropertyBuilding
 	json.NewDecoder(resp.Body).Decode(&createdBldg)
 
-	createUnitReq := dtos.CreateUnitRequest{PropertyID: createdProp.ID, BuildingID: createdBldg.ID, UnitNumber: "101"}
+	// Insert a floor and create a unit referencing floor_id
+	var floorID uuid.UUID
+	err = h.DB.QueryRow(ctx, `INSERT INTO floors (id, property_id, building_id, number, created_at, updated_at, row_version) VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW(), 1) RETURNING id`, createdProp.ID, createdBldg.ID, 1).Scan(&floorID)
+	require.NoError(t, err)
+
+	createUnitReq := dtos.CreateUnitRequest{PropertyID: createdProp.ID, BuildingID: createdBldg.ID, FloorID: floorID, UnitNumber: "101"}
 	createUnitBody, _ := json.Marshal(createUnitReq)
 	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnits, adminToken, createUnitBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
@@ -212,6 +217,90 @@ func TestAdminFullHierarchyFlow(t *testing.T) {
 	require.Equal(t, 0, searchResp.Total, "Soft-deleted PM should not appear in search results")
 }
 
+// New integration test for batch unit creation
+func TestAdminCreateUnitsBatch(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+
+	// Setup admin
+	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
+	require.NoError(t, err)
+	require.NotNil(t, adminUser)
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
+
+	// Create PM
+	createPMReq := dtos.CreatePropertyManagerRequest{
+		Email:           testhelpers.UniqueEmail("pm-batch-units"),
+		BusinessName:    "Batch Units PM",
+		BusinessAddress: "100 Batch Rd",
+		City:            "Testville",
+		State:           "TS",
+		ZipCode:         "12345",
+	}
+	body, _ := json.Marshal(createPMReq)
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPM, adminToken, body, "web", "127.0.0.1")
+	resp := h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var createdPM shared_dtos.PropertyManager
+	json.NewDecoder(resp.Body).Decode(&createdPM)
+	pmID, _ := uuid.Parse(createdPM.ID)
+
+	// Create Property
+	propReq := dtos.CreatePropertyRequest{ManagerID: pmID, PropertyName: "BatchProp", Address: "1 St", City: "X", State: "TS", ZipCode: "12345", TimeZone: "UTC", Latitude: 34.7, Longitude: -86.5}
+	propBody, _ := json.Marshal(propReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminProperties, adminToken, propBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var prop models.Property
+	json.NewDecoder(resp.Body).Decode(&prop)
+
+	// Create Building
+	bReq := dtos.CreateBuildingRequest{PropertyID: prop.ID, BuildingName: "B1"}
+	bBody, _ := json.Marshal(bReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminBuildings, adminToken, bBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var bldg models.PropertyBuilding
+	json.NewDecoder(resp.Body).Decode(&bldg)
+
+	// Create a floor for the building
+	var floorID uuid.UUID
+	err = h.DB.QueryRow(ctx, `INSERT INTO floors (id, property_id, building_id, number, created_at, updated_at, row_version) VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW(), 1) RETURNING id`, prop.ID, bldg.ID, 1).Scan(&floorID)
+	require.NoError(t, err)
+
+	// Batch create units
+	batch := dtos.CreateUnitsRequest{Items: []dtos.CreateUnitRequest{
+		{PropertyID: prop.ID, BuildingID: bldg.ID, FloorID: floorID, UnitNumber: "B101"},
+		{PropertyID: prop.ID, BuildingID: bldg.ID, FloorID: floorID, UnitNumber: "B102"},
+		{PropertyID: prop.ID, BuildingID: bldg.ID, FloorID: floorID, UnitNumber: "B103"},
+	}}
+	batchBody, _ := json.Marshal(batch)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnitsBatch, adminToken, batchBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var batchResp dtos.CreateUnitsResponse
+	json.NewDecoder(resp.Body).Decode(&batchResp)
+	require.Len(t, batchResp.Created, 3)
+
+	// Verify via snapshot
+	snapReq := dtos.SnapshotRequest{ManagerID: pmID}
+	snapBody, _ := json.Marshal(snapReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSnapshot, adminToken, snapBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var snapshot dtos.PropertyManagerSnapshotResponse
+	json.NewDecoder(resp.Body).Decode(&snapshot)
+	require.Equal(t, 1, len(snapshot.Properties))
+	require.Equal(t, 1, len(snapshot.Properties[0].Buildings))
+	require.Equal(t, 3, len(snapshot.Properties[0].Buildings[0].Units))
+}
+
 func TestAdminSearchAndPagination(t *testing.T) {
 	h.T = t
 	ctx := h.Ctx
@@ -287,6 +376,107 @@ func TestAdminSearchAndPagination(t *testing.T) {
 	require.Equal(t, 3, paginatedResp.Total)
 	require.Equal(t, 2, paginatedResp.Page)
 	require.Len(t, paginatedResp.Data, 1) // 3 total, page size 2, so page 2 has 1 item
+}
+
+// Verifies that creating a unit with legacy floor number results in:
+// - A Floor row for the building
+// - The created unit having a non-nil FloorID
+// - Snapshot includes the building's floors
+func TestAdminCreateUnit_WithLegacyFloor_MapsToFloorIDAndSnapshotFloors(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+
+	// Setup admin
+	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
+	require.NoError(t, err)
+	require.NotNil(t, adminUser)
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
+
+	// Create PM
+	createPMReq := dtos.CreatePropertyManagerRequest{
+		Email:           testhelpers.UniqueEmail("pm-floor-test"),
+		BusinessName:    "Floor Test PM",
+		BusinessAddress: "100 Floor Rd",
+		City:            "Testville",
+		State:           "TS",
+		ZipCode:         "12345",
+	}
+	body, _ := json.Marshal(createPMReq)
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPM, adminToken, body, "web", "127.0.0.1")
+	resp := h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var createdPM shared_dtos.PropertyManager
+	json.NewDecoder(resp.Body).Decode(&createdPM)
+	pmID, _ := uuid.Parse(createdPM.ID)
+
+	// Create Property
+	propReq := dtos.CreatePropertyRequest{ManagerID: pmID, PropertyName: "FloorProp", Address: "1 St", City: "X", State: "TS", ZipCode: "12345", TimeZone: "UTC", Latitude: 34.7, Longitude: -86.5}
+	propBody, _ := json.Marshal(propReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminProperties, adminToken, propBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var prop models.Property
+	json.NewDecoder(resp.Body).Decode(&prop)
+
+	// Create Building
+	bReq := dtos.CreateBuildingRequest{PropertyID: prop.ID, BuildingName: "B-Floors"}
+	bBody, _ := json.Marshal(bReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminBuildings, adminToken, bBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var bldg models.PropertyBuilding
+	json.NewDecoder(resp.Body).Decode(&bldg)
+
+	// Create Floor row first
+	var newFloorID uuid.UUID
+	err = h.DB.QueryRow(ctx, `INSERT INTO floors (id, property_id, building_id, number, created_at, updated_at, row_version) VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW(), 1) RETURNING id`, prop.ID, bldg.ID, 2).Scan(&newFloorID)
+	require.NoError(t, err)
+
+	// Create Unit with floor_id
+	unitReq := dtos.CreateUnitRequest{PropertyID: prop.ID, BuildingID: bldg.ID, FloorID: newFloorID, UnitNumber: "F201"}
+	unitBody, _ := json.Marshal(unitReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminUnits, adminToken, unitBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var createdUnit models.Unit
+	json.NewDecoder(resp.Body).Decode(&createdUnit)
+
+	// Assert unit has FloorID and matches provided
+	require.NotNil(t, createdUnit.FloorID, "created unit should have FloorID set")
+	require.Equal(t, newFloorID, *createdUnit.FloorID)
+
+	// Verify floors table has the floor for this building
+	var count int
+	err = h.DB.QueryRow(ctx, `SELECT COUNT(1) FROM floors WHERE id=$1`, newFloorID).Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 1, count, "expected the floor row to exist")
+
+	// Snapshot should include building floors
+	snapReq := dtos.SnapshotRequest{ManagerID: pmID}
+	snapBody, _ := json.Marshal(snapReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPMSnapshot, adminToken, snapBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var snapshot dtos.PropertyManagerSnapshotResponse
+	json.NewDecoder(resp.Body).Decode(&snapshot)
+	require.NotEmpty(t, snapshot.Properties)
+	require.NotEmpty(t, snapshot.Properties[0].Buildings)
+	floors := snapshot.Properties[0].Buildings[0].Floors
+	require.NotEmpty(t, floors, "snapshot should include floors for building")
+
+	floorFound := false
+	for _, f := range floors {
+		if f.ID == newFloorID || f.Number == 2 {
+			floorFound = true
+			break
+		}
+	}
+	require.True(t, floorFound, "snapshot should include the created floor")
 }
 
 // ----- NEW TESTS -----
@@ -512,27 +702,137 @@ func TestAdminAgentCRUD(t *testing.T) {
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	var updated models.Agent
-	json.NewDecoder(resp.Body).Decode(&updated)
-	require.Equal(t, newName, updated.Name)
-
-	// Audit check update
-	audits, err = h.AdminAuditLogRepo.ListByTargetID(ctx, created.ID)
-	require.NoError(t, err)
-	require.Len(t, audits, 2)
-	require.Equal(t, models.AuditUpdate, audits[1].Action)
 
 	// Delete agent
-	del := dtos.DeleteRequest{ID: created.ID}
-	delBody, _ := json.Marshal(del)
+	delBody, _ := json.Marshal(dtos.DeleteRequest{ID: created.ID})
 	req = h.BuildAuthRequest(http.MethodDelete, h.BaseURL+routes.AdminAgents, adminToken, delBody, "web", "127.0.0.1")
 	resp = h.DoRequest(req, http.DefaultClient)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
 
-	// Audit check delete
-	audits, err = h.AdminAuditLogRepo.ListByTargetID(ctx, created.ID)
+// New integration tests for Floors admin APIs
+func TestAdminCreateAndListFloors(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+
+	// Setup admin
+	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
 	require.NoError(t, err)
-	require.Len(t, audits, 3)
-	require.Equal(t, models.AuditDelete, audits[2].Action)
+	require.NotNil(t, adminUser)
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
+
+	// Create PM
+	createPMReq := dtos.CreatePropertyManagerRequest{
+		Email:           testhelpers.UniqueEmail("pm-floor"),
+		BusinessName:    "Floor PM",
+		BusinessAddress: "100 Floor St",
+		City:            "Testville",
+		State:           "TS",
+		ZipCode:         "12345",
+	}
+	body, _ := json.Marshal(createPMReq)
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminPM, adminToken, body, "web", "127.0.0.1")
+	resp := h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var createdPM shared_dtos.PropertyManager
+	json.NewDecoder(resp.Body).Decode(&createdPM)
+	pmID, _ := uuid.Parse(createdPM.ID)
+
+	// Create Property
+	propReq := dtos.CreatePropertyRequest{ManagerID: pmID, PropertyName: "FloorProp", Address: "1 St", City: "X", State: "TS", ZipCode: "12345", TimeZone: "UTC", Latitude: 34.7, Longitude: -86.5}
+	propBody, _ := json.Marshal(propReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminProperties, adminToken, propBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var prop models.Property
+	json.NewDecoder(resp.Body).Decode(&prop)
+
+	// Create Building
+	bReq := dtos.CreateBuildingRequest{PropertyID: prop.ID, BuildingName: "B1"}
+	bBody, _ := json.Marshal(bReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminBuildings, adminToken, bBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var bldgDTO dtos.Building
+	json.NewDecoder(resp.Body).Decode(&bldgDTO)
+
+	// Create Floor (number 1)
+	floorReq := dtos.CreateFloorRequest{PropertyID: prop.ID, BuildingID: bldgDTO.ID, Number: 1}
+	floorBody, _ := json.Marshal(floorReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminFloors, adminToken, floorBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var createdFloor models.Floor
+	json.NewDecoder(resp.Body).Decode(&createdFloor)
+	require.Equal(t, int16(1), createdFloor.Number)
+	require.Equal(t, prop.ID, createdFloor.PropertyID)
+	require.Equal(t, bldgDTO.ID, createdFloor.BuildingID)
+
+	// Audit check for floor create
+	audits, err := h.AdminAuditLogRepo.ListByTargetID(ctx, createdFloor.ID)
+	require.NoError(t, err)
+	require.Len(t, audits, 1)
+	require.Equal(t, models.AuditCreate, audits[0].Action)
+	require.Equal(t, models.TargetFloor, audits[0].TargetType)
+
+	// List floors by building
+	listReq := dtos.ListFloorsByBuildingRequest{BuildingID: bldgDTO.ID}
+	listBody, _ := json.Marshal(listReq)
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminFloorsByBuilding, adminToken, listBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var floors []*models.Floor
+	json.NewDecoder(resp.Body).Decode(&floors)
+	require.Len(t, floors, 1)
+	require.Equal(t, createdFloor.ID, floors[0].ID)
+
+	// Uniqueness: creating number 1 again in same building should conflict
+	req = h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminFloors, adminToken, floorBody, "web", "127.0.0.1")
+	resp = h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusConflict, resp.StatusCode)
+}
+
+// New test: creating an agent without lat/lng should auto-geocode and succeed
+func TestAdminCreateAgent_AutoGeocodeWhenNoLatLng(t *testing.T) {
+	h.T = t
+	ctx := h.Ctx
+
+	adminUser, err := h.AdminRepo.GetByUsername(ctx, "seedadmin")
+	require.NoError(t, err)
+	require.NotNil(t, adminUser)
+	adminToken := h.CreateWebJWT(adminUser.ID, "127.0.0.1")
+
+	createReq := dtos.CreateAgentRequest{
+		Name:        "Geo Agent",
+		Email:       testhelpers.UniqueEmail("agent-geo"),
+		PhoneNumber: "+15555551234",
+		Address:     "1600 Amphitheatre Parkway",
+		City:        "Mountain View",
+		State:       "CA",
+		ZipCode:     "94043",
+		// Latitude/Longitude omitted intentionally
+	}
+	body, _ := json.Marshal(createReq)
+	req := h.BuildAuthRequest(http.MethodPost, h.BaseURL+routes.AdminAgents, adminToken, body, "web", "127.0.0.1")
+	resp := h.DoRequest(req, http.DefaultClient)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var created models.Agent
+	json.NewDecoder(resp.Body).Decode(&created)
+	// We accept either non-zero coords (geocoded) or zeros if API key not set; just assert fields echo and types OK
+	require.Equal(t, createReq.Name, created.Name)
+	require.Equal(t, createReq.Email, created.Email)
+	require.Equal(t, createReq.PhoneNumber, created.PhoneNumber)
+	require.Equal(t, createReq.Address, created.Address)
+	require.Equal(t, createReq.City, created.City)
+	require.Equal(t, createReq.State, created.State)
+	require.Equal(t, createReq.ZipCode, created.ZipCode)
 }

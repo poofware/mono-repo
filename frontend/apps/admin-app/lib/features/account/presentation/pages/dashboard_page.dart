@@ -19,6 +19,9 @@ class DashboardPage extends StatelessWidget {
     if (location.startsWith('/dashboard/pms')) {
       return 1;
     }
+    if (location.startsWith('/dashboard/agents')) {
+      return 2;
+    }
     // Default to home
     return 0;
   }
@@ -30,6 +33,9 @@ class DashboardPage extends StatelessWidget {
         break;
       case 1:
         GoRouter.of(context).go('/dashboard/pms');
+        break;
+      case 2:
+        GoRouter.of(context).go('/dashboard/agents');
         break;
     }
   }
@@ -76,6 +82,11 @@ class DashboardPage extends StatelessWidget {
                 icon: Icon(Icons.business_outlined),
                 selectedIcon: Icon(Icons.business),
                 label: Text('PMs'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.badge_outlined),
+                selectedIcon: Icon(Icons.badge),
+                label: Text('Agents'),
               ),
             ],
           ),

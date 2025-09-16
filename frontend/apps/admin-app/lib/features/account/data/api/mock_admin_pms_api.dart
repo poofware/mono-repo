@@ -63,6 +63,7 @@ class MockAdminPmsApi implements AdminApiInterface {
               id: bldg1Id,
               propertyId: prop1Id,
               buildingName: 'Building 1',
+              floors: [],
               units: [
                 UnitAdmin(
                     id: _uuid.v4(),
@@ -88,6 +89,7 @@ class MockAdminPmsApi implements AdminApiInterface {
               id: bldg2Id,
               propertyId: prop1Id,
               buildingName: 'Building 2',
+              floors: [],
               units: [
                 UnitAdmin(
                     id: _uuid.v4(),
@@ -332,6 +334,38 @@ class MockAdminPmsApi implements AdminApiInterface {
       }
     }
     throw ApiException(404, 'Property not found to add building to.');
+  }
+
+  @override
+  Future<FloorAdmin> createFloor(Map<String, dynamic> data) async {
+    await Future.delayed(Duration(milliseconds: 150 + _random.nextInt(200)));
+    final propertyId = data['property_id'] as String;
+    final buildingId = data['building_id'] as String;
+    final floor = FloorAdmin.fromJson({
+      ...data,
+      'id': _uuid.v4(),
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    for (final snapshot in _data) {
+      final propIndex = snapshot.properties.indexWhere((p) => p.id == propertyId);
+      if (propIndex != -1) {
+        final bIndex = snapshot.properties[propIndex].buildings
+            .indexWhere((b) => b.id == buildingId);
+        if (bIndex != -1) {
+          final b = snapshot.properties[propIndex].buildings[bIndex];
+          final updated = BuildingAdmin.fromJson({
+            ...b.toJson(),
+            'floors': [...b.floors.map((f) => f.toJson()), floor.toJson()],
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+          snapshot.properties[propIndex].buildings[bIndex] = updated;
+          return floor;
+        }
+      }
+    }
+    throw ApiException(404, 'Building not found to add floor to.');
   }
 
   @override
@@ -716,5 +750,76 @@ class MockAdminPmsApi implements AdminApiInterface {
       }
     }
     throw ApiException(404, 'Job Definition not found');
+  }
+
+  // --- Agent Methods (mock stubs) ---
+  @override
+  Future<AgentAdmin> createAgent(Map<String, dynamic> data) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    // Minimal stub entity; not used in tests.
+    return AgentAdmin(
+      id: _uuid.v4(),
+      name: data['name'] as String? ?? 'Agent',
+      email: data['email'] as String? ?? 'agent@example.com',
+      phoneNumber: data['phone_number'] as String? ?? '+15555550123',
+      address: data['address'] as String? ?? '123 St',
+      city: data['city'] as String? ?? 'City',
+      state: data['state'] as String? ?? 'CA',
+      zipCode: data['zip_code'] as String? ?? '90000',
+      latitude: (data['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<AgentAdmin> updateAgent(Map<String, dynamic> data) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return AgentAdmin(
+      id: data['id'] as String? ?? _uuid.v4(),
+      name: data['name'] as String? ?? 'Agent',
+      email: data['email'] as String? ?? 'agent@example.com',
+      phoneNumber: data['phone_number'] as String? ?? '+15555550123',
+      address: data['address'] as String? ?? '123 St',
+      city: data['city'] as String? ?? 'City',
+      state: data['state'] as String? ?? 'CA',
+      zipCode: data['zip_code'] as String? ?? '90000',
+      latitude: (data['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<void> deleteAgent(Map<String, dynamic> data) async {
+    await Future.delayed(const Duration(milliseconds: 150));
+  }
+
+  @override
+  Future<List<FloorAdmin>> listFloorsByBuilding(Map<String, dynamic> data) async {
+    await Future.delayed(const Duration(milliseconds: 150));
+    final buildingId = data['building_id'] as String;
+    for (final snapshot in _data) {
+      for (final prop in snapshot.properties) {
+        final b = prop.buildings.firstWhere(
+          (b) => b.id == buildingId,
+          orElse: () => BuildingAdmin(
+            id: '',
+            propertyId: '',
+            buildingName: '',
+            floors: const [],
+            units: const [],
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+        if (b.id.isNotEmpty) {
+          return b.floors;
+        }
+      }
+    }
+    return [];
   }
 }

@@ -4,22 +4,23 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
 	"github.com/poofware/mono-repo/backend/shared/go-models"
 	"github.com/poofware/mono-repo/backend/shared/go-repositories"
 	"github.com/poofware/mono-repo/backend/shared/go-utils"
-	"github.com/poofware/mono-repo/backend/services/account-service/internal/dtos"
 )
 
 type PMService struct {
 	pmRepo repositories.PropertyManagerRepository
-	prop repositories.PropertyRepository
-	bldg repositories.PropertyBuildingRepository
-	unit repositories.UnitRepository
-	dump repositories.DumpsterRepository
+	prop   repositories.PropertyRepository
+	bldg   repositories.PropertyBuildingRepository
+	floor  repositories.FloorRepository
+	unit   repositories.UnitRepository
+	dump   repositories.DumpsterRepository
 }
 
-func NewPMService(pmRepo repositories.PropertyManagerRepository, prop repositories.PropertyRepository, bldg repositories.PropertyBuildingRepository, unit repositories.UnitRepository, dump repositories.DumpsterRepository) *PMService {
-	return &PMService{pmRepo, prop, bldg, unit, dump}
+func NewPMService(pmRepo repositories.PropertyManagerRepository, prop repositories.PropertyRepository, bldg repositories.PropertyBuildingRepository, floor repositories.FloorRepository, unit repositories.UnitRepository, dump repositories.DumpsterRepository) *PMService {
+	return &PMService{pmRepo, prop, bldg, floor, unit, dump}
 }
 
 // GetPMByID retrieves the pm from the DB.
@@ -76,8 +77,9 @@ func (s *PMService) ListProperties(
 		// (3) build DTOs
 		bldgDTOs := make([]dtos.Building, 0, len(buildings))
 		for _, b := range buildings {
+			floors, _ := s.floor.ListByBuildingID(ctx, b.ID)
 			bldgDTOs = append(bldgDTOs,
-				dtos.NewBuildingFromModel(b, unitMap[b.ID]))
+				dtos.NewBuildingFromModel(b, floors, unitMap[b.ID]))
 		}
 
 		out = append(out,
@@ -86,4 +88,3 @@ func (s *PMService) ListProperties(
 
 	return out, nil
 }
-

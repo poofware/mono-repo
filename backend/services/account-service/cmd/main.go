@@ -37,6 +37,7 @@ func main() {
 	pmRepo := repositories.NewPropertyManagerRepository(application.DB, cfg.DBEncryptionKey)
 	propRepo := repositories.NewPropertyRepository(application.DB)
 	bldgRepo := repositories.NewPropertyBuildingRepository(application.DB)
+	floorRepo := repositories.NewFloorRepository(application.DB)
 	dumpRepo := repositories.NewDumpsterRepository(application.DB)
 	unitRepo := repositories.NewUnitRepository(application.DB)
 	jobDefRepo := repositories.NewJobDefinitionRepository(application.DB)
@@ -60,13 +61,13 @@ func main() {
 
 	// Services
 	sgClient := sendgrid.NewSendClient(cfg.SendgridAPIKey) // Instantiate SendGrid client
-	pmService := services.NewPMService(pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo)
+	pmService := services.NewPMService(pmRepo, propRepo, bldgRepo, floorRepo, unitRepo, dumpRepo)
 	workerService := services.NewWorkerService(cfg, workerRepo, workerSMSRepo, unitRepo, propRepo)
 	waitlistService := services.NewWaitlistService(cfg, workerRepo)
 	// MODIFIED: Inject SendGrid client and Config into WorkerStripeService
 	workerStripeService := services.NewWorkerStripeService(cfg, workerRepo, sgClient)
 	stripeWebhookCheckService := services.NewStripeWebhookCheckService()
-	adminService := services.NewAdminService(cfg, pmRepo, propRepo, bldgRepo, unitRepo, dumpRepo, jobDefRepo, auditRepo, adminRepo, agentRepo)
+	adminService := services.NewAdminService(cfg, pmRepo, propRepo, bldgRepo, floorRepo, unitRepo, dumpRepo, jobDefRepo, auditRepo, adminRepo, agentRepo)
 
 	checkrService, err := services.NewCheckrService(cfg, workerRepo, sgClient)
 	if err != nil {
@@ -193,7 +194,12 @@ func main() {
 	secured.HandleFunc(routes.AdminBuildings, adminController.UpdateBuildingHandler).Methods(http.MethodPatch)
 	secured.HandleFunc(routes.AdminBuildings, adminController.DeleteBuildingHandler).Methods(http.MethodDelete)
 
+	// Floors
+	secured.HandleFunc(routes.AdminFloors, adminController.CreateFloorHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminFloorsByBuilding, adminController.ListFloorsByBuildingHandler).Methods(http.MethodPost)
+
 	secured.HandleFunc(routes.AdminUnits, adminController.CreateUnitHandler).Methods(http.MethodPost)
+	secured.HandleFunc(routes.AdminUnitsBatch, adminController.CreateUnitsBatchHandler).Methods(http.MethodPost)
 	secured.HandleFunc(routes.AdminUnits, adminController.UpdateUnitHandler).Methods(http.MethodPatch)
 	secured.HandleFunc(routes.AdminUnits, adminController.DeleteUnitHandler).Methods(http.MethodDelete)
 

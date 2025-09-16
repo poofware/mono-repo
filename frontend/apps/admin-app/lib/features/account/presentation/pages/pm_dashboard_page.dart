@@ -72,6 +72,12 @@ class _PmsDashboardPageState extends ConsumerState<PmsDashboardPage> {
         title: const Text('Property Managers'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.person_add_outlined),
+            tooltip: 'Create Agent',
+            onPressed: () => context.go('/dashboard/pms/agents/new'),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
             icon: const Icon(Icons.add_circle_outline),
             tooltip: 'Create Property Manager',
             onPressed: () => context.go('/dashboard/pms/new'),

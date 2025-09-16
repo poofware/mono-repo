@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:poof_admin/features/account/data/models/unit_admin.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
-import 'package:poof_admin/features/account/state/unit_form_notifier.dart';
 import 'package:poof_admin/features/account/state/unit_form_state.dart';
 
 class UnitFormPage extends ConsumerStatefulWidget {
@@ -32,6 +31,7 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _unitNumberController;
   late final TextEditingController _tenantTokenController;
+  String? _selectedFloorId;
   final _uuid = const Uuid();
 
   @override
@@ -40,6 +40,7 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
     final u = widget.unit;
     _unitNumberController = TextEditingController(text: u?.unitNumber);
     _tenantTokenController = TextEditingController(text: u?.tenantToken);
+    _selectedFloorId = u?.floorId;
     if (!widget.isEditMode) {
       _tenantTokenController.text = _uuid.v4();
     }
@@ -49,6 +50,7 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
   void dispose() {
     _unitNumberController.dispose();
     _tenantTokenController.dispose();
+    // no controllers to dispose for floorId dropdown
     super.dispose();
   }
 
@@ -60,6 +62,7 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
     final data = {
       'property_id': widget.propertyId,
       'building_id': widget.buildingId,
+      'floor_id': _selectedFloorId,
       'unit_number': _unitNumberController.text.trim(),
       'tenant_token': _tenantTokenController.text.trim(),
     };
@@ -101,6 +104,7 @@ class _UnitFormPageState extends ConsumerState<UnitFormPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildTextField(_unitNumberController, 'Unit Number', fieldErrors),
+              _buildFloorDropdown(fieldErrors),
                _buildTenantTokenField(fieldErrors),
               const SizedBox(height: 24),
                SizedBox(
@@ -177,6 +181,46 @@ Widget _buildTenantTokenField(Map<String, String>? fieldErrors) {
           }
           return null;
         },
+      ),
+    );
+  }
+
+  Widget _buildFloorDropdown(Map<String, String>? fieldErrors) {
+    // Pull floors from current property/building in memory via provider snapshot
+    final snapshot = ref.read(pmSnapshotProvider(widget.pmId)).maybeWhen(
+          data: (s) => s,
+          orElse: () => null,
+        );
+    final floors = snapshot?.properties
+            .firstWhere((p) => p.id == widget.propertyId)
+            .buildings
+            .firstWhere((b) => b.id == widget.buildingId)
+            .floors ??
+        [];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'Floor',
+          border: const OutlineInputBorder(),
+          errorText: fieldErrors?['floor_id'],
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            isExpanded: true,
+            value: _selectedFloorId,
+            items: floors.map((f) => DropdownMenuItem<String>(
+                  value: f.id,
+                  child: Text('Floor ${f.number}'),
+                )).toList(),
+            onChanged: (val) {
+              setState(() {
+                _selectedFloorId = val;
+              });
+            },
+          ),
+        ),
       ),
     );
   }

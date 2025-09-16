@@ -20,6 +20,7 @@ type ConfirmationResponse struct {
 }
 
 // ----- Property Manager DTOs -----
+
 type CreatePropertyManagerRequest struct {
 	Email           string  `json:"email" validate:"required,email"`
 	PhoneNumber     *string `json:"phone_number,omitempty" validate:"omitempty,e164"`
@@ -100,18 +101,41 @@ type UpdateBuildingRequest struct {
 	Longitude    *float64  `json:"longitude,omitempty" validate:"omitempty,longitude"`
 }
 
+// ----- Floor DTOs -----
+
+type CreateFloorRequest struct {
+	PropertyID uuid.UUID `json:"property_id" validate:"required"`
+	BuildingID uuid.UUID `json:"building_id" validate:"required"`
+	Number     int16     `json:"number" validate:"required,min=0"`
+}
+
+type ListFloorsByBuildingRequest struct {
+	BuildingID uuid.UUID `json:"building_id" validate:"required"`
+}
+
 // ----- Unit DTOs -----
 
 type CreateUnitRequest struct {
 	PropertyID  uuid.UUID `json:"property_id" validate:"required"`
 	BuildingID  uuid.UUID `json:"building_id" validate:"required"`
+	FloorID     uuid.UUID `json:"floor_id" validate:"required,uuid4"`
 	UnitNumber  string    `json:"unit_number" validate:"required"`
 	TenantToken string    `json:"tenant_token" validate:"omitempty,uuid4"`
 }
 
 type UpdateUnitRequest struct {
-	ID         uuid.UUID `json:"id" validate:"required"`
-	UnitNumber *string   `json:"unit_number,omitempty" validate:"omitempty,min=1"`
+	ID         uuid.UUID  `json:"id" validate:"required"`
+	UnitNumber *string    `json:"unit_number,omitempty" validate:"omitempty,min=1"`
+	FloorID    *uuid.UUID `json:"floor_id,omitempty" validate:"omitempty,uuid4"`
+}
+
+// Batch Units DTOs
+type CreateUnitsRequest struct {
+	Items []CreateUnitRequest `json:"items" validate:"required,min=1,dive"`
+}
+
+type CreateUnitsResponse struct {
+	Created []models.Unit `json:"created"`
 }
 
 // ----- Dumpster DTOs -----

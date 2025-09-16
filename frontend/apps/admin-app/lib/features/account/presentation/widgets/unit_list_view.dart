@@ -42,7 +42,7 @@ class UnitListView extends ConsumerWidget {
       children: units
           .map((unit) => ListTile(
                 dense: true,
-                title: Text('Unit: ${unit.unitNumber}'),
+                title: Text('Unit: ${unit.unitNumber}${unit.floorId != null ? ' (Floor selected)' : ''}'),
                 subtitle: Text('Token: ${unit.tenantToken}'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,

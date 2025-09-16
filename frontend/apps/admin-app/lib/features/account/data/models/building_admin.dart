@@ -1,5 +1,6 @@
 // NEW FILE
 import 'package:poof_admin/features/account/data/models/unit_admin.dart';
+import 'package:poof_admin/features/account/data/models/floor_admin.dart';
 
 class BuildingAdmin {
   final String id;
@@ -8,6 +9,7 @@ class BuildingAdmin {
   final String? address;
   final double? latitude;
   final double? longitude;
+  final List<FloorAdmin> floors;
   final List<UnitAdmin> units;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -20,6 +22,7 @@ class BuildingAdmin {
     this.address,
     this.latitude,
     this.longitude,
+    required this.floors,
     required this.units,
     required this.createdAt,
     required this.updatedAt,
@@ -33,6 +36,10 @@ class BuildingAdmin {
         address = json['address'] as String?,
         latitude = json['latitude'] as double?,
         longitude = json['longitude'] as double?,
+        floors = (json['floors'] as List<dynamic>?)
+                ?.map((f) => FloorAdmin.fromJson(f as Map<String, dynamic>))
+                .toList() ??
+            [],
         units = (json['units'] as List<dynamic>?)
                 ?.map((u) => UnitAdmin.fromJson(u as Map<String, dynamic>))
                 .toList() ??
@@ -61,6 +68,7 @@ class BuildingAdmin {
         'address': address,
         'latitude': latitude,
         'longitude': longitude,
+        'floors': floors.map((f) => f.toJson()).toList(),
         'units': units.map((u) => u.toJson()).toList(),
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),

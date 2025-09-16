@@ -14,6 +14,7 @@ type Unit struct {
 	ID          uuid.UUID  `json:"id"`
 	PropertyID  uuid.UUID  `json:"property_id"`
 	BuildingID  uuid.UUID  `json:"building_id"`
+	FloorID     *uuid.UUID `json:"floor_id,omitempty"`
 	UnitNumber  string     `json:"unit_number"`
 	TenantToken string     `json:"tenant_token"`
 	CreatedAt   time.Time  `json:"created_at"`

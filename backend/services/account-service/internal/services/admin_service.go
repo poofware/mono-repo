@@ -24,6 +24,7 @@ type AdminService struct {
 	pmRepo       repositories.PropertyManagerRepository
 	propRepo     repositories.PropertyRepository
 	bldgRepo     repositories.PropertyBuildingRepository
+	floorRepo    repositories.FloorRepository
 	unitRepo     repositories.UnitRepository
 	dumpsterRepo repositories.DumpsterRepository
 	jobDefRepo   repositories.JobDefinitionRepository
@@ -37,6 +38,7 @@ func NewAdminService(
 	pmRepo repositories.PropertyManagerRepository,
 	propRepo repositories.PropertyRepository,
 	bldgRepo repositories.PropertyBuildingRepository,
+	floorRepo repositories.FloorRepository,
 	unitRepo repositories.UnitRepository,
 	dumpsterRepo repositories.DumpsterRepository,
 	jobDefRepo repositories.JobDefinitionRepository,
@@ -49,6 +51,7 @@ func NewAdminService(
 		pmRepo:       pmRepo,
 		propRepo:     propRepo,
 		bldgRepo:     bldgRepo,
+		floorRepo:    floorRepo,
 		unitRepo:     unitRepo,
 		dumpsterRepo: dumpsterRepo,
 		jobDefRepo:   jobDefRepo,
@@ -290,7 +293,8 @@ func (s *AdminService) GetPropertyManagerSnapshot(ctx context.Context, adminID, 
 
 		bldgDTOs := make([]internal_dtos.Building, len(buildings))
 		for i, b := range buildings {
-			bldgDTOs[i] = internal_dtos.NewBuildingFromModel(b, unitMap[b.ID])
+			floors, _ := s.floorRepo.ListByBuildingID(ctx, b.ID)
+			bldgDTOs[i] = internal_dtos.NewBuildingFromModel(b, floors, unitMap[b.ID])
 		}
 
 		propDTO := internal_dtos.NewPropertyFromModel(p, bldgDTOs, dumpsters)
@@ -476,8 +480,62 @@ func (s *AdminService) CreateBuilding(ctx context.Context, adminID uuid.UUID, re
 	s.logAudit(ctx, adminID, building.ID, models.AuditCreate, models.TargetBuilding, building)
 
 	// Construct the DTO with an empty slice for units
-	buildingDTO := internal_dtos.NewBuildingFromModel(building, []*models.Unit{})
+	buildingDTO := internal_dtos.NewBuildingFromModel(building, []*models.Floor{}, []*models.Unit{})
 	return &buildingDTO, nil
+}
+
+// CreateFloor creates a new floor for a building.
+func (s *AdminService) CreateFloor(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateFloorRequest) (*models.Floor, error) {
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		return nil, err
+	}
+	// Validate parent building and property relationship
+	bldg, err := s.bldgRepo.GetByID(ctx, req.BuildingID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent building not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for parent building", Err: err}
+	}
+	if bldg.PropertyID != req.PropertyID {
+		return nil, &utils.AppError{StatusCode: http.StatusBadRequest, Code: utils.ErrCodeInvalidPayload, Message: "The specified building does not belong to the specified property."}
+	}
+
+	// Enforce uniqueness of (building_id, number)
+	existing, err := s.floorRepo.GetByBuildingAndNumber(ctx, req.BuildingID, req.Number)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check existing floors", Err: err}
+	}
+	if existing != nil {
+		return nil, &utils.AppError{StatusCode: http.StatusConflict, Code: utils.ErrCodeConflict, Message: "A floor with this number already exists in this building."}
+	}
+
+	f := &models.Floor{
+		ID:         uuid.New(),
+		PropertyID: req.PropertyID,
+		BuildingID: req.BuildingID,
+		Number:     req.Number,
+	}
+	if err := s.floorRepo.Create(ctx, f); err != nil {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to create floor", Err: err}
+	}
+	s.logAudit(ctx, adminID, f.ID, models.AuditCreate, models.TargetFloor, f)
+	return f, nil
+}
+
+// ListFloorsByBuilding returns non-deleted floors for a building ordered by number.
+func (s *AdminService) ListFloorsByBuilding(ctx context.Context, adminID uuid.UUID, buildingID uuid.UUID) ([]*models.Floor, error) {
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		return nil, err
+	}
+	floors, err := s.floorRepo.ListByBuildingID(ctx, buildingID)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to list floors", Err: err}
+	}
+	if floors == nil {
+		floors = []*models.Floor{}
+	}
+	return floors, nil
 }
 
 // UpdateBuilding updates an existing building.
@@ -588,6 +646,7 @@ func (s *AdminService) CreateUnit(ctx context.Context, adminID uuid.UUID, req in
 		ID:          uuid.New(),
 		PropertyID:  req.PropertyID,
 		BuildingID:  req.BuildingID,
+		FloorID:     &req.FloorID,
 		UnitNumber:  req.UnitNumber,
 		TenantToken: token,
 	}
@@ -599,6 +658,90 @@ func (s *AdminService) CreateUnit(ctx context.Context, adminID uuid.UUID, req in
 	return unit, nil
 }
 
+// CreateUnitsBatch creates multiple units atomically for a building.
+func (s *AdminService) CreateUnitsBatch(ctx context.Context, adminID uuid.UUID, req internal_dtos.CreateUnitsRequest) (*internal_dtos.CreateUnitsResponse, error) {
+	if err := s.authorizeAdmin(ctx, adminID); err != nil {
+		return nil, err
+	}
+
+	if len(req.Items) == 0 {
+		return &internal_dtos.CreateUnitsResponse{Created: []models.Unit{}}, nil
+	}
+
+	// Validate all belong to same property and building and check duplicate unit_numbers within payload
+	propID := req.Items[0].PropertyID
+	bldgID := req.Items[0].BuildingID
+	seen := make(map[string]bool)
+	for _, it := range req.Items {
+		if it.PropertyID != propID || it.BuildingID != bldgID {
+			return nil, &utils.AppError{StatusCode: http.StatusBadRequest, Code: utils.ErrCodeInvalidPayload, Message: "All units in batch must target the same property and building"}
+		}
+		if it.UnitNumber == "" {
+			return nil, &utils.AppError{StatusCode: http.StatusBadRequest, Code: utils.ErrCodeInvalidPayload, Message: "Unit number is required for all items"}
+		}
+		if seen[strings.ToLower(it.UnitNumber)] {
+			return nil, &utils.AppError{StatusCode: http.StatusBadRequest, Code: utils.ErrCodeInvalidPayload, Message: "Duplicate unit_number in batch payload"}
+		}
+		seen[strings.ToLower(it.UnitNumber)] = true
+	}
+
+	// Ensure building exists and belongs to property
+	bldg, err := s.bldgRepo.GetByID(ctx, bldgID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, &utils.AppError{StatusCode: http.StatusNotFound, Code: utils.ErrCodeNotFound, Message: "Parent building not found"}
+		}
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for parent building", Err: err}
+	}
+	if bldg.PropertyID != propID {
+		return nil, &utils.AppError{StatusCode: http.StatusBadRequest, Code: utils.ErrCodeInvalidPayload, Message: "The specified building does not belong to the specified property."}
+	}
+
+	// Conflict check against existing units in building
+	existingUnits, err := s.unitRepo.ListByBuildingID(ctx, bldgID)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to check for existing units", Err: err}
+	}
+	existingSet := make(map[string]bool)
+	for _, u := range existingUnits {
+		existingSet[strings.ToLower(u.UnitNumber)] = true
+	}
+	for k := range seen {
+		if existingSet[k] {
+			return nil, &utils.AppError{StatusCode: http.StatusConflict, Code: utils.ErrCodeConflict, Message: "One or more unit_numbers already exist in this building"}
+		}
+	}
+
+	// Build models
+	units := make([]models.Unit, 0, len(req.Items))
+	for _, it := range req.Items {
+		token := strings.TrimSpace(it.TenantToken)
+		if token == "" {
+			token = uuid.NewString()
+		}
+
+		units = append(units, models.Unit{
+			ID:          uuid.New(),
+			PropertyID:  propID,
+			BuildingID:  bldgID,
+			FloorID:     &it.FloorID,
+			UnitNumber:  it.UnitNumber,
+			TenantToken: token,
+		})
+	}
+
+	if err := s.unitRepo.CreateMany(ctx, units); err != nil {
+		return nil, &utils.AppError{StatusCode: http.StatusInternalServerError, Code: utils.ErrCodeInternal, Message: "Failed to create units batch", Err: err}
+	}
+
+	// Audit each unit creation
+	for i := range units {
+		s.logAudit(ctx, adminID, units[i].ID, models.AuditCreate, models.TargetUnit, units[i])
+	}
+
+	return &internal_dtos.CreateUnitsResponse{Created: units}, nil
+}
+
 // UpdateUnit updates an existing unit.
 func (s *AdminService) UpdateUnit(ctx context.Context, adminID uuid.UUID, req internal_dtos.UpdateUnitRequest) (*models.Unit, error) {
 	if err := s.authorizeAdmin(ctx, adminID); err != nil {
@@ -608,6 +751,9 @@ func (s *AdminService) UpdateUnit(ctx context.Context, adminID uuid.UUID, req in
 	err := s.unitRepo.UpdateWithRetry(ctx, req.ID, func(u *models.Unit) error {
 		if req.UnitNumber != nil {
 			u.UnitNumber = *req.UnitNumber
+		}
+		if req.FloorID != nil {
+			u.FloorID = req.FloorID
 		}
 		updatedUnit = u
 		return nil
@@ -734,6 +880,19 @@ func (s *AdminService) CreateAgent(ctx context.Context, adminID uuid.UUID, req i
 		return nil, err
 	}
 
+	// Resolve coordinates from request or geocode from address (fallback when zero)
+	lat := req.Latitude
+	lng := req.Longitude
+	if (lat == 0 && lng == 0) || lat == 0 || lng == 0 {
+		fullAddr := fmt.Sprintf("%s, %s, %s %s", req.Address, req.City, req.State, req.ZipCode)
+		gLat, gLng, gErr := utils.GeocodeAddress(fullAddr, s.cfg.GMapsAPIKey)
+		if gErr != nil {
+			utils.Logger.WithError(gErr).Warnf("Geocoding failed for agent address '%s'", fullAddr)
+		} else {
+			lat, lng = gLat, gLng
+		}
+	}
+
 	agent := &models.Agent{
 		ID:          uuid.New(),
 		Name:        req.Name,
@@ -743,8 +902,8 @@ func (s *AdminService) CreateAgent(ctx context.Context, adminID uuid.UUID, req i
 		City:        req.City,
 		State:       req.State,
 		ZipCode:     req.ZipCode,
-		Latitude:    req.Latitude,
-		Longitude:   req.Longitude,
+		Latitude:    lat,
+		Longitude:   lng,
 	}
 
 	if err := s.agentRepo.Create(ctx, agent); err != nil {

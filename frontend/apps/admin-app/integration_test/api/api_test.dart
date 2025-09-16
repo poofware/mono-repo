@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:otp/otp.dart';
 import 'package:poof_admin/core/config/dev_flavor.dart';
-import 'package:poof_admin/core/config/integration_test_flavor.dart';
 import 'package:poof_admin/features/account/data/models/pm_models.dart';
 import 'package:poof_admin/features/account/providers/pm_providers.dart';
 import 'package:poof_admin/features/auth/data/models/admin_login_request.dart';
@@ -132,19 +131,32 @@ void main() {
       expect(createdBuilding, isNotNull, reason: "Building creation failed.");
     });
 
-    testWidgets('Step 2.4: Create Unit', (tester) async {
+    testWidgets('Step 2.4: Create Unit (with floor)', (tester) async {
       final accountRepo = TestContext.accountRepo;
       expect(createdProperty, isNotNull);
       expect(createdBuilding, isNotNull);
-      
+
+      // Fetch snapshot to find available floors for the created building
+      final snapshot = await accountRepo!.getSnapshot({'manager_id': createdPm!.id});
+      final prop = snapshot.properties.firstWhere((p) => p.id == createdProperty!.id,
+          orElse: () => throw Exception('Property not found in snapshot'));
+      final bldg = prop.buildings.firstWhere((b) => b.id == createdBuilding!.id,
+          orElse: () => throw Exception('Building not found in snapshot'));
+
+      expect(bldg.floors, isNotEmpty, reason: 'Building should have at least one floor');
+      final floorId = bldg.floors.first.id;
+
       final unitData = {
         'property_id': createdProperty!.id,
         'building_id': createdBuilding!.id,
+        'floor_id': floorId,
         'unit_number': '101',
         'tenant_token': uuid.v4()
       };
-      createdUnit = await accountRepo!.createUnit(unitData);
-      expect(createdUnit, isNotNull, reason: "Unit creation failed.");
+
+      createdUnit = await accountRepo.createUnit(unitData);
+      expect(createdUnit, isNotNull, reason: 'Unit creation failed.');
+      expect(createdUnit!.floorId, equals(floorId), reason: 'Unit should be associated with selected floor');
     });
 
     testWidgets('Step 2.5: Create Dumpster', (tester) async {

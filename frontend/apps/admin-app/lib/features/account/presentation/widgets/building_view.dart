@@ -222,6 +222,57 @@ class BuildingView extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton.icon(
+                          icon: const Icon(Icons.stairs_outlined),
+                          label: const Text('Add Floor'),
+                          onPressed: () async {
+                            final numberController = TextEditingController();
+                            final result = await showDialog<int>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Create Floor'),
+                                content: TextField(
+                                  controller: numberController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Floor Number',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(ctx).pop(),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      final val = int.tryParse(numberController.text);
+                                      if (val != null) {
+                                        Navigator.of(ctx).pop(val);
+                                      }
+                                    },
+                                    child: const Text('Create'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (result != null) {
+                              final repo = ref.read(adminAccountRepositoryProvider);
+                              await repo.createFloor({
+                                'property_id': property.id,
+                                'building_id': building.id,
+                                'number': result,
+                              });
+                              ref.invalidate(pmSnapshotProvider(property.managerId));
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
                           icon: const Icon(Icons.add),
                           label: const Text('Add Unit'),
                           onPressed: () => _showAddUnitChoiceDialog(

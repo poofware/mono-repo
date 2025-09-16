@@ -17,6 +17,8 @@ import 'package:poof_admin/features/account/state/unit_form_notifier.dart';
 import 'package:poof_admin/features/account/state/unit_form_state.dart';
 import 'package:poof_admin/features/account/state/pm_form_notifier.dart';
 import 'package:poof_admin/features/account/state/pm_form_state.dart';
+import 'package:poof_admin/features/account/state/agent_form_notifier.dart';
+import 'package:poof_admin/features/account/state/agent_form_state.dart';
 import 'package:poof_admin/features/auth/providers/admin_auth_providers.dart';
 
 /// Provider for the API service. Singleton.
@@ -35,6 +37,12 @@ final pmsApiProvider = Provider<AdminApiInterface>((ref) {
 /// Provider for the repository. Singleton.
 final adminAccountRepositoryProvider = Provider<AdminAccountRepository>((ref) {
   return AdminAccountRepository(ref.read(pmsApiProvider));
+});
+
+// Agent form provider
+final agentFormProvider =
+    StateNotifierProvider<AgentFormNotifier, AgentFormState>((ref) {
+  return AgentFormNotifier(ref);
 });
 
 /// State provider to hold the current search query for the PM list.

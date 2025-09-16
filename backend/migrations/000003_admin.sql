@@ -94,8 +94,8 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- Postgres prohibits using a newly added enum value in the same transaction it is added.
 -- Leave the existing default in place for now to avoid SQLSTATE 55P04 during migrations.
 -- A subsequent migration can safely set the default to 'AWAITING_INFO' once the value exists.
--- ALTER TABLE property_managers
--- ALTER COLUMN setup_progress SET DEFAULT 'AWAITING_INFO';
+ALTER TABLE property_managers
+ALTER COLUMN setup_progress SET DEFAULT 'AWAITING_INFO';
 
 ALTER TABLE property_managers
 ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
@@ -122,6 +122,27 @@ ALTER TABLE units
 ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE units
 ADD COLUMN IF NOT EXISTS row_version BIGINT NOT NULL DEFAULT 1;
+
+-- Floor support for units (no legacy backfill)
+-- Create floors table
+CREATE TABLE IF NOT EXISTS floors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_id UUID NOT NULL REFERENCES properties (id) ON DELETE CASCADE,
+    building_id UUID NOT NULL REFERENCES property_buildings (id) ON DELETE CASCADE,
+    number SMALLINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    row_version BIGINT NOT NULL DEFAULT 1,
+    UNIQUE (building_id, number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_floors_property_id ON floors (property_id);
+CREATE INDEX IF NOT EXISTS idx_floors_building_id ON floors (building_id);
+
+-- Add floor_id to units (required)
+ALTER TABLE units
+ADD COLUMN IF NOT EXISTS floor_id UUID NOT NULL REFERENCES floors (id);
 
 ALTER TABLE dumpsters
 ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
@@ -150,6 +171,7 @@ DROP COLUMN IF EXISTS updated_at,
 DROP COLUMN IF EXISTS created_at;
 
 ALTER TABLE units
+DROP COLUMN IF EXISTS floor_id,
 DROP COLUMN IF EXISTS row_version,
 DROP COLUMN IF EXISTS deleted_at,
 DROP COLUMN IF EXISTS updated_at;
@@ -180,3 +202,7 @@ DROP INDEX IF EXISTS idx_admins_username;
 DROP TABLE IF EXISTS admins;
 DROP TYPE IF EXISTS AUDIT_TARGET_TYPE;
 DROP TYPE IF EXISTS AUDIT_ACTION;
+
+DROP INDEX IF EXISTS idx_floors_building_id;
+DROP INDEX IF EXISTS idx_floors_property_id;
+DROP TABLE IF EXISTS floors;

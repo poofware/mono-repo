@@ -440,6 +440,72 @@ func (c *AdminController) DeleteBuildingHandler(w http.ResponseWriter, r *http.R
 	})
 }
 
+// POST /api/v1/account/admin/floors
+func (c *AdminController) CreateFloorHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.CreateFloorRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
+		}
+		return
+	}
+
+	floor, err := c.adminService.CreateFloor(r.Context(), adminID, req)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusCreated, floor)
+}
+
+// POST /api/v1/account/admin/floors/by-building
+func (c *AdminController) ListFloorsByBuildingHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.ListFloorsByBuildingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
+		}
+		return
+	}
+
+	floors, err := c.adminService.ListFloorsByBuilding(r.Context(), adminID, req.BuildingID)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, floors)
+}
+
 // POST /api/v1/account/admin/units
 func (c *AdminController) CreateUnitHandler(w http.ResponseWriter, r *http.Request) {
 	adminID, err := c.getAdminID(r)
@@ -471,6 +537,39 @@ func (c *AdminController) CreateUnitHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	utils.RespondWithJSON(w, http.StatusCreated, unit)
+}
+
+// POST /api/v1/account/admin/units/batch
+func (c *AdminController) CreateUnitsBatchHandler(w http.ResponseWriter, r *http.Request) {
+	adminID, err := c.getAdminID(r)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	var req dtos.CreateUnitsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeInvalidPayload, "Invalid JSON payload", nil, err)
+		return
+	}
+
+	if err := c.validate.Struct(req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			errorDetails := c.formatValidationErrors(validationErrs)
+			utils.RespondWithJSON(w, http.StatusBadRequest, errorDetails)
+		} else {
+			utils.RespondErrorWithCode(w, http.StatusBadRequest, utils.ErrCodeValidation, "Validation error", nil, err)
+		}
+		return
+	}
+
+	resp, err := c.adminService.CreateUnitsBatch(r.Context(), adminID, req)
+	if err != nil {
+		utils.HandleAppError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusCreated, resp)
 }
 
 // PATCH /api/v1/account/admin/units
