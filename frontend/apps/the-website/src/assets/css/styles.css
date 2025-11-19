@@ -252,36 +252,96 @@ body {
 }
 
 /* ---------- Home Page: "Why Poof?" Features Section ---------- */
-.about-features { display: flex; flex-direction: column; gap: var(--space-3); max-width: 1200px; margin-inline: auto; }
-.feature { 
+.about-features-grid { 
+    display: flex; 
+    flex-direction: column; 
+    gap: calc(var(--space-3) * 2); 
+    max-width: 1200px; 
+    margin-inline: auto;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+}
+
+.feature-card { 
   display: flex; 
   gap: var(--space-3); 
   align-items: center; 
   justify-content: space-between; 
   flex-wrap: wrap; 
-  background: var(--c-glass-bg);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--c-glass-border);
-  padding: var(--space-3);
-  border-radius: var(--radius-card);
-  transition: transform 0.3s ease;
+  background: transparent;
+  backdrop-filter: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  transition: none;
+  position: relative;
+  overflow: visible;
 }
-.feature:hover {
-  transform: translateY(-5px);
-  border-color: var(--c-glass-highlight);
+
+.feature-card:last-child {
+    border-bottom: none;
 }
-.feature.reverse { flex-direction: row-reverse; }
-.feature-text { flex: 1 1 360px; max-width: 600px; }
+
+.feature-card:hover {
+  background: transparent;
+  z-index: 1;
+}
+
+.feature-media {
+    flex: 0 0 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    backdrop-filter: none;
+    border: none;
+    padding: 0;
+    transition: transform 0.3s ease;
+}
+
+.feature-text-container {
+    flex: 1 1 360px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-card);
+    padding: var(--space-3);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.feature-card:hover .feature-text-container {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(167, 139, 250, 0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+}
+
+.feature-card:hover .feature-media {
+    transform: scale(1.05);
+}
+
+.feature-card.reverse { flex-direction: row-reverse; }
 .feature-text h3 { font-size: clamp(1.3rem, 2.3vw, 1.8rem); font-weight: 700; margin-block-end: var(--space-1); color: var(--c-text-primary); }
 .feature-text p { font-size: clamp(1rem, 2.2vw, 1.1rem); line-height: 1.6; color: var(--c-text-secondary); }
-.feature-media { flex: 0 0 200px; display: flex; align-items: center; justify-content: center; }
+
 .feature-icon { 
-  font-size: clamp(80px, 12vw, 120px); 
-  background: linear-gradient(135deg, #a78bfa, #f472b6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-} 
+  font-size: clamp(80px, 12vw, 100px); 
+  color: #d8b4fe;
+  text-shadow: 0 0 30px rgba(167, 139, 250, 0.4);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.3s ease, text-shadow 0.3s ease;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.2));
+}
+
+.feature-card:hover .feature-icon {
+    transform: scale(1.1) rotate(-8deg);
+    color: #f472b6;
+    text-shadow: 0 0 50px rgba(244, 114, 182, 0.6);
+}
 
 /* Shared section title style */
 .section-title { 
@@ -298,8 +358,8 @@ body {
 
 /* Scroll Animation Styles */
 .js-scroll-animate-init {
-  /* opacity: 0; REMOVED to ensure visibility if JS fails */
-  /* transform: translateY(30px); REMOVED */
+  opacity: 0; 
+  transform: translateY(30px); 
   transition: opacity 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); 
 }
 .js-scroll-animate-init.card-enter { 
@@ -478,13 +538,13 @@ body {
         display: none;
     }
 
-    .feature,
-    .feature.reverse {
+    .feature-card,
+    .feature-card.reverse {
       flex-direction: row; 
       align-items: flex-start;
     }
-    .feature .feature-media,
-    .feature.reverse .feature-media {
+    .feature-card .feature-media,
+    .feature-card.reverse .feature-media {
       order: 1; 
       margin-left: var(--space-3);   
       margin-right: var(--space-1);  
@@ -492,13 +552,13 @@ body {
       flex-shrink: 0;
       flex-basis: clamp(60px, 15vw, 100px);
     }
-    .feature .feature-media .feature-icon,
-    .feature.reverse .feature-media .feature-icon {
+    .feature-card .feature-media .feature-icon,
+    .feature-card.reverse .feature-media .feature-icon {
         font-size: clamp(60px, 15vw, 100px);
     }
 
-    .feature .feature-text,
-    .feature.reverse .feature-text {
+    .feature-card .feature-text,
+    .feature-card.reverse .feature-text {
       order: 2; 
       text-align: left;
       flex-basis: 0;
@@ -601,25 +661,55 @@ body {
     padding-inline: var(--page-side-pad);
 }
 
+/* Alternating Layout (Desktop) */
+@media (min-width: 769px) {
+    .feature-card:nth-child(even) {
+        flex-direction: row-reverse;
+    }
+    .feature-card:nth-child(even) .feature-text {
+        text-align: right;
+    }
+}
+
 @media (max-width: 480px) {
-    .feature,
-    .feature.reverse {
+    .feature-card,
+    .feature-card.reverse {
       flex-direction: column;      
       align-items: center;
-      text-align: center;          
+      text-align: center;
+      
+      /* Mobile: Unified Tile Style */
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-card);
+      padding: var(--space-3);
+      gap: var(--space-2);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }
   
-    .feature .feature-media {
-      margin: 0 0 var(--space-1) 0;   
-      flex: none;                     
+    .feature-media {
+      margin: 0;   
+      flex: none;
+      width: auto;
+      height: auto;
     }
   
     .feature-icon {
       font-size: 64px;                
     }
   
-    .feature .feature-text {
-      padding-right: 0;               
+    .feature-text-container {
+      padding: 0;
+      width: 100%;
+      background: transparent;
+      backdrop-filter: none;
+      border: none;
+      box-shadow: none;
+    }
+    
+    .feature-text {
+        text-align: center;
     }
 
    .cards {
@@ -639,15 +729,5 @@ body {
     scale: 1.4;
     margin-left:  auto;              
     margin-right: auto;              
-  }
-  .feature .feature-text,
-  .feature.reverse .feature-text {
-    text-align: center;      
-    padding-right: 0;        
-  }
-
-  .feature .feature-media,
-  .feature.reverse .feature-media {
-    margin: 0 0 var(--space-1) 0;   
   }
 }
