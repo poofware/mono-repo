@@ -167,12 +167,21 @@ function initScrollAnimations () {
 
 /* ---------- Bootstrap ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-  initBackgroundScene();          // 3D Background
-  initDynamicSignupControls();  // PM / Worker panel
-  initSignupForms();            // any .signup-form already in DOM
-  initScrollAnimations();       // fade-in on scroll
-  initDeleteAccountForm();  // account deletion form
-  initDeleteAccountAuthForms(); // account deletion auth forms
+  try {
+    initBackgroundScene();          // 3D Background
+  } catch (e) {
+    console.error('Failed to init 3D background:', e);
+  }
+  
+  try {
+    initDynamicSignupControls();  // PM / Worker panel
+    initSignupForms();            // any .signup-form already in DOM
+    initScrollAnimations();       // fade-in on scroll
+    initDeleteAccountForm();  // account deletion form
+    initDeleteAccountAuthForms(); // account deletion auth forms
+  } catch (e) {
+    console.error('Failed to init app logic:', e);
+  }
 
   const yr = document.getElementById('currentYear');
   if (yr) yr.textContent = new Date().getFullYear();

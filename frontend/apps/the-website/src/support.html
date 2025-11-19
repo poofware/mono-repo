@@ -10,42 +10,47 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Poppins', sans-serif; }
-    .btn-primary {
-      background-color: #743ee4;
-    }
-    .btn-primary:hover {
-      background-color: #5f29c4;
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.6;
     }
   </style>
   <meta name="description" content="Get help and support for the Poof app. Contact our team by email, text, or phone." />
 </head>
-<body class="bg-slate-50 text-slate-800 flex flex-col min-h-screen">
+<body class="bg-[#0f0c29] text-slate-100 flex flex-col min-h-screen relative overflow-hidden">
+  <div id="canvas-container"></div>
 
-  <main class="flex-grow flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-6">
-      <img src="./assets/images/POOF_LOGO-LC_BW.svg" alt="Poof logo" class="w-24 mx-auto" onerror="this.onerror=null; this.src='https://placehold.co/96x48/000000/FFFFFF?text=Poof';">
+  <main class="flex-grow flex items-center justify-center p-4 relative z-10">
+    <div class="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 space-y-6">
+      <img src="./assets/images/POOF_LOGO_LOWERCASE_WHITE_FG_TRANSPARENT_BG.svg" alt="Poof logo" class="w-32 mx-auto" onerror="this.onerror=null; this.src='https://placehold.co/96x48/000000/FFFFFF?text=Poof';">
 
       <div class="text-center">
-        <h1 class="text-2xl font-bold text-slate-900">Help &amp; Support</h1>
-        <p class="text-slate-500 mt-2">We're here to help with any questions about the Poof app or your account.</p>
+        <h1 class="text-2xl font-bold text-white">Help &amp; Support</h1>
+        <p class="text-slate-300 mt-2">We're here to help with any questions about the Poof app or your account.</p>
       </div>
 
       <section class="space-y-4">
-        <div class="rounded-lg border border-slate-200 p-4">
-          <h2 class="font-semibold text-slate-900">Email Us</h2>
-          <p class="text-slate-600 mt-1">For the fastest support, email our team. Include your account email and a brief description of your issue.</p>
-          <a href="mailto:team@thepoofapp.com?subject=Support%20Request%20-%20Poof%20App" class="mt-3 inline-flex items-center justify-center w-full btn-primary text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out">Email Support</a>
-          <p class="text-sm text-slate-500 mt-2">Email: <a class="underline" href="mailto:team@thepoofapp.com">team@thepoofapp.com</a></p>
+        <div class="rounded-lg border border-white/10 bg-black/20 p-4">
+          <h2 class="font-semibold text-slate-200">Email Us</h2>
+          <p class="text-slate-400 mt-1">For the fastest support, email our team. Include your account email and a brief description of your issue.</p>
+          <a href="mailto:team@thepoofapp.com?subject=Support%20Request%20-%20Poof%20App" class="mt-3 inline-flex items-center justify-center w-full bg-gradient-to-r from-[#8b5cf6] to-[#ec4899] hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-lg shadow-purple-500/30">Email Support</a>
+          <p class="text-sm text-slate-500 mt-2">Email: <a class="underline hover:text-[#8b5cf6]" href="mailto:team@thepoofapp.com">team@thepoofapp.com</a></p>
         </div>
 
-        <div class="rounded-lg border border-slate-200 p-4">
-          <h2 class="font-semibold text-slate-900">Call or Text</h2>
-          <p class="text-slate-600 mt-1">For urgent issues, you can call or text us. If we miss you, we'll return your message as soon as possible.</p>
+        <div class="rounded-lg border border-white/10 bg-black/20 p-4">
+          <h2 class="font-semibold text-slate-200">Call or Text</h2>
+          <p class="text-slate-400 mt-1">For urgent issues, you can call or text us. If we miss you, we'll return your message as soon as possible.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-            <a href="tel:+12564683659" class="inline-flex items-center justify-center w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out">Call Support</a>
-            <a href="sms:+12564683659" class="inline-flex items-center justify-center w-full bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out">Text Support</a>
+            <a href="tel:+12564683659" class="inline-flex items-center justify-center w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out border border-slate-600">Call Support</a>
+            <a href="sms:+12564683659" class="inline-flex items-center justify-center w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out border border-white/10">Text Support</a>
           </div>
-          <p class="text-sm text-slate-500 mt-2">Phone: <a class="underline" href="tel:+12564683659">+1 (256) 468-3659</a></p>
+          <p class="text-sm text-slate-500 mt-2">Phone: <a class="underline hover:text-[#8b5cf6]" href="tel:+12564683659">+1 (256) 468-3659</a></p>
         </div>
       </section>
 
@@ -53,11 +58,12 @@
     </div>
   </main>
 
-  <footer class="text-center p-6 text-sm text-slate-500">
-    <p>© <span id="currentYear"></span> Poof LLC. All rights reserved. | <a href="/privacy-policy.html" class="underline hover:text-[#743ee4]">Privacy Policy</a></p>
+  <footer class="text-center p-6 text-sm text-slate-400 relative z-10">
+    <p>© <span id="currentYear"></span> Poof LLC. All rights reserved. | <a href="/privacy-policy.html" class="underline hover:text-[#8b5cf6]">Privacy Policy</a></p>
     <p class="text-xs mt-2">Poof is a technology platform; on-site services are provided by independent contractors.</p>
   </footer>
 
+  <script type="module" src="assets/js/app.js"></script>
   <script>
     const yearEl = document.getElementById('currentYear');
     if (yearEl) { yearEl.textContent = new Date().getFullYear(); }
