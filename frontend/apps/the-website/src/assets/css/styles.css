@@ -367,6 +367,11 @@ body {
   transform: translateY(0);
 }
 
+/* Keep "How it works" tiles fully opaque while they slide in */
+.how-it-works-step-item.js-scroll-animate-init {
+  opacity: 1;
+}
+
 /* ---------- How Poof Works Section ---------- */
 .how-it-works-section {
     width: 100vw; 
@@ -672,62 +677,78 @@ body {
 }
 
 @media (max-width: 480px) {
+    .about-features-grid {
+        gap: calc(var(--space-1) * 1.5);
+        margin-bottom: calc(var(--space-2) + var(--space-1));
+    }
+
     .feature-card,
     .feature-card.reverse {
-      flex-direction: column;      
-      align-items: center;
-      text-align: center;
-      
-      /* Mobile: Unified Tile Style */
-      background: rgba(255, 255, 255, 0.03);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: var(--radius-card);
-      padding: var(--space-3);
-      gap: var(--space-2);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        flex-direction: column;      
+        align-items: center;
+        text-align: center;
+        
+        /* Mobile: Unified Tile Style */
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: var(--radius-card);
+        padding: calc(var(--space-2) + var(--space-1)) var(--space-2);
+        gap: var(--space-1);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        
+        /* Allow tiles to size to content */
+        width: 100%;
     }
-  
-    .feature-media {
-      margin: 0;   
-      flex: none;
-      width: auto;
-      height: auto;
+
+    .feature-card .feature-media,
+    .feature-card.reverse .feature-media {
+        margin: 0;   
+        flex: none;
+        width: auto;
+        height: auto;
+        order: 0;
+        padding-top: var(--space-1);
+        padding-bottom: var(--space-1);
     }
-  
+
     .feature-icon {
-      font-size: 64px;                
+        font-size: 64px;                
     }
-  
+
     .feature-text-container {
-      padding: 0;
-      width: 100%;
-      background: transparent;
-      backdrop-filter: none;
-      border: none;
-      box-shadow: none;
+        padding: 0;
+        gap: var(--space-1);
+        width: 100%;
+        flex: 0 0 auto;
+        background: transparent;
+        backdrop-filter: none;
+        border: none;
+        box-shadow: none;
     }
-    
+
     .feature-text {
         text-align: center;
+        padding: 0 var(--space-1);
     }
 
-   .cards {
-    display: grid;
-    grid-template-columns: 1fr;      
-    grid-auto-rows: 1fr;             
-    gap: var(--space-2);
-    justify-items: center;           
-  }
+    .cards {
+        display: grid;
+        grid-template-columns: 1fr;      
+        grid-auto-rows: 1fr;             
+        gap: var(--space-2);
+        justify-items: center;           
+    }
 
-  .startButton {
-    width: clamp(220px, 70vw, 280px); 
-    height: 100%;                     
-    min-width: unset;                 
-  }
-  .hero-logo {
-    scale: 1.4;
-    margin-left:  auto;              
-    margin-right: auto;              
-  }
+    .startButton {
+        width: clamp(220px, 70vw, 280px); 
+        height: 100%;                     
+        min-width: unset;                 
+    }
+
+    .hero-logo {
+        scale: 1.4;
+        margin-left: auto;              
+        margin-right: auto;              
+    }
 }
