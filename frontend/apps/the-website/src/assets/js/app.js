@@ -1,4 +1,5 @@
 import poofLogo from '/assets/images/POOF_LOGO-LC_BW.svg'; // Add this line
+import { initBackgroundScene } from './trash-bag.js';
 
 /* ---------- Shared helpers ---------- */
 function validateEmail(email) {
@@ -166,6 +167,7 @@ function initScrollAnimations () {
 
 /* ---------- Bootstrap ---------- */
 document.addEventListener('DOMContentLoaded', () => {
+  initBackgroundScene();          // 3D Background
   initDynamicSignupControls();  // PM / Worker panel
   initSignupForms();            // any .signup-form already in DOM
   initScrollAnimations();       // fade-in on scroll

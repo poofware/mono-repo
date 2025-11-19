@@ -32,29 +32,40 @@
       max-width: 180px;
     }
     .account-type-btn.selected {
-      background-color: #743ee4; /* Accent color from styles.css */
+      background-color: #8b5cf6; /* Accent color */
       color: white;
-      border-color: #743ee4;
+      border-color: #8b5cf6;
     }
     .account-type-btn:not(.selected) {
-      background-color: #f3f4f6; /* gray-100 */
-      color: #374151; /* gray-700 */
-      border-color: #d1d5db; /* gray-300 */
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #e5e7eb;
+      border-color: rgba(255, 255, 255, 0.2);
     }
     .account-type-btn:not(.selected):hover {
-      background-color: #e5e7eb; /* gray-200 */
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.6;
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 flex flex-col min-h-screen">
+<body class="bg-[#0f0c29] text-slate-100 flex flex-col min-h-screen relative overflow-hidden">
+  <div id="canvas-container"></div>
 
-  <main class="flex-grow flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-6">
-      <img src="./assets/images/POOF_LOGO-LC_BW.svg" alt="Poof logo" class="w-24 mx-auto" onerror="this.onerror=null; this.src='https://placehold.co/96x48/000000/FFFFFF?text=Poof';">
+  <main class="flex-grow flex items-center justify-center p-4 relative z-10">
+    <div class="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 space-y-6">
+      <img src="./assets/images/POOF_LOGO_LOWERCASE_WHITE_FG_TRANSPARENT_BG.svg" alt="Poof logo" class="w-32 mx-auto" onerror="this.onerror=null; this.src='https://placehold.co/96x48/000000/FFFFFF?text=Poof';">
       
       <div class="text-center">
-        <h1 class="text-2xl font-bold text-slate-900">Delete Your Account</h1>
-        <p class="text-slate-500 mt-2">Select your account type and enter your email to begin the deletion process. We'll send verification codes to confirm your identity.</p>
+        <h1 class="text-2xl font-bold text-white">Delete Your Account</h1>
+        <p class="text-slate-300 mt-2">Select your account type and enter your email to begin the deletion process. We'll send verification codes to confirm your identity.</p>
       </div>
 
       <form id="delete-account-form" class="space-y-6">
@@ -67,10 +78,10 @@
         </div>
         <div>
            <label for="email" class="sr-only">Email address</label>
-           <input type="email" name="email" id="email" class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#743ee4] focus:border-[#743ee4] transition" placeholder="you@example.com" required />
+           <input type="email" name="email" id="email" class="w-full px-4 py-3 bg-black/30 border border-white/10 text-white rounded-lg focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6] transition placeholder-slate-500" placeholder="you@example.com" required />
         </div>
         
-        <button type="submit" class="w-full flex justify-center items-center gap-2 bg-[#743ee4] hover:bg-[#5f29c4] text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out disabled:bg-[#a582f2] disabled:cursor-not-allowed">
+        <button type="submit" class="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#8b5cf6] to-[#ec4899] hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/30">
           <span class="button-text">Request Deletion Codes</span>
           <svg class="spinner h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -78,13 +89,13 @@
            </svg>
         </button>
         
-        <div class="response-message hidden text-center text-red-500 font-medium" aria-live="polite"></div>
+        <div class="response-message hidden text-center text-red-400 font-medium" aria-live="polite"></div>
       </form>
     </div>
   </main>
 
-  <footer class="text-center p-6 text-sm text-slate-500">
-    <p>© <span id="currentYear"></span> Poof LLC. All rights reserved. | <a href="/privacy-policy.html" class="underline hover:text-[#743ee4]">Privacy Policy</a></p>
+  <footer class="text-center p-6 text-sm text-slate-400 relative z-10">
+    <p>© <span id="currentYear"></span> Poof LLC. All rights reserved. | <a href="/privacy-policy.html" class="underline hover:text-[#8b5cf6]">Privacy Policy</a></p>
     <p class="text-xs mt-2">Poof is a technology platform; on-site services are provided by independent contractors.</p>
   </footer>
 

@@ -22,20 +22,20 @@
   <link rel="stylesheet" href="assets/css/styles.css">
 
   <style>
-    body {
-        background-color: #f8fafc; /* A light grey background for better contrast */
-    }
+    /* body background handled by global styles.css */
     .legal-container {
         max-width: 800px;
         margin: 2rem auto;
         padding: clamp(1rem, 5vw, 3rem);
-        background-color: #fff;
+        background: var(--c-glass-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--c-glass-border);
         border-radius: var(--radius-card, 16px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        color: var(--c-text-primary, #1f2937);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        color: var(--c-text-primary, #f3f4f6);
     }
     .legal-container h1, .legal-container h2, .legal-container h3 {
-        color: var(--c-text-primary, #1f2937);
+        color: var(--c-text-primary, #f3f4f6);
         margin-top: 1.5em;
         margin-bottom: 0.5em;
     }
@@ -47,7 +47,7 @@
     }
     .legal-container h2 {
         font-size: 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--c-glass-border);
         padding-bottom: 0.3em;
     }
     .legal-container h3 {
@@ -57,7 +57,7 @@
     .legal-container p, .legal-container li {
         font-size: 1rem;
         line-height: 1.7;
-        color: var(--c-text-secondary, #6b7280);
+        color: var(--c-text-secondary, #9ca3af);
     }
     .legal-container ul {
         list-style-position: outside;
@@ -66,11 +66,11 @@
         margin-bottom: 1rem;
     }
     .legal-container strong {
-        color: var(--c-text-primary, #1f2937);
+        color: var(--c-text-primary, #f3f4f6);
         font-weight: 600;
     }
     .legal-container a {
-        color: var(--c-accent, #743ee4);
+        color: var(--c-accent, #8b5cf6);
         text-decoration: none;
     }
     .legal-container a:hover {
@@ -78,7 +78,7 @@
     }
     .last-updated {
         text-align: center;
-        color: var(--c-text-secondary, #6b7280);
+        color: var(--c-text-secondary, #9ca3af);
         font-style: italic;
         margin-bottom: 2rem;
     }
@@ -91,6 +91,7 @@
   </style>
 </head>
 <body>
+    <div id="canvas-container"></div>
     <main id="app">
         <div class="legal-container">
             <h1>Privacy Policy</h1>
@@ -175,5 +176,6 @@
       const yr = document.getElementById('currentYear');
       if (yr) yr.textContent = new Date().getFullYear();
     </script>
+    <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>
