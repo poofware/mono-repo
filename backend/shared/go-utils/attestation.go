@@ -435,6 +435,8 @@ func verifyAttestationObject(attBytes, challenge []byte, appID string) ([]byte, 
 		Roots:         roots,
 		Intermediates: interPool,
 		CurrentTime:   time.Now(),
+		// App Attest certs are not TLS server certs; allow any EKU.
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}); err != nil {
 		return nil, fmt.Errorf("cert verify: %w", err)
 	}
